@@ -15,11 +15,11 @@ account, or the cloud. It runs as two browser surfaces you point OBS at:
 
 ## Screenshots
 
-> _Placeholder — capture per [`docs/SCREENSHOT_GUIDE.md`](docs/SCREENSHOT_GUIDE.md) and drop into `docs/screenshots/`._
+![LiveLayer control dashboard](docs/assets/livelayer-control.png)
 
-| Control — studio | Control — OBS dock | Output overlays |
-| --- | --- | --- |
-| `docs/screenshots/control-studio.png` | `docs/screenshots/control-dock.png` | `docs/screenshots/output-lower-third.png` |
+The screenshot above shows the desktop control surface. Use
+[`docs/SCREENSHOT_GUIDE.md`](docs/SCREENSHOT_GUIDE.md) for a fuller capture set
+covering the OBS dock layout and transparent output overlays.
 
 ## Who it's for
 
