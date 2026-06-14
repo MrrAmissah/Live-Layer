@@ -1,0 +1,62 @@
+# OBS Setup
+
+## Same-origin rule for local assets
+
+Use the exact same origin for the control dock and output source. Uploaded
+images are stored in same-origin IndexedDB, so the protocol, host, and port must
+match.
+
+Recommended pair:
+
+- Control Dock: `http://127.0.0.1:4173/control`
+- Output Source: `http://127.0.0.1:4173/output`
+
+Do **not** mix `localhost` and `127.0.0.1`. Do **not** mix ports. For example,
+`http://localhost:4173/control` and `http://127.0.0.1:4173/output` are different
+origins, and uploaded logos may not resolve in `/output`.
+
+## Control Dock
+
+1. In OBS, open `View > Docks > Custom Browser Docks`.
+2. Add a new dock and set the URL to `http://127.0.0.1:4173/control`.
+3. Use a dock size such as `1280x800` or `1600x900`.
+
+## Output Source
+
+1. In OBS, add a new `Browser` source.
+2. Set the URL to `http://127.0.0.1:4173/output`.
+3. Set width to `1920` and height to `1080`.
+4. Enable `Shutdown source when not visible` if you want to save resources.
+5. Make sure `Local file` is unchecked and `Control audio via OBS` is disabled.
+6. Ensure `Custom CSS` is empty.
+
+## Recommended settings
+
+- Set the browser source to transparent background.
+- Place the source above your background or camera layer.
+- Use `Transform > Edit Transform` to scale or position if needed.
+
+## Workflow
+
+- Control graphics from `/control`.
+- The output page displays the active overlay.
+- Press `Clear` to remove the overlay from the scene.
+
+## Verifying the overlay
+
+- Put the Browser source **above an actual camera/video scene** (not a black
+  background) and confirm the graphic is opaque where it should be and the rest
+  of the frame stays fully transparent.
+- `Take` should play the build-in animation; `Clear` should play a clean
+  exit (≈300ms) with no snap or flicker. Conservative operators can switch a
+  graphic to the `fade` crossfade variant.
+- Refresh the Browser source while a graphic is live — it should restore the
+  last active graphic (state is recovered from local storage).
+- Upload a logo in the control dock, Take it live, refresh the Browser source,
+  and confirm the logo still appears. If it falls back to initials, re-check that
+  both URLs use the exact same host and port.
+- Test the `/control` dock at a narrow width (~340px); Take/Clear must stay
+  reachable.
+- For fast QA without OBS, use `http://127.0.0.1:4173/seed-test.html` — it
+  drives a real `/output` over simulated backdrops with long-content, fade, and
+  safe-area toggles.
