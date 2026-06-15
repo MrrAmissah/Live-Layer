@@ -1,9 +1,29 @@
 const baseUrl = process.env.LIVELAYER_SMOKE_URL || 'http://127.0.0.1:4173';
+const routeTimeoutMs = Number(process.env.LIVELAYER_SMOKE_TIMEOUT_MS || 5000);
 const routes = ['/control', '/output', '/setup', '/seed-test.html'];
 
 async function checkRoute(path) {
-  const url = new URL(path, baseUrl).toString();
-  const response = await fetch(url, { redirect: 'manual' });
+  let url;
+  try {
+    url = new URL(path, baseUrl).toString();
+  } catch {
+    throw new Error(`Invalid LIVELAYER_SMOKE_URL: ${baseUrl}`);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), routeTimeoutMs);
+  let response;
+  try {
+    response = await fetch(url, { redirect: 'manual', signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`${path} timed out after ${routeTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+
   if (response.status !== 200) {
     throw new Error(`${path} returned ${response.status}`);
   }
