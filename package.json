@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:output-isolation": "node scripts/check-output-isolation.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.8",

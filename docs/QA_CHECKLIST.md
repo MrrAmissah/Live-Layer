@@ -22,6 +22,7 @@ before a release or a demo.
 
 - [ ] `npm install` succeeds
 - [ ] `npm run build` is clean (tsc strict + vite, no errors/warnings)
+- [ ] `npm run check:output-isolation` passes
 - [ ] `npm run dev` starts; `/control`, `/output`, `/setup` all load
 - [ ] No console errors on any route
 
