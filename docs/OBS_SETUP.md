@@ -21,9 +21,9 @@ Do **not** mix `localhost` and `127.0.0.1`. Do **not** mix ports. For example,
 `http://localhost:4173/control` and `http://127.0.0.1:4173/output` are different
 origins, and uploaded logos may not resolve in `/output`.
 
-The dev and preview servers use strict port `4173`; if that port is already busy,
-start-up fails instead of silently moving to another port. Fix the port conflict
-before opening OBS.
+The dev and preview servers bind to `127.0.0.1:4173` with strict port `4173`; if
+that port is already busy, start-up fails instead of silently moving to another
+port. Fix the port conflict before opening OBS.
 
 ## Control Dock
 
