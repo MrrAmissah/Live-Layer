@@ -70,7 +70,9 @@ deliberately narrow. These are honest constraints, not bugs.
   layout, not colour (see `docs/REFERENCE_STYLE_ANALYSIS.md`).
 - **Long text is handled by step-down sizing**, not reflow — extreme inputs are
   clamped, not perfectly typeset.
-- **No automated tests** — QA is the manual checklist in `docs/QA_CHECKLIST.md`
-  (no headless browser in the project yet).
+- **No full browser/OBS automation yet** — `npm run verify` guards the build,
+  output isolation, transparency, and asset-id message contract; route smoke is
+  available with `npm run smoke:routes`. End-to-end OBS/browser behavior still
+  relies on the manual checklist in `docs/QA_CHECKLIST.md`.
 
 See [ROADMAP.md](ROADMAP.md) for where several of these are headed.
