@@ -1,10 +1,11 @@
 # Rundown / Queue Mode — Design Spec
 
-Status: **Spec — not implemented.** This designs how an operator prepares a list
-of graphics, orders them, and walks them live during a service. It must layer on
-top of Phase 2 **without changing `/output`'s contract** (still reacts only to
-`SHOW_GRAPHIC` / `CLEAR_ALL`, still resolves assets from IndexedDB, still resolves
-dynamic tokens at render). No feature code in this pass.
+Status: **R1-R6 shipped for the current local-first phase.** This documents how an
+operator prepares a list of graphics, orders them, and walks them live during a
+service. It layers on Phase 2 **without changing `/output`'s contract** (still
+reacts only to `SHOW_GRAPHIC` / `CLEAR_ALL`, still resolves assets from
+IndexedDB, still resolves dynamic tokens at render). See
+[`RUNDOWN_QA.md`](RUNDOWN_QA.md) for the closeout checklist.
 
 ## Vision & core loop
 
@@ -219,12 +220,12 @@ rundown should later warn ("used by N rundown items").
   to keep in sync.
 - **Dock crowding:** no new tab; the queue strip is compact and only appears when a
   rundown is active; full management stays in Library/studio.
-- **Import/export compatibility:** versioned storage wrapper, ids-only snapshots, an
-  asset-bundling plan — designed in now, built later.
+- **Import/export compatibility:** versioned storage wrapper, ids-only snapshots,
+  and bundled referenced asset blobs for selected-rundown packs; Full Backup comes later.
 
 ---
 
-## Implementation phases (next pass)
+## Implementation phases (shipped sequence)
 
 - **R1 — Data + store (no UI). ✅ Done.** `types/rundown.ts` (model +
   `RundownItemInput`); `lib/rundown/rundownStore.ts` — versioned localStorage CRUD
@@ -307,7 +308,8 @@ rundown should later warn ("used by N rundown items").
   `activeRundownId`, falls back missing titles/names); shared `getQueueCursors`
   helper (dedups the dock + studio queues); pure export-readiness helpers in
   `rundownReferences.ts` (`collectRundownAssetIds`/`collectRundownPersonIds`/
-  `collectRundownTemplateIds`/`estimateRundownStorageSize`, intentionally unwired);
+  `collectRundownTemplateIds`/`estimateRundownStorageSize`, now used by selected
+  import/export packs);
   and the full manual QA pack in [`RUNDOWN_QA.md`](RUNDOWN_QA.md). No `/output`,
   realtime, or Take/Clear change. **Rundown is feature-complete for this phase.**
 

@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 interface MedallionProps {
   /** Logo image; when absent an initials monogram is rendered instead. */
@@ -27,16 +27,23 @@ function initialsFrom(source: string): string {
  * never placeholder copy.
  */
 export default function Medallion({ logoUrl, monogramSource = '', size = 132, className, style }: MedallionProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const initials = initialsFrom(monogramSource);
-  if (!logoUrl && !initials) return null;
+  const showLogo = Boolean(logoUrl && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [logoUrl]);
+
+  if (!showLogo && !initials) return null;
 
   return (
     <div
       className={`gfx-medallion${className ? ` ${className}` : ''}`}
       style={{ width: size, height: size, ...style }}
     >
-      {logoUrl ? (
-        <img src={logoUrl} alt="" className="gfx-medallion-img" />
+      {showLogo ? (
+        <img src={logoUrl} alt="" className="gfx-medallion-img" onError={() => setImageFailed(true)} />
       ) : (
         <span className="gfx-medallion-monogram" style={{ fontSize: size * 0.34 }}>
           {initials}

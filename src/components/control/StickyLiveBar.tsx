@@ -1,4 +1,3 @@
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { LastAction } from './StatusBadge';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 
@@ -16,8 +15,7 @@ interface StickyLiveBarProps {
  * row carries just the auto-hide value.
  */
 export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiveBarProps) {
-  const durationSeconds = useLiveLayerStore((state) => state.durationSeconds);
-  const { takeLabel, takeDisabled } = useLiveTakeContext();
+  const { takeLabel, takeDisabled, durationSeconds } = useLiveTakeContext();
 
   return (
     <div className="dock-livebar" data-state={lastAction}>

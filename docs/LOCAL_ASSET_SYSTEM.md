@@ -170,11 +170,12 @@ On `SHOW_GRAPHIC`, `/output`:
    does not play over a half-loaded image that pops.
 4. Revokes object URLs when the graphic unmounts (no leaks across a long service).
 
-If an asset can't be resolved (missing/cleared, or — see Risks — IndexedDB not
-shared in this OBS setup), the renderer logs a warning and degrades to a
-monogram/placeholder rather than erroring. If metadata exists but the full blob
-is missing, the tiny saved `dataUrl` thumbnail may be used as an emergency
-fallback; image bytes are still never inlined into `SHOW_GRAPHIC` messages.
+If an asset can't be resolved (missing/cleared, an IndexedDB read fails, or —
+see Risks — IndexedDB is not shared in this OBS setup), the renderer logs a
+warning and degrades to a monogram/placeholder rather than erroring. If metadata
+exists but the full blob is missing or unreadable, the tiny saved `dataUrl`
+thumbnail may be used as an emergency fallback; image bytes are still never
+inlined into `SHOW_GRAPHIC` messages.
 
 ## Preset integration
 

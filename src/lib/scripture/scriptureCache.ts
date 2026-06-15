@@ -8,10 +8,27 @@ function readCache(): ScriptureCacheEntry[] {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is ScriptureCacheEntry => isScriptureCacheEntry(entry))
+      : [];
   } catch {
     return [];
   }
+}
+
+function isScriptureCacheEntry(value: unknown): value is ScriptureCacheEntry {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const entry = value as Partial<ScriptureCacheEntry>;
+  if (typeof entry.key !== 'string') return false;
+  if (typeof entry.usedAt !== 'string') return false;
+  const result = entry.result as Partial<ScriptureLookupResult> | undefined;
+  return !!result &&
+    typeof result.reference === 'string' &&
+    typeof result.text === 'string' &&
+    typeof result.translation === 'string' &&
+    typeof result.providerId === 'string' &&
+    typeof result.fetchedAt === 'string' &&
+    (result.attribution === undefined || typeof result.attribution === 'string');
 }
 
 function writeCache(entries: ScriptureCacheEntry[]) {

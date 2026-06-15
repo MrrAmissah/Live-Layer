@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "check:output-isolation": "node scripts/check-output-isolation.mjs"
+    "check:output-isolation": "node scripts/check-output-isolation.mjs",
+    "smoke:routes": "node scripts/smoke-routes.mjs",
+    "verify": "npm run check:output-isolation && npm run build"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.8",

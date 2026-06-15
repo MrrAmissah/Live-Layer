@@ -4,7 +4,11 @@ import { dirname, join } from 'node:path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outputPath = join(root, 'src/app/OutputPage.tsx');
+const controlPath = join(root, 'src/app/ControlPage.tsx');
+const stylesPath = join(root, 'src/styles.css');
 const source = readFileSync(outputPath, 'utf8');
+const controlSource = readFileSync(controlPath, 'utf8');
+const styles = readFileSync(stylesPath, 'utf8');
 
 const forbiddenPatterns = [
   { pattern: /from ['"].*store\/useLiveLayerStore['"]/, label: 'control Zustand store import' },
@@ -16,6 +20,8 @@ const forbiddenPatterns = [
   { pattern: /from ['"].*lib\/scripture\//, label: 'scripture provider/cache import' },
   { pattern: /from ['"].*hooks\/useScripture/, label: 'scripture hook import' },
   { pattern: /\blocalStorage\.(setItem|removeItem|clear)\b/, label: 'direct localStorage write' },
+  { pattern: /\bfetch\s*\(/, label: 'direct network fetch' },
+  { pattern: /\b(saveAsset|savePerson|importPeople|importRundown|deleteRundown|clearAllData)\b/, label: 'control/storage write helper usage' },
   { pattern: /\bcreateMessage\b/, label: 'control-side realtime command construction' },
   { pattern: /\.post\(/, label: 'realtime message posting' }
 ];
@@ -30,4 +36,38 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Output isolation check passed.');
+const controlMessageFailures = [
+  { pattern: /\bdataUrl\b/, label: 'thumbnail/dataUrl usage in the Take path' },
+  { pattern: /\b(getAsset|getAssetBlob|resolveAssetSource)\b/, label: 'asset byte resolution in the Take path' },
+  { pattern: /\b(logoResolvedSrc|headshotResolvedSrc)\b/, label: 'pre-resolved image src in SHOW_GRAPHIC messages' }
+].filter(({ pattern }) => pattern.test(controlSource));
+
+if (controlMessageFailures.length) {
+  console.error('SHOW_GRAPHIC asset-reference check failed:');
+  for (const failure of controlMessageFailures) {
+    console.error(`- ControlPage.tsx contains ${failure.label}`);
+  }
+  process.exit(1);
+}
+
+const transparencyFailures = [];
+if (!source.includes("document.documentElement.classList.add('gfx-transparent')")) {
+  transparencyFailures.push('OutputPage no longer applies gfx-transparent to html');
+}
+if (!source.includes("document.body.classList.add('gfx-transparent')")) {
+  transparencyFailures.push('OutputPage no longer applies gfx-transparent to body');
+}
+if (!/html\.gfx-transparent,\s*body\.gfx-transparent\s*\{[^}]*background:\s*transparent\s*!important;[^}]*color-scheme:\s*normal;/s.test(styles)) {
+  transparencyFailures.push('styles.css no longer forces transparent html/body output background');
+}
+if (!/\.output-root\s*\{[^}]*background:\s*transparent;/s.test(styles)) {
+  transparencyFailures.push('styles.css no longer keeps .output-root transparent');
+}
+
+if (transparencyFailures.length) {
+  console.error('Output transparency check failed:');
+  for (const failure of transparencyFailures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('Output isolation, transparency, and asset-reference checks passed.');

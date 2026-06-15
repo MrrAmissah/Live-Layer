@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
-import { deleteAsset, getAssetBlob, saveAsset } from '../../lib/assets/assetStore';
+import { deleteAsset, getAssetBlob, listAssets, saveAsset } from '../../lib/assets/assetStore';
 
 type CheckState = 'pending' | 'ok' | 'warn' | 'fail';
 interface Check {
@@ -12,6 +12,15 @@ interface Check {
 
 // Namespaced so it can never collide with a real crypto.randomUUID() asset id.
 const DIAG_ASSET_ID = '__livelayer_diag__';
+const STORAGE_ESTIMATE_LABEL = 'Browser storage space';
+const ASSET_HEALTH_LABEL = 'Uploaded asset originals';
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
 
 function probeLocalStorage(): Check {
   const label = 'Save presets & settings (localStorage)';
@@ -44,6 +53,91 @@ function probeBroadcastChannel(): Check {
     state: ok ? 'ok' : 'warn',
     detail: ok ? 'Available' : 'Missing — falls back to localStorage signalling (still works same-origin)'
   };
+}
+
+async function probeStorageEstimate(): Promise<Check> {
+  if (!navigator.storage?.estimate) {
+    return {
+      label: STORAGE_ESTIMATE_LABEL,
+      state: 'warn',
+      detail: 'Estimate unavailable in this browser; keep asset packs modest and test before going live.'
+    };
+  }
+
+  try {
+    const estimate = await navigator.storage.estimate();
+    const usage = estimate.usage ?? 0;
+    const quota = estimate.quota ?? 0;
+    if (!quota) {
+      return {
+        label: STORAGE_ESTIMATE_LABEL,
+        state: 'warn',
+        detail: `Using ${formatBytes(usage)}; total quota unavailable.`
+      };
+    }
+    const ratio = usage / quota;
+    return {
+      label: STORAGE_ESTIMATE_LABEL,
+      state: ratio > 0.9 ? 'fail' : ratio > 0.75 ? 'warn' : 'ok',
+      detail: `Using ${formatBytes(usage)} of ${formatBytes(quota)} (${Math.round(ratio * 100)}%). Local assets, presets, people, and rundowns share this quota.`
+    };
+  } catch {
+    return {
+      label: STORAGE_ESTIMATE_LABEL,
+      state: 'warn',
+      detail: 'Storage estimate failed; local storage may still work, but run the image storage test.'
+    };
+  }
+}
+
+async function probeAssetHealth(): Promise<Check> {
+  if (typeof indexedDB === 'undefined' || indexedDB === null) {
+    return {
+      label: ASSET_HEALTH_LABEL,
+      state: 'fail',
+      detail: 'IndexedDB unavailable; uploaded logos and headshots cannot be checked.'
+    };
+  }
+
+  try {
+    const assets = await listAssets();
+    const uploaded = assets.filter((asset) => asset.source === 'uploaded' && asset.id !== DIAG_ASSET_ID);
+    if (uploaded.length === 0) {
+      return {
+        label: ASSET_HEALTH_LABEL,
+        state: 'ok',
+        detail: 'No uploaded assets stored yet.'
+      };
+    }
+
+    const reads = await Promise.all(uploaded.map(async (asset) => {
+      const blob = await getAssetBlob(asset.blobKey ?? asset.id);
+      return { asset, hasBlob: !!blob };
+    }));
+    const missing = reads.filter((item) => !item.hasBlob);
+    const withThumbnail = missing.filter((item) => !!item.asset.dataUrl).length;
+    const withoutFallback = missing.length - withThumbnail;
+
+    if (missing.length === 0) {
+      return {
+        label: ASSET_HEALTH_LABEL,
+        state: 'ok',
+        detail: `${uploaded.length} uploaded asset${uploaded.length === 1 ? '' : 's'} checked; originals are present.`
+      };
+    }
+
+    return {
+      label: ASSET_HEALTH_LABEL,
+      state: withoutFallback > 0 ? 'fail' : 'warn',
+      detail: `${missing.length} uploaded asset original${missing.length === 1 ? '' : 's'} missing. ${withThumbnail} can use thumbnail fallback; ${withoutFallback} will render a placeholder.`
+    };
+  } catch {
+    return {
+      label: ASSET_HEALTH_LABEL,
+      state: 'warn',
+      detail: 'Asset health check failed; run the storage test and verify an uploaded logo on /output.'
+    };
+  }
 }
 
 const PILL: Record<CheckState, string> = {
@@ -86,10 +180,39 @@ export default function SetupDiagnostics() {
     detail: 'Not run yet — tap “Run storage test”.'
   });
   const [copyHint, setCopyHint] = useState('');
+  const copyTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     // Cheap, read-only-ish checks run automatically; the asset write-test is opt-in.
-    setChecks([probeLocalStorage(), probeIndexedDB(), probeBroadcastChannel()]);
+    let active = true;
+    const baseChecks = [
+      probeLocalStorage(),
+      probeIndexedDB(),
+      probeBroadcastChannel(),
+      { label: STORAGE_ESTIMATE_LABEL, state: 'pending', detail: 'Estimating local browser quota...' } satisfies Check,
+      { label: ASSET_HEALTH_LABEL, state: 'pending', detail: 'Checking stored asset originals...' } satisfies Check
+    ];
+    setChecks(baseChecks);
+    Promise.all([probeStorageEstimate(), probeAssetHealth()]).then(([storageCheck, assetHealthCheck]) => {
+      if (!active) return;
+      setChecks([...baseChecks.slice(0, 3), storageCheck, assetHealthCheck]);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const flashCopyHint = (text: string) => {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+    setCopyHint(text);
+    copyTimerRef.current = window.setTimeout(() => {
+      setCopyHint('');
+      copyTimerRef.current = undefined;
+    }, 2500);
+  };
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
   }, []);
 
   const runAssetTest = async () => {
@@ -127,11 +250,17 @@ export default function SetupDiagnostics() {
   const copy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopyHint(`${label} copied`);
+      flashCopyHint(`${label} copied`);
     } catch {
-      setCopyHint(`Copy ${label} manually`);
+      flashCopyHint(`Copy ${label} manually`);
     }
-    window.setTimeout(() => setCopyHint(''), 2500);
+  };
+
+  const copyObsPair = () => {
+    copy(
+      `LiveLayer OBS URLs\nControl dock: ${controlUrl}\nBrowser source: ${outputUrl}\n\nUse this exact same origin for both. Do not mix localhost, 127.0.0.1, or ports.`,
+      'OBS URL pair'
+    );
   };
 
   return (
@@ -141,7 +270,7 @@ export default function SetupDiagnostics() {
         <div className="diag-origin">
           <span className="diag-origin__label">This page’s origin</span>
           <code className="setup-url__value">{origin}</code>
-          <button type="button" className="btn btn--ghost btn--xs" onClick={() => copy(origin, 'Origin')}>Copy</button>
+          <button type="button" className="btn btn--ghost btn--xs" onClick={() => copy(origin, 'Origin')} aria-label="Copy this page origin">Copy</button>
         </div>
 
         <div className="diag-warn">
@@ -153,13 +282,19 @@ export default function SetupDiagnostics() {
         </div>
 
         <div className="diag-urls">
+          <div className="diag-urls__head">
+            <span className="diag-origin__label">OBS URL pair</span>
+            <button type="button" className="btn btn--secondary btn--xs" onClick={copyObsPair} aria-label="Copy OBS control and output URL pair">Copy pair</button>
+          </div>
           <div className="setup-url">
+            <span className="diag-url-label">Custom Browser Dock</span>
             <code className="setup-url__value">{controlUrl}</code>
             <div className="setup-url__actions">
               <button type="button" className="btn btn--secondary btn--sm" onClick={() => copy(controlUrl, 'Control URL')}>Copy control</button>
             </div>
           </div>
           <div className="setup-url">
+            <span className="diag-url-label">Browser Source</span>
             <code className="setup-url__value">{outputUrl}</code>
             <div className="setup-url__actions">
               <button type="button" className="btn btn--secondary btn--sm" onClick={() => copy(outputUrl, 'Output URL')}>Copy output</button>
@@ -187,7 +322,9 @@ export default function SetupDiagnostics() {
           <li>For stable testing, serve the production build (`npm run build` → preview)</li>
         </ul>
 
-        <p className="setup-statusline">{copyHint || 'Run the checks above before going live.'}</p>
+        <p className="setup-statusline" role="status" aria-live="polite">
+          {copyHint || 'Run the checks above before going live.'}
+        </p>
       </div>
     </Panel>
   );

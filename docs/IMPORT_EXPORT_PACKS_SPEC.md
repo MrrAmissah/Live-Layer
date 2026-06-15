@@ -138,7 +138,8 @@ rundown in `/control`.
 
 `lib/export/importRundownPack.ts` implements `importSelectedRundownPack(file)`.
 It re-parses and re-validates the chosen file at confirm time, supports only
-`packType: "selected-rundown"`, blocks newer pack/schema versions, and stages a
+`packType: "selected-rundown"`, requires exactly one rundown in the pack, rejects
+malformed items before any write, blocks newer pack/schema versions, and stages a
 full in-memory remap before writing:
 
 1. old asset id → new asset id
@@ -148,11 +149,12 @@ full in-memory remap before writing:
 5. old graphic id → new graphic id
 
 Write order is assets → people → rundown. If a later write fails, IE4 attempts a
-best-effort rollback of the new ids it already wrote. URL assets are recreated as
-URL metadata without fetching the URL. Uploaded assets with bundled files are
-restored to IndexedDB as new uploaded assets. Referenced Saved Graphics are **not**
-imported as standalone Library entries; rundown items remain snapshots and
-`source.presetId` stays informational only.
+best-effort rollback of the new ids it already wrote; rollback cleanup failures
+are surfaced as warnings in the import UI. URL assets are recreated as URL
+metadata without fetching the URL. Uploaded assets with bundled files are restored
+to IndexedDB as new uploaded assets. Referenced Saved Graphics are **not** imported
+as standalone Library entries; rundown items remain snapshots and `source.presetId`
+stays informational only.
 
 ### Import preview (IE3) — required before any write
 

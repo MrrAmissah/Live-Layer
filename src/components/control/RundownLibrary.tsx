@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRundowns } from '../../hooks/useRundowns';
 import { MAX_RUNDOWNS, MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
 import { exportSelectedRundownPack, exportResultMessage } from '../../lib/export/exportRundownPack';
@@ -16,11 +16,20 @@ export default function RundownLibrary() {
   const rd = useRundowns();
   const [newName, setNewName] = useState('');
   const [message, setMessage] = useState('');
+  const flashTimerRef = useRef<number | undefined>(undefined);
 
   const flash = (text: string, durationMs = 2500) => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
     setMessage(text);
-    window.setTimeout(() => setMessage(''), durationMs);
+    flashTimerRef.current = window.setTimeout(() => {
+      setMessage('');
+      flashTimerRef.current = undefined;
+    }, durationMs);
   };
+
+  useEffect(() => () => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+  }, []);
 
   const onCreate = () => {
     const created = rd.createRundown(newName.trim() || 'New rundown');
@@ -77,7 +86,7 @@ export default function RundownLibrary() {
       <button type="button" className="btn btn--secondary btn--sm rd-add-draft" onClick={onAddDraft}>
         + Add current draft
       </button>
-      {message ? <p className="field__hint">{message}</p> : null}
+      {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
 
       {rd.rundowns.length === 0 ? (
         <div className="empty-state">

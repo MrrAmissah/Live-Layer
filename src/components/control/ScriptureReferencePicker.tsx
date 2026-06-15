@@ -209,7 +209,7 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
         </button>
       </div>
 
-      <div className={`field__hint ${status === 'error' ? 'field__hint--error' : ''}`}>
+      <div className={`field__hint ${status === 'error' ? 'field__hint--error' : ''}`} role={status === 'error' ? 'alert' : undefined}>
         {message || 'Tap a verse to load it, or type a reference and Look up. Edit the text below before taking live.'}
       </div>
     </div>

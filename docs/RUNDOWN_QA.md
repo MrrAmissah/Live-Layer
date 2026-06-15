@@ -39,15 +39,15 @@ field editor edits the selected item; the deck **Take selected** fires it.
   or an `activeRundownId` with no rundown, is treated as cleared — editors fall back
   to the draft, the queue shows the empty state, no crash.
 - **Malformed localStorage:** `read()` try/catches and returns empty state.
-- **Unknown template id:** preview/`/output` render nothing for it rather than crashing.
+- **Unknown template id:** the control preview shows an unsupported-template
+  placeholder; `/output` still avoids crashing and renders no unknown graphic.
 
-## Export-readiness groundwork (no UI)
+## Import / export pack support
 
-`src/lib/rundown/rundownReferences.ts` — pure helpers, intentionally **unwired**
-(future use): `collectRundownAssetIds`, `collectRundownPersonIds`,
-`collectRundownTemplateIds`, `estimateRundownStorageSize`. They let a future export
-pack bundle asset blobs by id, a future diagnostic warn about missing assets, and a
-future import validate template compatibility.
+`src/lib/rundown/rundownReferences.ts` backs selected-rundown pack export/import:
+`collectRundownAssetIds`, `collectRundownPersonIds`, `collectRundownTemplateIds`,
+and `estimateRundownStorageSize` enumerate referenced people, templates, and local
+assets without touching `/output`.
 
 ## Manual QA checklist
 
@@ -85,8 +85,8 @@ active** (edit draft, Take draft) · `/output` transparent + only changes on Tak
 
 ## Future work (not in this phase)
 
-- **Import / export packs** — JSON manifest + bundled asset blobs (the
-  `rundownReferences` helpers enumerate what to bundle).
+- **Full Backup / restore** — selected-rundown packs are shipped; full project
+  backup remains intentionally out of this phase.
 - **Take Next** — a one-press "advance + fire" control (selection + Take in one action).
 - **Auto-advance** — optional post-Take selection move (default off, opt-in).
 - **Drag-and-drop reorder** — replace/augment the Up/Down buttons.

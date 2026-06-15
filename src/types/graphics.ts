@@ -18,7 +18,7 @@ export interface TemplateTheme {
   surfaceColor?: string;
   /** Secondary accent (stripes/keylines) for output graphics. Optional + defaulted, so older stored presets stay valid. */
   accent2Color?: string;
-  /** Future brand-kit logo reference. Current Phase 2A stores logoAssetId in values for preset compatibility. */
+  /** Optional theme-level logo reference; templates currently keep logoAssetId in values for preset compatibility. */
   logoAssetId?: string;
 }
 

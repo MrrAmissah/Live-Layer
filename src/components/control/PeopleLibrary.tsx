@@ -81,10 +81,10 @@ export default function PeopleLibrary() {
         />
       ) : null}
 
-      {notice ? <div className="field__hint">{notice}</div> : null}
+      {notice ? <div className="field__hint" role="status" aria-live="polite">{notice}</div> : null}
 
-      {status === 'loading' ? <div className="field__hint">Loading people...</div> : null}
-      {status === 'error' ? <div className="field__hint field__hint--error">Unable to load people.</div> : null}
+      {status === 'loading' ? <div className="field__hint" role="status" aria-live="polite">Loading people...</div> : null}
+      {status === 'error' ? <div className="field__hint field__hint--error" role="alert">Unable to load people.</div> : null}
 
       {filteredPeople.length === 0 && status !== 'loading' ? (
         <div className="empty-state">

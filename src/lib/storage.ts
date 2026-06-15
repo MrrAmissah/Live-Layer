@@ -1,17 +1,27 @@
-import { GraphicInstance, TemplateDefinition } from '../types/graphics';
+import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
 
 const STORAGE_KEYS = {
   presets: 'livelayer.presets',
   brand: 'livelayer.brand',
-  recent: 'livelayer.recent'
+  recent: 'livelayer.recent',
+  scriptureCache: 'livelayer.scriptureCache',
+  chapterVerseCache: 'livelayer.chapterVerseCache',
+  lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
-function safeRead<T>(key: string, defaultValue: T): T {
+const DEFAULT_THEME: TemplateDefinition['theme'] = {
+  primaryColor: '#f8fafc',
+  accentColor: '#fbbf24',
+  backgroundColor: 'transparent'
+};
+const THEME_KEYS = ['primaryColor', 'accentColor', 'backgroundColor', 'surfaceColor', 'accent2Color', 'logoAssetId'] as const;
+
+function safeReadJson(key: string): unknown {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : defaultValue;
+    return raw ? JSON.parse(raw) : undefined;
   } catch {
-    return defaultValue;
+    return undefined;
   }
 }
 
@@ -24,7 +34,7 @@ function safeWrite(key: string, value: unknown) {
 }
 
 export function loadPresets() {
-  return safeRead<GraphicInstance[]>(STORAGE_KEYS.presets, []);
+  return loadGraphicList(STORAGE_KEYS.presets);
 }
 
 export function savePresets(presets: GraphicInstance[]) {
@@ -32,7 +42,7 @@ export function savePresets(presets: GraphicInstance[]) {
 }
 
 export function loadRecentGraphics() {
-  return safeRead<GraphicInstance[]>(STORAGE_KEYS.recent, []);
+  return loadGraphicList(STORAGE_KEYS.recent);
 }
 
 export function saveRecentGraphics(recent: GraphicInstance[]) {
@@ -40,11 +50,11 @@ export function saveRecentGraphics(recent: GraphicInstance[]) {
 }
 
 export function loadBrandOverrides() {
-  return safeRead<TemplateDefinition['theme']>(STORAGE_KEYS.brand, {
-    primaryColor: '#f8fafc',
-    accentColor: '#fbbf24',
-    backgroundColor: 'transparent'
-  });
+  const raw = safeReadJson(STORAGE_KEYS.brand);
+  return {
+    ...DEFAULT_THEME,
+    ...parseTheme(raw)
+  };
 }
 
 export function saveBrandOverrides(theme: TemplateDefinition['theme']) {
@@ -57,4 +67,45 @@ export function clearAllData() {
   } catch {
     // ignore errors during cleanup
   }
+}
+
+function loadGraphicList(key: string): GraphicInstance[] {
+  const raw = safeReadJson(key);
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isGraphicInstance);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
+}
+
+function parseTheme(value: unknown): Partial<TemplateDefinition['theme']> {
+  if (!isRecord(value)) return {};
+  const theme: Partial<TemplateDefinition['theme']> = {};
+  for (const key of THEME_KEYS) {
+    const next = value[key];
+    if (typeof next === 'string') {
+      theme[key] = next;
+    }
+  }
+  return theme;
+}
+
+function isGraphicInstance(value: unknown): value is GraphicInstance {
+  if (!isRecord(value)) return false;
+  if (typeof value.id !== 'string') return false;
+  if (typeof value.templateId !== 'string') return false;
+  if (typeof value.createdAt !== 'string') return false;
+  if (typeof value.updatedAt !== 'string') return false;
+  if (typeof value.durationSeconds !== 'number' || !Number.isFinite(value.durationSeconds) || value.durationSeconds < 0) return false;
+  if (!isStringRecord(value.values)) return false;
+  if (!isRecord(value.theme)) return false;
+  if (value.assetRefs !== undefined && !isStringRecord(value.assetRefs)) return false;
+  if (value.personId !== undefined && typeof value.personId !== 'string') return false;
+  if (value.presetName !== undefined && typeof value.presetName !== 'string') return false;
+  return true;
 }

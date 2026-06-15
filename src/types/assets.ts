@@ -10,9 +10,9 @@ export type AssetSource = 'uploaded' | 'url';
 /**
  * A locally stored production image. Bytes for uploaded assets live in
  * IndexedDB (keyed by `blobKey`); this metadata record is small and JSON-safe.
- * `dataUrl` is a compact downscaled preview (used for control-side thumbnails
- * and as the message-portable copy that lets `/output` render without relying on
- * IndexedDB being shared across OBS contexts — see docs/LOCAL_ASSET_SYSTEM.md).
+ * `dataUrl` is a compact downscaled preview used by control-side thumbnails and
+ * as an emergency same-origin fallback when metadata exists but the original
+ * blob is missing. It is not sent through SHOW_GRAPHIC messages.
  */
 export interface LocalAsset {
   id: string;

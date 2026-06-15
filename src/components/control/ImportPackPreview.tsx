@@ -92,11 +92,11 @@ export default function ImportPackPreview() {
         </div>
       ) : null}
 
-      {status === 'reading' ? <p className="field__hint">Reading pack…</p> : null}
-      {status === 'importing' ? <p className="field__hint">Importing pack…</p> : null}
+      {status === 'reading' ? <p className="field__hint" role="status" aria-live="polite">Reading pack…</p> : null}
+      {status === 'importing' ? <p className="field__hint" role="status" aria-live="polite">Importing pack…</p> : null}
 
       {status === 'error' && result ? (
-        <div className="import-pack__error">
+        <div className="import-pack__error" role="alert">
           <p className="field__hint field__hint--error">
             {result.blocked ? '⛔ ' : '⚠ '}{result.error}
           </p>
@@ -106,7 +106,7 @@ export default function ImportPackPreview() {
       ) : null}
 
       {status === 'imported' && importResult?.ok ? (
-        <div className="import-pack__summary">
+        <div className="import-pack__summary" role="status" aria-live="polite">
           <div className="import-pack__head">
             <div className="import-pack__title">
               <span className="ll-kicker">Imported successfully</span>
@@ -207,9 +207,18 @@ export default function ImportPackPreview() {
           )}
 
           {importResult && !importResult.ok ? (
-            <p className="field__hint field__hint--error">
-              Import failed: {importResult.error ?? 'unknown error'}
-            </p>
+            <>
+              <p className="field__hint field__hint--error" role="alert">
+                Import failed: {importResult.error ?? 'unknown error'}
+              </p>
+              {importResult.warnings.length ? (
+                <ul className="import-pack__warnings">
+                  {importResult.warnings.map((warning, i) => (
+                    <li key={i} className="import-pack__warn">{warning.message}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
           ) : null}
 
           <div className="import-pack__actions">

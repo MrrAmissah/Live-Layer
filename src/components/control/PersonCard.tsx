@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useAsset } from '../../hooks/useAsset';
 import type { PersonProfile } from '../../types/people';
 
@@ -25,13 +26,23 @@ function formatLastUsed(value?: string) {
 }
 
 export default function PersonCard({ person, onApply, onEdit, onDelete }: PersonCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const headshot = useAsset(person.headshotAssetId);
   const detail = [person.title, person.churchName || person.subtitle].filter(Boolean).join(' · ');
+  const showHeadshot = Boolean(headshot.src && !imageFailed);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [headshot.src]);
 
   return (
     <li className="person-card">
       <div className="person-card__avatar">
-        {headshot.src ? <img src={headshot.src} alt="" className="person-card__img" /> : <span>{initialsFrom(person.displayName)}</span>}
+        {showHeadshot ? (
+          <img src={headshot.src} alt="" className="person-card__img" onError={() => setImageFailed(true)} />
+        ) : (
+          <span>{initialsFrom(person.displayName)}</span>
+        )}
       </div>
       <div className="person-card__body">
         <div className="person-card__topline">

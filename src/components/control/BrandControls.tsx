@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { saveUploadedAsset } from '../../lib/assets/assetStore';
 import { validateImageFile } from '../../lib/assets/imageProcessing';
@@ -47,12 +47,17 @@ export default function BrandControls() {
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   const assetResult = useAsset(logoAssetId);
   const assetSrc = assetResult.status === 'ready' ? assetResult.src : undefined;
 
   const previewSource = assetSrc ?? (logoUrl.trim() || undefined);
   const previewLabel = assetSrc ? 'Image saved locally' : 'URL preview';
+
+  useEffect(() => {
+    setPreviewFailed(false);
+  }, [previewSource]);
 
   const errorMessage = (error: unknown) => {
     if (error instanceof Error) {
@@ -151,15 +156,16 @@ export default function BrandControls() {
           />
         ) : null}
 
-        {previewSource ? (
+        {previewSource && !previewFailed ? (
           <div className="brand-preview">
-            <img src={previewSource} alt="Logo preview" className="brand-preview__img" />
+            <img src={previewSource} alt="Logo preview" className="brand-preview__img" onError={() => setPreviewFailed(true)} />
             <div className="brand-preview__meta">{previewLabel}</div>
           </div>
         ) : null}
 
-        {error ? <div className="field__hint field__hint--error">{error}</div> : null}
-        {isUploading ? <div className="field__hint">Saving image…</div> : null}
+        {error ? <div className="field__hint field__hint--error" role="alert">{error}</div> : null}
+        {previewFailed ? <div className="field__hint field__hint--error" role="alert">Logo preview could not load; the live graphic will fall back to the monogram.</div> : null}
+        {isUploading ? <div className="field__hint" role="status" aria-live="polite">Saving image…</div> : null}
         <div className="field__hint">
           For OBS, use the same host and port for Control and Output so local images can load.
         </div>

@@ -34,7 +34,9 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [headshotFailed, setHeadshotFailed] = useState(false);
   const headshot = useAsset(form.headshotAssetId);
+  const showHeadshot = Boolean(headshot.src && !headshotFailed);
 
   useEffect(() => {
     setForm(person ? {
@@ -49,6 +51,10 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
     } : EMPTY_FORM);
     setError(null);
   }, [person]);
+
+  useEffect(() => {
+    setHeadshotFailed(false);
+  }, [headshot.src]);
 
   const update = (field: keyof PersonProfileInput, value: string | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -117,7 +123,11 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
       </div>
 
       <div className="person-media">
-        {headshot.src ? <img src={headshot.src} alt="" className="person-media__img" /> : <div className="person-media__empty">No photo</div>}
+        {showHeadshot ? (
+          <img src={headshot.src} alt="" className="person-media__img" onError={() => setHeadshotFailed(true)} />
+        ) : (
+          <div className="person-media__empty">No photo</div>
+        )}
         <div className="person-media__actions">
           <label className="btn btn--secondary btn--sm" htmlFor="person-headshot-upload">
             {form.headshotAssetId ? 'Replace headshot' : 'Upload headshot'}
@@ -128,7 +138,7 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
               Remove headshot
             </button>
           ) : null}
-          {isUploading ? <span className="field__hint">Saving image...</span> : null}
+          {isUploading ? <span className="field__hint" role="status" aria-live="polite">Saving image...</span> : null}
         </div>
       </div>
 
@@ -142,7 +152,7 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
         <span>Favorite</span>
       </label>
 
-      {error ? <div className="field__hint field__hint--error">{error}</div> : null}
+      {error ? <div className="field__hint field__hint--error" role="alert">{error}</div> : null}
 
       <div className="person-form__actions">
         <button type="button" className="btn btn--secondary btn--sm" onClick={handleSubmit} disabled={isSaving}>

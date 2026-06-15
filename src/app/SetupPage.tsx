@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Panel from '../components/control/Panel';
 import SectionHeader from '../components/control/SectionHeader';
 import SetupDiagnostics from '../components/control/SetupDiagnostics';
@@ -23,7 +23,7 @@ function UrlRow({
         <button type="button" className="btn btn--secondary btn--sm" onClick={onCopy} aria-label={`Copy ${label}`}>
           Copy
         </button>
-        <button type="button" className="btn btn--ghost btn--sm" onClick={onOpen}>
+        <button type="button" className="btn btn--ghost btn--sm" onClick={onOpen} aria-label={`${openLabel} ${label}`}>
           {openLabel}
         </button>
       </div>
@@ -39,14 +39,27 @@ export default function SetupPage() {
   const controlUrl = useMemo(() => `${window.location.origin}/control`, []);
   const outputUrl = useMemo(() => `${window.location.origin}/output`, []);
   const [copyHint, setCopyHint] = useState('');
+  const copyTimerRef = useRef<number | undefined>(undefined);
+
+  const flashCopyHint = (text: string) => {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+    setCopyHint(text);
+    copyTimerRef.current = window.setTimeout(() => {
+      setCopyHint('');
+      copyTimerRef.current = undefined;
+    }, 2500);
+  };
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+  }, []);
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopyHint(`${label} copied`);
-      window.setTimeout(() => setCopyHint(''), 2500);
+      flashCopyHint(`${label} copied`);
     } catch {
-      setCopyHint(`Unable to copy ${label}`);
+      flashCopyHint(`Unable to copy ${label}`);
     }
   };
 
@@ -134,7 +147,9 @@ export default function SetupPage() {
                   <li>Pick a template, edit values, press Take.</li>
                   <li>Use the debug output to verify transparency.</li>
                 </ol>
-                <p className="setup-statusline">{copyHint || 'Copy either URL and open it to verify the connection.'}</p>
+                <p className="setup-statusline" role="status" aria-live="polite">
+                  {copyHint || 'Copy either URL and open it to verify the connection.'}
+                </p>
               </div>
             </Panel>
             <SetupDiagnostics />

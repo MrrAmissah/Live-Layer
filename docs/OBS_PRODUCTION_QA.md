@@ -17,6 +17,21 @@ production failure is mixing hosts:
 **Use `127.0.0.1` for both.** Open `/setup` → **Production readiness** to see this
 page's origin, copy the matching URLs, and run the capability checks.
 
+## Command preflight
+
+Before opening OBS:
+
+```bash
+npm run verify
+npm run dev
+npm run smoke:routes
+```
+
+`npm run verify` checks the `/output` isolation/transparency contract, the
+asset-id message contract, and the production build. `npm run smoke:routes`
+expects the dev server to be running and confirms `/control`, `/output`, `/setup`,
+and `/seed-test.html` return 200.
+
 ## OBS wiring
 
 1. **Output** — add a **Browser Source**: URL `http://127.0.0.1:4173/output`,
@@ -31,7 +46,10 @@ page's origin, copy the matching URLs, and run the capability checks.
 
 ## Production smoke test (run in order)
 
-1. `/setup` → **Run storage test** → localStorage, IndexedDB, BroadcastChannel all OK.
+1. `/setup` → **Run storage test** → localStorage, IndexedDB, BroadcastChannel,
+   browser storage space, and **Uploaded asset originals** are OK or clearly
+   explained. If asset originals are missing, `/output` will use thumbnail
+   fallback where available and otherwise render a placeholder.
 2. `/control` → **Brand → Upload logo** → "Image saved locally".
 3. **Library → People → Add person** with a headshot → save.
 4. **Apply** the person to the Lower Third → name/role/headshot fill.
@@ -98,5 +116,5 @@ Verified in this pass by source inspection:
 ## Known limitations affecting production
 
 See [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md) — local-first/single-machine,
-manual OBS setup, scripture lookup needs network (manual paste fallback), no
-import/export yet.
+manual OBS setup, scripture lookup needs network (manual paste fallback), and
+import/export is currently selected-rundown only.

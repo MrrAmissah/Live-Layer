@@ -1,7 +1,8 @@
 # LiveLayer QA Checklist
 
-Manual QA for the alpha (there are no automated tests yet). Work top to bottom
-before a release or a demo.
+Manual QA for the alpha. Automated guards cover build, output isolation,
+transparency, asset-id messages, and route smoke; the production OBS flow still
+needs this hands-on checklist before a release or demo.
 
 > **Fast visual QA without OBS:** open `http://127.0.0.1:4173/seed-test.html`
 > (dev server port **4173**, set in `vite.config.ts`). It seeds each template into
@@ -21,9 +22,12 @@ before a release or a demo.
 ## 1. Build & smoke
 
 - [ ] `npm install` succeeds
+- [ ] `npm run verify` passes
 - [ ] `npm run build` is clean (tsc strict + vite, no errors/warnings)
-- [ ] `npm run check:output-isolation` passes
+- [ ] `npm run check:output-isolation` passes (output isolation + transparency + asset-id message guard)
+- [ ] With `npm run dev` running, `npm run smoke:routes` returns 200 for `/control`, `/output`, `/setup`, and `/seed-test.html`
 - [ ] `npm run dev` starts; `/control`, `/output`, `/setup` all load
+- [ ] `/setup` → **Production readiness** shows **Uploaded asset originals** as OK, or explains thumbnail fallback / placeholder behavior for missing image blobs
 - [ ] No console errors on any route
 
 ## 2. Control — OBS dock mode (narrow width)
@@ -86,6 +90,7 @@ Resize a window to ~360px, or dock `/control` in OBS at ~340–500px.
 - [ ] **Logo upload** saves the image locally, shows "Image saved locally" in the Brand panel, and renders in the lower-third medallion
 - [ ] A very large normal image is downscaled on upload and still preserves transparent PNG/WebP logos
 - [ ] **Logo URL** still works as a fallback when upload is not used
+- [ ] A broken Logo URL does not show a broken image icon; the medallion falls back to initials/monogram
 - [ ] **Take** sends only the `logoAssetId` to `/output`; image bytes are not stored in localStorage messages or presets
 - [ ] Refreshing `/output` after Take restores the uploaded logo from IndexedDB
 - [ ] Saved presets preserve the uploaded `logoAssetId` and restore the logo after `/control` reload
@@ -123,6 +128,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Open `/control` and go to **Library → People**
 - [ ] Add a person with name, title, church/ministry, notes, and favorite status
 - [ ] Upload a headshot; confirm it previews in the form/card
+- [ ] A broken/missing headshot image does not break the lower third; it simply hides the headshot frame
 - [ ] Save the person
 - [ ] Search for the person and confirm the list filters
 - [ ] Press **Apply** on the person card
@@ -223,6 +229,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Sticky/deck Take is relabeled **"Take selected"**; it's **disabled** when nothing is selected (use **Select first item**)
 - [ ] **Next ▶** / **◀ Previous** move the selection and update the preview — **`/output` does NOT change**
 - [ ] **Take selected** → `/output` shows the selected item; the **LIVE** badge appears on that item; top status shows **Live**
+- [ ] In dock mode, the sticky bar auto-hide readout matches the selected rundown item's captured duration
 - [ ] Press **Next** after Take → selection moves, but `/output` stays on the previously taken item until **Take selected** again
 - [ ] Taking does **not** auto-advance and does **not** mark done
 - [ ] Toggle **done** (✓) in the queue — manual only
@@ -285,8 +292,9 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] **Invalid file:** rename a `.txt`/`.png` to `.livelayerpack` → choose it → clear error (no crash, no raw stack)
 - [ ] **No-manifest zip:** zip a random file, rename to `.livelayerpack` → "no livelayer-pack.json" error
 - [ ] **Newer version:** hand-edit a pack's manifest `version` to `2`, re-zip → **blocked** with "made with a newer LiveLayer" message
+- [ ] **Wrong selected-pack shape:** hand-edit a selected-rundown pack to contain two rundowns → import fails before writing with "exactly one rundown"
 - [ ] **Missing asset warning:** delete an `assets/<id>` file from a pack zip → preview/import still work, warn, and the graphic falls back to placeholder/monogram
-- [ ] **Malformed-but-parseable pack:** hand-edit a valid manifest so one item is junk (missing `.graphic`, `templateId` a number, or `items` not an array), re-zip → preview renders with warnings and **does not crash**
+- [ ] **Malformed-but-parseable pack:** hand-edit a valid manifest so one item is junk (missing `.graphic`, `templateId` a number, `values` not an object, `theme` not an object, or `items` not an array), re-zip → preview renders without crashing; import either normalizes safe fields or fails with a clear "malformed" message before writing anything
 - [ ] **Preview-only proof:** after choosing a file but before clicking import, **no new rundown appears**, no new People, no new assets
 - [ ] Re-choosing the **same** file re-previews (no silent no-op)
 - [ ] Preview and import do **not** change `/output`, Take/Clear, or rundown operation

@@ -60,7 +60,7 @@ export interface LiveLayerAssetManifestEntry {
 }
 
 export interface LiveLayerPackWarning {
-  code: 'asset-missing' | 'asset-blob-missing';
+  code: 'asset-missing' | 'asset-blob-missing' | 'rollback-cleanup-failed';
   message: string;
   refId?: string;
 }

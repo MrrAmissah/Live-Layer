@@ -101,14 +101,16 @@ async function parsePack(file: File): Promise<ParsedPack> {
   return { manifest, files };
 }
 
-function remapAssetId(id: string | undefined, assetIdMap: Map<string, string>): string | undefined {
+function remapId(id: string | undefined, idMap: Map<string, string>): string | undefined {
   if (!id) return undefined;
-  return assetIdMap.get(id);
+  return idMap.get(id);
 }
 
-function remapValues(values: Record<string, string> | undefined, assetIdMap: Map<string, string>, personIdMap: Map<string, string>): Record<string, string> {
+function remapValues(values: unknown, assetIdMap: Map<string, string>, personIdMap: Map<string, string>): Record<string, string> {
   const next: Record<string, string> = {};
-  for (const [key, value] of Object.entries(values ?? {})) {
+  if (!isRecord(values)) return next;
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value !== 'string') continue;
     if (key === 'personId') {
       next[key] = personIdMap.get(value) ?? '';
     } else if (key.endsWith('AssetId')) {
@@ -131,7 +133,7 @@ function remapAssetRefs(refs: Record<string, string> | undefined, assetIdMap: Ma
 }
 
 function remapTheme(theme: Partial<TemplateTheme> | undefined, assetIdMap: Map<string, string>): Partial<TemplateTheme> {
-  const next = clone(theme ?? {});
+  const next: Partial<TemplateTheme> = isRecord(theme) ? clone(theme as Partial<TemplateTheme>) : {};
   if (next.logoAssetId) {
     const mapped = assetIdMap.get(next.logoAssetId);
     if (mapped) next.logoAssetId = mapped;
@@ -161,7 +163,7 @@ function remapGraphic(graphic: GraphicInstance, assetIdMap: Map<string, string>,
     values: remapValues(graphic.values, assetIdMap, personIdMap),
     theme: remapTheme(graphic.theme, assetIdMap),
     assetRefs: remapAssetRefs(graphic.assetRefs, assetIdMap),
-    personId: remapAssetId(graphic.personId, personIdMap),
+    personId: remapId(graphic.personId, personIdMap),
     createdAt: ts,
     updatedAt: ts
   };
@@ -251,8 +253,8 @@ function preparePeople(people: PersonProfile[], assetIdMap: Map<string, string>,
       ...clone(person),
       id: newId,
       displayName: person.displayName?.trim() || 'Imported person',
-      headshotAssetId: remapAssetId(person.headshotAssetId, assetIdMap),
-      logoAssetId: remapAssetId(person.logoAssetId, assetIdMap),
+      headshotAssetId: remapId(person.headshotAssetId, assetIdMap),
+      logoAssetId: remapId(person.logoAssetId, assetIdMap),
       lastUsedAt: undefined,
       createdAt: ts,
       updatedAt: ts
@@ -294,9 +296,30 @@ function prepareRundown(rundown: Rundown, assetIdMap: Map<string, string>, perso
   };
 }
 
+function validateImportableRundown(rundown: Rundown): void {
+  if (!Array.isArray(rundown.items)) {
+    throw new Error('This Selected Rundown pack has a malformed item list.');
+  }
+  const badIndex = rundown.items.findIndex((item) =>
+    !item ||
+    typeof item.id !== 'string' ||
+    !item.graphic ||
+    typeof item.graphic !== 'object' ||
+    typeof item.graphic.templateId !== 'string' ||
+    !item.graphic.templateId
+  );
+  if (badIndex >= 0) {
+    throw new Error(`Item ${badIndex + 1} in this rundown is malformed and cannot be imported safely.`);
+  }
+}
+
 function prepareImport(manifest: LiveLayerPackManifest, files: Record<string, Uint8Array>): PreparedImport {
-  const rundown = manifest.contents.rundowns?.[0];
-  if (!rundown) throw new Error('This Selected Rundown pack does not contain a rundown.');
+  const rundowns = manifest.contents.rundowns ?? [];
+  if (rundowns.length !== 1) {
+    throw new Error(`Selected Rundown packs must contain exactly one rundown; this pack contains ${rundowns.length}.`);
+  }
+  const rundown = rundowns[0];
+  validateImportableRundown(rundown);
   if ((rundown.items?.length ?? 0) > MAX_ITEMS_PER_RUNDOWN) {
     throw new Error(`This rundown has more than ${MAX_ITEMS_PER_RUNDOWN} items and cannot be imported yet.`);
   }
@@ -353,15 +376,44 @@ export async function importSelectedRundownPack(file: File): Promise<ImportRundo
       warnings: prepared.warnings
     };
   } catch (error) {
-    if (writtenRundownId) deleteRundown(writtenRundownId);
-    await Promise.allSettled(writtenPersonIds.map((id) => deletePerson(id)));
-    await Promise.allSettled(writtenAssetIds.map((id) => deleteAsset(id)));
+    const warnings: LiveLayerPackWarning[] = [...(prepared?.warnings ?? [])];
+
+    if (writtenRundownId) {
+      try {
+        deleteRundown(writtenRundownId);
+      } catch {
+        warnings.push({
+          code: 'rollback-cleanup-failed',
+          message: 'Import failed, and the partially-created rundown could not be removed automatically.',
+          refId: writtenRundownId
+        });
+      }
+    }
+
+    const personCleanup = await Promise.allSettled(writtenPersonIds.map((id) => deletePerson(id)));
+    const failedPeople = personCleanup.filter((result) => result.status === 'rejected').length;
+    if (failedPeople > 0) {
+      warnings.push({
+        code: 'rollback-cleanup-failed',
+        message: `Import failed, and ${failedPeople} imported person record${failedPeople === 1 ? '' : 's'} could not be removed automatically.`
+      });
+    }
+
+    const assetCleanup = await Promise.allSettled(writtenAssetIds.map((id) => deleteAsset(id)));
+    const failedAssets = assetCleanup.filter((result) => result.status === 'rejected').length;
+    if (failedAssets > 0) {
+      warnings.push({
+        code: 'rollback-cleanup-failed',
+        message: `Import failed, and ${failedAssets} imported asset record${failedAssets === 1 ? '' : 's'} could not be removed automatically.`
+      });
+    }
+
     return {
       ok: false,
       peopleImported: 0,
       assetsImported: 0,
       missingAssets: prepared?.missingAssets ?? 0,
-      warnings: prepared?.warnings ?? [],
+      warnings,
       error: error instanceof Error ? error.message : 'Import failed.'
     };
   }

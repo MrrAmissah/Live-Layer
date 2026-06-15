@@ -50,7 +50,15 @@ as the compositor and keeps everything on your machine.
 - **Take / Clear / auto-hide** — instant show/clear with optional self-clear (Off/3/6/10/15s).
 - **Two motion styles** — a per-element *slide build* (default) and a flat *fade*
   crossfade, configured per template (with a per-instance override path).
-- **Brand theming** — primary/accent colours + logo URL, with reset-to-template.
+- **Local assets** — upload logos and speaker headshots into same-origin IndexedDB,
+  then reuse them in previews, presets, rundowns, and `/output`.
+- **People and scripture helpers** — speaker profiles, headshot/logo references,
+  book/chapter/verse picking, WEB/KJV lookup, and manual paste fallback.
+- **Brand theming** — primary/accent colours, local logo references, and reset-to-template.
+- **Rundown queue** — build, edit, reorder, and operate an ordered set of graphic
+  snapshots without changing `/output` until Take.
+- **Import/export packs** — export and safely import a selected rundown as a
+  `.livelayerpack`, remapping IDs and restoring referenced local assets.
 - **Local presets** — save, recall, and remove full graphic setups (localStorage).
 - **Transparent, resolution-independent output** — authored at a fixed 1920×1080 and
   scaled to any Browser Source size.
@@ -87,24 +95,26 @@ More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 
 ```bash
 npm install
-npm run dev        # Vite dev server on http://localhost:4173
+npm run dev        # Vite dev server on http://127.0.0.1:4173
 ```
 
-- Control: <http://localhost:4173/control>
-- Output: <http://localhost:4173/output>
-- Setup helper: <http://localhost:4173/setup>
+- Control: <http://127.0.0.1:4173/control>
+- Output: <http://127.0.0.1:4173/output>
+- Setup helper: <http://127.0.0.1:4173/setup>
 - Build: `npm run build` (runs `tsc` then `vite build`)
+- Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard, production build)
+- Route smoke: with the dev server running, `npm run smoke:routes`
 
 ## OBS setup
 
-1. **Output** — add a **Browser Source**, URL `http://localhost:4173/output`,
+1. **Output** — add a **Browser Source**, URL `http://127.0.0.1:4173/output`,
    size `1920 × 1080`, transparent background. Place it above your camera/video.
 2. **Control** — add a **Custom Browser Dock** (`View → Docks → Custom Browser Docks`),
-   URL `http://localhost:4173/control`.
+   URL `http://127.0.0.1:4173/control`.
 3. Pick a graphic, edit the text, press **Take live**; **Clear** to remove it.
 
 Full steps: [`docs/OBS_SETUP.md`](docs/OBS_SETUP.md). Fast visual QA without OBS:
-open <http://localhost:4173/seed-test.html>.
+open <http://127.0.0.1:4173/seed-test.html>.
 
 ## Documentation
 
