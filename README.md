@@ -50,7 +50,15 @@ as the compositor and keeps everything on your machine.
 - **Take / Clear / auto-hide** — instant show/clear with optional self-clear (Off/3/6/10/15s).
 - **Two motion styles** — a per-element *slide build* (default) and a flat *fade*
   crossfade, configured per template (with a per-instance override path).
-- **Brand theming** — primary/accent colours + logo URL, with reset-to-template.
+- **Local assets** — upload logos and speaker headshots into same-origin IndexedDB,
+  then reuse them in previews, presets, rundowns, and `/output`.
+- **People and scripture helpers** — speaker profiles, headshot/logo references,
+  book/chapter/verse picking, WEB/KJV lookup, and manual paste fallback.
+- **Brand theming** — primary/accent colours, local logo references, and reset-to-template.
+- **Rundown queue** — build, edit, reorder, and operate an ordered set of graphic
+  snapshots without changing `/output` until Take.
+- **Import/export packs** — export and safely import a selected rundown as a
+  `.livelayerpack`, remapping IDs and restoring referenced local assets.
 - **Local presets** — save, recall, and remove full graphic setups (localStorage).
 - **Transparent, resolution-independent output** — authored at a fixed 1920×1080 and
   scaled to any Browser Source size.
