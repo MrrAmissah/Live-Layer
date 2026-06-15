@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/brand/livelayer-logo.svg" alt="LiveLayer logo" width="360" />
+  <img src="public/livelayer-mark.svg" alt="LiveLayer logo" width="72" />
 </p>
 
 # LiveLayer
@@ -89,7 +89,6 @@ A single-page app with three routes and no backend:
 More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 [`docs/CONTROL_UI_UX.md`](docs/CONTROL_UI_UX.md),
 [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
-[`docs/BRAND_IDENTITY.md`](docs/BRAND_IDENTITY.md),
 [`docs/TEMPLATE_SCHEMA.md`](docs/TEMPLATE_SCHEMA.md).
 
 ## Run locally
