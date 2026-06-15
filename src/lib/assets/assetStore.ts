@@ -169,14 +169,26 @@ export async function resolveAssetSource(source?: string): Promise<string | unde
   if (!source || source.trim() === '') return undefined;
   if (isLikelyHttpUrl(source)) return source.trim();
 
-  const asset = await getAsset(source);
+  let asset: LocalAsset | null;
+  try {
+    asset = await getAsset(source);
+  } catch {
+    console.warn(`[LiveLayer] Asset "${source}" could not be read from IndexedDB. Rendering fallback.`);
+    return undefined;
+  }
   if (!asset) {
     console.warn(`[LiveLayer] Asset "${source}" was not found. Rendering fallback.`);
     return undefined;
   }
   if (asset.source === 'url' && asset.url) return asset.url;
 
-  const blob = await getAssetBlob(asset.blobKey ?? asset.id);
+  let blob: Blob | null;
+  try {
+    blob = await getAssetBlob(asset.blobKey ?? asset.id);
+  } catch {
+    console.warn(`[LiveLayer] Asset "${asset.id}" original could not be read from IndexedDB. Rendering fallback.`);
+    return asset.dataUrl ?? asset.url;
+  }
   if (!blob) {
     if (asset.dataUrl) {
       console.warn(`[LiveLayer] Asset "${asset.id}" is missing its original image. Using saved thumbnail fallback.`);
