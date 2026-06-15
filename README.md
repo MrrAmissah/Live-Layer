@@ -102,6 +102,8 @@ npm run dev        # Vite dev server on http://localhost:4173
 - Output: <http://localhost:4173/output>
 - Setup helper: <http://localhost:4173/setup>
 - Build: `npm run build` (runs `tsc` then `vite build`)
+- Verify: `npm run verify` (output isolation guard + production build)
+- Route smoke: with the dev server running, `npm run smoke:routes`
 
 ## OBS setup
 
