@@ -136,8 +136,11 @@ export async function getAssetBlob(id: string): Promise<Blob | null> {
 export async function deleteAsset(id: string): Promise<void> {
   const db = await getDb();
   const tx = db.transaction([ASSET_META_STORE, ASSET_BLOBS_STORE], 'readwrite');
-  tx.objectStore(ASSET_META_STORE).delete(id);
-  tx.objectStore(ASSET_BLOBS_STORE).delete(id);
+  const metaStore = tx.objectStore(ASSET_META_STORE);
+  const blobStore = tx.objectStore(ASSET_BLOBS_STORE);
+  const existing = await requestToPromise<LocalAsset | undefined>(metaStore.get(id));
+  metaStore.delete(id);
+  blobStore.delete(existing?.blobKey ?? id);
   await new Promise((resolve, reject) => {
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
