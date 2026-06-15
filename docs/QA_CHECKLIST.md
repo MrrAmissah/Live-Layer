@@ -21,6 +21,7 @@ before a release or a demo.
 ## 1. Build & smoke
 
 - [ ] `npm install` succeeds
+- [ ] `npm run verify` passes
 - [ ] `npm run build` is clean (tsc strict + vite, no errors/warnings)
 - [ ] `npm run check:output-isolation` passes
 - [ ] With `npm run dev` running, `npm run smoke:routes` returns 200 for `/control`, `/output`, `/setup`, and `/seed-test.html`
