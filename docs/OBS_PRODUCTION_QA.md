@@ -23,7 +23,7 @@ Before opening OBS:
 
 ```bash
 npm run verify
-npm run dev -- --host 127.0.0.1 --port 4173
+npm run dev
 npm run smoke:routes
 ```
 
