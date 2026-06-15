@@ -23,7 +23,7 @@ before a release or a demo.
 - [ ] `npm install` succeeds
 - [ ] `npm run verify` passes
 - [ ] `npm run build` is clean (tsc strict + vite, no errors/warnings)
-- [ ] `npm run check:output-isolation` passes
+- [ ] `npm run check:output-isolation` passes (output isolation + transparency guard)
 - [ ] With `npm run dev` running, `npm run smoke:routes` returns 200 for `/control`, `/output`, `/setup`, and `/seed-test.html`
 - [ ] `npm run dev` starts; `/control`, `/output`, `/setup` all load
 - [ ] No console errors on any route

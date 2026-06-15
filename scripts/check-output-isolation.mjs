@@ -4,7 +4,9 @@ import { dirname, join } from 'node:path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outputPath = join(root, 'src/app/OutputPage.tsx');
+const stylesPath = join(root, 'src/styles.css');
 const source = readFileSync(outputPath, 'utf8');
+const styles = readFileSync(stylesPath, 'utf8');
 
 const forbiddenPatterns = [
   { pattern: /from ['"].*store\/useLiveLayerStore['"]/, label: 'control Zustand store import' },
@@ -32,4 +34,24 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log('Output isolation check passed.');
+const transparencyFailures = [];
+if (!source.includes("document.documentElement.classList.add('gfx-transparent')")) {
+  transparencyFailures.push('OutputPage no longer applies gfx-transparent to html');
+}
+if (!source.includes("document.body.classList.add('gfx-transparent')")) {
+  transparencyFailures.push('OutputPage no longer applies gfx-transparent to body');
+}
+if (!/html\.gfx-transparent,\s*body\.gfx-transparent\s*\{[^}]*background:\s*transparent\s*!important;[^}]*color-scheme:\s*normal;/s.test(styles)) {
+  transparencyFailures.push('styles.css no longer forces transparent html/body output background');
+}
+if (!/\.output-root\s*\{[^}]*background:\s*transparent;/s.test(styles)) {
+  transparencyFailures.push('styles.css no longer keeps .output-root transparent');
+}
+
+if (transparencyFailures.length) {
+  console.error('Output transparency check failed:');
+  for (const failure of transparencyFailures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+console.log('Output isolation and transparency checks passed.');
