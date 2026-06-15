@@ -54,13 +54,14 @@ export default function RundownItemCard({
           className={`rd-icon ${item.done ? 'rd-icon--on' : ''}`}
           onClick={onToggleDone}
           aria-pressed={item.done}
+          aria-label={item.done ? `Mark ${item.title} not done` : `Mark ${item.title} done`}
           title={item.done ? 'Mark not done' : 'Mark done'}
         >
           ✓
         </button>
-        <button type="button" className="rd-icon" onClick={onMoveUp} disabled={index === 0} title="Move up">↑</button>
-        <button type="button" className="rd-icon" onClick={onMoveDown} disabled={index === count - 1} title="Move down">↓</button>
-        <button type="button" className="rd-icon" onClick={onDuplicate} title="Duplicate">⧉</button>
+        <button type="button" className="rd-icon" onClick={onMoveUp} disabled={index === 0} aria-label={`Move ${item.title} up`} title="Move up">↑</button>
+        <button type="button" className="rd-icon" onClick={onMoveDown} disabled={index === count - 1} aria-label={`Move ${item.title} down`} title="Move down">↓</button>
+        <button type="button" className="rd-icon" onClick={onDuplicate} aria-label={`Duplicate ${item.title}`} title="Duplicate">⧉</button>
         <button type="button" className="rd-icon rd-icon--danger" onClick={onDelete} aria-label={`Delete ${item.title}`} title="Delete">✕</button>
       </span>
     </li>
