@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
 import { deleteAsset, getAssetBlob, saveAsset } from '../../lib/assets/assetStore';
@@ -86,10 +86,24 @@ export default function SetupDiagnostics() {
     detail: 'Not run yet — tap “Run storage test”.'
   });
   const [copyHint, setCopyHint] = useState('');
+  const copyTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     // Cheap, read-only-ish checks run automatically; the asset write-test is opt-in.
     setChecks([probeLocalStorage(), probeIndexedDB(), probeBroadcastChannel()]);
+  }, []);
+
+  const flashCopyHint = (text: string) => {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
+    setCopyHint(text);
+    copyTimerRef.current = window.setTimeout(() => {
+      setCopyHint('');
+      copyTimerRef.current = undefined;
+    }, 2500);
+  };
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
   }, []);
 
   const runAssetTest = async () => {
@@ -127,11 +141,10 @@ export default function SetupDiagnostics() {
   const copy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopyHint(`${label} copied`);
+      flashCopyHint(`${label} copied`);
     } catch {
-      setCopyHint(`Copy ${label} manually`);
+      flashCopyHint(`Copy ${label} manually`);
     }
-    window.setTimeout(() => setCopyHint(''), 2500);
   };
 
   const copyObsPair = () => {
@@ -200,7 +213,9 @@ export default function SetupDiagnostics() {
           <li>For stable testing, serve the production build (`npm run build` → preview)</li>
         </ul>
 
-        <p className="setup-statusline">{copyHint || 'Run the checks above before going live.'}</p>
+        <p className="setup-statusline" role="status" aria-live="polite">
+          {copyHint || 'Run the checks above before going live.'}
+        </p>
       </div>
     </Panel>
   );
