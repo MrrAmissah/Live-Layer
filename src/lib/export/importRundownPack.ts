@@ -101,9 +101,9 @@ async function parsePack(file: File): Promise<ParsedPack> {
   return { manifest, files };
 }
 
-function remapAssetId(id: string | undefined, assetIdMap: Map<string, string>): string | undefined {
+function remapId(id: string | undefined, idMap: Map<string, string>): string | undefined {
   if (!id) return undefined;
-  return assetIdMap.get(id);
+  return idMap.get(id);
 }
 
 function remapValues(values: Record<string, string> | undefined, assetIdMap: Map<string, string>, personIdMap: Map<string, string>): Record<string, string> {
@@ -161,7 +161,7 @@ function remapGraphic(graphic: GraphicInstance, assetIdMap: Map<string, string>,
     values: remapValues(graphic.values, assetIdMap, personIdMap),
     theme: remapTheme(graphic.theme, assetIdMap),
     assetRefs: remapAssetRefs(graphic.assetRefs, assetIdMap),
-    personId: remapAssetId(graphic.personId, personIdMap),
+    personId: remapId(graphic.personId, personIdMap),
     createdAt: ts,
     updatedAt: ts
   };
@@ -251,8 +251,8 @@ function preparePeople(people: PersonProfile[], assetIdMap: Map<string, string>,
       ...clone(person),
       id: newId,
       displayName: person.displayName?.trim() || 'Imported person',
-      headshotAssetId: remapAssetId(person.headshotAssetId, assetIdMap),
-      logoAssetId: remapAssetId(person.logoAssetId, assetIdMap),
+      headshotAssetId: remapId(person.headshotAssetId, assetIdMap),
+      logoAssetId: remapId(person.logoAssetId, assetIdMap),
       lastUsedAt: undefined,
       createdAt: ts,
       updatedAt: ts
