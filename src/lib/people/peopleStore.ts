@@ -63,7 +63,7 @@ function sanitizePerson(value: unknown): PersonProfile | null {
     notes: typeof person.notes === 'string' && person.notes.trim() ? person.notes.trim() : undefined,
     headshotAssetId: typeof person.headshotAssetId === 'string' && person.headshotAssetId.trim() ? person.headshotAssetId.trim() : undefined,
     logoAssetId: typeof person.logoAssetId === 'string' && person.logoAssetId.trim() ? person.logoAssetId.trim() : undefined,
-    favorite: Boolean(person.favorite),
+    favorite: person.favorite === true,
     lastUsedAt: typeof person.lastUsedAt === 'string' ? person.lastUsedAt : undefined,
     createdAt: typeof person.createdAt === 'string' ? person.createdAt : now,
     updatedAt: typeof person.updatedAt === 'string' ? person.updatedAt : now
