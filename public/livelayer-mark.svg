@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">LiveLayer mark</title>
+  <desc id="desc">Layered broadcast frame with a live signal accent.</desc>
+  <rect width="64" height="64" rx="14" fill="#07111D"/>
+  <path d="M16 22L32 14L48 22L32 30L16 22Z" fill="#22D3EE"/>
+  <path d="M16 32L32 40L48 32" stroke="#8BE9FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 42L32 50L48 42" stroke="#F5C542" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 17H49V24" stroke="#F5C542" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="22" cy="22" r="3" fill="#06101B"/>
+</svg>
