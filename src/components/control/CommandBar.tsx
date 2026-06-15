@@ -14,14 +14,20 @@ export default function CommandBar() {
       <div className="cmd-bar__left">
         <span className="cmd-logo">
           <img className="cmd-logo__mark" src="/livelayer-mark.svg" alt="" aria-hidden="true" />
-          LiveLayer
+          <span className="cmd-logo__copy">
+            <span className="cmd-logo__name">LiveLayer</span>
+            <span className="cmd-logo__sub">Control room</span>
+          </span>
         </span>
         <span className="cmd-divider" aria-hidden />
-        <span className="cmd-badge">Local</span>
+        <span className="cmd-badge cmd-badge--live">
+          <span className="cmd-badge__dot" aria-hidden />
+          Local
+        </span>
         <span className="cmd-badge cmd-badge--route">/control</span>
         <span className="cmd-hint">
           <span className="cmd-hint__key" aria-hidden />
-          Transparent output
+          OBS-ready output
         </span>
       </div>
       <div className="cmd-bar__right">
