@@ -106,9 +106,11 @@ function remapId(id: string | undefined, idMap: Map<string, string>): string | u
   return idMap.get(id);
 }
 
-function remapValues(values: Record<string, string> | undefined, assetIdMap: Map<string, string>, personIdMap: Map<string, string>): Record<string, string> {
+function remapValues(values: unknown, assetIdMap: Map<string, string>, personIdMap: Map<string, string>): Record<string, string> {
   const next: Record<string, string> = {};
-  for (const [key, value] of Object.entries(values ?? {})) {
+  if (!isRecord(values)) return next;
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value !== 'string') continue;
     if (key === 'personId') {
       next[key] = personIdMap.get(value) ?? '';
     } else if (key.endsWith('AssetId')) {
@@ -131,7 +133,7 @@ function remapAssetRefs(refs: Record<string, string> | undefined, assetIdMap: Ma
 }
 
 function remapTheme(theme: Partial<TemplateTheme> | undefined, assetIdMap: Map<string, string>): Partial<TemplateTheme> {
-  const next = clone(theme ?? {});
+  const next: Partial<TemplateTheme> = isRecord(theme) ? clone(theme as Partial<TemplateTheme>) : {};
   if (next.logoAssetId) {
     const mapped = assetIdMap.get(next.logoAssetId);
     if (mapped) next.logoAssetId = mapped;
