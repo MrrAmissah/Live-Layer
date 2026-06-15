@@ -110,7 +110,7 @@ export function exportResultMessage(result: ExportResult): string {
   if (!result.ok) return `Export failed: ${result.error ?? 'unknown error'}`;
   if (result.missingAssetCount > 0) {
     const n = result.missingAssetCount;
-    return `Exported with ${n} missing asset${n === 1 ? '' : 's'}. The pack will still import, but those images may fall back.`;
+    return `Exported “${result.filename}” with ${n} missing asset${n === 1 ? '' : 's'}. Next: import this pack and confirm those graphics fall back safely.`;
   }
-  return `Exported “${result.filename}”.`;
+  return `Exported “${result.filename}”. Next: use Library → Import to preview and import it as a new rundown.`;
 }

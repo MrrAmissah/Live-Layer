@@ -120,6 +120,9 @@ export default function ImportPackPreview() {
           <p className="field__hint">
             This rundown is now active. Its first item is selected, and nothing was sent to the live output.
           </p>
+          <p className="field__hint">
+            Next: open the Live tab, verify the imported item preview, then press Take selected when you are ready.
+          </p>
           <ul className="import-pack__stats">
             <li><span className="import-pack__stat-n">{importResult.peopleImported}</span> {importResult.peopleImported === 1 ? 'person' : 'people'}</li>
             <li><span className="import-pack__stat-n">{importResult.assetsImported}</span> asset{importResult.assetsImported === 1 ? '' : 's'}</li>

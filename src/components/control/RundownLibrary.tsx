@@ -17,9 +17,9 @@ export default function RundownLibrary() {
   const [newName, setNewName] = useState('');
   const [message, setMessage] = useState('');
 
-  const flash = (text: string) => {
+  const flash = (text: string, durationMs = 2500) => {
     setMessage(text);
-    window.setTimeout(() => setMessage(''), 2500);
+    window.setTimeout(() => setMessage(''), durationMs);
   };
 
   const onCreate = () => {
@@ -54,7 +54,7 @@ export default function RundownLibrary() {
 
   const onExportRundown = async (rundown: Rundown) => {
     const result = await exportSelectedRundownPack(rundown);
-    flash(exportResultMessage(result));
+    flash(exportResultMessage(result), 6500);
   };
 
   const active = rd.activeRundown;

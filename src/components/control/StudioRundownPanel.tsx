@@ -22,7 +22,7 @@ export default function StudioRundownPanel() {
     if (!rundown) return;
     const result = await exportSelectedRundownPack(rundown);
     setMessage(exportResultMessage(result));
-    window.setTimeout(() => setMessage(''), 4000);
+    window.setTimeout(() => setMessage(''), 6500);
   };
 
   if (rd.rundowns.length === 0) {
