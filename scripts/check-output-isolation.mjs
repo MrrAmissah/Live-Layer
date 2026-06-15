@@ -16,6 +16,8 @@ const forbiddenPatterns = [
   { pattern: /from ['"].*lib\/scripture\//, label: 'scripture provider/cache import' },
   { pattern: /from ['"].*hooks\/useScripture/, label: 'scripture hook import' },
   { pattern: /\blocalStorage\.(setItem|removeItem|clear)\b/, label: 'direct localStorage write' },
+  { pattern: /\bfetch\s*\(/, label: 'direct network fetch' },
+  { pattern: /\b(saveAsset|savePerson|importPeople|importRundown|deleteRundown|clearAllData)\b/, label: 'control/storage write helper usage' },
   { pattern: /\bcreateMessage\b/, label: 'control-side realtime command construction' },
   { pattern: /\.post\(/, label: 'realtime message posting' }
 ];
