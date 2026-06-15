@@ -49,12 +49,13 @@ export default function RundownQueue() {
       )}
 
       <div className="rd-queue__nav">
-        <button type="button" className="btn btn--secondary btn--sm" onClick={onPrev} disabled={!prevItem}>◀ Previous</button>
+        <button type="button" className="btn btn--secondary btn--sm" onClick={onPrev} disabled={!prevItem} aria-label="Select previous rundown item">◀ Previous</button>
         <button
           type="button"
           className="btn btn--secondary btn--sm"
           onClick={onNext}
           disabled={items.length === 0 || (selectedIndex >= 0 && selectedIndex === items.length - 1)}
+          aria-label="Select next rundown item"
         >
           Next ▶
         </button>
@@ -79,6 +80,7 @@ export default function RundownQueue() {
                   className={`rd-icon ${item.done ? 'rd-icon--on' : ''}`}
                   onClick={() => rd.toggleDone(item.id)}
                   aria-pressed={item.done}
+                  aria-label={item.done ? `Mark ${item.title} not done` : `Mark ${item.title} done`}
                   title={item.done ? 'Mark not done' : 'Mark done'}
                 >
                   ✓

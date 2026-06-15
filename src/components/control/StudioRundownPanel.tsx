@@ -69,12 +69,13 @@ export default function StudioRundownPanel() {
           </div>
 
           <div className="studio-rd__nav">
-            <button type="button" className="btn btn--secondary btn--sm" onClick={onPrev} disabled={!prevItem}>◀ Previous</button>
+            <button type="button" className="btn btn--secondary btn--sm" onClick={onPrev} disabled={!prevItem} aria-label="Select previous rundown item">◀ Previous</button>
             <button
               type="button"
               className="btn btn--secondary btn--sm"
               onClick={onNext}
               disabled={selectedIndex >= 0 && selectedIndex === items.length - 1}
+              aria-label="Select next rundown item"
             >
               Next ▶
             </button>
