@@ -19,7 +19,7 @@ export default function LibraryControls() {
           role="tab"
           aria-selected={section === 'presets'}
         >
-          Saved graphics
+          Graphics
         </button>
         <button
           type="button"
