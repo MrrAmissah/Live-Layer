@@ -96,7 +96,7 @@ export default function ImportPackPreview() {
       {status === 'importing' ? <p className="field__hint">Importing pack…</p> : null}
 
       {status === 'error' && result ? (
-        <div className="import-pack__error">
+        <div className="import-pack__error" role="alert">
           <p className="field__hint field__hint--error">
             {result.blocked ? '⛔ ' : '⚠ '}{result.error}
           </p>
@@ -106,7 +106,7 @@ export default function ImportPackPreview() {
       ) : null}
 
       {status === 'imported' && importResult?.ok ? (
-        <div className="import-pack__summary">
+        <div className="import-pack__summary" role="status" aria-live="polite">
           <div className="import-pack__head">
             <div className="import-pack__title">
               <span className="ll-kicker">Imported successfully</span>
@@ -207,7 +207,7 @@ export default function ImportPackPreview() {
           )}
 
           {importResult && !importResult.ok ? (
-            <p className="field__hint field__hint--error">
+            <p className="field__hint field__hint--error" role="alert">
               Import failed: {importResult.error ?? 'unknown error'}
             </p>
           ) : null}
