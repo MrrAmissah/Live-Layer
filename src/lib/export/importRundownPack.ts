@@ -294,9 +294,27 @@ function prepareRundown(rundown: Rundown, assetIdMap: Map<string, string>, perso
   };
 }
 
+function validateImportableRundown(rundown: Rundown): void {
+  if (!Array.isArray(rundown.items)) {
+    throw new Error('This Selected Rundown pack has a malformed item list.');
+  }
+  const badIndex = rundown.items.findIndex((item) =>
+    !item ||
+    typeof item.id !== 'string' ||
+    !item.graphic ||
+    typeof item.graphic !== 'object' ||
+    typeof item.graphic.templateId !== 'string' ||
+    !item.graphic.templateId
+  );
+  if (badIndex >= 0) {
+    throw new Error(`Item ${badIndex + 1} in this rundown is malformed and cannot be imported safely.`);
+  }
+}
+
 function prepareImport(manifest: LiveLayerPackManifest, files: Record<string, Uint8Array>): PreparedImport {
   const rundown = manifest.contents.rundowns?.[0];
   if (!rundown) throw new Error('This Selected Rundown pack does not contain a rundown.');
+  validateImportableRundown(rundown);
   if ((rundown.items?.length ?? 0) > MAX_ITEMS_PER_RUNDOWN) {
     throw new Error(`This rundown has more than ${MAX_ITEMS_PER_RUNDOWN} items and cannot be imported yet.`);
   }
