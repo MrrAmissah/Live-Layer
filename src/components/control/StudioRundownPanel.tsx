@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRundowns } from '../../hooks/useRundowns';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 import { getQueueCursors } from '../../lib/rundown/rundownStore';
@@ -16,13 +16,26 @@ export default function StudioRundownPanel() {
   const rd = useRundowns();
   const { activeItemId } = useLiveTakeContext();
   const [message, setMessage] = useState('');
+  const messageTimerRef = useRef<number | undefined>(undefined);
   const rundown = rd.activeRundown;
+
+  const flash = (text: string, durationMs = 6500) => {
+    if (messageTimerRef.current) window.clearTimeout(messageTimerRef.current);
+    setMessage(text);
+    messageTimerRef.current = window.setTimeout(() => {
+      setMessage('');
+      messageTimerRef.current = undefined;
+    }, durationMs);
+  };
+
+  useEffect(() => () => {
+    if (messageTimerRef.current) window.clearTimeout(messageTimerRef.current);
+  }, []);
 
   const onExport = async () => {
     if (!rundown) return;
     const result = await exportSelectedRundownPack(rundown);
-    setMessage(exportResultMessage(result));
-    window.setTimeout(() => setMessage(''), 6500);
+    flash(exportResultMessage(result));
   };
 
   if (rd.rundowns.length === 0) {
@@ -53,7 +66,7 @@ export default function StudioRundownPanel() {
           Export
         </button>
       </div>
-      {message ? <p className="field__hint">{message}</p> : null}
+      {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
 
       {items.length === 0 ? (
         <div className="empty-state">
