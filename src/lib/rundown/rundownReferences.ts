@@ -3,12 +3,11 @@ import type { GraphicInstance } from '../../types/graphics';
 import type { PersonProfile } from '../../types/people';
 
 /**
- * Pure reference-collection helpers for Rundown (R6 export-readiness groundwork).
+ * Pure reference-collection helpers for Rundown.
  *
- * Not wired into the UI yet — they exist so future work can:
- * - export packs that bundle referenced **asset blobs** by id,
- * - diagnostics that warn about **missing assets** before a service,
- * - import that validates **template compatibility**.
+ * Selected-rundown export uses these to bundle referenced people/assets by id.
+ * Import preview uses the template ids for compatibility warnings; future
+ * diagnostics can also use them to warn about missing assets before a service.
  *
  * All pure: no I/O, no mutation.
  */
