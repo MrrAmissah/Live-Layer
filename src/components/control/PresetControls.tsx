@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { templateRegistry } from '../templates/registry';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useRundowns } from '../../hooks/useRundowns';
@@ -25,6 +25,7 @@ export default function PresetControls() {
 
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
+  const flashTimerRef = useRef<number | undefined>(undefined);
 
   const onSave = () => {
     const finalName = name.trim() || templateName(currentTemplateId);
@@ -33,9 +34,17 @@ export default function PresetControls() {
   };
 
   const flash = (text: string) => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
     setMessage(text);
-    window.setTimeout(() => setMessage(''), 2500);
+    flashTimerRef.current = window.setTimeout(() => {
+      setMessage('');
+      flashTimerRef.current = undefined;
+    }, 2500);
   };
+
+  useEffect(() => () => {
+    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+  }, []);
 
   const onAddToRundown = (preset: GraphicInstance) => {
     if (!rd.activeRundownId) {
@@ -106,7 +115,7 @@ export default function PresetControls() {
         </ul>
       )}
 
-      {message ? <p className="field__hint">{message}</p> : null}
+      {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
 
       <button type="button" className="preset-reset" onClick={clearLocalData}>
         Reset all local data
