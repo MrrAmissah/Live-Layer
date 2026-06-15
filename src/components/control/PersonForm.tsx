@@ -152,7 +152,7 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
         <span>Favorite</span>
       </label>
 
-      {error ? <div className="field__hint field__hint--error">{error}</div> : null}
+      {error ? <div className="field__hint field__hint--error" role="alert">{error}</div> : null}
 
       <div className="person-form__actions">
         <button type="button" className="btn btn--secondary btn--sm" onClick={handleSubmit} disabled={isSaving}>

@@ -84,7 +84,7 @@ export default function PeopleLibrary() {
       {notice ? <div className="field__hint">{notice}</div> : null}
 
       {status === 'loading' ? <div className="field__hint">Loading people...</div> : null}
-      {status === 'error' ? <div className="field__hint field__hint--error">Unable to load people.</div> : null}
+      {status === 'error' ? <div className="field__hint field__hint--error" role="alert">Unable to load people.</div> : null}
 
       {filteredPeople.length === 0 && status !== 'loading' ? (
         <div className="empty-state">
