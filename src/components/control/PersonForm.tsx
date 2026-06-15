@@ -138,7 +138,7 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
               Remove headshot
             </button>
           ) : null}
-          {isUploading ? <span className="field__hint">Saving image...</span> : null}
+          {isUploading ? <span className="field__hint" role="status" aria-live="polite">Saving image...</span> : null}
         </div>
       </div>
 

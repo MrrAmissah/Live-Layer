@@ -165,7 +165,7 @@ export default function BrandControls() {
 
         {error ? <div className="field__hint field__hint--error" role="alert">{error}</div> : null}
         {previewFailed ? <div className="field__hint field__hint--error" role="alert">Logo preview could not load; the live graphic will fall back to the monogram.</div> : null}
-        {isUploading ? <div className="field__hint">Saving image…</div> : null}
+        {isUploading ? <div className="field__hint" role="status" aria-live="polite">Saving image…</div> : null}
         <div className="field__hint">
           For OBS, use the same host and port for Control and Output so local images can load.
         </div>

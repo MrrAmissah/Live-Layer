@@ -92,8 +92,8 @@ export default function ImportPackPreview() {
         </div>
       ) : null}
 
-      {status === 'reading' ? <p className="field__hint">Reading pack…</p> : null}
-      {status === 'importing' ? <p className="field__hint">Importing pack…</p> : null}
+      {status === 'reading' ? <p className="field__hint" role="status" aria-live="polite">Reading pack…</p> : null}
+      {status === 'importing' ? <p className="field__hint" role="status" aria-live="polite">Importing pack…</p> : null}
 
       {status === 'error' && result ? (
         <div className="import-pack__error" role="alert">
