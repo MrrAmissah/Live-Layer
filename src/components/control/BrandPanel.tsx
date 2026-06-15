@@ -14,7 +14,7 @@ export default function BrandPanel() {
     <Panel>
       <SectionHeader
         kicker="Brand"
-        title="Theme"
+        title="Look"
         aside={
           <button type="button" className="btn btn--ghost btn--sm" onClick={resetTheme}>
             Reset
