@@ -25,6 +25,7 @@ export function useLiveTakeContext() {
   const draftValues = useLiveLayerStore((state) => state.draftValues);
   const theme = useLiveLayerStore((state) => state.theme);
   const layout = useLiveLayerStore((state) => state.layout);
+  const draftDurationSeconds = useLiveLayerStore((state) => state.durationSeconds);
 
   const rundown = rd.activeRundown;
   const rundownActive = Boolean(rundown);
@@ -33,6 +34,7 @@ export function useLiveTakeContext() {
 
   const takeDisabled = rundownActive && !selectedItem;
   const takeLabel = rundownActive ? 'Take selected' : 'Take live';
+  const durationSeconds = selectedItem ? selectedItem.graphic.durationSeconds : draftDurationSeconds;
 
   // The item snapshot's theme was cloned from the (full) draft theme, so the
   // cast is safe; TemplatePreview merges it over the registry theme regardless.
@@ -45,5 +47,5 @@ export function useLiveTakeContext() {
       }
     : { templateId: currentTemplateId, values: draftValues, theme, layout };
 
-  return { rundown, rundownActive, selectedItem, activeItemId, takeDisabled, takeLabel, preview };
+  return { rundown, rundownActive, selectedItem, activeItemId, takeDisabled, takeLabel, durationSeconds, preview };
 }

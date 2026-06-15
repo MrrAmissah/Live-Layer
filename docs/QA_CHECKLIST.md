@@ -225,6 +225,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Sticky/deck Take is relabeled **"Take selected"**; it's **disabled** when nothing is selected (use **Select first item**)
 - [ ] **Next ▶** / **◀ Previous** move the selection and update the preview — **`/output` does NOT change**
 - [ ] **Take selected** → `/output` shows the selected item; the **LIVE** badge appears on that item; top status shows **Live**
+- [ ] In dock mode, the sticky bar auto-hide readout matches the selected rundown item's captured duration
 - [ ] Press **Next** after Take → selection moves, but `/output` stays on the previously taken item until **Take selected** again
 - [ ] Taking does **not** auto-advance and does **not** mark done
 - [ ] Toggle **done** (✓) in the queue — manual only
