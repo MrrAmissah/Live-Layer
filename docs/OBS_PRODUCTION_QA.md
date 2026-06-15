@@ -17,6 +17,20 @@ production failure is mixing hosts:
 **Use `127.0.0.1` for both.** Open `/setup` → **Production readiness** to see this
 page's origin, copy the matching URLs, and run the capability checks.
 
+## Command preflight
+
+Before opening OBS:
+
+```bash
+npm run verify
+npm run dev -- --host 127.0.0.1 --port 4173
+npm run smoke:routes
+```
+
+`npm run verify` checks the `/output` isolation/transparency contract and the
+production build. `npm run smoke:routes` expects the dev server to be running and
+confirms `/control`, `/output`, `/setup`, and `/seed-test.html` return 200.
+
 ## OBS wiring
 
 1. **Output** — add a **Browser Source**: URL `http://127.0.0.1:4173/output`,
