@@ -292,7 +292,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] **Newer version:** hand-edit a pack's manifest `version` to `2`, re-zip → **blocked** with "made with a newer LiveLayer" message
 - [ ] **Wrong selected-pack shape:** hand-edit a selected-rundown pack to contain two rundowns → import fails before writing with "exactly one rundown"
 - [ ] **Missing asset warning:** delete an `assets/<id>` file from a pack zip → preview/import still work, warn, and the graphic falls back to placeholder/monogram
-- [ ] **Malformed-but-parseable pack:** hand-edit a valid manifest so one item is junk (missing `.graphic`, `templateId` a number, or `items` not an array), re-zip → preview renders without crashing; import either stays disabled by validation or fails with a clear "malformed" message before writing anything
+- [ ] **Malformed-but-parseable pack:** hand-edit a valid manifest so one item is junk (missing `.graphic`, `templateId` a number, `values` not an object, `theme` not an object, or `items` not an array), re-zip → preview renders without crashing; import either normalizes safe fields or fails with a clear "malformed" message before writing anything
 - [ ] **Preview-only proof:** after choosing a file but before clicking import, **no new rundown appears**, no new People, no new assets
 - [ ] Re-choosing the **same** file re-previews (no silent no-op)
 - [ ] Preview and import do **not** change `/output`, Take/Clear, or rundown operation
