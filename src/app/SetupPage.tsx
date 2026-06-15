@@ -23,7 +23,7 @@ function UrlRow({
         <button type="button" className="btn btn--secondary btn--sm" onClick={onCopy} aria-label={`Copy ${label}`}>
           Copy
         </button>
-        <button type="button" className="btn btn--ghost btn--sm" onClick={onOpen}>
+        <button type="button" className="btn btn--ghost btn--sm" onClick={onOpen} aria-label={`${openLabel} ${label}`}>
           {openLabel}
         </button>
       </div>
