@@ -95,26 +95,26 @@ More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
 
 ```bash
 npm install
-npm run dev        # Vite dev server on http://localhost:4173
+npm run dev        # Vite dev server on http://127.0.0.1:4173
 ```
 
-- Control: <http://localhost:4173/control>
-- Output: <http://localhost:4173/output>
-- Setup helper: <http://localhost:4173/setup>
+- Control: <http://127.0.0.1:4173/control>
+- Output: <http://127.0.0.1:4173/output>
+- Setup helper: <http://127.0.0.1:4173/setup>
 - Build: `npm run build` (runs `tsc` then `vite build`)
 - Verify: `npm run verify` (output isolation guard + production build)
 - Route smoke: with the dev server running, `npm run smoke:routes`
 
 ## OBS setup
 
-1. **Output** — add a **Browser Source**, URL `http://localhost:4173/output`,
+1. **Output** — add a **Browser Source**, URL `http://127.0.0.1:4173/output`,
    size `1920 × 1080`, transparent background. Place it above your camera/video.
 2. **Control** — add a **Custom Browser Dock** (`View → Docks → Custom Browser Docks`),
-   URL `http://localhost:4173/control`.
+   URL `http://127.0.0.1:4173/control`.
 3. Pick a graphic, edit the text, press **Take live**; **Clear** to remove it.
 
 Full steps: [`docs/OBS_SETUP.md`](docs/OBS_SETUP.md). Fast visual QA without OBS:
-open <http://localhost:4173/seed-test.html>.
+open <http://127.0.0.1:4173/seed-test.html>.
 
 ## Documentation
 
