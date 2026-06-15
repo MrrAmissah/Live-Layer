@@ -138,7 +138,8 @@ rundown in `/control`.
 
 `lib/export/importRundownPack.ts` implements `importSelectedRundownPack(file)`.
 It re-parses and re-validates the chosen file at confirm time, supports only
-`packType: "selected-rundown"`, blocks newer pack/schema versions, and stages a
+`packType: "selected-rundown"`, requires exactly one rundown in the pack, rejects
+malformed items before any write, blocks newer pack/schema versions, and stages a
 full in-memory remap before writing:
 
 1. old asset id → new asset id
