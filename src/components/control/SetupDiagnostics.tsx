@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
-import { deleteAsset, getAssetBlob, saveAsset } from '../../lib/assets/assetStore';
+import { deleteAsset, getAssetBlob, listAssets, saveAsset } from '../../lib/assets/assetStore';
 
 type CheckState = 'pending' | 'ok' | 'warn' | 'fail';
 interface Check {
@@ -13,6 +13,7 @@ interface Check {
 // Namespaced so it can never collide with a real crypto.randomUUID() asset id.
 const DIAG_ASSET_ID = '__livelayer_diag__';
 const STORAGE_ESTIMATE_LABEL = 'Browser storage space';
+const ASSET_HEALTH_LABEL = 'Uploaded asset originals';
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
@@ -89,6 +90,56 @@ async function probeStorageEstimate(): Promise<Check> {
   }
 }
 
+async function probeAssetHealth(): Promise<Check> {
+  if (typeof indexedDB === 'undefined' || indexedDB === null) {
+    return {
+      label: ASSET_HEALTH_LABEL,
+      state: 'fail',
+      detail: 'IndexedDB unavailable; uploaded logos and headshots cannot be checked.'
+    };
+  }
+
+  try {
+    const assets = await listAssets();
+    const uploaded = assets.filter((asset) => asset.source === 'uploaded' && asset.id !== DIAG_ASSET_ID);
+    if (uploaded.length === 0) {
+      return {
+        label: ASSET_HEALTH_LABEL,
+        state: 'ok',
+        detail: 'No uploaded assets stored yet.'
+      };
+    }
+
+    const reads = await Promise.all(uploaded.map(async (asset) => {
+      const blob = await getAssetBlob(asset.blobKey ?? asset.id);
+      return { asset, hasBlob: !!blob };
+    }));
+    const missing = reads.filter((item) => !item.hasBlob);
+    const withThumbnail = missing.filter((item) => !!item.asset.dataUrl).length;
+    const withoutFallback = missing.length - withThumbnail;
+
+    if (missing.length === 0) {
+      return {
+        label: ASSET_HEALTH_LABEL,
+        state: 'ok',
+        detail: `${uploaded.length} uploaded asset${uploaded.length === 1 ? '' : 's'} checked; originals are present.`
+      };
+    }
+
+    return {
+      label: ASSET_HEALTH_LABEL,
+      state: withoutFallback > 0 ? 'fail' : 'warn',
+      detail: `${missing.length} uploaded asset original${missing.length === 1 ? '' : 's'} missing. ${withThumbnail} can use thumbnail fallback; ${withoutFallback} will render a placeholder.`
+    };
+  } catch {
+    return {
+      label: ASSET_HEALTH_LABEL,
+      state: 'warn',
+      detail: 'Asset health check failed; run the storage test and verify an uploaded logo on /output.'
+    };
+  }
+}
+
 const PILL: Record<CheckState, string> = {
   pending: 'diag-pill--pending',
   ok: 'diag-pill--ok',
@@ -138,12 +189,13 @@ export default function SetupDiagnostics() {
       probeLocalStorage(),
       probeIndexedDB(),
       probeBroadcastChannel(),
-      { label: STORAGE_ESTIMATE_LABEL, state: 'pending', detail: 'Estimating local browser quota…' } satisfies Check
+      { label: STORAGE_ESTIMATE_LABEL, state: 'pending', detail: 'Estimating local browser quota...' } satisfies Check,
+      { label: ASSET_HEALTH_LABEL, state: 'pending', detail: 'Checking stored asset originals...' } satisfies Check
     ];
     setChecks(baseChecks);
-    probeStorageEstimate().then((storageCheck) => {
+    Promise.all([probeStorageEstimate(), probeAssetHealth()]).then(([storageCheck, assetHealthCheck]) => {
       if (!active) return;
-      setChecks([...baseChecks.slice(0, 3), storageCheck]);
+      setChecks([...baseChecks.slice(0, 3), storageCheck, assetHealthCheck]);
     });
     return () => {
       active = false;

@@ -27,6 +27,7 @@ needs this hands-on checklist before a release or demo.
 - [ ] `npm run check:output-isolation` passes (output isolation + transparency + asset-id message guard)
 - [ ] With `npm run dev` running, `npm run smoke:routes` returns 200 for `/control`, `/output`, `/setup`, and `/seed-test.html`
 - [ ] `npm run dev` starts; `/control`, `/output`, `/setup` all load
+- [ ] `/setup` → **Production readiness** shows **Uploaded asset originals** as OK, or explains thumbnail fallback / placeholder behavior for missing image blobs
 - [ ] No console errors on any route
 
 ## 2. Control — OBS dock mode (narrow width)
