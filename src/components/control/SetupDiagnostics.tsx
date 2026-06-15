@@ -12,6 +12,14 @@ interface Check {
 
 // Namespaced so it can never collide with a real crypto.randomUUID() asset id.
 const DIAG_ASSET_ID = '__livelayer_diag__';
+const STORAGE_ESTIMATE_LABEL = 'Browser storage space';
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1024) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
 
 function probeLocalStorage(): Check {
   const label = 'Save presets & settings (localStorage)';
@@ -44,6 +52,41 @@ function probeBroadcastChannel(): Check {
     state: ok ? 'ok' : 'warn',
     detail: ok ? 'Available' : 'Missing — falls back to localStorage signalling (still works same-origin)'
   };
+}
+
+async function probeStorageEstimate(): Promise<Check> {
+  if (!navigator.storage?.estimate) {
+    return {
+      label: STORAGE_ESTIMATE_LABEL,
+      state: 'warn',
+      detail: 'Estimate unavailable in this browser; keep asset packs modest and test before going live.'
+    };
+  }
+
+  try {
+    const estimate = await navigator.storage.estimate();
+    const usage = estimate.usage ?? 0;
+    const quota = estimate.quota ?? 0;
+    if (!quota) {
+      return {
+        label: STORAGE_ESTIMATE_LABEL,
+        state: 'warn',
+        detail: `Using ${formatBytes(usage)}; total quota unavailable.`
+      };
+    }
+    const ratio = usage / quota;
+    return {
+      label: STORAGE_ESTIMATE_LABEL,
+      state: ratio > 0.9 ? 'fail' : ratio > 0.75 ? 'warn' : 'ok',
+      detail: `Using ${formatBytes(usage)} of ${formatBytes(quota)} (${Math.round(ratio * 100)}%). Local assets, presets, people, and rundowns share this quota.`
+    };
+  } catch {
+    return {
+      label: STORAGE_ESTIMATE_LABEL,
+      state: 'warn',
+      detail: 'Storage estimate failed; local storage may still work, but run the image storage test.'
+    };
+  }
 }
 
 const PILL: Record<CheckState, string> = {
@@ -90,7 +133,21 @@ export default function SetupDiagnostics() {
 
   useEffect(() => {
     // Cheap, read-only-ish checks run automatically; the asset write-test is opt-in.
-    setChecks([probeLocalStorage(), probeIndexedDB(), probeBroadcastChannel()]);
+    let active = true;
+    const baseChecks = [
+      probeLocalStorage(),
+      probeIndexedDB(),
+      probeBroadcastChannel(),
+      { label: STORAGE_ESTIMATE_LABEL, state: 'pending', detail: 'Estimating local browser quota…' } satisfies Check
+    ];
+    setChecks(baseChecks);
+    probeStorageEstimate().then((storageCheck) => {
+      if (!active) return;
+      setChecks([...baseChecks.slice(0, 3), storageCheck]);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const flashCopyHint = (text: string) => {

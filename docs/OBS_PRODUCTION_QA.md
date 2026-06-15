@@ -46,7 +46,8 @@ and `/seed-test.html` return 200.
 
 ## Production smoke test (run in order)
 
-1. `/setup` → **Run storage test** → localStorage, IndexedDB, BroadcastChannel all OK.
+1. `/setup` → **Run storage test** → localStorage, IndexedDB, BroadcastChannel, and
+   browser storage space are OK or clearly explained.
 2. `/control` → **Brand → Upload logo** → "Image saved locally".
 3. **Library → People → Add person** with a headshot → save.
 4. **Apply** the person to the Lower Third → name/role/headshot fill.
