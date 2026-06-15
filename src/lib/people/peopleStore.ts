@@ -14,7 +14,9 @@ function readPeopleSync(): PersonProfile[] {
     const raw = localStorage.getItem(PEOPLE_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map(sanitizePerson).filter((person): person is PersonProfile => !!person)
+      : [];
   } catch {
     return [];
   }
@@ -44,6 +46,28 @@ function sortPeople(people: PersonProfile[]) {
     const bTime = b.lastUsedAt ?? b.updatedAt;
     return bTime.localeCompare(aTime);
   });
+}
+
+function sanitizePerson(value: unknown): PersonProfile | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const person = value as Partial<PersonProfile>;
+  if (typeof person.id !== 'string') return null;
+  if (typeof person.displayName !== 'string' || !person.displayName.trim()) return null;
+  const now = new Date().toISOString();
+  return {
+    id: person.id,
+    displayName: person.displayName.trim(),
+    title: typeof person.title === 'string' && person.title.trim() ? person.title.trim() : undefined,
+    churchName: typeof person.churchName === 'string' && person.churchName.trim() ? person.churchName.trim() : undefined,
+    subtitle: typeof person.subtitle === 'string' && person.subtitle.trim() ? person.subtitle.trim() : undefined,
+    notes: typeof person.notes === 'string' && person.notes.trim() ? person.notes.trim() : undefined,
+    headshotAssetId: typeof person.headshotAssetId === 'string' && person.headshotAssetId.trim() ? person.headshotAssetId.trim() : undefined,
+    logoAssetId: typeof person.logoAssetId === 'string' && person.logoAssetId.trim() ? person.logoAssetId.trim() : undefined,
+    favorite: Boolean(person.favorite),
+    lastUsedAt: typeof person.lastUsedAt === 'string' ? person.lastUsedAt : undefined,
+    createdAt: typeof person.createdAt === 'string' ? person.createdAt : now,
+    updatedAt: typeof person.updatedAt === 'string' ? person.updatedAt : now
+  };
 }
 
 export async function listPeople(): Promise<PersonProfile[]> {
@@ -79,7 +103,7 @@ export async function importPeople(profiles: PersonProfile[]): Promise<PersonPro
   if (!profiles.length) return [];
   const people = readPeopleSync();
   const existingIds = new Set(people.map((person) => person.id));
-  const fresh = profiles.filter((person) => person.id && !existingIds.has(person.id));
+  const fresh = profiles.map(sanitizePerson).filter((person): person is PersonProfile => !!person && !existingIds.has(person.id));
   if (!fresh.length) return [];
   writePeopleSync(sortPeople([...fresh, ...people]));
   return fresh;
