@@ -3,7 +3,10 @@ import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
 const STORAGE_KEYS = {
   presets: 'livelayer.presets',
   brand: 'livelayer.brand',
-  recent: 'livelayer.recent'
+  recent: 'livelayer.recent',
+  scriptureCache: 'livelayer.scriptureCache',
+  chapterVerseCache: 'livelayer.chapterVerseCache',
+  lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
 const DEFAULT_THEME: TemplateDefinition['theme'] = {

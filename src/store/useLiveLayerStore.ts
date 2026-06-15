@@ -6,6 +6,7 @@ import type { LayoutSettings } from '../types/layout';
 import { clearAllData, loadBrandOverrides, loadPresets, loadRecentGraphics, saveBrandOverrides, savePresets, saveRecentGraphics } from '../lib/storage';
 import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
+import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
 
 interface LiveLayerState {
@@ -97,6 +98,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     clearLocalData: () =>
       set(() => {
         clearAllData();
+        clearAllRundowns();
         clearAllAssets().catch(() => undefined);
         clearPeople().catch(() => undefined);
         return {
