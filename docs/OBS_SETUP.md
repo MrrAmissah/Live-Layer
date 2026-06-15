@@ -1,5 +1,11 @@
 # OBS Setup
 
+> **Verify your setup:** open `/setup` → **Production readiness** for this page's
+> origin, copy-able control/output URLs, and localStorage / IndexedDB /
+> BroadcastChannel checks. For the full end-to-end run, see
+> [`OBS_PRODUCTION_QA.md`](OBS_PRODUCTION_QA.md). For stable testing, serve the
+> production build (`npm run build`, then a static server / `npm run preview`).
+
 ## Same-origin rule for local assets
 
 Use the exact same origin for the control dock and output source. Uploaded
@@ -58,5 +64,5 @@ origins, and uploaded logos may not resolve in `/output`.
 - Test the `/control` dock at a narrow width (~340px); Take/Clear must stay
   reachable.
 - For fast QA without OBS, use `http://127.0.0.1:4173/seed-test.html` — it
-  drives a real `/output` over simulated backdrops with long-content, fade, and
-  safe-area toggles.
+  drives a real `/output` over simulated backdrops with toggles for long content,
+  **layout size**, **accent colour**, **dynamic date/time**, fade, and safe-area guides.

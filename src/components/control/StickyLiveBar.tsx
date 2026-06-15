@@ -1,5 +1,6 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { LastAction } from './StatusBadge';
+import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 
 interface StickyLiveBarProps {
   onTake: () => void;
@@ -16,6 +17,7 @@ interface StickyLiveBarProps {
  */
 export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiveBarProps) {
   const durationSeconds = useLiveLayerStore((state) => state.durationSeconds);
+  const { takeLabel, takeDisabled } = useLiveTakeContext();
 
   return (
     <div className="dock-livebar" data-state={lastAction}>
@@ -25,9 +27,9 @@ export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiv
         </span>
       </div>
       <div className="dock-livebar__actions">
-        <button type="button" className="take-btn dock-livebar__take" onClick={onTake}>
+        <button type="button" className="take-btn dock-livebar__take" onClick={onTake} disabled={takeDisabled}>
           <span className="take-btn__icon" aria-hidden>▶</span>
-          Take live
+          {takeLabel}
         </button>
         <button type="button" className="clear-btn dock-livebar__clear" onClick={onClear}>
           Clear

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { templateRegistry } from '../templates/registry';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useRundowns } from '../../hooks/useRundowns';
+import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
+import type { GraphicInstance } from '../../types/graphics';
 
 function templateName(templateId: string): string {
   return templateRegistry.find((item) => item.id === templateId)?.name ?? templateId;
@@ -18,13 +21,33 @@ export default function PresetControls() {
   const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
   const clearLocalData = useLiveLayerStore((state) => state.clearLocalData);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
+  const rd = useRundowns();
 
   const [name, setName] = useState('');
+  const [message, setMessage] = useState('');
 
   const onSave = () => {
     const finalName = name.trim() || templateName(currentTemplateId);
     savePreset(finalName);
     setName('');
+  };
+
+  const flash = (text: string) => {
+    setMessage(text);
+    window.setTimeout(() => setMessage(''), 2500);
+  };
+
+  const onAddToRundown = (preset: GraphicInstance) => {
+    if (!rd.activeRundownId) {
+      flash('Create or select a rundown first (Library → Rundowns).');
+      return;
+    }
+    if ((rd.activeRundown?.items.length ?? 0) >= MAX_ITEMS_PER_RUNDOWN) {
+      flash(`Rundown is full — max ${MAX_ITEMS_PER_RUNDOWN} items.`);
+      return;
+    }
+    const item = rd.addSavedGraphicToRundown(preset);
+    flash(item ? `Added “${item.title}” to ${rd.activeRundown?.name}` : 'Could not add item.');
   };
 
   return (
@@ -64,6 +87,14 @@ export default function PresetControls() {
                 <button
                   type="button"
                   className="btn btn--ghost btn--xs"
+                  onClick={() => onAddToRundown(preset)}
+                  title="Add to active rundown"
+                >
+                  + Rundown
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--xs"
                   onClick={() => removePreset(preset.id)}
                   aria-label={`Remove ${preset.presetName || templateName(preset.templateId)}`}
                 >
@@ -74,6 +105,8 @@ export default function PresetControls() {
           ))}
         </ul>
       )}
+
+      {message ? <p className="field__hint">{message}</p> : null}
 
       <button type="button" className="preset-reset" onClick={clearLocalData}>
         Reset all local data

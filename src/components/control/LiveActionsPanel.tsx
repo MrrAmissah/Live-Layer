@@ -4,6 +4,8 @@ import StatusBadge, { type LastAction } from './StatusBadge';
 import DurationControl from './DurationControl';
 import LastActionLine from './LastActionLine';
 import LayoutControls from './LayoutControls';
+import StudioRundownPanel from './StudioRundownPanel';
+import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 
 interface LiveActionsPanelProps {
   onTake: () => void;
@@ -14,24 +16,33 @@ interface LiveActionsPanelProps {
 
 /**
  * Operator action deck (studio mode). The Take button is the loudest element on
- * the surface by design; Clear, the auto-hide duration, current state, and the
- * last action sit directly beneath it so the whole live decision is one glance.
+ * the surface by design. In rundown mode it becomes "Take selected" (mode-aware
+ * via ControlPage.onTake) and the rundown queue replaces the draft layout/
+ * duration controls; in ad-hoc mode it's the draft.
  */
 export default function LiveActionsPanel({ onTake, onClear, lastAction, lastTakenAt }: LiveActionsPanelProps) {
+  const { takeLabel, takeDisabled, rundownActive } = useLiveTakeContext();
+
   return (
     <Panel>
       <SectionHeader kicker="Live" title="On-air actions" aside={<StatusBadge status={lastAction} />} />
       <div className="ll-panel__body live-deck">
-        <button type="button" className="take-btn" onClick={onTake}>
+        <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled}>
           <span className="take-btn__icon" aria-hidden>▶</span>
-          Take live
+          {takeLabel}
         </button>
         <button type="button" className="clear-btn" onClick={onClear}>
           Clear live graphic
         </button>
 
-        <LayoutControls />
-        <DurationControl />
+        {rundownActive ? (
+          <StudioRundownPanel />
+        ) : (
+          <>
+            <LayoutControls />
+            <DurationControl />
+          </>
+        )}
 
         <LastActionLine lastAction={lastAction} lastTakenAt={lastTakenAt} />
       </div>

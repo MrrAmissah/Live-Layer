@@ -80,6 +80,17 @@ The Edit tab only shows helpers relevant to the selected graphic:
 The Live tab owns beginner-safe layout choices: Size, Position, Density, and Safe
 margin. There is no freeform drag/resize editor.
 
+### Edit target — draft vs rundown item
+
+Every content/layout/duration editor reads & writes through one abstraction
+(`useEditTarget`). With **no rundown active** it edits the ad-hoc **draft** (the
+default). With an **active rundown and a selected item**, the editors target that
+**item's snapshot** instead — an "Editing rundown item" banner makes this explicit,
+the ad-hoc draft is preserved, and (in rundown mode) the Edit surface gains the
+layout/duration controls so it's the full item editor. Editing a *live* item updates
+the preview only; **Take selected** re-fires it. Brand colours/logo stay global (they
+don't alter a selected item's captured theme). See `RUNDOWN_QUEUE_SPEC.md`.
+
 ### Plain language
 
 The main flow avoids jargon. Use "Choose a graphic", "Edit the text", "Take it
@@ -93,6 +104,12 @@ A single responsive CSS grid (`.studio-grid`) for roomy widths. Three columns at
 **on-air actions** + **brand** + **library** (right). Panels stretch to fill
 their cells so leftover space becomes panel surface, never dead black gaps. This
 is the screenshot/portfolio view and is deliberately information-dense.
+
+When a rundown is active, the **On-air actions** column hosts the richer
+`StudioRundownPanel` (R5): the full ordered list with reorder/duplicate/delete/
+done and selected/LIVE/done badges, plus Previous/Next — so the operator manages
+and runs the queue without returning to Library. Take/Clear stay the deck buttons
+above it (one mode-aware Take). The dock keeps the compact `RundownQueue`.
 
 ## Component map
 

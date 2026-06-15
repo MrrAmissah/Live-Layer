@@ -1,32 +1,48 @@
-import { useLiveLayerStore } from '../../../store/useLiveLayerStore';
 import TemplatePreview from '../../templates/TemplatePreview';
 import TemplateFields from '../TemplateFields';
 import StepIntro from './StepIntro';
 import DraftPreviewNote from '../DraftPreviewNote';
+import EditTargetBanner from '../EditTargetBanner';
+import LayoutControls from '../LayoutControls';
+import DurationControl from '../DurationControl';
+import { useEditTarget } from '../../../hooks/useEditTarget';
 
 interface EditStepProps {
   onNext: () => void;
 }
 
-/** Step 2 — edit the graphic's text, with a live thumbnail above the fields. */
+/**
+ * Step 2 — edit the content. In rundown mode the editors target the SELECTED item
+ * (text + layout + duration become the full item editor here, with the ad-hoc
+ * draft preserved); in ad-hoc mode it's the draft (layout/duration stay on the
+ * Live tab). The preview always reflects the edit target.
+ */
 export default function EditStep({ onNext }: EditStepProps) {
-  const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
-  const draftValues = useLiveLayerStore((state) => state.draftValues);
-  const theme = useLiveLayerStore((state) => state.theme);
-  const layout = useLiveLayerStore((state) => state.layout);
-  const resetDraft = useLiveLayerStore((state) => state.resetDraft);
+  const { templateId, values, theme, layout, isRundownItem, resetDraft } = useEditTarget();
 
   return (
     <div className="step">
-      <StepIntro step="2" title="Edit the text" hint="Change the text. The preview updates as you type." />
+      <StepIntro
+        step="2"
+        title={isRundownItem ? 'Edit the item' : 'Edit the text'}
+        hint={isRundownItem ? 'Editing the selected rundown item — the preview updates as you type.' : 'Change the text. The preview updates as you type.'}
+      />
+      <EditTargetBanner />
       <div className="step-preview step-preview--sm">
-        <TemplatePreview templateId={currentTemplateId} values={draftValues} theme={theme} layout={layout} showControls={false} />
+        <TemplatePreview templateId={templateId} values={values} theme={theme} layout={layout} showControls={false} />
       </div>
-      <DraftPreviewNote />
+      {isRundownItem ? null : <DraftPreviewNote />}
       <TemplateFields />
-      <button type="button" className="step-link" onClick={resetDraft}>
-        Reset text to default
-      </button>
+      {isRundownItem ? (
+        <>
+          <LayoutControls />
+          <DurationControl />
+        </>
+      ) : (
+        <button type="button" className="step-link" onClick={resetDraft}>
+          Reset text to default
+        </button>
+      )}
       <button type="button" className="step-next" onClick={onNext}>
         Next: Go live →
       </button>

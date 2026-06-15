@@ -1,4 +1,3 @@
-import { useLiveLayerStore } from '../../../store/useLiveLayerStore';
 import type { LastAction } from '../StatusBadge';
 import TemplatePreview from '../../templates/TemplatePreview';
 import DurationControl from '../DurationControl';
@@ -6,6 +5,8 @@ import LastActionLine from '../LastActionLine';
 import StepIntro from './StepIntro';
 import LayoutControls from '../LayoutControls';
 import DraftPreviewNote from '../DraftPreviewNote';
+import RundownQueue from '../RundownQueue';
+import { useLiveTakeContext } from '../../../hooks/useLiveTakeContext';
 
 interface LiveStepProps {
   lastAction: LastAction;
@@ -14,24 +15,36 @@ interface LiveStepProps {
 
 /**
  * Step 3 — the production monitor and the live settings. Take/Clear live in the
- * always-visible sticky bar below (that bar is this step's Take too), so this
- * view focuses on a big preview, the auto-hide setting, and the live status.
+ * always-visible sticky bar below. In rundown mode the preview shows the SELECTED
+ * item (what Take fires) and the queue controls replace the draft layout/duration
+ * controls; in ad-hoc mode it's the draft.
  */
 export default function LiveStep({ lastAction, lastTakenAt }: LiveStepProps) {
-  const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
-  const draftValues = useLiveLayerStore((state) => state.draftValues);
-  const theme = useLiveLayerStore((state) => state.theme);
-  const layout = useLiveLayerStore((state) => state.layout);
+  const { preview, rundownActive } = useLiveTakeContext();
 
   return (
     <div className="step">
-      <StepIntro step="3" title="Take it live" hint="Check the draft below, then press Take to send it live. Clear removes what's live." />
+      <StepIntro
+        step="3"
+        title={rundownActive ? 'Run the rundown' : 'Take it live'}
+        hint={
+          rundownActive
+            ? 'Select an item, check the preview, then press Take selected below.'
+            : "Check the draft below, then press Take to send it live. Clear removes what's live."
+        }
+      />
       <div className="step-preview step-preview--lg">
-        <TemplatePreview templateId={currentTemplateId} values={draftValues} theme={theme} layout={layout} showControls={false} />
+        <TemplatePreview templateId={preview.templateId} values={preview.values} theme={preview.theme} layout={preview.layout} showControls={false} />
       </div>
-      <DraftPreviewNote />
-      <LayoutControls />
-      <DurationControl />
+      {rundownActive ? (
+        <RundownQueue />
+      ) : (
+        <>
+          <DraftPreviewNote />
+          <LayoutControls />
+          <DurationControl />
+        </>
+      )}
       <LastActionLine lastAction={lastAction} lastTakenAt={lastTakenAt} />
     </div>
   );

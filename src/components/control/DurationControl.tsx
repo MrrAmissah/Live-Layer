@@ -1,14 +1,13 @@
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useEditTarget } from '../../hooks/useEditTarget';
 
 const DURATIONS = [0, 3, 6, 10, 15];
 
 /**
- * Auto-hide duration as a segmented control (Off / 3 / 6 / 10 / 15s). Shared by
- * the studio live deck and the dock Live step; reads/writes the store directly.
+ * Auto-hide duration as a segmented control (Off / 3 / 6 / 10 / 15s). Reads &
+ * writes through the edit target — the draft, or the selected rundown item (R4).
  */
 export default function DurationControl() {
-  const durationSeconds = useLiveLayerStore((state) => state.durationSeconds);
-  const setDurationSeconds = useLiveLayerStore((state) => state.setDurationSeconds);
+  const { durationSeconds, setDuration: setDurationSeconds } = useEditTarget();
 
   return (
     <div className="duration">

@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage } from '../lib/realtime';
 import { useMediaQuery } from '../lib/useMediaQuery';
+import {
+  getActiveRundownId,
+  getRundown,
+  getSelectedItem,
+  setActiveItem,
+  cloneRundownGraphic
+} from '../lib/rundown/rundownStore';
 import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 import type { LastAction } from '../components/control/StatusBadge';
@@ -76,6 +83,22 @@ export default function ControlPage() {
   }, []);
 
   const onTake = () => {
+    // Rundown mode: Take fires the SELECTED item via the same realtime path.
+    // Never falls through to the ad-hoc draft — active rundown + no selection
+    // is a no-op, so the operator can't accidentally air the draft.
+    const activeRundownId = getActiveRundownId();
+    if (activeRundownId) {
+      const item = getSelectedItem(getRundown(activeRundownId));
+      if (item) {
+        channelRef.current?.post(createMessage('SHOW_GRAPHIC', cloneRundownGraphic(item.graphic)));
+        setActiveItem(activeRundownId, item.id);
+        setLastAction('taken');
+        setLastTakenAt(Date.now());
+      }
+      return;
+    }
+
+    // --- ad-hoc draft Take (unchanged when no rundown is active) ---
     const { currentTemplateId, draftValues, theme, layout, durationSeconds, addRecent } = useLiveLayerStore.getState();
     const instance = buildGraphicInstance(currentTemplateId, draftValues, theme, layout, durationSeconds);
     channelRef.current?.post(createMessage('SHOW_GRAPHIC', instance));
@@ -87,6 +110,9 @@ export default function ControlPage() {
   const onClear = () => {
     channelRef.current?.post(createMessage('CLEAR_ALL', {}));
     setLastAction('cleared');
+    // In rundown mode, Clear also drops the live cursor (does not mark done).
+    const activeRundownId = getActiveRundownId();
+    if (activeRundownId) setActiveItem(activeRundownId, undefined);
   };
 
   if (!isStudio) {

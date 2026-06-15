@@ -1,28 +1,23 @@
 import { templateRegistry } from '../templates/registry';
 import TemplatePreview from '../templates/TemplatePreview';
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
 import DraftPreviewNote from './DraftPreviewNote';
+import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 
 /**
- * Production monitor panel. Frames the preview-parity renderer (same stage,
- * scale, theme, and safe areas as /output) and labels what's loaded. The
- * background + safe-area controls live inside TemplatePreview; this panel only
- * supplies the surrounding chrome — the parity call-site stays untouched.
+ * Production monitor panel. Frames the preview-parity renderer. In rundown mode
+ * it shows the SELECTED item (what the deck Take fires), so the studio preview
+ * always matches what Take will air; otherwise the ad-hoc draft.
  */
 export default function PreviewPanel() {
-  const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
-  const draftValues = useLiveLayerStore((state) => state.draftValues);
-  const theme = useLiveLayerStore((state) => state.theme);
-  const layout = useLiveLayerStore((state) => state.layout);
-
-  const template = templateRegistry.find((item) => item.id === currentTemplateId);
+  const { preview, rundownActive } = useLiveTakeContext();
+  const template = templateRegistry.find((item) => item.id === preview.templateId);
 
   return (
     <Panel className="ll-fill" flush>
       <SectionHeader
-        kicker="Draft preview"
+        kicker={rundownActive ? 'Selected item' : 'Draft preview'}
         title={template?.name ?? 'Preview'}
         aside={
           <div className="preview-tags">
@@ -32,11 +27,13 @@ export default function PreviewPanel() {
         }
       />
       <div className="ll-panel__body preview-panel__body">
-        <TemplatePreview templateId={currentTemplateId} values={draftValues} theme={theme} layout={layout} />
+        <TemplatePreview templateId={preview.templateId} values={preview.values} theme={preview.theme} layout={preview.layout} />
       </div>
-      <div className="preview-foot">
-        <DraftPreviewNote />
-      </div>
+      {rundownActive ? null : (
+        <div className="preview-foot">
+          <DraftPreviewNote />
+        </div>
+      )}
     </Panel>
   );
 }

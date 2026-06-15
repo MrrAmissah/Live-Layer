@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import Panel from '../components/control/Panel';
 import SectionHeader from '../components/control/SectionHeader';
+import SetupDiagnostics from '../components/control/SetupDiagnostics';
 
 function UrlRow({
   url,
@@ -122,19 +123,22 @@ export default function SetupPage() {
             </Panel>
           </div>
 
-          <Panel className="setup-aside">
-            <SectionHeader kicker="Checklist" title="Quick start" />
-            <div className="ll-panel__body setup-body">
-              <ol className="setup-steps">
-                <li>Open <code className="setup-kbd">/setup</code> to copy the OBS URLs.</li>
-                <li>Add <code className="setup-kbd">/control</code> as an OBS dock.</li>
-                <li>Add <code className="setup-kbd">/output</code> as a browser source.</li>
-                <li>Pick a template, edit values, press Take.</li>
-                <li>Use the debug output to verify transparency.</li>
-              </ol>
-              <p className="setup-statusline">{copyHint || 'Copy either URL and open it to verify the connection.'}</p>
-            </div>
-          </Panel>
+          <div className="setup-col">
+            <Panel className="setup-aside">
+              <SectionHeader kicker="Checklist" title="Quick start" />
+              <div className="ll-panel__body setup-body">
+                <ol className="setup-steps">
+                  <li>Open <code className="setup-kbd">/setup</code> to copy the OBS URLs.</li>
+                  <li>Add <code className="setup-kbd">/control</code> as an OBS dock.</li>
+                  <li>Add <code className="setup-kbd">/output</code> as a browser source.</li>
+                  <li>Pick a template, edit values, press Take.</li>
+                  <li>Use the debug output to verify transparency.</li>
+                </ol>
+                <p className="setup-statusline">{copyHint || 'Copy either URL and open it to verify the connection.'}</p>
+              </div>
+            </Panel>
+            <SetupDiagnostics />
+          </div>
         </div>
       </div>
     </div>

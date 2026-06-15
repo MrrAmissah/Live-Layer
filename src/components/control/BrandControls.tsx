@@ -3,6 +3,7 @@ import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { saveUploadedAsset } from '../../lib/assets/assetStore';
 import { validateImageFile } from '../../lib/assets/imageProcessing';
 import { useAsset } from '../../hooks/useAsset';
+import { useEditTarget } from '../../hooks/useEditTarget';
 import { GFX_DEFAULT_ACCENT_2 } from '../graphics/stage';
 
 function Swatch({
@@ -96,8 +97,13 @@ export default function BrandControls() {
     setError(null);
   };
 
+  const { isRundownItem } = useEditTarget();
+
   return (
     <div className="brand-grid">
+      {isRundownItem ? (
+        <p className="field__hint">Brand changes apply to new graphics, not the selected rundown item (its colours/logo were captured when it was added).</p>
+      ) : null}
       <div className="brand-grid__swatches">
         <Swatch label="Main colour" value={theme.accentColor} onChange={(value) => setTheme({ accentColor: value })} />
         <Swatch label="Accent" value={theme.accent2Color ?? GFX_DEFAULT_ACCENT_2} onChange={(value) => setTheme({ accent2Color: value })} />
