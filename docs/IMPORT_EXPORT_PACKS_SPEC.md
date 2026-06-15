@@ -1,9 +1,9 @@
 # Import / Export Packs — Design Spec
 
-Status: **IE1–IE3 shipped** (pure helpers + Selected-Rundown export + import
-**preview**); IE4 safe import next. Designs how LiveLayer backs up and moves data
-between machines (it's local-first, so this is the only way to share or migrate).
-Import so far is **read-only preview** — no data is written until IE4.
+Status: **IE1–IE4 shipped** (pure helpers + Selected-Rundown export + import
+preview + safe non-destructive import). Designs how LiveLayer backs up and moves
+data between machines (it's local-first, so this is the only way to share or
+migrate).
 
 > **Top-line invariant:** import/export is pure **control-surface data movement** —
 > it reads/writes `localStorage` + IndexedDB only. It **never** touches `/output`,
@@ -85,9 +85,10 @@ API keys, machine details, file paths.
 - **Retrieve:** `getAssetBlob(id)` per id → add to the zip as `assets/<id>.<ext>`
   (ext from `LocalAsset.mimeType`); add the `LocalAsset` metadata to `contents.assets`.
 - **Missing blob → warn + skip, never fail.** The asset is omitted from the zip; its
-  metadata may still be included, and on import the referencing record keeps a
-  dangling id → degrades to the existing **monogram/placeholder** fallback. Export
-  reports a "N assets missing" warning.
+  metadata may still be included. On IE4 import, missing-blob references are cleared
+  during ID remap so the imported graphic degrades to the existing
+  **monogram/placeholder** fallback instead of accidentally pointing at an existing
+  local asset with the old id. Export reports a "N assets missing" warning.
 - **Dedup:** **not** in IE2–IE4 — remap every asset to a new id unconditionally
   (simplest, correct, non-destructive); re-importing the same pack twice duplicates
   blobs, which is acceptable. Content-hash dedup (SHA-256 of the blob) is an **IE5
@@ -129,7 +130,29 @@ occurrence:
 ```
 
 Imported records get fresh ids, so they coexist with existing data; `activeItemId`
-should be cleared on import (nothing is live on import).
+is cleared on import (nothing is live on import), `selectedItemId` is set to the
+first imported item when available, and the imported rundown becomes the active
+rundown in `/control`.
+
+### Safe import (IE4) — current behavior
+
+`lib/export/importRundownPack.ts` implements `importSelectedRundownPack(file)`.
+It re-parses and re-validates the chosen file at confirm time, supports only
+`packType: "selected-rundown"`, blocks newer pack/schema versions, and stages a
+full in-memory remap before writing:
+
+1. old asset id → new asset id
+2. old person id → new person id
+3. old rundown id → new rundown id
+4. old item id → new item id
+5. old graphic id → new graphic id
+
+Write order is assets → people → rundown. If a later write fails, IE4 attempts a
+best-effort rollback of the new ids it already wrote. URL assets are recreated as
+URL metadata without fetching the URL. Uploaded assets with bundled files are
+restored to IndexedDB as new uploaded assets. Referenced Saved Graphics are **not**
+imported as standalone Library entries; rundown items remain snapshots and
+`source.presetId` stays informational only.
 
 ### Import preview (IE3) — required before any write
 
@@ -195,19 +218,23 @@ against the registry. Operator **confirms** before IE4 writes anything.
   `findMissingAssetFiles` vs the zip). Soft issues are **warnings, not blockers**
   (unsupported pack type, unsupported template, missing asset file, empty rundown,
   url-only assets). UI: **Library → Import** tab (`ImportPackPreview.tsx`) — choose
-  a `.livelayerpack`, see the summary + warnings; the Import button is **disabled
-  ("Import comes next (IE4)")**. **Strictly read-only** — no localStorage, no
+  a `.livelayerpack`, see the summary + warnings. **Strictly read-only** — no localStorage, no
   IndexedDB, no realtime, no `/output`; pack strings are React-escaped (never
   injected as HTML) and length-capped.
-- **IE4 — Safe import.** Restore asset blobs (new ids), remap references, import
-  records with new ids, confirm-gated, non-destructive.
+- **IE4 — Safe import. ✅ Done.** `lib/export/importRundownPack.ts` restores
+  bundled asset blobs to IndexedDB with new ids, recreates URL asset metadata
+  without fetching, remaps people and every known `GraphicInstance` asset/person
+  reference, imports a new rundown, clears `activeItemId`, selects the first item,
+  and sets the imported rundown active. Confirm-gated and non-destructive; no
+  `/output`, realtime, Take/Clear, Saved Graphics import, replace mode, or Full
+  Backup restore.
 - **IE5 — Full Backup / Restore.** Export all; restore with confirmation; optional
   asset content-hash dedup; the **merge vs replace** decision (open question).
 - **IE6 — Polish / QA.** Error states, large-file/memory handling, partial-failure
   recovery, docs, manual tests.
 
-**Ship first: IE1 + IE2** (export a rundown), then IE3 + IE4 (import). Full Backup
-(IE5) after the rundown round-trip is proven.
+**Ship order:** IE1 + IE2 (export a rundown), IE3 + IE4 (preview + safe import).
+Full Backup (IE5) comes after the rundown round-trip is manually proven.
 
 ## Risks & mitigations
 
@@ -225,15 +252,10 @@ against the registry. Operator **confirms** before IE4 writes anything.
 
 ## Open questions (for the user — not pre-decided)
 
-1. **Rundown import + Saved Graphics:** does importing a rundown also add its
-   referenced Saved Graphics as standalone Library entries, or only the rundown's
-   self-contained snapshots? (Snapshots are independent; `source.presetId`
-   provenance would dangle → "snapshots only, provenance informational" is the clean
-   default — but it's a product call.)
-2. **Full Backup restore — merge or replace?** Merge (remap, keep both) is
+1. **Full Backup restore — merge or replace?** Merge (remap, keep both) is
    consistent with everything else; replace (wipe + restore) is what people often
    expect from "restore a backup." Recommend offering **both** with replace behind a
    strong confirm, but confirm the default.
-3. Pack file extension/MIME — `.livelayerpack` (ZIP) confirmed?
-4. Should People/Assets and Saved Graphics packs ship at all, or is Rundown + Full
+2. Pack file extension/MIME — `.livelayerpack` (ZIP) confirmed?
+3. Should People/Assets and Saved Graphics packs ship at all, or is Rundown + Full
    Backup enough for now?

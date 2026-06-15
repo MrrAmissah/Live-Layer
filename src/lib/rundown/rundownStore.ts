@@ -268,6 +268,24 @@ export function setActiveRundown(id: string | undefined): void {
   write({ ...read(), activeRundownId: id });
 }
 
+/**
+ * Append a fully-remapped imported rundown and make it active by default.
+ * The caller owns ID generation/remapping; this store only guards caps and
+ * refuses to overwrite an existing rundown id.
+ */
+export function importRundown(rundown: Rundown, makeActive = true): Rundown | undefined {
+  const state = read();
+  if (state.rundowns.length >= MAX_RUNDOWNS) return undefined;
+  if (state.rundowns.some((item) => item.id === rundown.id)) return undefined;
+  const nextState: RundownStoreState = {
+    ...state,
+    rundowns: [clone(rundown), ...state.rundowns],
+    activeRundownId: makeActive ? rundown.id : state.activeRundownId
+  };
+  write(nextState);
+  return getRundown(rundown.id);
+}
+
 // --- item CRUD --------------------------------------------------------------
 
 /** Add an item, or `undefined` if the rundown is missing or at the item cap. */

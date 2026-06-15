@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { parseLiveLayerPackFile, type ImportPackPreviewResult } from '../../lib/export/importPackPreview';
+import { importSelectedRundownPack, type ImportRundownResult } from '../../lib/export/importRundownPack';
 
-type PreviewStatus = 'idle' | 'reading' | 'ready' | 'error';
+type PreviewStatus = 'idle' | 'reading' | 'ready' | 'importing' | 'imported' | 'error';
 
 /** Format an ISO timestamp for display; fall back to the raw string. */
 function formatCreatedAt(iso?: string): string {
@@ -22,16 +23,16 @@ function formatCreatedAt(iso?: string): string {
 }
 
 /**
- * Import **preview** (IE3) — read-only. Lets the operator choose a
- * `.livelayerpack`, parses + validates it locally, and shows what *would* be
- * imported. Nothing is written: no localStorage, no IndexedDB, no realtime, no
- * `/output`. Safe import (writing records + asset blobs) lands in IE4; the
- * Import button here is intentionally disabled.
+ * Import preview + confirm (IE3/IE4). Choosing a pack is read-only; clicking
+ * confirm calls the safe importer, which writes only local control data and never
+ * posts realtime messages or touches `/output`.
  */
 export default function ImportPackPreview() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<PreviewStatus>('idle');
+  const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ImportPackPreviewResult | null>(null);
+  const [importResult, setImportResult] = useState<ImportRundownResult | null>(null);
 
   const onChoose = () => inputRef.current?.click();
 
@@ -41,18 +42,32 @@ export default function ImportPackPreview() {
     event.target.value = '';
     if (!file) return;
     setStatus('reading');
+    setFile(file);
     setResult(null);
+    setImportResult(null);
     const res = await parseLiveLayerPackFile(file);
     setResult(res);
     setStatus(res.ok ? 'ready' : 'error');
   };
 
   const onReset = () => {
+    setFile(null);
     setResult(null);
+    setImportResult(null);
     setStatus('idle');
   };
 
+  const onImport = async () => {
+    if (!file || !result?.ok || result.summary?.packType !== 'selected-rundown' || !result.summary.packTypeSupported) return;
+    setStatus('importing');
+    setImportResult(null);
+    const imported = await importSelectedRundownPack(file);
+    setImportResult(imported);
+    setStatus(imported.ok ? 'imported' : 'ready');
+  };
+
   const summary = result?.summary;
+  const canImport = Boolean(file && result?.ok && summary?.packType === 'selected-rundown' && summary.packTypeSupported);
 
   return (
     <div className="import-pack">
@@ -69,7 +84,7 @@ export default function ImportPackPreview() {
           <p className="empty-state__title">Preview an import pack</p>
           <p className="empty-state__hint">
             Choose a <code>.livelayerpack</code> to see what it contains. This is read-only —
-            nothing is imported yet (safe import comes next).
+            you confirm before LiveLayer writes anything.
           </p>
           <button type="button" className="btn btn--secondary btn--sm" onClick={onChoose}>
             Choose LiveLayer pack…
@@ -78,6 +93,7 @@ export default function ImportPackPreview() {
       ) : null}
 
       {status === 'reading' ? <p className="field__hint">Reading pack…</p> : null}
+      {status === 'importing' ? <p className="field__hint">Importing pack…</p> : null}
 
       {status === 'error' && result ? (
         <div className="import-pack__error">
@@ -89,7 +105,42 @@ export default function ImportPackPreview() {
         </div>
       ) : null}
 
-      {status === 'ready' && summary ? (
+      {status === 'imported' && importResult?.ok ? (
+        <div className="import-pack__summary">
+          <div className="import-pack__head">
+            <div className="import-pack__title">
+              <span className="ll-kicker">Imported successfully</span>
+              <span className="import-pack__file-name" title={result?.filename}>{result?.filename}</span>
+            </div>
+            <button type="button" className="btn btn--ghost btn--xs" onClick={onChoose}>Import another</button>
+          </div>
+          <p className="import-pack__line">
+            <span className="rd-queue__lbl">Rundown</span> {importResult.rundownName ?? 'Imported rundown'}
+          </p>
+          <p className="field__hint">
+            This rundown is now active. Its first item is selected, and nothing was sent to the live output.
+          </p>
+          <ul className="import-pack__stats">
+            <li><span className="import-pack__stat-n">{importResult.peopleImported}</span> {importResult.peopleImported === 1 ? 'person' : 'people'}</li>
+            <li><span className="import-pack__stat-n">{importResult.assetsImported}</span> asset{importResult.assetsImported === 1 ? '' : 's'}</li>
+            {importResult.missingAssets > 0 ? (
+              <li className="import-pack__stat--warn"><span className="import-pack__stat-n">{importResult.missingAssets}</span> missing</li>
+            ) : null}
+          </ul>
+          {importResult.warnings.length ? (
+            <ul className="import-pack__warnings">
+              {importResult.warnings.map((warning, i) => (
+                <li key={i} className="import-pack__warn">⚠ {warning.message}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="import-pack__actions">
+            <button type="button" className="btn btn--secondary btn--sm" onClick={onReset}>Done</button>
+          </div>
+        </div>
+      ) : null}
+
+      {(status === 'ready' || (status === 'importing' && summary)) && summary ? (
         <div className="import-pack__summary">
           <div className="import-pack__head">
             <div className="import-pack__title">
@@ -152,13 +203,27 @@ export default function ImportPackPreview() {
             <p className="field__hint">No warnings — this pack looks complete.</p>
           )}
 
+          {importResult && !importResult.ok ? (
+            <p className="field__hint field__hint--error">
+              Import failed: {importResult.error ?? 'unknown error'}
+            </p>
+          ) : null}
+
           <div className="import-pack__actions">
-            <button type="button" className="btn btn--secondary btn--sm" disabled title="Safe import lands in IE4">
-              Import comes next (IE4)
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              disabled={!canImport || status === 'importing'}
+              onClick={onImport}
+              title={canImport ? 'Import as a new rundown' : 'Only valid Selected Rundown packs can be imported'}
+            >
+              {status === 'importing' ? 'Importing…' : 'Import as new rundown'}
             </button>
             <button type="button" className="btn btn--ghost btn--sm" onClick={onReset}>Done</button>
           </div>
-          <p className="field__hint">Preview only — nothing has been imported or changed.</p>
+          <p className="field__hint">
+            This will add a new rundown and restore referenced assets. Existing data will not be overwritten.
+          </p>
         </div>
       ) : null}
     </div>

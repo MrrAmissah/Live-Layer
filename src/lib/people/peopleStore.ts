@@ -74,6 +74,17 @@ export async function savePerson(input: PersonProfileInput, id?: string): Promis
   return next;
 }
 
+/** Append already-remapped people during pack import. Existing records are never overwritten. */
+export async function importPeople(profiles: PersonProfile[]): Promise<PersonProfile[]> {
+  if (!profiles.length) return [];
+  const people = readPeopleSync();
+  const existingIds = new Set(people.map((person) => person.id));
+  const fresh = profiles.filter((person) => person.id && !existingIds.has(person.id));
+  if (!fresh.length) return [];
+  writePeopleSync(sortPeople([...fresh, ...people]));
+  return fresh;
+}
+
 export async function deletePerson(id: string): Promise<void> {
   writePeopleSync(readPeopleSync().filter((person) => person.id !== id));
 }

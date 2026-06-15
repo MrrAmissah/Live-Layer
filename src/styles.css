@@ -2116,7 +2116,7 @@ body.gfx-transparent {
 
 .control-root .step-link:hover { color: #cdd6e4; }
 
-/* --- import pack preview (IE3, read-only) --- */
+/* --- import pack preview + confirm (IE3/IE4) --- */
 .control-root .import-pack { display: flex; flex-direction: column; gap: 12px; }
 .control-root .import-pack__file { display: none; }
 .control-root .import-pack code { font-size: 11.5px; padding: 1px 5px; border-radius: 4px; background: rgba(148, 163, 184, 0.14); color: #cdd6e4; }

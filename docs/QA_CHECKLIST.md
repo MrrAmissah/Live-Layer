@@ -257,7 +257,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] **Resize to dock width** → the compact dock queue (R3/R4) is unchanged and usable
 - [ ] `/output`, Take/Clear, and ad-hoc mode (no rundown) are all unchanged
 
-## 9I. Export Selected Rundown Pack (IE2 — export only; no import yet)
+## 9I. Export Selected Rundown Pack (IE2)
 
 - [ ] Build a rundown with a Lower Third (logo + headshot), a Scripture item, and an Announcement
 - [ ] Library → Rundowns → **⤓ Export** (or the studio panel **Export**) downloads a `.livelayerpack` file
@@ -267,20 +267,29 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Delete a referenced asset, then export → success message notes "N missing asset(s)"; export does **not** fail
 - [ ] Export does **not** change `/output`, Take/Clear, or rundown operation
 
-## 9J. Import preview (IE3 — read-only; no writes)
+## 9J. Import Selected Rundown Pack (IE3 + IE4 safe import)
 
 - [ ] **Idle:** Library → **Import** tab shows helper text + **Choose LiveLayer pack…**
 - [ ] **Valid pack:** choose a pack exported in §9I → summary shows pack type, created date, and **rundown / item / people / asset / missing** counts
 - [ ] Summary lists the rundown name, a few item titles, asset filenames, and template ids
-- [ ] **Import button is disabled** and reads "Import comes next (IE4)"
+- [ ] Confirmation text says existing data will not be overwritten
+- [ ] **Import as new rundown** is enabled only for a valid `selected-rundown` pack
+- [ ] Click **Import as new rundown** → success state says "Imported successfully"
+- [ ] Imported rundown appears in Library → Rundowns and is the active rundown
+- [ ] Imported `activeItemId` is cleared; first imported item is selected
+- [ ] Referenced People are imported with new ids and remapped logo/headshot asset ids
+- [ ] Uploaded logo/headshot assets display from IndexedDB after import
+- [ ] Saved Graphics from the pack are not added as standalone Saved Graphics entries
+- [ ] Importing the same pack again creates another separate rundown; it does not overwrite the previous import
 - [ ] **Invalid file:** rename a `.txt`/`.png` to `.livelayerpack` → choose it → clear error (no crash, no raw stack)
 - [ ] **No-manifest zip:** zip a random file, rename to `.livelayerpack` → "no livelayer-pack.json" error
 - [ ] **Newer version:** hand-edit a pack's manifest `version` to `2`, re-zip → **blocked** with "made with a newer LiveLayer" message
-- [ ] **Missing asset warning:** delete an `assets/<id>` file from a pack zip → preview still works and warns "N referenced image(s) not bundled"
+- [ ] **Missing asset warning:** delete an `assets/<id>` file from a pack zip → preview/import still work, warn, and the graphic falls back to placeholder/monogram
 - [ ] **Malformed-but-parseable pack:** hand-edit a valid manifest so one item is junk (missing `.graphic`, `templateId` a number, or `items` not an array), re-zip → preview renders with warnings and **does not crash**
-- [ ] **Read-only proof:** after previewing, **no new rundown appears**, no new People, no new assets (check Library → Rundowns / People); refresh confirms nothing was written
+- [ ] **Preview-only proof:** after choosing a file but before clicking import, **no new rundown appears**, no new People, no new assets
 - [ ] Re-choosing the **same** file re-previews (no silent no-op)
-- [ ] Preview does **not** change `/output`, Take/Clear, or rundown operation
+- [ ] Preview and import do **not** change `/output`, Take/Clear, or rundown operation
+- [ ] After import, `/output` remains unchanged until **Take selected**
 
 ## 10. Stress & contrast (seed harness)
 

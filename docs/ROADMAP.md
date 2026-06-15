@@ -39,8 +39,8 @@ does **not** include.
   People, and referenced assets between machines. Designed in
   [`IMPORT_EXPORT_PACKS_SPEC.md`](IMPORT_EXPORT_PACKS_SPEC.md) (`.livelayerpack` ZIP,
   non-destructive remap-on-import). **IE1 helpers + IE2 export-a-rundown + IE3
-  read-only import preview done** (Library → Import); IE4 safe import (the first
-  write) next, then IE5 Full Backup.
+  import preview + IE4 safe selected-rundown import are done** (Library → Import).
+  Next: manually prove the rundown round-trip, then IE5 Full Backup / restore.
 
 ## Later — production scale
 

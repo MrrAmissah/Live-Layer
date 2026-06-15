@@ -48,16 +48,16 @@ deliberately narrow. These are honest constraints, not bugs.
   [`RUNDOWN_QA.md`](RUNDOWN_QA.md) and [`RUNDOWN_QUEUE_SPEC.md`](RUNDOWN_QUEUE_SPEC.md).
 - **No full asset browser yet** — logos/headshots upload locally, but there is no
   general-purpose asset management grid.
-- **Import is preview-only; export is rundown-only.** You can **export** one rundown
+- **Import/export is selected-rundown only.** You can **export** one rundown
   as a `.livelayerpack` (Library → Rundowns → Export, or the studio panel) — it
   bundles the rundown snapshot + referenced People + referenced asset blobs. You can
-  also **preview** a pack before importing (Library → **Import** → choose a
-  `.livelayerpack`): it validates the manifest and shows what's inside (rundown/item/
-  people/asset counts, template ids, warnings). **The preview writes nothing** — no
-  records, no asset blobs — and the Import button is disabled ("Import comes next").
-  **Safe import** that actually loads a pack (IE4) and **Full Backup / restore**
-  (IE5) are not built yet, so a pack can be created and inspected but not loaded back
-  in. A pack made by a **newer** LiveLayer is blocked with a clear message. See
+  also **preview and safely import** a selected-rundown pack (Library → **Import**):
+  import creates a new rundown, remaps all ids, restores bundled assets, restores
+  referenced People, and never overwrites existing records. Missing asset blobs warn
+  and fall back to placeholder/monogram behavior. **Full Backup / restore** (IE5),
+  replace mode, People/Assets-only packs, and standalone Saved Graphics import are
+  not built yet. A pack made by a **newer** LiveLayer is blocked with a clear
+  message. See
   [`IMPORT_EXPORT_PACKS_SPEC.md`](IMPORT_EXPORT_PACKS_SPEC.md).
 
 ## Smaller caveats
