@@ -1953,6 +1953,8 @@ body.gfx-transparent {
 }
 .control-root .diag-warn code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #ffe9b0; }
 .control-root .diag-urls { display: flex; flex-direction: column; gap: 8px; }
+.control-root .diag-urls__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.control-root .diag-url-label { flex: none; min-width: 118px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #7f8da3; }
 .control-root .diag-checks { display: flex; flex-direction: column; gap: 8px; }
 .control-root .diag-check { display: flex; align-items: flex-start; gap: 9px; }
 .control-root .diag-check__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
