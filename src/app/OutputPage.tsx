@@ -145,6 +145,13 @@ export default function OutputPage() {
   }, [activeGraphic]);
   const renderedValues = useDynamicValues(activeGraphic?.values ?? EMPTY_VALUES);
 
+  useEffect(() => {
+    if (!activeGraphic) return;
+    if (!templateRendererMap[activeGraphic.templateId]) {
+      console.warn(`[LiveLayer] Template "${activeGraphic.templateId}" is not available in this build. Output will stay transparent for this graphic.`);
+    }
+  }, [activeGraphic?.templateId]);
+
   return (
     <div className="output-root">
       <GraphicStage theme={resolved?.theme} backdrop="transparent" showSafeAreas={debugMode}>
