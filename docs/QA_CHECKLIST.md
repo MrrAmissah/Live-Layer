@@ -6,18 +6,23 @@ before a release or a demo.
 > **Fast visual QA without OBS:** open `http://127.0.0.1:4173/seed-test.html`
 > (dev server port **4173**, set in `vite.config.ts`). It seeds each template into
 > a real `/output` iframe over simulated **camera / dark / bright** backdrops,
-> with toggles for **long / stress content**, the **fade crossfade** variant, and
-> **safe-area guides**.
+> with toggles for **long / stress content**, **layout size**, **accent colour**,
+> **dynamic date/time**, the **fade crossfade** variant, and **safe-area guides**.
 
 > **Local asset origin rule:** use the same origin for every route during asset
 > QA, for example `http://127.0.0.1:4173/control` and
 > `http://127.0.0.1:4173/output`. Do not mix `localhost` with `127.0.0.1`, and
 > do not mix ports. Uploaded assets are stored in same-origin IndexedDB.
 
+> **Production / OBS run:** [`OBS_PRODUCTION_QA.md`](OBS_PRODUCTION_QA.md) has the
+> end-to-end test; `/setup` → **Production readiness** runs live origin / storage /
+> messaging checks.
+
 ## 1. Build & smoke
 
 - [ ] `npm install` succeeds
 - [ ] `npm run build` is clean (tsc strict + vite, no errors/warnings)
+- [ ] `npm run check:output-isolation` passes
 - [ ] `npm run dev` starts; `/control`, `/output`, `/setup` all load
 - [ ] No console errors on any route
 
@@ -180,6 +185,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Tap **chapter 3** → verse hints load (chips 1..N) or Start/End inputs if offline
 - [ ] Tap **verse 16** → reference reads `John 3:16` **and the verse text auto-loads** (preview tab + body match); the **to verse** select makes a range (e.g. `John 3:16-17`) and reloads
 - [ ] Tap a different verse → text replaces; edit the verse text, then re-tap the **same** verse → your edit is **not** clobbered (no reference change = no reload)
+- [ ] **Race guard:** on a slow network, rapidly tap several **uncached** verses (e.g. 16 → 17 → 18) → only the **last** reference's text applies; no flicker to an earlier verse, and the loading/error status reflects only the final request
 - [ ] **Typed** references and the offline Start/End inputs do **not** auto-load — **Lookup scripture** (or Enter) fills them
 - [ ] Direct typing still works: `Psalm 23:1-3`, `John 3:16-17`, `Romans 8:28`, `Genesis 1:1-2`
 - [ ] Change translation **WEB → KJV** and Look up again → text updates
@@ -193,6 +199,98 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Repeat for Lower Third and Announcement (edit any field while live → `/output` unchanged until Take)
 - [ ] Clear removes the live graphic
 - [ ] Selecting a scripture suggestion while a graphic is live does **not** change `/output`
+
+> **Rundown** is feature-complete (R1–R6). The sections below (§9E–9H) are the
+> per-phase checks; the consolidated manual QA pack + guards live in
+> [`RUNDOWN_QA.md`](RUNDOWN_QA.md).
+
+## 9E. Rundowns (R2 — build/manage)
+
+- [ ] Library → **Rundowns** → create a rundown → it becomes active
+- [ ] **+ Add current draft** with no active rundown shows "Create or select a rundown first."
+- [ ] With an active rundown, **+ Add current draft** adds an item (title derived from the draft)
+- [ ] Saved graphics → **+ Rundown** adds that Saved Graphic as a snapshot item
+- [ ] Reorder ↑/↓, **duplicate** (⧉), **mark done** (✓ toggles strike-through), **delete** (✕) all work
+- [ ] Selecting an item highlights it (sets selectedItemId) — **`/output` does not change**
+- [ ] During **every** rundown action, `/output` stays unchanged (no Take fires)
+- [ ] Rename the active rundown; delete a rundown (confirm prompt) clears its active state
+- [ ] Reload `/control` → rundowns + items **persist**; `localStorage['livelayer.rundowns']` holds ids/tokens only (no `dataUrl`/blob)
+- [ ] **Snapshot integrity:** add a Saved Graphic to a rundown, then edit/delete that Saved Graphic → the rundown item is **unchanged**
+
+## 9F. Rundown live operation (R3)
+
+- [ ] Active rundown with ≥3 items → **Live tab** shows the Rundown queue; the preview shows the **selected** item
+- [ ] Sticky/deck Take is relabeled **"Take selected"**; it's **disabled** when nothing is selected (use **Select first item**)
+- [ ] **Next ▶** / **◀ Previous** move the selection and update the preview — **`/output` does NOT change**
+- [ ] **Take selected** → `/output` shows the selected item; the **LIVE** badge appears on that item; top status shows **Live**
+- [ ] Press **Next** after Take → selection moves, but `/output` stays on the previously taken item until **Take selected** again
+- [ ] Taking does **not** auto-advance and does **not** mark done
+- [ ] Toggle **done** (✓) in the queue — manual only
+- [ ] **Clear** → `/output` blanks, the LIVE badge clears (activeItemId cleared); the **selected item stays selected**; nothing is marked done
+- [ ] Reload `/control` → active rundown, selected item, and LIVE (activeItemId) all **persist**
+- [ ] **No rundown active** → Live tab behaves exactly as before (ad-hoc draft Take/Clear unchanged)
+- [ ] `/output` contract unchanged throughout (it only ever receives a GraphicInstance snapshot)
+
+## 9G. Rundown — edit selected item (R4)
+
+- [ ] Select an item → **Edit** tab shows "Editing rundown item · <title>" banner; editing the text updates the **preview**
+- [ ] The ad-hoc draft is **not** changed (deselect the rundown / clear active rundown → the draft is exactly as you left it)
+- [ ] Editing layout (Size/Position/Density/Safe margin) and duration on the Edit tab affects **only the selected item**
+- [ ] Scripture item: book/chapter/verse picker + **auto-load** + typed Lookup all update the **selected item's** fields (race guard still works)
+- [ ] Dynamic tokens stay **raw**: type `{{date}}` in an item field → `localStorage['livelayer.rundowns']` stores `{{date}}`, not the resolved date
+- [ ] **Editing a live item:** with the selected item live, edit it → `/output` does **not** change; banner says "Take selected again"; press **Take selected** → `/output` updates
+- [ ] **No mutation of sources:** the originating Saved Graphic and Person records are unchanged after editing the item
+- [ ] **No realtime on edit:** editing never fires SHOW_GRAPHIC/CLEAR_ALL (only Take/Clear do)
+- [ ] Reload `/control` → item edits persist; the editor targets the selected item
+- [ ] Caret stays put while typing (no focus jump from per-keystroke commit)
+- [ ] **Brand stays global:** with an item selected, the Brand area shows the "applies to new graphics" note; changing brand colours does not recolour the selected item
+- [ ] **No rundown active** → editors edit the draft exactly as before (Take draft works)
+
+## 9H. Rundown — studio queue panel (R5, desktop ≥1024px)
+
+- [ ] At desktop width with an active rundown, the **studio queue panel** appears in the On-air actions column (full ordered list)
+- [ ] Per item: order number, title, template type, **selected / LIVE / done** badges; **↑ ↓ duplicate ✕ done** controls all work (same R2 ops)
+- [ ] Selecting an item from the studio panel updates the **preview + editor** (selectedItemId)
+- [ ] Take selected / Clear are the **same** action-deck buttons (mode-aware) — the panel has no second Take
+- [ ] Previous / Next move the selection; `/output` doesn't change until Take selected
+- [ ] Empty states: no rundowns / none active / no items / none selected each show the right hint
+- [ ] Deleting the selected or live item recovers safely (cursors clear; no crash)
+- [ ] **Resize to dock width** → the compact dock queue (R3/R4) is unchanged and usable
+- [ ] `/output`, Take/Clear, and ad-hoc mode (no rundown) are all unchanged
+
+## 9I. Export Selected Rundown Pack (IE2)
+
+- [ ] Build a rundown with a Lower Third (logo + headshot), a Scripture item, and an Announcement
+- [ ] Library → Rundowns → **⤓ Export** (or the studio panel **Export**) downloads a `.livelayerpack` file
+- [ ] Filename is safe: `livelayer-rundown-<safe-name>-<YYYY-MM-DD>.livelayerpack`
+- [ ] Unzip it → `livelayer-pack.json` exists; `assets/` holds the referenced logo/headshot blobs
+- [ ] Manifest `contents` has the rundown snapshot + referenced People; `summary` counts look right; **no scripture cache / API keys / local paths**
+- [ ] Delete a referenced asset, then export → success message notes "N missing asset(s)"; export does **not** fail
+- [ ] Export does **not** change `/output`, Take/Clear, or rundown operation
+
+## 9J. Import Selected Rundown Pack (IE3 + IE4 safe import)
+
+- [ ] **Idle:** Library → **Import** tab shows helper text + **Choose LiveLayer pack…**
+- [ ] **Valid pack:** choose a pack exported in §9I → summary shows pack type, created date, and **rundown / item / people / asset / missing** counts
+- [ ] Summary lists the rundown name, a few item titles, asset filenames, and template ids
+- [ ] Confirmation text says existing data will not be overwritten
+- [ ] **Import as new rundown** is enabled only for a valid `selected-rundown` pack
+- [ ] Click **Import as new rundown** → success state says "Imported successfully"
+- [ ] Imported rundown appears in Library → Rundowns and is the active rundown
+- [ ] Imported `activeItemId` is cleared; first imported item is selected
+- [ ] Referenced People are imported with new ids and remapped logo/headshot asset ids
+- [ ] Uploaded logo/headshot assets display from IndexedDB after import
+- [ ] Saved Graphics from the pack are not added as standalone Saved Graphics entries
+- [ ] Importing the same pack again creates another separate rundown; it does not overwrite the previous import
+- [ ] **Invalid file:** rename a `.txt`/`.png` to `.livelayerpack` → choose it → clear error (no crash, no raw stack)
+- [ ] **No-manifest zip:** zip a random file, rename to `.livelayerpack` → "no livelayer-pack.json" error
+- [ ] **Newer version:** hand-edit a pack's manifest `version` to `2`, re-zip → **blocked** with "made with a newer LiveLayer" message
+- [ ] **Missing asset warning:** delete an `assets/<id>` file from a pack zip → preview/import still work, warn, and the graphic falls back to placeholder/monogram
+- [ ] **Malformed-but-parseable pack:** hand-edit a valid manifest so one item is junk (missing `.graphic`, `templateId` a number, or `items` not an array), re-zip → preview renders with warnings and **does not crash**
+- [ ] **Preview-only proof:** after choosing a file but before clicking import, **no new rundown appears**, no new People, no new assets
+- [ ] Re-choosing the **same** file re-previews (no silent no-op)
+- [ ] Preview and import do **not** change `/output`, Take/Clear, or rundown operation
+- [ ] After import, `/output` remains unchanged until **Take selected**
 
 ## 10. Stress & contrast (seed harness)
 

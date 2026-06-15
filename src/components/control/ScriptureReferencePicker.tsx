@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
 import { useChapterVerses } from '../../hooks/useChapterVerses';
 import { buildReference, parseReference, suggestBibleBooks } from '../../lib/scripture/bibleBooks';
@@ -23,6 +23,11 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   // Verse hints fetch only after an explicit chapter tap — never for the prefilled default.
   const [versesRequested, setVersesRequested] = useState(false);
 
+  // Mirror of the latest intended reference, so a slow response can be discarded
+  // if the operator has since moved to a different verse/reference.
+  const latestReference = useRef(reference);
+  latestReference.current = reference;
+
   const parsed = useMemo(() => parseReference(reference), [reference]);
   const bookSuggestions = useMemo(() => suggestBibleBooks(reference), [reference]);
   const showBookChips = parsed.book === null && bookSuggestions.length > 0;
@@ -40,7 +45,10 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   };
   const runLookup = async (ref: string) => {
     const result = await lookup(ref, translation);
-    if (!result) return; // silent on failure — the reference stands, hint shows the error
+    if (!result) return; // stale (hook seq guard) or failed — reference stands, hint shows the error
+    // Reference-match guard: ignore if the operator moved to a different reference
+    // while this request was in flight (e.g. tapped a newer verse).
+    if (latestReference.current !== ref) return;
     onApply({ reference: result.reference, verseText: result.text, translationLabel: result.translation });
   };
 

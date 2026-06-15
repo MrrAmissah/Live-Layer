@@ -301,7 +301,10 @@ app working.
 - **2F — Persistence Upgrade.** Repository abstraction + versioned migrations +
   export/import *preparation* (no UI).
 - **2G — Rundown Readiness.** Land the `Rundown`/`RundownItem` **models and id
-  conventions only** — no rundown UI.
+  conventions only** — no rundown UI. **Now fully designed** in
+  [`RUNDOWN_QUEUE_SPEC.md`](RUNDOWN_QUEUE_SPEC.md); the rundown item is a
+  deep-cloned `GraphicInstance` snapshot (not the lighter draft model sketched
+  above), implemented over Phases R1–R6 in that spec.
 
 ## 12. Risks
 

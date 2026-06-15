@@ -1,4 +1,4 @@
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useEditTarget } from '../../hooks/useEditTarget';
 import { DEFAULT_LAYOUT_SETTINGS, type LayoutSettings } from '../../types/layout';
 
 type LayoutKey = keyof Required<LayoutSettings>;
@@ -46,9 +46,7 @@ const GROUPS: Array<{
 ];
 
 export default function LayoutControls() {
-  const layout = useLiveLayerStore((state) => state.layout);
-  const setLayout = useLiveLayerStore((state) => state.setLayout);
-  const resetLayout = useLiveLayerStore((state) => state.resetLayout);
+  const { layout, setLayout, resetLayout } = useEditTarget();
 
   return (
     <div className="layout-controls">

@@ -1,5 +1,5 @@
 import { templateRegistry } from '../templates/registry';
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useEditTarget } from '../../hooks/useEditTarget';
 import type { TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
 import type { ReactNode } from 'react';
@@ -87,9 +87,7 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
  * `FieldEditor` panel and the dock `EditStep`; owns its own store subscription.
  */
 export default function TemplateFields() {
-  const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
-  const draftValues = useLiveLayerStore((state) => state.draftValues);
-  const setField = useLiveLayerStore((state) => state.setField);
+  const { templateId: currentTemplateId, values: draftValues, setField } = useEditTarget();
 
   const template = templateRegistry.find((item) => item.id === currentTemplateId);
   const required = template?.fields.filter((field) => !field.optional) ?? [];

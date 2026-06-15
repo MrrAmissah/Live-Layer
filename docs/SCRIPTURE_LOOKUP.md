@@ -52,6 +52,23 @@ and the offline **Start/End** number inputs do **not** auto-load — they use th
 explicit **Lookup scripture** button (or Enter). All of this edits the **draft**
 only; `/output` changes solely on **Take**, and `/output` never fetches scripture.
 
+**Only the latest request can apply (race guard).** Rapidly selecting uncached
+verses on a slow network can let an earlier response arrive after a newer one. Two
+guards ensure only the latest selection wins:
+
+- A **sequence id** in `useScriptureLookup` — each lookup increments it; a response
+  whose id is no longer current is ignored silently (it updates neither the verse
+  text/reference/translation nor the loading/success/error status), and returns
+  `null` so callers don't apply it.
+- A **reference-match** check in the picker — a result is applied only if the
+  operator's intended reference still equals the one that was requested; if they
+  moved to a different verse meanwhile, the stale result is dropped.
+
+`AbortController` is not used — the request would still complete; the guards simply
+prevent a stale result from updating the draft. So tapping `John 3:16` →
+`John 3:17` → `John 3:18` always ends on `John 3:18`'s text, whatever order the
+responses arrive in.
+
 ## Cache
 
 - **Lookups:** `localStorage` key `livelayer.scriptureCache`, keyed

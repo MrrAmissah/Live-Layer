@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/livelayer-mark.svg" alt="LiveLayer logo" width="72" />
+</p>
+
 # LiveLayer
 
 **Local-first broadcast graphics for OBS — a control dock and a transparent output overlay, running entirely in the browser.**

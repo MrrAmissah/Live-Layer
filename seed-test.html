@@ -8,7 +8,8 @@
     body { display: flex; flex-direction: column; background: #0b0d12; color: #f8fafc; }
     .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px; background: #11151c; border-bottom: 1px solid #1e2530; }
     .bar strong { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; margin-right: 6px; }
-    button { font: inherit; font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #2a3340; background: #1a212b; color: #e6edf5; cursor: pointer; }
+    button, select { font: inherit; font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #2a3340; background: #1a212b; color: #e6edf5; cursor: pointer; }
+    select { padding: 8px 10px; }
     button:hover { border-color: #3b82f6; }
     button.clear { background: #2a1416; border-color: #5a2327; color: #fecaca; }
     label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; margin-left: 8px; }
@@ -35,7 +36,22 @@
     <button data-bg="camera">Camera</button>
     <button data-bg="dark">Dark</button>
     <button data-bg="bright">Bright</button>
+    <strong style="margin-left:10px">Layout</strong>
+    <select id="size" title="Layout size">
+      <option value="">Default</option>
+      <option value="small">Small</option>
+      <option value="medium">Medium</option>
+      <option value="large">Large</option>
+    </select>
+    <strong style="margin-left:10px">Accent</strong>
+    <select id="accent" title="Accent (keyline) colour">
+      <option value="">Default</option>
+      <option value="#22d3ee">Cyan</option>
+      <option value="#e8b93c">Gold</option>
+      <option value="#f43f5e">Red</option>
+    </select>
     <label class="toggle"><input type="checkbox" id="long" /> long / stress content</label>
+    <label class="toggle"><input type="checkbox" id="dynamic" /> dynamic date/time (announcement)</label>
     <label class="toggle"><input type="checkbox" id="fade" /> fade crossfade</label>
     <label class="toggle"><input type="checkbox" id="debug" /> safe-area guides</label>
   </div>
@@ -60,13 +76,29 @@
 
     function show(templateId) {
       const useLong = document.getElementById('long').checked;
-      const values = sample[templateId][useLong ? 'long' : 'short'];
+      // Copy so the harness never mutates the shared sample objects.
+      const values = { ...sample[templateId][useLong ? 'long' : 'short'] };
+
+      // Dynamic date/time tokens (announcement) — /output resolves these live.
+      if (document.getElementById('dynamic').checked && templateId === 'announcement-banner') {
+        values.dateTime = '{{weekday}} · {{time}}';
+        values.callToAction = 'Today is {{date}}';
+      }
+
       const now = new Date().toISOString();
+      const theme = {};
+      const accent = document.getElementById('accent').value;
+      if (accent) theme.accent2Color = accent; // exercises theme-aware keylines
+
+      const size = document.getElementById('size').value;
+      const layout = size ? { size } : {};
+
       const instance = {
         id: 'seed-' + Date.now(),
         templateId,
         values,
-        theme: {},            // empty → /output falls back to the registry theme
+        theme,                // empty → /output falls back to the registry theme
+        layout,
         durationSeconds: 0,
         createdAt: now,
         updatedAt: now
