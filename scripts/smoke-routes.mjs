@@ -16,6 +16,7 @@ try {
   console.log(`Route smoke check passed at ${baseUrl}`);
 } catch (error) {
   console.error(`Route smoke check failed at ${baseUrl}`);
+  console.error('Make sure LiveLayer is running first, for example: npm run dev -- --host 127.0.0.1 --port 4173');
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
