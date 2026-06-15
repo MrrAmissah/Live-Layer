@@ -88,6 +88,7 @@ Resize a window to ~360px, or dock `/control` in OBS at ~340–500px.
 - [ ] **Logo upload** saves the image locally, shows "Image saved locally" in the Brand panel, and renders in the lower-third medallion
 - [ ] A very large normal image is downscaled on upload and still preserves transparent PNG/WebP logos
 - [ ] **Logo URL** still works as a fallback when upload is not used
+- [ ] A broken Logo URL does not show a broken image icon; the medallion falls back to initials/monogram
 - [ ] **Take** sends only the `logoAssetId` to `/output`; image bytes are not stored in localStorage messages or presets
 - [ ] Refreshing `/output` after Take restores the uploaded logo from IndexedDB
 - [ ] Saved presets preserve the uploaded `logoAssetId` and restore the logo after `/control` reload
@@ -125,6 +126,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Open `/control` and go to **Library → People**
 - [ ] Add a person with name, title, church/ministry, notes, and favorite status
 - [ ] Upload a headshot; confirm it previews in the form/card
+- [ ] A broken/missing headshot image does not break the lower third; it simply hides the headshot frame
 - [ ] Save the person
 - [ ] Search for the person and confirm the list filters
 - [ ] Press **Apply** on the person card
