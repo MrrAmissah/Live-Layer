@@ -100,6 +100,47 @@ body {
   background: #0a0c11;
 }
 
+.template-fallback {
+  position: absolute;
+  left: 160px;
+  right: 160px;
+  bottom: 132px;
+  padding: 34px 40px;
+  border-left: 8px solid var(--gfx-accent, #E8B93C);
+  background: rgba(7, 11, 18, 0.86);
+  color: var(--gfx-primary, #f8fafc);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
+}
+
+.template-fallback__kicker,
+.template-fallback__title,
+.template-fallback__hint {
+  margin: 0;
+}
+
+.template-fallback__kicker {
+  color: var(--gfx-accent, #E8B93C);
+  font-size: 24px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.template-fallback__title {
+  margin-top: 12px;
+  font-size: 62px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.template-fallback__hint {
+  margin-top: 16px;
+  max-width: 980px;
+  color: rgba(248, 250, 252, 0.74);
+  font-size: 30px;
+  line-height: 1.25;
+}
+
 .preview-toolbar {
   display: flex;
   flex-wrap: wrap;

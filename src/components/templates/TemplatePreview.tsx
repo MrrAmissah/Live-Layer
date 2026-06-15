@@ -26,6 +26,22 @@ const BACKDROPS: { id: Exclude<StageBackdrop, 'transparent'>; label: string }[] 
   { id: 'checker', label: 'Checker' }
 ];
 
+const UNSUPPORTED_THEME: TemplateDefinition['theme'] = {
+  primaryColor: '#f8fafc',
+  accentColor: '#E8B93C',
+  backgroundColor: 'transparent'
+};
+
+function UnsupportedTemplateMessage({ templateId }: { templateId: string }) {
+  return (
+    <div className="template-fallback" role="status">
+      <p className="template-fallback__kicker">Unsupported template</p>
+      <p className="template-fallback__title">{templateId}</p>
+      <p className="template-fallback__hint">This item can stay in the rundown, but this build cannot preview its graphic yet.</p>
+    </div>
+  );
+}
+
 /**
  * Production preview monitor. Renders the template through the exact same
  * scaled 1920x1080 GraphicStage + renderer + theme used by /output, so the
@@ -39,11 +55,9 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
   const resolvedValues = useDynamicValues(values);
 
   const template = templateRegistry.find((item) => item.id === templateId);
-  if (!template) return null;
-
   const Renderer = templateRendererMap[templateId];
-  const mergedTheme = { ...template.theme, ...theme };
-  const anim = resolveAnimationVariant(template.animation);
+  const mergedTheme = { ...(template?.theme ?? UNSUPPORTED_THEME), ...theme };
+  const anim = resolveAnimationVariant(template?.animation);
 
   return (
     <div className="grid gap-3 animate-broadcast-enter">
@@ -77,7 +91,7 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
         <div className="monitor-header">Draft preview · changes on Take</div>
         <div className="monitor-screen">
           <GraphicStage theme={mergedTheme} backdrop={backdrop} showSafeAreas={showGuides}>
-            {Renderer ? (
+            {template && Renderer ? (
               <div
                 key={templateId}
                 className="gfx-layer"
@@ -90,7 +104,9 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
               >
                 <Renderer values={resolvedValues} theme={mergedTheme} />
               </div>
-            ) : null}
+            ) : (
+              <UnsupportedTemplateMessage templateId={templateId} />
+            )}
           </GraphicStage>
         </div>
       </div>
