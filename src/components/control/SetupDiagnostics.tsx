@@ -161,7 +161,7 @@ export default function SetupDiagnostics() {
         <div className="diag-origin">
           <span className="diag-origin__label">This page’s origin</span>
           <code className="setup-url__value">{origin}</code>
-          <button type="button" className="btn btn--ghost btn--xs" onClick={() => copy(origin, 'Origin')}>Copy</button>
+          <button type="button" className="btn btn--ghost btn--xs" onClick={() => copy(origin, 'Origin')} aria-label="Copy this page origin">Copy</button>
         </div>
 
         <div className="diag-warn">
@@ -175,7 +175,7 @@ export default function SetupDiagnostics() {
         <div className="diag-urls">
           <div className="diag-urls__head">
             <span className="diag-origin__label">OBS URL pair</span>
-            <button type="button" className="btn btn--secondary btn--xs" onClick={copyObsPair}>Copy pair</button>
+            <button type="button" className="btn btn--secondary btn--xs" onClick={copyObsPair} aria-label="Copy OBS control and output URL pair">Copy pair</button>
           </div>
           <div className="setup-url">
             <span className="diag-url-label">Custom Browser Dock</span>
