@@ -27,11 +27,11 @@ does **not** include.
 
 ## Next — content & confidence
 
-> Phase 2 is QA'd and OBS-ready. **Rundown / queue mode** is now fully designed in
-> [`RUNDOWN_QUEUE_SPEC.md`](RUNDOWN_QUEUE_SPEC.md) (snapshot items, Phases R1–R6) —
-> implementation can begin next, ahead of the items below.
+> Phase 2 is QA'd and OBS-ready. Rundown / queue mode is implemented for the
+> current local-first phase; selected-rundown import/export packs are ready for
+> manual browser/OBS round-trip confirmation before Full Backup work starts.
 
-- **Rundown / queue mode** — build/run an ordered list of graphics live. **Complete for this phase (R1–R6).** See [`RUNDOWN_QA.md`](RUNDOWN_QA.md). Future: import/export, Take Next, auto-advance, drag-reorder, per-item brand.
+- **Rundown / queue mode** — build/run an ordered list of graphics live. **Complete for this phase (R1–R6).** See [`RUNDOWN_QA.md`](RUNDOWN_QA.md). Future: Take Next, auto-advance, drag-reorder, per-item brand.
 - **More template layouts** — additional lower-third styles, full-frame title/section
   cards, scoreboard/ticker, headshot slot for lower thirds.
 - **Operator animation picker** — surface slide vs fade in `/control` (the data path exists).

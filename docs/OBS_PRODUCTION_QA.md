@@ -98,5 +98,5 @@ Verified in this pass by source inspection:
 ## Known limitations affecting production
 
 See [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md) — local-first/single-machine,
-manual OBS setup, scripture lookup needs network (manual paste fallback), no
-import/export yet.
+manual OBS setup, scripture lookup needs network (manual paste fallback), and
+import/export is currently selected-rundown only.
