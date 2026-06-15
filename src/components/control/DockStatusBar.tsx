@@ -26,7 +26,7 @@ export default function DockStatusBar({ lastAction }: DockStatusBarProps) {
     <header className="dock-status">
       <div className="dock-status__id">
         <span className="dock-status__logo">
-          <img className="dock-status__logo-mark" src="/livelayer-mark.svg" alt="" aria-hidden="true" />
+          <img className="dock-status__logo-mark" src="/brand/livelayer-mark.svg" alt="" aria-hidden="true" />
           LiveLayer
         </span>
         <span className="dock-status__local" title="Running locally — ready">Local</span>

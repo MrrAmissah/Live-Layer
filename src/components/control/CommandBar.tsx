@@ -13,7 +13,7 @@ export default function CommandBar() {
     <header className="cmd-bar">
       <div className="cmd-bar__left">
         <span className="cmd-logo">
-          <img className="cmd-logo__mark" src="/livelayer-mark.svg" alt="" aria-hidden="true" />
+          <img className="cmd-logo__mark" src="/brand/livelayer-mark.svg" alt="" aria-hidden="true" />
           LiveLayer
         </span>
         <span className="cmd-divider" aria-hidden />
