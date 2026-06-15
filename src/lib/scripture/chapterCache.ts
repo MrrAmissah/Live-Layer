@@ -15,7 +15,18 @@ function read(): ChapterVerseEntry[] {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is ChapterVerseEntry => (
+        !!entry &&
+        typeof entry === 'object' &&
+        !Array.isArray(entry) &&
+        typeof entry.key === 'string' &&
+        typeof entry.verseCount === 'number' &&
+        Number.isFinite(entry.verseCount) &&
+        entry.verseCount > 0 &&
+        typeof entry.usedAt === 'string'
+      ))
+      : [];
   } catch {
     return [];
   }
