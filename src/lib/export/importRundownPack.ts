@@ -312,8 +312,11 @@ function validateImportableRundown(rundown: Rundown): void {
 }
 
 function prepareImport(manifest: LiveLayerPackManifest, files: Record<string, Uint8Array>): PreparedImport {
-  const rundown = manifest.contents.rundowns?.[0];
-  if (!rundown) throw new Error('This Selected Rundown pack does not contain a rundown.');
+  const rundowns = manifest.contents.rundowns ?? [];
+  if (rundowns.length !== 1) {
+    throw new Error(`Selected Rundown packs must contain exactly one rundown; this pack contains ${rundowns.length}.`);
+  }
+  const rundown = rundowns[0];
   validateImportableRundown(rundown);
   if ((rundown.items?.length ?? 0) > MAX_ITEMS_PER_RUNDOWN) {
     throw new Error(`This rundown has more than ${MAX_ITEMS_PER_RUNDOWN} items and cannot be imported yet.`);
