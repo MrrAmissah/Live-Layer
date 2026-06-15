@@ -205,7 +205,7 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
           </select>
         </label>
         <button type="button" className="btn btn--secondary btn--sm ref-picker__lookup" onClick={onLookup} disabled={status === 'loading'}>
-          {status === 'loading' ? 'Looking…' : 'Lookup scripture'}
+          {status === 'loading' ? 'Looking…' : 'Look up'}
         </button>
       </div>
 

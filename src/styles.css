@@ -1389,9 +1389,9 @@ body.gfx-transparent {
 
 /* --- field editor ------------------------------------------------------- */
 
-.control-root .field-grid { display: flex; flex-direction: column; gap: 13px; }
-.control-root .field-stack { display: flex; flex-direction: column; gap: 8px; }
-.control-root .field { display: grid; gap: 6px; }
+.control-root .field-grid { display: flex; flex-direction: column; gap: 15px; }
+.control-root .field-stack { display: flex; flex-direction: column; gap: 9px; }
+.control-root .field { display: grid; gap: 7px; }
 
 .control-root .field__label {
   display: flex;
@@ -1399,26 +1399,26 @@ body.gfx-transparent {
   justify-content: space-between;
   gap: 8px;
   font-size: 12.5px;
-  font-weight: 600;
-  color: #b6c2d4;
+  font-weight: 700;
+  color: #c8d3e3;
 }
 
-.control-root .field__opt { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #5f6e86; }
+.control-root .field__opt { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ll-muted-2); }
 
 .control-root .field__input,
 .control-root .field__textarea {
   width: 100%;
-  padding: 9px 11px;
+  padding: 10px 11px;
   border-radius: 8px;
   font-size: 13px;
-  color: #eef2f8;
-  background: #080d15;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  color: var(--ll-text);
+  background: var(--ll-bg-2);
+  border: 1px solid var(--ll-border);
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
 .control-root .field__input::placeholder,
-.control-root .field__textarea::placeholder { color: #51607a; }
+.control-root .field__textarea::placeholder { color: var(--ll-muted-3); }
 
 .control-root .field__input:focus,
 .control-root .field__textarea:focus {
@@ -1427,21 +1427,25 @@ body.gfx-transparent {
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
 }
 
-.control-root .field__textarea { min-height: 86px; line-height: 1.45; resize: vertical; }
-.control-root .field__hint { font-size: 12px; color: #8b97ac; }
+.control-root .field__textarea { min-height: 96px; line-height: 1.48; resize: vertical; }
+.control-root .field__hint { font-size: 12px; line-height: 1.45; color: #8b97ac; }
 .control-root .field__hint--error { color: #fca5a5; }
 
 .control-root .dynamic-insert {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding: 8px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid var(--ll-border-soft);
 }
 
 .control-root .dynamic-insert__btn {
-  padding: 5px 8px;
+  padding: 6px 8px;
   border-radius: 7px;
   border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.026);
   color: #9fb0c6;
   font-size: 11.5px;
   font-weight: 700;
@@ -1493,17 +1497,24 @@ body.gfx-transparent {
 }
 
 /* Scripture reference picker — book/chapter/verse chips + lookup, dock-friendly. */
-.control-root .ref-picker { display: flex; flex-direction: column; gap: 11px; }
-.control-root .ref-picker__section { display: flex; flex-direction: column; gap: 6px; }
-.control-root .ref-picker__label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6f7e95; }
+.control-root .ref-picker { display: flex; flex-direction: column; gap: 12px; }
+.control-root .ref-picker__section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-left: 11px;
+  border-left: 2px solid rgba(148, 163, 184, 0.12);
+}
+.control-root .ref-picker__section:focus-within { border-left-color: rgba(34, 211, 238, 0.42); }
+.control-root .ref-picker__label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ll-muted-2); }
 .control-root .ref-picker__row { display: flex; flex-wrap: wrap; gap: 6px; }
-.control-root .ref-picker__row--scroll { max-height: 128px; overflow-y: auto; align-content: flex-start; padding: 1px; }
+.control-root .ref-picker__row--scroll { max-height: 112px; overflow-y: auto; align-content: flex-start; padding: 1px 4px 1px 0; }
 
 .control-root .ref-chip {
   padding: 5px 9px;
   border-radius: 7px;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.026);
   color: #cdd6e4;
   font-size: 12px;
   font-weight: 600;
@@ -1512,15 +1523,23 @@ body.gfx-transparent {
 }
 
 .control-root .ref-chip--num { min-width: 32px; padding: 5px 6px; text-align: center; justify-content: center; }
-.control-root .ref-chip:hover { color: #021016; border-color: rgba(34, 211, 238, 0.5); background: linear-gradient(135deg, #22d3ee, #06b6d4); }
-.control-root .ref-chip--active { color: #021016; border-color: rgba(34, 211, 238, 0.5); background: linear-gradient(135deg, #22d3ee, #06b6d4); }
+.control-root .ref-chip:hover { color: #dff9ff; border-color: rgba(34, 211, 238, 0.42); background: rgba(34, 211, 238, 0.1); }
+.control-root .ref-chip--active { color: #dff9ff; border-color: rgba(34, 211, 238, 0.5); background: rgba(34, 211, 238, 0.14); box-shadow: inset 0 0 0 1px rgba(139, 233, 255, 0.08); }
 
 .control-root .ref-picker__range { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #9fb0c6; }
 .control-root .ref-picker__range select { width: auto; min-width: 96px; }
 .control-root .ref-picker__verse-inputs { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9fb0c6; }
 .control-root .ref-picker__verse-inputs input { width: 96px; }
 
-.control-root .ref-picker__actions { display: flex; align-items: flex-end; gap: 10px; }
+.control-root .ref-picker__actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid var(--ll-border-soft);
+}
 .control-root .ref-picker__translation { display: grid; gap: 6px; flex: 1; min-width: 0; }
 .control-root .ref-picker__lookup { flex: none; min-height: 38px; }
 
@@ -1543,8 +1562,8 @@ body.gfx-transparent {
 .control-root .scripture-lookup__select { flex: 1; display: grid; gap: 6px; }
 .control-root .scripture-lookup__row .btn { flex: none; min-height: 38px; }
 
-.control-root .field-grid__optional { display: flex; flex-direction: column; gap: 13px; margin-top: 4px; padding-top: 14px; border-top: 1px solid rgba(148, 163, 184, 0.1); }
-.control-root .field-grid__divider { font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; color: #5f6e86; }
+.control-root .field-grid__optional { display: flex; flex-direction: column; gap: 13px; margin-top: 4px; padding-top: 15px; border-top: 1px solid var(--ll-border-soft); }
+.control-root .field-grid__divider { font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ll-muted-2); }
 
 /* --- live actions deck -------------------------------------------------- */
 
