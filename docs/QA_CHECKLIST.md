@@ -1,7 +1,8 @@
 # LiveLayer QA Checklist
 
-Manual QA for the alpha (there are no automated tests yet). Work top to bottom
-before a release or a demo.
+Manual QA for the alpha. Automated guards cover build, output isolation,
+transparency, asset-id messages, and route smoke; the production OBS flow still
+needs this hands-on checklist before a release or demo.
 
 > **Fast visual QA without OBS:** open `http://127.0.0.1:4173/seed-test.html`
 > (dev server port **4173**, set in `vite.config.ts`). It seeds each template into
@@ -23,7 +24,7 @@ before a release or a demo.
 - [ ] `npm install` succeeds
 - [ ] `npm run verify` passes
 - [ ] `npm run build` is clean (tsc strict + vite, no errors/warnings)
-- [ ] `npm run check:output-isolation` passes (output isolation + transparency guard)
+- [ ] `npm run check:output-isolation` passes (output isolation + transparency + asset-id message guard)
 - [ ] With `npm run dev` running, `npm run smoke:routes` returns 200 for `/control`, `/output`, `/setup`, and `/seed-test.html`
 - [ ] `npm run dev` starts; `/control`, `/output`, `/setup` all load
 - [ ] No console errors on any route

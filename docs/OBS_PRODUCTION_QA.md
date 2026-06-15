@@ -27,9 +27,10 @@ npm run dev -- --host 127.0.0.1 --port 4173
 npm run smoke:routes
 ```
 
-`npm run verify` checks the `/output` isolation/transparency contract and the
-production build. `npm run smoke:routes` expects the dev server to be running and
-confirms `/control`, `/output`, `/setup`, and `/seed-test.html` return 200.
+`npm run verify` checks the `/output` isolation/transparency contract, the
+asset-id message contract, and the production build. `npm run smoke:routes`
+expects the dev server to be running and confirms `/control`, `/output`, `/setup`,
+and `/seed-test.html` return 200.
 
 ## OBS wiring
 

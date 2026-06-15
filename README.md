@@ -102,7 +102,7 @@ npm run dev        # Vite dev server on http://127.0.0.1:4173
 - Output: <http://127.0.0.1:4173/output>
 - Setup helper: <http://127.0.0.1:4173/setup>
 - Build: `npm run build` (runs `tsc` then `vite build`)
-- Verify: `npm run verify` (output isolation guard + production build)
+- Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard, production build)
 - Route smoke: with the dev server running, `npm run smoke:routes`
 
 ## OBS setup
