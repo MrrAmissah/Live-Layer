@@ -207,9 +207,18 @@ export default function ImportPackPreview() {
           )}
 
           {importResult && !importResult.ok ? (
-            <p className="field__hint field__hint--error" role="alert">
-              Import failed: {importResult.error ?? 'unknown error'}
-            </p>
+            <>
+              <p className="field__hint field__hint--error" role="alert">
+                Import failed: {importResult.error ?? 'unknown error'}
+              </p>
+              {importResult.warnings.length ? (
+                <ul className="import-pack__warnings">
+                  {importResult.warnings.map((warning, i) => (
+                    <li key={i} className="import-pack__warn">{warning.message}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
           ) : null}
 
           <div className="import-pack__actions">

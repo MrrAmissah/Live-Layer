@@ -376,15 +376,44 @@ export async function importSelectedRundownPack(file: File): Promise<ImportRundo
       warnings: prepared.warnings
     };
   } catch (error) {
-    if (writtenRundownId) deleteRundown(writtenRundownId);
-    await Promise.allSettled(writtenPersonIds.map((id) => deletePerson(id)));
-    await Promise.allSettled(writtenAssetIds.map((id) => deleteAsset(id)));
+    const warnings: LiveLayerPackWarning[] = [...(prepared?.warnings ?? [])];
+
+    if (writtenRundownId) {
+      try {
+        deleteRundown(writtenRundownId);
+      } catch {
+        warnings.push({
+          code: 'rollback-cleanup-failed',
+          message: 'Import failed, and the partially-created rundown could not be removed automatically.',
+          refId: writtenRundownId
+        });
+      }
+    }
+
+    const personCleanup = await Promise.allSettled(writtenPersonIds.map((id) => deletePerson(id)));
+    const failedPeople = personCleanup.filter((result) => result.status === 'rejected').length;
+    if (failedPeople > 0) {
+      warnings.push({
+        code: 'rollback-cleanup-failed',
+        message: `Import failed, and ${failedPeople} imported person record${failedPeople === 1 ? '' : 's'} could not be removed automatically.`
+      });
+    }
+
+    const assetCleanup = await Promise.allSettled(writtenAssetIds.map((id) => deleteAsset(id)));
+    const failedAssets = assetCleanup.filter((result) => result.status === 'rejected').length;
+    if (failedAssets > 0) {
+      warnings.push({
+        code: 'rollback-cleanup-failed',
+        message: `Import failed, and ${failedAssets} imported asset record${failedAssets === 1 ? '' : 's'} could not be removed automatically.`
+      });
+    }
+
     return {
       ok: false,
       peopleImported: 0,
       assetsImported: 0,
       missingAssets: prepared?.missingAssets ?? 0,
-      warnings: prepared?.warnings ?? [],
+      warnings,
       error: error instanceof Error ? error.message : 'Import failed.'
     };
   }
