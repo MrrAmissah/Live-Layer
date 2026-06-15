@@ -1,7 +1,7 @@
 # Screenshot & demo capture guide
 
 Shots for the README, a portfolio page, or a release post. Save PNGs into
-`docs/screenshots/` using the filenames below so the README table resolves.
+`docs/assets/` using the filenames below so README and portfolio links resolve.
 
 ## Setup
 
@@ -9,7 +9,7 @@ Shots for the README, a portfolio page, or a release post. Save PNGs into
 2. Use a clean browser window (no extensions/bookmarks bar visible) for control shots.
 3. Capture at a consistent device pixel ratio; crop out browser chrome.
 
-## 1. `/control` — full studio view  → `control-studio.png`
+## 1. `/control` — full studio view  → `livelayer-control.png`
 
 - Open `http://127.0.0.1:4173/control` in a **wide** window (**≥ 1280px**, ideally
   ~1440–1600) so the three-column studio layout shows.
