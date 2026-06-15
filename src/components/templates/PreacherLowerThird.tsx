@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import AccentStripe from '../graphics/AccentStripe';
@@ -33,6 +34,7 @@ function nameSizeClass(name: string): string {
  * come from the stage-scoped --gfx-* theme variables.
  */
 export default function PreacherLowerThird({ values }: Props) {
+  const [headshotFailed, setHeadshotFailed] = useState(false);
   const name = values.name?.trim() || 'Speaker Name';
   const title = values.title?.trim() || '';
   const subtitle = values.subtitle?.trim() || '';
@@ -45,7 +47,12 @@ export default function PreacherLowerThird({ values }: Props) {
   const headshot = useAsset(preResolvedHeadshot ? undefined : headshotAssetId);
   const resolvedLogo = preResolvedLogo || (asset.status === 'ready' ? asset.src : logoUrl);
   const resolvedHeadshot = preResolvedHeadshot || (headshot.status === 'ready' ? headshot.src : undefined);
+  const showHeadshot = Boolean(resolvedHeadshot && !headshotFailed);
   const hasRoleRow = Boolean(title || subtitle);
+
+  useEffect(() => {
+    setHeadshotFailed(false);
+  }, [resolvedHeadshot]);
 
   return (
     <div className="gfx-l3">
@@ -74,9 +81,9 @@ export default function PreacherLowerThird({ values }: Props) {
         ) : null}
         <AccentStripe className="l3-stripe" thickness={14} color="accent-2" />
       </div>
-      {resolvedHeadshot ? (
+      {showHeadshot ? (
         <div className="l3-headshot">
-          <img src={resolvedHeadshot} alt="" className="l3-headshot__img" />
+          <img src={resolvedHeadshot} alt="" className="l3-headshot__img" onError={() => setHeadshotFailed(true)} />
         </div>
       ) : null}
       <Medallion className="l3-medallion" logoUrl={resolvedLogo} monogramSource={subtitle || name} size={150} />
