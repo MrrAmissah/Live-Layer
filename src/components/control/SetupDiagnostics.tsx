@@ -316,6 +316,16 @@ export default function SetupDiagnostics() {
           confirm it returns. If it doesn’t, the dock and source aren’t on the same origin.
         </p>
 
+        <div className="diag-network">
+          <span className="diag-network__label">Network mode</span>
+          <p>
+            Today, live Take/Clear is same-browser-origin. For a second PC, run
+            LiveLayer on the graphics host and use that machine’s LAN address for
+            both <code>/control</code> and <code>/output</code>. A WebSocket LAN
+            event bus is planned before true cross-device asset sharing.
+          </p>
+        </div>
+
         <ul className="setup-list">
           <li>Browser Source size: 1920 × 1080</li>
           <li>Enable transparent background; place the source above camera/video</li>

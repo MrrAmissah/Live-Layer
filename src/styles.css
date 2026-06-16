@@ -2867,6 +2867,28 @@ body.gfx-transparent {
 .control-root .diag-pill--fail { color: #fca5a5; border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.12); }
 .control-root .diag-real { margin: 0; font-size: 12px; line-height: 1.5; color: #9fb0c6; }
 .control-root .diag-real code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #7fe9f5; }
+.control-root .diag-network {
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  background: rgba(34, 211, 238, 0.055);
+  border: 1px solid rgba(34, 211, 238, 0.14);
+}
+.control-root .diag-network__label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7fe9f5;
+}
+.control-root .diag-network p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #aebbd0;
+}
+.control-root .diag-network code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #7fe9f5; }
 
 /* ==========================================================================
    CONTROL SURFACE — dock-first operator flow (narrow / OBS Custom Browser Dock)
