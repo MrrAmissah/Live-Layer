@@ -28,7 +28,10 @@ export default function TemplateList({ onAfterSelect }: TemplateListProps) {
     <div className="tpl-rail" role="radiogroup" aria-label="Choose a graphic">
       {Object.entries(grouped).map(([category, items]) => (
         <div key={category} className="tpl-rail__group">
-          <p className="tpl-rail__cat">{category}</p>
+          <p className="tpl-rail__cat">
+            <span>{category}</span>
+            <span className="tpl-rail__cat-count">{items.length}</span>
+          </p>
           <div className="tpl-rail__list">
             {items.map((template) => (
               <TemplateCard
