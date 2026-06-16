@@ -88,7 +88,11 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
       ) : null}
 
       <div className="preview-monitor panel-strong overflow-hidden">
-        <div className="monitor-header">Draft preview · changes on Take</div>
+        <div className="monitor-bezel monitor-bezel--top">
+          <span className="monitor-tally" aria-hidden />
+          <span className="monitor-bezel__label">Preview</span>
+          <span className="monitor-bezel__hint">Updates on Take</span>
+        </div>
         <div className="monitor-screen">
           <GraphicStage theme={mergedTheme} backdrop={backdrop} showSafeAreas={showGuides}>
             {template && Renderer ? (
@@ -108,6 +112,10 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
               <UnsupportedTemplateMessage templateId={templateId} />
             )}
           </GraphicStage>
+        </div>
+        <div className="monitor-bezel monitor-bezel--bottom">
+          <span className="monitor-spec">1920 × 1080</span>
+          <span className="monitor-spec monitor-spec--accent">PVW</span>
         </div>
       </div>
     </div>

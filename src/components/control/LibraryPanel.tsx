@@ -10,7 +10,7 @@ export default function LibraryPanel() {
     <Panel>
       <SectionHeader
         kicker="Library"
-        title="Graphics, people & packs"
+        title="Saved work"
         aside={<span className="ll-count" title="Saved graphics">{presetCount} saved</span>}
       />
       <div className="ll-panel__body">

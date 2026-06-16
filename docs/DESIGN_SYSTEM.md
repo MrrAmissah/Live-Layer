@@ -5,16 +5,37 @@
 These drive the `/control` product UI only. The output graphics do **not**
 consume them — they use the `--gfx-*` layer below.
 
-- `--bg`: #03060d — graphite navy base
-- `--surface`: rgba(10, 15, 26, 0.92) — deep broadcast panel
-- `--surface-strong`: rgba(7, 11, 18, 0.96)
-- `--surface-soft`: rgba(12, 18, 30, 0.72)
-- `--border`: rgba(148, 163, 184, 0.14) — subtle edge highlight
-- `--text`: #f8fafc — crisp off-white
-- `--text-muted`: #94a3b8 — cool gray-blue
-- `--accent`: #22d3ee — electric cyan highlight
-- `--accent-strong`: #06b6d4 — premium broadcast blue
-- `--gold`: #fbbf24 — warm gold accent
+Control CSS variables are scoped to `.control-root` with the `--ll-*` prefix so
+they cannot bleed into `/output`.
+
+| Token | Value | Role |
+|---|---|---|
+| `--ll-bg` | `#05080f` | graphite base |
+| `--ll-bg-2` | `#080d15` | recessed control wells / dock tabs |
+| `--ll-panel` | `#0b111b` | primary broadcast panel |
+| `--ll-panel-strong` | `#0e1522` | elevated panel surface |
+| `--ll-panel-soft` | `#091019` | secondary Brand/Library surface |
+| `--ll-panel-muted` | `rgba(255,255,255,0.026)` | very quiet inner bands |
+| `--ll-border` | `rgba(148,163,184,0.13)` | standard panel edge |
+| `--ll-border-soft` | `rgba(148,163,184,0.095)` | secondary panel edge |
+| `--ll-border-strong` | `rgba(148,163,184,0.2)` | hover/active edge |
+| `--ll-text` | `#eef2f8` | primary control text |
+| `--ll-text-strong` | `#f7fbff` | identity / high-priority text |
+| `--ll-muted` | `#9fb0c6` | secondary text |
+| `--ll-muted-2` | `#6f7e95` | captions and inactive text |
+| `--ll-muted-3` | `#51607a` | placeholder text |
+| `--ll-accent` | `#22d3ee` | active/primary cyan |
+| `--ll-accent-strong` | `#06b6d4` | cyan gradient end |
+| `--ll-live` | `#36e27a` | live signal |
+| `--ll-warn` | `#e8b93c` | warnings / warm markers |
+| `--ll-danger` | `#f43f5e` | clear/destructive intent |
+
+Shell sizing tokens:
+
+- `--ll-radius-panel`: `11px`
+- `--ll-radius-control`: `8px`
+- `--ll-shadow-panel`: `0 18px 45px rgba(0,0,0,0.2)`
+- `--ll-focus`: `0 0 0 3px rgba(34,211,238,0.16)`
 
 ## Output graphic tokens (`--gfx-*`)
 

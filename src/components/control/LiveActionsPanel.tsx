@@ -21,19 +21,28 @@ interface LiveActionsPanelProps {
  * duration controls; in ad-hoc mode it's the draft.
  */
 export default function LiveActionsPanel({ onTake, onClear, lastAction, lastTakenAt }: LiveActionsPanelProps) {
-  const { takeLabel, takeDisabled, rundownActive } = useLiveTakeContext();
+  const { takeLabel, takeDisabled, rundownActive, selectedItem } = useLiveTakeContext();
+  const cueLabel = rundownActive
+    ? (selectedItem ? `Selected: ${selectedItem.title}` : 'Select a rundown item')
+    : 'Current draft';
 
   return (
     <Panel>
       <SectionHeader kicker="Live" title="On-air actions" aside={<StatusBadge status={lastAction} />} />
       <div className="ll-panel__body live-deck">
-        <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled}>
-          <span className="take-btn__icon" aria-hidden>▶</span>
-          {takeLabel}
-        </button>
-        <button type="button" className="clear-btn" onClick={onClear}>
-          Clear live graphic
-        </button>
+        <div className="live-deck__primary" data-armed={!takeDisabled}>
+          <div className="live-deck__cue">
+            <span className="live-deck__cue-kicker"><span className="live-deck__tally" aria-hidden />Standby</span>
+            <span className="live-deck__cue-title">{cueLabel}</span>
+          </div>
+          <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled}>
+            <span className="take-btn__icon" aria-hidden>▶</span>
+            {takeLabel}
+          </button>
+          <button type="button" className="clear-btn" onClick={onClear}>
+            Clear live graphic
+          </button>
+        </div>
 
         {rundownActive ? (
           <StudioRundownPanel />

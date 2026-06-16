@@ -9,6 +9,27 @@ Shots for the README, a portfolio page, or a release post. Save PNGs into
 2. Use a clean browser window (no extensions/bookmarks bar visible) for control shots.
 3. Capture at a consistent device pixel ratio; crop out browser chrome.
 
+## Control redesign visual QA
+
+Before capturing final shots, make a quick manual pass at these widths. Browser
+automation was not available during the redesign sprint, so these checks are the
+source of truth for the final visual sign-off.
+
+- Desktop studio (`/control`, ~1440-1600px): command bar lockup is readable, the
+  preview reads as the main monitor, the right rail steps down from **Live** to
+  **Look** to **Saved work**, and no panel text overflows.
+- Tablet boundary (`/control`, ~1024px): crossing the breakpoint swaps studio
+  and dock layouts cleanly, without horizontal scroll or clipped controls.
+- OBS dock (`/control`, ~360-420px): status bar, tabs, selected graphic name,
+  preview, and sticky Take/Clear bar all remain reachable and readable.
+- Dock forms: Graphic, Edit, Live, Brand, and Library tabs scroll without content
+  hiding behind the sticky live bar; focus rings are visible on buttons, tabs,
+  inputs, scripture chips, and queue actions.
+- Feature surfaces: Saved graphics, People, Rundowns, Import, scripture lookup,
+  dynamic date/time helpers, and layout controls keep their existing behavior
+  while using the quieter row/card treatment.
+- `/setup`: diagnostics and setup copy still fit beneath the polished command bar.
+
 ## 1. `/control` — full studio view  → `livelayer-control.png`
 
 - Open `http://127.0.0.1:4173/control` in a **wide** window (**≥ 1280px**, ideally

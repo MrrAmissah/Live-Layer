@@ -20,10 +20,11 @@ export default function PreviewPanel() {
         kicker={rundownActive ? 'Selected item' : 'Draft preview'}
         title={template?.name ?? 'Preview'}
         aside={
-          <div className="preview-tags">
-            {template ? <span className="ll-tag ll-tag--accent">{template.category}</span> : null}
-            <span className="ll-tag">1920×1080</span>
-          </div>
+          template ? (
+            <div className="preview-tags">
+              <span className="ll-tag ll-tag--accent">{template.category}</span>
+            </div>
+          ) : null
         }
       />
       <div className="ll-panel__body preview-panel__body">

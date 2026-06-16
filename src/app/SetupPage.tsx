@@ -67,13 +67,20 @@ export default function SetupPage() {
     <div className="control-root">
       <div className="control-inner setup-inner">
         <header className="cmd-bar">
-          <div className="cmd-bar__left">
+          <div className="cmd-bar__brand">
             <span className="cmd-logo">
               <img className="cmd-logo__mark" src="/livelayer-mark.svg" alt="" aria-hidden="true" />
-              LiveLayer
             </span>
-            <span className="cmd-divider" aria-hidden />
-            <span className="cmd-badge cmd-badge--route">/setup</span>
+            <span className="cmd-logo__copy">
+              <span className="cmd-logo__name">LiveLayer</span>
+              <span className="cmd-logo__sub">Setup &amp; OBS</span>
+            </span>
+          </div>
+          <div className="cmd-cluster" role="group" aria-label="Surface">
+            <div className="cmd-mod cmd-mod--route">
+              <span className="cmd-mod__label">Surface</span>
+              <span className="cmd-mod__val">/setup</span>
+            </div>
           </div>
           <div className="cmd-bar__right">
             <button type="button" className="btn btn--ghost btn--sm" onClick={() => window.open(controlUrl, '_blank')}>

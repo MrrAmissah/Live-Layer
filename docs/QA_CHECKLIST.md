@@ -49,6 +49,15 @@ Resize a window to ~360px, or dock `/control` in OBS at ~340–500px.
 - [ ] Balanced, no dead black page gaps; preview is the prominent centrepiece
 - [ ] Crossing the 1024px boundary flips dock ↔ studio cleanly with no flash
 
+## 3A. Control redesign visual QA
+
+- [ ] Desktop ~1440-1600px: command bar lockup is readable and the preview remains the strongest visual anchor
+- [ ] Right column hierarchy reads top-to-bottom as **Live** → **Look** → **Saved work**
+- [ ] Library tabs, saved graphics, People, Rundowns, Import, and empty states use calmer rows/cards without cramped labels
+- [ ] Edit forms and scripture lookup sections have visible grouping, readable labels, and no clipped textarea/button text
+- [ ] Dock ~360-420px: status bar, tabs, selected graphic name, preview, and sticky Take/Clear bar remain visible and usable
+- [ ] Keyboard focus rings are visible on buttons, inputs, tabs, scripture chips, queue actions, and import/export controls
+
 ## 4. `/output` transparency
 
 - [ ] `/output` shows no solid background in the browser (transparent body)

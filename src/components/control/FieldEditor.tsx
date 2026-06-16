@@ -18,7 +18,7 @@ export default function FieldEditor() {
     <Panel className="ll-fill">
       <SectionHeader
         kicker={isRundownItem ? 'Rundown item' : 'Content'}
-        title="Edit fields"
+        title={isRundownItem ? 'Edit item' : 'Edit graphic'}
         aside={
           isRundownItem ? null : (
             <button type="button" className="btn btn--ghost btn--sm" onClick={resetDraft}>
