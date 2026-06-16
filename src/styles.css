@@ -347,18 +347,23 @@ body.gfx-transparent {
 
 .gfx-layer[data-size='small'] .gfx-l3,
 .gfx-layer[data-size='small'] .gfx-scripture,
-.gfx-layer[data-size='small'] .gfx-announce {
+.gfx-layer[data-size='small'] .gfx-announce,
+.gfx-layer[data-size='small'] .gfx-quote,
+.gfx-layer[data-size='small'] .gfx-event {
   transform: scale(0.86);
 }
 
 .gfx-layer[data-size='large'] .gfx-l3,
 .gfx-layer[data-size='large'] .gfx-scripture,
-.gfx-layer[data-size='large'] .gfx-announce {
+.gfx-layer[data-size='large'] .gfx-announce,
+.gfx-layer[data-size='large'] .gfx-quote,
+.gfx-layer[data-size='large'] .gfx-event {
   transform: scale(1.08);
 }
 
 .gfx-layer[data-position='center'] .gfx-l3,
-.gfx-layer[data-position='center'] .gfx-announce {
+.gfx-layer[data-position='center'] .gfx-announce,
+.gfx-layer[data-position='center'] .gfx-event {
   left: 50%;
   right: auto;
   align-items: center;
@@ -366,19 +371,22 @@ body.gfx-transparent {
 }
 
 .gfx-layer[data-position='full'] .gfx-l3,
-.gfx-layer[data-position='full'] .gfx-announce {
+.gfx-layer[data-position='full'] .gfx-announce,
+.gfx-layer[data-position='full'] .gfx-event {
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
   align-items: stretch;
 }
 
 .gfx-layer[data-size='small'][data-position='center'] .gfx-l3,
-.gfx-layer[data-size='small'][data-position='center'] .gfx-announce {
+.gfx-layer[data-size='small'][data-position='center'] .gfx-announce,
+.gfx-layer[data-size='small'][data-position='center'] .gfx-event {
   transform: translateX(-50%) scale(0.86);
 }
 
 .gfx-layer[data-size='large'][data-position='center'] .gfx-l3,
-.gfx-layer[data-size='large'][data-position='center'] .gfx-announce {
+.gfx-layer[data-size='large'][data-position='center'] .gfx-announce,
+.gfx-layer[data-size='large'][data-position='center'] .gfx-event {
   transform: translateX(-50%) scale(1.08);
 }
 
@@ -388,7 +396,8 @@ body.gfx-transparent {
 }
 
 .gfx-layer[data-position='full'] .gfx-scripture,
-.gfx-layer[data-position='full'] .gfx-announce {
+.gfx-layer[data-position='full'] .gfx-announce,
+.gfx-layer[data-position='full'] .gfx-quote {
   left: 0;
   right: 0;
 }
@@ -411,6 +420,16 @@ body.gfx-transparent {
 .gfx-layer[data-density='compact'] .gfx-announce .announce-body { font-size: 25px; }
 .gfx-layer[data-density='bold'] .gfx-announce .announce-main { min-height: 244px; }
 .gfx-layer[data-density='bold'] .gfx-announce .announce-headline { font-size: 88px; }
+
+.gfx-layer[data-density='compact'] .gfx-quote .quote-card { min-height: 380px; padding-top: 60px; padding-bottom: 56px; }
+.gfx-layer[data-density='compact'] .gfx-quote .quote-text { font-size: 48px; }
+.gfx-layer[data-density='bold'] .gfx-quote .quote-card { min-height: 500px; }
+.gfx-layer[data-density='bold'] .gfx-quote .quote-text { font-size: 66px; }
+
+.gfx-layer[data-density='compact'] .gfx-event .event-main { min-height: 150px; padding-top: 30px; padding-bottom: 28px; }
+.gfx-layer[data-density='compact'] .gfx-event .event-title { font-size: 58px; }
+.gfx-layer[data-density='bold'] .gfx-event .event-main { min-height: 214px; }
+.gfx-layer[data-density='bold'] .gfx-event .event-title { font-size: 82px; }
 
 .gfx-layer[data-state='out'] {
   opacity: 0;
@@ -1042,6 +1061,302 @@ body.gfx-transparent {
 
 .gfx-layer:not([data-anim='fade'])[data-state='in'] .announce-cta {
   animation: gfx-pop-in 280ms var(--gfx-ease-out) 320ms both;
+}
+
+/* --- quote card (gfx-quote) ---------------------------------------------
+   Center editorial card with paper surface, brand side rail, and oversized
+   quote mark. Purposefully distinct from scripture: attribution-first, not
+   reference-first. */
+
+.gfx-quote {
+  position: absolute;
+  left: var(--gfx-safe-title-x);
+  right: var(--gfx-safe-title-x);
+  top: 50%;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 14px 34px rgba(0, 0, 0, 0.36));
+  transform-origin: center center;
+}
+
+.gfx-layer[data-size='small'] .gfx-quote {
+  transform: translateY(-50%) scale(0.86);
+}
+
+.gfx-layer[data-size='large'] .gfx-quote {
+  transform: translateY(-50%) scale(1.08);
+}
+
+.gfx-quote .quote-card {
+  position: relative;
+  min-height: 440px;
+  padding: 74px 120px 68px 156px;
+  overflow: hidden;
+}
+
+.gfx-quote .quote-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background: var(--gfx-brand);
+}
+
+.gfx-quote .quote-card::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 0;
+  bottom: 0;
+  height: 9px;
+  background: var(--gfx-accent-2);
+}
+
+.gfx-quote .quote-mark {
+  position: absolute;
+  left: 54px;
+  top: 34px;
+  font-family: var(--gfx-font-display);
+  font-size: 190px;
+  font-weight: 900;
+  line-height: 0.72;
+  color: var(--gfx-brand);
+  opacity: 0.17;
+}
+
+.gfx-quote .quote-content {
+  position: relative;
+  display: grid;
+  gap: 26px;
+  z-index: 1;
+}
+
+.gfx-quote .quote-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gfx-quote .quote-kicker {
+  font-family: var(--gfx-font-display);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gfx-brand);
+}
+
+.gfx-quote .quote-chip {
+  font-family: var(--gfx-font-text);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+  background: color-mix(in srgb, var(--gfx-accent-2) 24%, transparent);
+  border-left: 5px solid var(--gfx-accent-2);
+  padding: 8px 12px;
+}
+
+.gfx-quote .quote-text {
+  margin: 0;
+  max-width: 1300px;
+  font-family: var(--gfx-font-display);
+  font-weight: 760;
+  font-stretch: 106%;
+  font-size: 58px;
+  line-height: 1.12;
+  letter-spacing: -0.012em;
+  color: var(--gfx-ink);
+}
+
+.gfx-quote .quote-text-md {
+  font-size: 50px;
+  line-height: 1.16;
+}
+
+.gfx-quote .quote-text-sm {
+  font-size: 42px;
+  line-height: 1.2;
+}
+
+.gfx-quote .quote-source {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.gfx-quote .quote-source-rule {
+  width: 74px;
+  height: 6px;
+  background: var(--gfx-accent-2);
+}
+
+.gfx-quote .quote-source-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.gfx-quote .quote-source-name {
+  font-family: var(--gfx-font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gfx-ink);
+}
+
+.gfx-quote .quote-source-role {
+  font-family: var(--gfx-font-text);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+  opacity: 0.56;
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .quote-card {
+  animation: gfx-band-up 420ms var(--gfx-ease-out) both;
+}
+
+/* --- event banner (gfx-event) -------------------------------------------
+   Lower broadcast banner, louder and more operational than Announcement.
+   Title lives on brand, schedule/location on a cut paper end-cap. */
+
+.gfx-event {
+  position: absolute;
+  left: var(--gfx-safe-title-x);
+  right: var(--gfx-safe-title-x);
+  bottom: var(--gfx-safe-title-bottom);
+  filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.34));
+  transform-origin: left bottom;
+}
+
+.gfx-event .event-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(410px, 500px);
+  align-items: stretch;
+}
+
+.gfx-event .event-tag {
+  position: absolute;
+  left: 0;
+  top: -56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  font-family: var(--gfx-font-display);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gfx-paper-cool);
+  z-index: 2;
+}
+
+.gfx-event .event-tag-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--gfx-accent-2);
+  transform: rotate(45deg);
+}
+
+.gfx-event .event-main {
+  min-height: 184px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 82px 38px 54px;
+}
+
+.gfx-event .event-cap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.gfx-event .event-title {
+  margin: 0;
+  font-family: var(--gfx-font-display);
+  font-size: 72px;
+  font-weight: 860;
+  font-stretch: 110%;
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--gfx-on-brand);
+}
+
+.gfx-event .event-title-md {
+  font-size: 60px;
+}
+
+.gfx-event .event-title-sm {
+  font-size: 50px;
+}
+
+.gfx-event .event-cta {
+  margin: 15px 0 0;
+  max-width: 920px;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.18;
+  color: var(--gfx-on-brand);
+  opacity: 0.84;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gfx-event .event-meta {
+  min-height: 184px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding: 28px 54px 28px 86px;
+}
+
+.gfx-event .event-meta-line {
+  display: grid;
+  gap: 7px;
+}
+
+.gfx-event .event-meta-label {
+  font-family: var(--gfx-font-display);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--gfx-brand);
+}
+
+.gfx-event .event-meta-value {
+  font-family: var(--gfx-font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--gfx-ink);
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .event-shell {
+  animation: gfx-plate-in 380ms var(--gfx-ease-out) both;
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .event-tag {
+  animation: gfx-pop-in 260ms var(--gfx-ease-out) 260ms both;
 }
 
 /* ==========================================================================

@@ -30,7 +30,9 @@
     <strong>Template</strong>
     <button data-t="preacher-lower-third">Lower Third</button>
     <button data-t="scripture-card">Scripture</button>
+    <button data-t="quote-card">Quote</button>
     <button data-t="announcement-banner">Announcement</button>
+    <button data-t="event-banner">Event</button>
     <button class="clear" data-clear>Clear</button>
     <strong style="margin-left:10px">Background</strong>
     <button data-bg="camera">Camera</button>
@@ -68,9 +70,17 @@
         short: { reference: 'Psalm 23:1-2', verseText: 'The Lord is my shepherd; I shall not want. He makes me lie down in green pastures.', translationLabel: 'ESV', themeTitle: 'Scripture' },
         long:  { reference: 'Romans 8:38-39', verseText: 'For I am convinced that neither death nor life, neither angels nor demons, neither the present nor the future, nor any powers, neither height nor depth, nor anything else in all creation, will be able to separate us from the love of God.', translationLabel: 'NIV', themeTitle: 'Sunday Service' }
       },
+      'quote-card': {
+        short: { quoteText: 'Faith is not the absence of questions; it is the courage to keep walking with God through them.', sourceName: 'Pastor Anna Grace', sourceRole: 'Sunday Message', themeTitle: 'Key Thought', translationLabel: '' },
+        long:  { quoteText: 'The church becomes a sign of hope when ordinary people practice extraordinary mercy in ordinary rooms, around ordinary tables, with the patience of Christ.', sourceName: 'Grace Harbor Notes', sourceRole: 'Reflection', themeTitle: 'Reflection', translationLabel: 'Series' }
+      },
       'announcement-banner': {
         short: { headline: 'Weekend Service Tonight', body: 'Join us in person or online for worship and a message.', dateTime: 'Sun • 10:30 AM', callToAction: 'Visit the info desk after the service.' },
         long:  { headline: 'Annual Community Thanksgiving Outreach', body: 'Worship, a powerful message, free meals, kids programming, and community updates for the whole family.', dateTime: 'Saturday • 6:30 PM', callToAction: 'RSVP and volunteer at example.com/serve' }
+      },
+      'event-banner': {
+        short: { eventTitle: 'Youth Night Live', dateTime: 'Friday • 7:00 PM', location: 'Main Auditorium', callToAction: 'Invite a friend and register after service.', tag: 'Tonight' },
+        long:  { eventTitle: 'Annual Community Thanksgiving Outreach', dateTime: 'Saturday • 6:30 PM', location: 'North Campus Family Center', callToAction: 'Volunteer, bring a guest, and stop by the info desk for details.', tag: 'Next Up' }
       }
     };
 
