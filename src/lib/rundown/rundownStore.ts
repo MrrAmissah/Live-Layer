@@ -143,7 +143,14 @@ function mutateRundown(state: RundownStoreState, rundownId: string, fn: (rundown
 /** A human title from a graphic's key field (scripture ref / name / headline). */
 export function deriveItemTitle(graphic: GraphicInstance): string {
   const values = graphic.values ?? {};
-  const candidate = values.reference || values.name || values.headline || values.title;
+  const candidate =
+    values.reference ||
+    values.name ||
+    values.headline ||
+    values.eventTitle ||
+    values.quoteText ||
+    values.sermonTitle ||
+    values.title;
   if (candidate && candidate.trim()) return candidate.trim();
   return graphic.templateId;
 }

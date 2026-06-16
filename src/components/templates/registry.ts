@@ -2,6 +2,10 @@ import type { TemplateDefinition } from '../../types/graphics';
 import PreacherLowerThird from './PreacherLowerThird';
 import ScriptureCard from './ScriptureCard';
 import AnnouncementBanner from './AnnouncementBanner';
+import QuoteCard from './QuoteCard';
+import EventBanner from './EventBanner';
+import SermonTitle from './SermonTitle';
+import FullscreenMessage from './FullscreenMessage';
 
 export const templateRegistry: TemplateDefinition[] = [
   {
@@ -76,11 +80,123 @@ export const templateRegistry: TemplateDefinition[] = [
       backgroundColor: 'transparent'
     },
     animation: { in: 'slide', out: 'slide' }
+  },
+  {
+    id: 'quote-card',
+    name: 'Quote Card',
+    category: 'Card',
+    description: 'Editorial quote card for sermon excerpts, reflections, and teaching moments.',
+    fields: [
+      { id: 'quoteText', label: 'Quote text', type: 'textarea', placeholder: 'Type the quote or key thought', rows: 5 },
+      { id: 'sourceName', label: 'Source name', type: 'text', placeholder: 'Speaker or source', optional: true },
+      { id: 'sourceRole', label: 'Source role', type: 'text', placeholder: 'Role, book, or context', optional: true },
+      { id: 'themeTitle', label: 'Theme title', type: 'text', placeholder: 'Quote, Reflection, Key thought', optional: true },
+      { id: 'translationLabel', label: 'Small label', type: 'text', placeholder: 'Optional label', optional: true }
+    ],
+    defaultValues: {
+      quoteText: 'Faith is not the absence of questions; it is the courage to keep walking with God through them.',
+      sourceName: 'Pastor Anna Grace',
+      sourceRole: 'Sunday Message',
+      themeTitle: 'Key Thought',
+      translationLabel: ''
+    },
+    theme: {
+      primaryColor: '#f8fafc',
+      accentColor: '#0E7C86',
+      backgroundColor: 'transparent',
+      accent2Color: '#E8B93C'
+    },
+    animation: { in: 'slide', out: 'slide' }
+  },
+  {
+    id: 'event-banner',
+    name: 'Event Banner',
+    category: 'Banner',
+    description: 'Bold event banner with title, date/time, location, CTA, and status tag.',
+    fields: [
+      { id: 'eventTitle', label: 'Event title', type: 'text', placeholder: 'Event or session name' },
+      { id: 'dateTime', label: 'Date / Time', type: 'text', placeholder: 'Friday • 7:00 PM' },
+      { id: 'location', label: 'Location', type: 'text', placeholder: 'Main Auditorium', optional: true },
+      { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Register after service', optional: true },
+      { id: 'tag', label: 'Tag / status', type: 'text', placeholder: 'Tonight, Next, Free', optional: true }
+    ],
+    defaultValues: {
+      eventTitle: 'Youth Night Live',
+      dateTime: 'Friday • 7:00 PM',
+      location: 'Main Auditorium',
+      callToAction: 'Invite a friend and register after service.',
+      tag: 'Tonight'
+    },
+    theme: {
+      primaryColor: '#f8fafc',
+      accentColor: '#0E7C86',
+      backgroundColor: 'transparent',
+      accent2Color: '#E8B93C'
+    },
+    animation: { in: 'slide', out: 'slide' }
+  },
+  {
+    id: 'sermon-title',
+    name: 'Sermon Title',
+    category: 'Fullscreen',
+    description: 'Premium sermon intro card with title, series, scripture, speaker, and date.',
+    fields: [
+      { id: 'sermonTitle', label: 'Sermon title', type: 'text', placeholder: 'Sermon title' },
+      { id: 'speakerName', label: 'Speaker name', type: 'text', placeholder: 'Speaker name', optional: true },
+      { id: 'churchName', label: 'Church name', type: 'text', placeholder: 'Church or ministry', optional: true },
+      { id: 'seriesTitle', label: 'Series title', type: 'text', placeholder: 'Series or theme', optional: true },
+      { id: 'scriptureReference', label: 'Scripture reference', type: 'text', placeholder: 'Romans 8:28', optional: true },
+      { id: 'date', label: 'Date', type: 'text', placeholder: '{{date}}', optional: true }
+    ],
+    defaultValues: {
+      sermonTitle: 'Anchored in Hope',
+      speakerName: 'Pastor Anna Grace',
+      churchName: 'Grace Harbor Church',
+      seriesTitle: 'Summer Psalms',
+      scriptureReference: 'Psalm 23:1-2',
+      date: '{{date}}'
+    },
+    theme: {
+      primaryColor: '#f8fafc',
+      accentColor: '#0E7C86',
+      backgroundColor: 'transparent',
+      accent2Color: '#E8B93C'
+    },
+    animation: { in: 'slide', out: 'slide' }
+  },
+  {
+    id: 'fullscreen-message',
+    name: 'Fullscreen Message',
+    category: 'Fullscreen',
+    description: 'Readable full-screen service message for welcome, prayer, pause, and next-step moments.',
+    fields: [
+      { id: 'headline', label: 'Headline', type: 'text', placeholder: 'Welcome' },
+      { id: 'body', label: 'Body', type: 'textarea', placeholder: 'Short supporting message', rows: 4, optional: true },
+      { id: 'footerNote', label: 'Footer note', type: 'text', placeholder: 'Service starts soon', optional: true },
+      { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Connect with us', optional: true }
+    ],
+    defaultValues: {
+      headline: 'Welcome to Church',
+      body: 'We are glad you are here. Take a moment to greet someone near you.',
+      footerNote: 'Grace Harbor Church',
+      callToAction: 'Service begins at {{time}}'
+    },
+    theme: {
+      primaryColor: '#f8fafc',
+      accentColor: '#0E7C86',
+      backgroundColor: 'transparent',
+      accent2Color: '#E8B93C'
+    },
+    animation: { in: 'slide', out: 'slide' }
   }
 ];
 
 export const templateRendererMap: Record<string, React.ComponentType<{ values: Record<string, string>; theme: TemplateDefinition['theme'] }>> = {
   'preacher-lower-third': PreacherLowerThird,
   'scripture-card': ScriptureCard,
-  'announcement-banner': AnnouncementBanner
+  'announcement-banner': AnnouncementBanner,
+  'quote-card': QuoteCard,
+  'event-banner': EventBanner,
+  'sermon-title': SermonTitle,
+  'fullscreen-message': FullscreenMessage
 };

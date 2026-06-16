@@ -347,18 +347,23 @@ body.gfx-transparent {
 
 .gfx-layer[data-size='small'] .gfx-l3,
 .gfx-layer[data-size='small'] .gfx-scripture,
-.gfx-layer[data-size='small'] .gfx-announce {
+.gfx-layer[data-size='small'] .gfx-announce,
+.gfx-layer[data-size='small'] .gfx-quote,
+.gfx-layer[data-size='small'] .gfx-event {
   transform: scale(0.86);
 }
 
 .gfx-layer[data-size='large'] .gfx-l3,
 .gfx-layer[data-size='large'] .gfx-scripture,
-.gfx-layer[data-size='large'] .gfx-announce {
+.gfx-layer[data-size='large'] .gfx-announce,
+.gfx-layer[data-size='large'] .gfx-quote,
+.gfx-layer[data-size='large'] .gfx-event {
   transform: scale(1.08);
 }
 
 .gfx-layer[data-position='center'] .gfx-l3,
-.gfx-layer[data-position='center'] .gfx-announce {
+.gfx-layer[data-position='center'] .gfx-announce,
+.gfx-layer[data-position='center'] .gfx-event {
   left: 50%;
   right: auto;
   align-items: center;
@@ -366,19 +371,22 @@ body.gfx-transparent {
 }
 
 .gfx-layer[data-position='full'] .gfx-l3,
-.gfx-layer[data-position='full'] .gfx-announce {
+.gfx-layer[data-position='full'] .gfx-announce,
+.gfx-layer[data-position='full'] .gfx-event {
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
   align-items: stretch;
 }
 
 .gfx-layer[data-size='small'][data-position='center'] .gfx-l3,
-.gfx-layer[data-size='small'][data-position='center'] .gfx-announce {
+.gfx-layer[data-size='small'][data-position='center'] .gfx-announce,
+.gfx-layer[data-size='small'][data-position='center'] .gfx-event {
   transform: translateX(-50%) scale(0.86);
 }
 
 .gfx-layer[data-size='large'][data-position='center'] .gfx-l3,
-.gfx-layer[data-size='large'][data-position='center'] .gfx-announce {
+.gfx-layer[data-size='large'][data-position='center'] .gfx-announce,
+.gfx-layer[data-size='large'][data-position='center'] .gfx-event {
   transform: translateX(-50%) scale(1.08);
 }
 
@@ -388,7 +396,8 @@ body.gfx-transparent {
 }
 
 .gfx-layer[data-position='full'] .gfx-scripture,
-.gfx-layer[data-position='full'] .gfx-announce {
+.gfx-layer[data-position='full'] .gfx-announce,
+.gfx-layer[data-position='full'] .gfx-quote {
   left: 0;
   right: 0;
 }
@@ -411,6 +420,16 @@ body.gfx-transparent {
 .gfx-layer[data-density='compact'] .gfx-announce .announce-body { font-size: 25px; }
 .gfx-layer[data-density='bold'] .gfx-announce .announce-main { min-height: 244px; }
 .gfx-layer[data-density='bold'] .gfx-announce .announce-headline { font-size: 88px; }
+
+.gfx-layer[data-density='compact'] .gfx-quote .quote-card { min-height: 380px; padding-top: 60px; padding-bottom: 56px; }
+.gfx-layer[data-density='compact'] .gfx-quote .quote-text { font-size: 48px; }
+.gfx-layer[data-density='bold'] .gfx-quote .quote-card { min-height: 500px; }
+.gfx-layer[data-density='bold'] .gfx-quote .quote-text { font-size: 66px; }
+
+.gfx-layer[data-density='compact'] .gfx-event .event-main { min-height: 150px; padding-top: 30px; padding-bottom: 28px; }
+.gfx-layer[data-density='compact'] .gfx-event .event-title { font-size: 58px; }
+.gfx-layer[data-density='bold'] .gfx-event .event-main { min-height: 214px; }
+.gfx-layer[data-density='bold'] .gfx-event .event-title { font-size: 82px; }
 
 .gfx-layer[data-state='out'] {
   opacity: 0;
@@ -1044,6 +1063,589 @@ body.gfx-transparent {
   animation: gfx-pop-in 280ms var(--gfx-ease-out) 320ms both;
 }
 
+/* --- quote card (gfx-quote) ---------------------------------------------
+   Center editorial card with paper surface, brand side rail, and oversized
+   quote mark. Purposefully distinct from scripture: attribution-first, not
+   reference-first. */
+
+.gfx-quote {
+  position: absolute;
+  left: var(--gfx-safe-title-x);
+  right: var(--gfx-safe-title-x);
+  top: 50%;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 14px 34px rgba(0, 0, 0, 0.36));
+  transform-origin: center center;
+}
+
+.gfx-layer[data-size='small'] .gfx-quote {
+  transform: translateY(-50%) scale(0.86);
+}
+
+.gfx-layer[data-size='large'] .gfx-quote {
+  transform: translateY(-50%) scale(1.08);
+}
+
+.gfx-quote .quote-card {
+  position: relative;
+  min-height: 440px;
+  padding: 74px 120px 68px 156px;
+  overflow: hidden;
+}
+
+.gfx-quote .quote-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background: var(--gfx-brand);
+}
+
+.gfx-quote .quote-card::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 0;
+  bottom: 0;
+  height: 9px;
+  background: var(--gfx-accent-2);
+}
+
+.gfx-quote .quote-mark {
+  position: absolute;
+  left: 54px;
+  top: 34px;
+  font-family: var(--gfx-font-display);
+  font-size: 190px;
+  font-weight: 900;
+  line-height: 0.72;
+  color: var(--gfx-brand);
+  opacity: 0.17;
+}
+
+.gfx-quote .quote-content {
+  position: relative;
+  display: grid;
+  gap: 26px;
+  z-index: 1;
+}
+
+.gfx-quote .quote-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gfx-quote .quote-kicker {
+  font-family: var(--gfx-font-display);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gfx-brand);
+}
+
+.gfx-quote .quote-chip {
+  font-family: var(--gfx-font-text);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+  background: color-mix(in srgb, var(--gfx-accent-2) 24%, transparent);
+  border-left: 5px solid var(--gfx-accent-2);
+  padding: 8px 12px;
+}
+
+.gfx-quote .quote-text {
+  margin: 0;
+  max-width: 1300px;
+  font-family: var(--gfx-font-display);
+  font-weight: 760;
+  font-stretch: 106%;
+  font-size: 58px;
+  line-height: 1.12;
+  letter-spacing: 0;
+  color: var(--gfx-ink);
+}
+
+.gfx-quote .quote-text-md {
+  font-size: 50px;
+  line-height: 1.16;
+}
+
+.gfx-quote .quote-text-sm {
+  font-size: 42px;
+  line-height: 1.2;
+}
+
+.gfx-quote .quote-source {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.gfx-quote .quote-source-rule {
+  width: 74px;
+  height: 6px;
+  background: var(--gfx-accent-2);
+}
+
+.gfx-quote .quote-source-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.gfx-quote .quote-source-name {
+  font-family: var(--gfx-font-display);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--gfx-ink);
+}
+
+.gfx-quote .quote-source-role {
+  font-family: var(--gfx-font-text);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+  opacity: 0.56;
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .quote-card {
+  animation: gfx-band-up 420ms var(--gfx-ease-out) both;
+}
+
+/* --- event banner (gfx-event) -------------------------------------------
+   Lower broadcast banner, louder and more operational than Announcement.
+   Title lives on brand, schedule/location on a cut paper end-cap. */
+
+.gfx-event {
+  position: absolute;
+  left: var(--gfx-safe-title-x);
+  right: var(--gfx-safe-title-x);
+  bottom: var(--gfx-safe-title-bottom);
+  filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.34));
+  transform-origin: left bottom;
+}
+
+.gfx-event .event-shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(410px, 500px);
+  align-items: stretch;
+}
+
+.gfx-event .event-tag {
+  position: absolute;
+  left: 0;
+  top: -56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  font-family: var(--gfx-font-display);
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gfx-paper-cool);
+  z-index: 2;
+}
+
+.gfx-event .event-tag-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--gfx-accent-2);
+  transform: rotate(45deg);
+}
+
+.gfx-event .event-main {
+  min-height: 184px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 82px 38px 54px;
+}
+
+.gfx-event .event-cap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.gfx-event .event-title {
+  margin: 0;
+  font-family: var(--gfx-font-display);
+  font-size: 72px;
+  font-weight: 860;
+  font-stretch: 110%;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--gfx-on-brand);
+}
+
+.gfx-event .event-title-md {
+  font-size: 60px;
+}
+
+.gfx-event .event-title-sm {
+  font-size: 50px;
+}
+
+.gfx-event .event-cta {
+  margin: 15px 0 0;
+  max-width: 920px;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.18;
+  color: var(--gfx-on-brand);
+  opacity: 0.84;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gfx-event .event-meta {
+  min-height: 184px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding: 28px 54px 28px 86px;
+}
+
+.gfx-event .event-meta-line {
+  display: grid;
+  gap: 7px;
+}
+
+.gfx-event .event-meta-label {
+  font-family: var(--gfx-font-display);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--gfx-brand);
+}
+
+.gfx-event .event-meta-value {
+  font-family: var(--gfx-font-display);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--gfx-ink);
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .event-shell {
+  animation: gfx-plate-in 380ms var(--gfx-ease-out) both;
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .event-tag {
+  animation: gfx-pop-in 260ms var(--gfx-ease-out) 260ms both;
+}
+
+/* --- sermon title (gfx-sermon) ------------------------------------------
+   Fullscreen intro card: large title centered in title-safe, structured footer
+   for speaker/church/date, and a subtle frame that still lets camera/video show
+   around the composition. */
+
+.gfx-sermon {
+  position: absolute;
+  inset: var(--gfx-safe-action-bottom) var(--gfx-safe-title-x);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 16px 42px rgba(0, 0, 0, 0.36));
+}
+
+.gfx-sermon .sermon-frame {
+  position: relative;
+  width: 100%;
+  min-height: 690px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 86px 96px 66px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gfx-brand) 16%, transparent), transparent 44%),
+    var(--gfx-paper);
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+.gfx-sermon .sermon-frame::before {
+  content: '';
+  position: absolute;
+  right: -150px;
+  top: -190px;
+  width: 520px;
+  height: 520px;
+  border: 42px solid color-mix(in srgb, var(--gfx-brand) 18%, transparent);
+  transform: rotate(18deg);
+}
+
+.gfx-sermon .sermon-frame::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 12px;
+  background: var(--gfx-brand);
+}
+
+.gfx-sermon .sermon-top-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.gfx-sermon .sermon-main {
+  position: relative;
+  z-index: 1;
+  max-width: 1320px;
+  display: grid;
+  gap: 26px;
+}
+
+.gfx-sermon .sermon-series {
+  font-family: var(--gfx-font-display);
+  font-size: 24px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gfx-brand);
+}
+
+.gfx-sermon .sermon-title {
+  margin: 0;
+  font-family: var(--gfx-font-display);
+  font-size: 112px;
+  font-weight: 900;
+  font-stretch: 112%;
+  line-height: 0.94;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+}
+
+.gfx-sermon .sermon-title-md {
+  font-size: 92px;
+  line-height: 0.98;
+}
+
+.gfx-sermon .sermon-title-sm {
+  font-size: 74px;
+  line-height: 1.02;
+}
+
+.gfx-sermon .sermon-reference {
+  width: fit-content;
+  padding: 15px 24px;
+  border-left: 7px solid var(--gfx-accent-2);
+  font-family: var(--gfx-font-display);
+  font-size: 26px;
+  font-weight: 820;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gfx-paper-cool);
+}
+
+.gfx-sermon .sermon-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 36px;
+  padding-top: 42px;
+  border-top: 2px solid color-mix(in srgb, var(--gfx-ink) 16%, transparent);
+}
+
+.gfx-sermon .sermon-speaker {
+  display: grid;
+  gap: 9px;
+}
+
+.gfx-sermon .sermon-speaker-name {
+  font-family: var(--gfx-font-display);
+  font-size: 34px;
+  font-weight: 840;
+  line-height: 1;
+  color: var(--gfx-ink);
+}
+
+.gfx-sermon .sermon-church,
+.gfx-sermon .sermon-date {
+  font-size: 22px;
+  font-weight: 760;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+  opacity: 0.58;
+}
+
+.gfx-layer[data-size='small'] .gfx-sermon .sermon-frame,
+.gfx-layer[data-size='small'] .gfx-fullmsg .fullmsg-panel {
+  transform: scale(0.88);
+}
+
+.gfx-layer[data-size='large'] .gfx-sermon .sermon-frame,
+.gfx-layer[data-size='large'] .gfx-fullmsg .fullmsg-panel {
+  transform: scale(1.06);
+}
+
+.gfx-layer[data-density='compact'] .gfx-sermon .sermon-frame { min-height: 610px; padding-top: 72px; padding-bottom: 54px; }
+.gfx-layer[data-density='compact'] .gfx-sermon .sermon-title { font-size: 94px; }
+.gfx-layer[data-density='bold'] .gfx-sermon .sermon-frame { min-height: 740px; }
+.gfx-layer[data-density='bold'] .gfx-sermon .sermon-title { font-size: 126px; }
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .sermon-frame {
+  animation: gfx-band-up 430ms var(--gfx-ease-out) both;
+}
+
+/* --- fullscreen message (gfx-fullmsg) -----------------------------------
+   Big service message with a strong brand field and paper CTA. This is meant
+   for welcome, prayer, pause, and room-direction moments. */
+
+.gfx-fullmsg {
+  position: absolute;
+  inset: var(--gfx-safe-title-bottom) var(--gfx-safe-title-x);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 16px 42px rgba(0, 0, 0, 0.36));
+}
+
+.gfx-fullmsg .fullmsg-panel {
+  position: relative;
+  width: 100%;
+  min-height: 650px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 96px 118px;
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+.gfx-fullmsg .fullmsg-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.11), transparent 34%),
+    radial-gradient(58% 72% at 83% 20%, rgba(255, 255, 255, 0.12), transparent 62%);
+  pointer-events: none;
+}
+
+.gfx-fullmsg .fullmsg-accent-block {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: var(--gfx-accent-2);
+}
+
+.gfx-fullmsg .fullmsg-content {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  display: grid;
+  gap: 30px;
+}
+
+.gfx-fullmsg .fullmsg-headline {
+  margin: 0;
+  font-family: var(--gfx-font-display);
+  font-size: 116px;
+  font-weight: 900;
+  font-stretch: 112%;
+  line-height: 0.94;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--gfx-on-brand);
+}
+
+.gfx-fullmsg .fullmsg-headline-md {
+  font-size: 94px;
+  line-height: 0.98;
+}
+
+.gfx-fullmsg .fullmsg-headline-sm {
+  font-size: 74px;
+  line-height: 1.04;
+}
+
+.gfx-fullmsg .fullmsg-body {
+  margin: 0;
+  max-width: 1000px;
+  font-size: 42px;
+  font-weight: 560;
+  line-height: 1.23;
+  color: var(--gfx-on-brand);
+  opacity: 0.86;
+}
+
+.gfx-fullmsg .fullmsg-cta {
+  width: fit-content;
+  margin-top: 10px;
+  padding: 18px 30px;
+  border-left: 8px solid var(--gfx-accent-2);
+  font-family: var(--gfx-font-display);
+  font-size: 28px;
+  font-weight: 840;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gfx-ink);
+}
+
+.gfx-fullmsg .fullmsg-footer {
+  position: absolute;
+  right: 72px;
+  bottom: 54px;
+  z-index: 1;
+  font-family: var(--gfx-font-display);
+  font-size: 22px;
+  font-weight: 820;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gfx-on-brand);
+  opacity: 0.65;
+}
+
+.gfx-layer[data-density='compact'] .gfx-fullmsg .fullmsg-panel { min-height: 560px; padding-top: 78px; padding-bottom: 78px; }
+.gfx-layer[data-density='compact'] .gfx-fullmsg .fullmsg-headline { font-size: 96px; }
+.gfx-layer[data-density='compact'] .gfx-fullmsg .fullmsg-body { font-size: 34px; }
+.gfx-layer[data-density='bold'] .gfx-fullmsg .fullmsg-panel { min-height: 720px; }
+.gfx-layer[data-density='bold'] .gfx-fullmsg .fullmsg-headline { font-size: 130px; }
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .fullmsg-panel {
+  animation: gfx-band-up 430ms var(--gfx-ease-out) both;
+}
+
 /* ==========================================================================
    CONTROL SURFACE — /control product UI
    All rules scoped under .control-root so /output and the shared :root /
@@ -1368,9 +1970,39 @@ body.gfx-transparent {
 
 /* --- template rail ------------------------------------------------------ */
 
-.control-root .tpl-rail { display: flex; flex-direction: column; gap: 16px; }
+.control-root .tpl-rail { display: flex; flex-direction: column; gap: 18px; }
 .control-root .tpl-rail__group { display: flex; flex-direction: column; gap: 8px; }
-.control-root .tpl-rail__cat { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #5f6e86; }
+.control-root .tpl-rail__cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #5f6e86;
+}
+.control-root .tpl-rail__cat::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: rgba(148, 163, 184, 0.1);
+}
+.control-root .tpl-rail__cat-count {
+  order: 3;
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.07);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  color: #7f8da3;
+  font-size: 10px;
+  letter-spacing: 0;
+}
 .control-root .tpl-rail__list { display: flex; flex-direction: column; gap: 8px; }
 
 .control-root .tpl-card {
@@ -1411,6 +2043,26 @@ body.gfx-transparent {
   background: linear-gradient(135deg, #22d3ee, #06b6d4);
 }
 
+.control-root .tpl-card__code {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+.control-root .tpl-card--active .tpl-card__code {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: rgba(34, 211, 238, 0.34);
+  color: #e6fbff;
+}
 .control-root .tpl-card__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .control-root .tpl-card__name { font-size: 14px; font-weight: 700; color: #eef2f8; }
 .control-root .tpl-card--active .tpl-card__name { color: #f3fbfd; }
