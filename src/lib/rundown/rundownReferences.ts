@@ -12,19 +12,32 @@ import type { PersonProfile } from '../../types/people';
  * All pure: no I/O, no mutation.
  */
 
-/** Every asset id referenced by a single graphic (logo, headshot, assetRefs). */
+function addAssetId(ids: Set<string>, value: string | undefined): void {
+  const id = value?.trim();
+  if (id) ids.add(id);
+}
+
+/**
+ * Every asset id referenced by a single graphic.
+ *
+ * Known image fields still flow through `assetRefs`, but import already remaps
+ * any value key ending in `AssetId`. Export mirrors that generic rule so future
+ * template slots (for example `backgroundAssetId`) are bundled automatically.
+ */
 export function collectGraphicAssetIds(graphic: GraphicInstance): string[] {
   const ids = new Set<string>();
   const values = graphic.values ?? {};
-  if (values.logoAssetId) ids.add(values.logoAssetId);
-  if (values.headshotAssetId) ids.add(values.headshotAssetId);
+  for (const [key, value] of Object.entries(values)) {
+    if (key.endsWith('AssetId')) addAssetId(ids, value);
+  }
+  addAssetId(ids, graphic.theme?.logoAssetId);
   for (const id of Object.values(graphic.assetRefs ?? {})) {
-    if (id) ids.add(id);
+    addAssetId(ids, id);
   }
   return [...ids];
 }
 
-/** Every asset id referenced by a rundown's items (logo, headshot, assetRefs). */
+/** Every asset id referenced by a rundown's items. */
 export function collectRundownAssetIds(rundown: Rundown): string[] {
   const ids = new Set<string>();
   for (const item of rundown.items) {
