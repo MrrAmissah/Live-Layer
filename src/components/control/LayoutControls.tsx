@@ -1,3 +1,5 @@
+import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { DEFAULT_LAYOUT_SETTINGS, type LayoutSettings } from '../../types/layout';
 
@@ -6,7 +8,7 @@ type LayoutKey = keyof Required<LayoutSettings>;
 const GROUPS: Array<{
   key: LayoutKey;
   label: string;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; icon?: LucideIcon }>;
 }> = [
   {
     key: 'size',
@@ -21,9 +23,9 @@ const GROUPS: Array<{
     key: 'position',
     label: 'Position',
     options: [
-      { value: 'left', label: 'Left' },
-      { value: 'center', label: 'Center' },
-      { value: 'full', label: 'Full' }
+      { value: 'left', label: 'Left', icon: AlignLeft },
+      { value: 'center', label: 'Center', icon: AlignCenter },
+      { value: 'full', label: 'Full', icon: AlignRight }
     ]
   },
   {
@@ -58,16 +60,20 @@ export default function LayoutControls() {
               <span>{group.label}</span>
             </div>
             <div className="layout-seg" role="group" aria-label={group.label}>
-              {group.options.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`layout-seg__btn ${value === option.value ? 'layout-seg__btn--active' : ''}`}
-                  onClick={() => setLayout({ [group.key]: option.value } as Partial<LayoutSettings>)}
-                >
-                  {option.label}
-                </button>
-              ))}
+              {group.options.map((option) => {
+                const Icon = 'icon' in option ? option.icon : null;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`layout-seg__btn ${value === option.value ? 'layout-seg__btn--active' : ''}`}
+                    onClick={() => setLayout({ [group.key]: option.value } as Partial<LayoutSettings>)}
+                  >
+                    {Icon ? <Icon size={17} aria-hidden /> : null}
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         );

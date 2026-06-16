@@ -1,5 +1,6 @@
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
+import { RadioTower, Trash2, Waves } from 'lucide-react';
 import StatusBadge, { type LastAction } from './StatusBadge';
 import DurationControl from './DurationControl';
 import LastActionLine from './LastActionLine';
@@ -32,15 +33,19 @@ export default function LiveActionsPanel({ onTake, onClear, lastAction, lastTake
       <div className="ll-panel__body live-deck">
         <div className="live-deck__primary" data-armed={!takeDisabled}>
           <div className="live-deck__cue">
-            <span className="live-deck__cue-kicker"><span className="live-deck__tally" aria-hidden />Standby</span>
-            <span className="live-deck__cue-title">{cueLabel}</span>
+            <span className="live-deck__cue-copy">
+              <span className="live-deck__cue-kicker"><span className="live-deck__tally" aria-hidden />Live standby</span>
+              <span className="live-deck__cue-title">{cueLabel}</span>
+            </span>
+            <RadioTower className="live-deck__cue-icon" size={26} aria-hidden />
           </div>
           <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled}>
-            <span className="take-btn__icon" aria-hidden>▶</span>
+            <Waves size={19} aria-hidden />
             {takeLabel}
           </button>
           <button type="button" className="clear-btn" onClick={onClear}>
-            Clear live graphic
+            <Trash2 size={16} aria-hidden />
+            Clear graphic
           </button>
         </div>
 

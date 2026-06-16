@@ -28,6 +28,12 @@ export default function FieldEditor() {
         }
       />
       <div className="ll-panel__body">
+        <div className="editor-tabs" aria-label="Editor sections">
+          <span className="editor-tab editor-tab--active">Content</span>
+          <span className="editor-tab">Style</span>
+          <span className="editor-tab">Animation</span>
+          <span className="editor-tab">Advanced</span>
+        </div>
         <EditTargetBanner />
         <TemplateFields />
         {isRundownItem ? (
