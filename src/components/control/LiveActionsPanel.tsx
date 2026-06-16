@@ -30,9 +30,9 @@ export default function LiveActionsPanel({ onTake, onClear, lastAction, lastTake
     <Panel>
       <SectionHeader kicker="Live" title="On-air actions" aside={<StatusBadge status={lastAction} />} />
       <div className="ll-panel__body live-deck">
-        <div className="live-deck__primary">
+        <div className="live-deck__primary" data-armed={!takeDisabled}>
           <div className="live-deck__cue">
-            <span className="live-deck__cue-kicker">Standby</span>
+            <span className="live-deck__cue-kicker"><span className="live-deck__tally" aria-hidden />Standby</span>
             <span className="live-deck__cue-title">{cueLabel}</span>
           </div>
           <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled}>

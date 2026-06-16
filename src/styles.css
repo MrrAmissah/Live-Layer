@@ -60,13 +60,17 @@ body {
   background: var(--surface-strong);
 }
 
+/* Reference-monitor bezel: a padded dark frame with a top tally rail and a
+   bottom spec plate. The screen itself stays clean (only a 1px inset ring) so
+   the preview stays pixel-true to /output. */
 .preview-monitor {
   position: relative;
-  border-radius: calc(var(--radius) * 1.3);
+  padding: 10px;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(4, 8, 18, 0.95);
-  box-shadow: var(--monitor-glow), var(--shadow-spread);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, #0c121c, #070b12);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .preview-monitor::before {
@@ -74,30 +78,55 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 28%), radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.08), transparent 22%);
-  opacity: 0.12;
+  border-radius: inherit;
+  background: radial-gradient(120% 60% at 50% 0%, rgba(34, 211, 238, 0.08), transparent 60%);
+  opacity: 0.7;
 }
 
-.preview-monitor .monitor-header {
-  position: absolute;
-  left: 1rem;
-  top: 1rem;
-  z-index: 10;
-  padding: 0.55rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(7, 11, 17, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.preview-monitor .monitor-bezel {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 5px 9px;
 }
+.preview-monitor .monitor-bezel--bottom { padding: 9px 5px 2px; justify-content: flex-end; }
+
+.preview-monitor .monitor-tally {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #36e27a;
+  box-shadow: 0 0 10px rgba(54, 226, 122, 0.9);
+  animation: ll-pulse 1.8s ease-in-out infinite;
+}
+.preview-monitor .monitor-bezel__label { font-size: 11px; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: #cdd6e4; }
+.preview-monitor .monitor-bezel__hint { margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; color: #6f7e95; }
+
+.preview-monitor .monitor-spec {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8b97ac;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.preview-monitor .monitor-spec--accent { color: #04140a; background: linear-gradient(135deg, #4ade80, #16a34a); border-color: rgba(74, 222, 128, 0.5); }
 
 .preview-monitor .monitor-screen {
   position: relative;
+  z-index: 2;
   width: 100%;
   aspect-ratio: 16 / 9;
+  border-radius: 9px;
+  overflow: hidden;
   background: #0a0c11;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .template-fallback {
@@ -1047,14 +1076,27 @@ body.gfx-transparent {
   --ll-radius-control: 8px;
   --ll-shadow-panel: 0 18px 45px rgba(0, 0, 0, 0.2);
   --ll-focus: 0 0 0 3px rgba(34, 211, 238, 0.16);
+  position: relative;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(12, 18, 30, 0.72), transparent 420px),
-    radial-gradient(110% 70% at 8% -8%, rgba(34, 211, 238, 0.045), transparent 55%),
-    radial-gradient(90% 60% at 100% 0%, rgba(232, 185, 60, 0.035), transparent 50%),
+    radial-gradient(125% 80% at 50% -12%, rgba(34, 211, 238, 0.08), transparent 60%),
+    radial-gradient(80% 50% at 100% -5%, rgba(232, 185, 60, 0.045), transparent 55%),
+    linear-gradient(180deg, rgba(14, 22, 36, 0.9), transparent 520px),
     var(--ll-bg);
   color: var(--ll-text);
 }
+
+/* Edge vignette to seat the panels — fixed so it survives scroll, behind content. */
+.control-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(135% 105% at 50% -5%, transparent 58%, rgba(0, 0, 0, 0.5));
+}
+
+.control-inner, .control-root .dock { position: relative; z-index: 1; }
 
 .control-inner {
   width: 100%;
@@ -1077,15 +1119,15 @@ body.gfx-transparent {
   overflow: hidden;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 18px;
   flex-wrap: wrap;
-  padding: 12px 15px;
+  padding: 15px 20px;
+  min-height: 68px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.055), transparent 38%),
-    var(--ll-panel);
-  border: 1px solid var(--ll-border);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 62%),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.09), transparent 46%),
+    var(--ll-panel-strong);
+  border: 1px solid var(--ll-border-strong);
   border-radius: var(--ll-radius-panel);
   box-shadow: var(--ll-shadow-panel);
 }
@@ -1093,73 +1135,59 @@ body.gfx-transparent {
 .control-root .cmd-bar::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.45), transparent 42%, rgba(232, 185, 60, 0.18));
+  inset: auto 0 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ll-accent), rgba(34, 211, 238, 0) 36%, rgba(232, 185, 60, 0) 70%, var(--ll-warn));
+  opacity: 0.85;
   pointer-events: none;
 }
 
-.control-root .cmd-bar__left { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; min-width: 0; }
-.control-root .cmd-bar__right { display: flex; align-items: center; gap: 8px; }
+.control-root .cmd-bar__brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.control-root .cmd-bar__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
 .control-root .cmd-logo {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: var(--ll-text-strong);
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 11px;
+  background: linear-gradient(160deg, rgba(34, 211, 238, 0.2), rgba(34, 211, 238, 0.02));
+  border: 1px solid rgba(34, 211, 238, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 24px rgba(34, 211, 238, 0.16);
 }
 
 .control-root .cmd-logo__mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.34));
+  width: 27px;
+  height: 27px;
+  filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
 }
 
-.control-root .cmd-logo__copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.control-root .cmd-logo__name { font-size: 13px; font-weight: 850; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1; }
-.control-root .cmd-logo__sub { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: var(--ll-muted-2); line-height: 1; }
+.control-root .cmd-logo__copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.control-root .cmd-logo__name { font-size: 16.5px; font-weight: 850; letter-spacing: 0.17em; text-transform: uppercase; line-height: 1; color: var(--ll-text-strong); }
+.control-root .cmd-logo__sub { font-size: 10px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ll-muted-2); line-height: 1; }
 
-.control-root .cmd-divider { width: 1px; height: 24px; background: rgba(148, 163, 184, 0.18); }
+.control-root .cmd-cluster { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
 
-.control-root .cmd-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ll-muted);
-  padding: 5px 9px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.control-root .cmd-mod {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--ll-border-soft);
+  min-width: 0;
 }
 
-.control-root .cmd-badge__dot { width: 6px; height: 6px; border-radius: 999px; background: var(--ll-live); box-shadow: 0 0 10px rgba(54, 226, 122, 0.7); }
-.control-root .cmd-badge--live { color: #a7f3d0; border-color: rgba(54, 226, 122, 0.24); background: rgba(54, 226, 122, 0.07); }
-.control-root .cmd-badge--route { color: #7fe9f5; border-color: rgba(34, 211, 238, 0.22); background: rgba(34, 211, 238, 0.07); }
-
-.control-root .cmd-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--ll-muted-2);
-}
-
-.control-root .cmd-hint__key {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background:
-    linear-gradient(45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.18) 75%),
-    linear-gradient(45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%, transparent 75%, rgba(148, 163, 184, 0.18) 75%);
-  background-size: 7px 7px;
-  background-position: 0 0, 3.5px 3.5px;
-}
+.control-root .cmd-mod__label { font-size: 9px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ll-muted-3); }
+.control-root .cmd-mod__val { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.05em; color: var(--ll-text); white-space: nowrap; }
+.control-root .cmd-mod__dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ll-live); box-shadow: 0 0 9px rgba(54, 226, 122, 0.85); }
+.control-root .cmd-mod--live { border-color: rgba(54, 226, 122, 0.26); }
+.control-root .cmd-mod--route .cmd-mod__val { color: #7fe9f5; }
+.control-root .cmd-mod--out .cmd-mod__val { color: #f3d28a; }
 
 /* --- responsive studio grid -------------------------------------------- */
 
@@ -1208,14 +1236,14 @@ body.gfx-transparent {
 .control-root .area--presets { grid-area: presets; }
 .control-root .area--actions .ll-panel {
   background:
-    linear-gradient(180deg, rgba(34, 211, 238, 0.035), transparent 42%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    linear-gradient(180deg, rgba(54, 226, 122, 0.055), transparent 46%),
     var(--ll-panel-strong);
-  border-color: rgba(34, 211, 238, 0.18);
+  border-color: rgba(54, 226, 122, 0.24);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.34);
 }
 .control-root .area--brand .ll-panel,
 .control-root .area--presets .ll-panel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.008), transparent), var(--ll-panel-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.006), transparent), var(--ll-panel-soft);
   border-color: var(--ll-border-soft);
   box-shadow: none;
 }
@@ -1238,6 +1266,23 @@ body.gfx-transparent {
   gap: 12px;
   padding: 13px 16px 12px;
   border-bottom: 1px solid var(--ll-border-soft);
+}
+
+.control-root .ll-panel__head .ll-kicker { position: relative; padding-left: 11px; }
+.control-root .ll-panel__head .ll-kicker::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 1px;
+  bottom: 1px;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--ll-accent), var(--ll-accent-strong));
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+}
+.control-root .area--actions .ll-panel__head .ll-kicker::before {
+  background: linear-gradient(180deg, var(--ll-live), #16a34a);
+  box-shadow: 0 0 8px rgba(54, 226, 122, 0.45);
 }
 
 .control-root .ll-panel__aside { display: flex; align-items: center; gap: 8px; flex: none; }
@@ -1408,12 +1453,13 @@ body.gfx-transparent {
 .control-root .field__input,
 .control-root .field__textarea {
   width: 100%;
-  padding: 10px 11px;
-  border-radius: 8px;
-  font-size: 13px;
+  padding: 12px 13px;
+  border-radius: 9px;
+  font-size: 13.5px;
   color: var(--ll-text);
-  background: var(--ll-bg-2);
+  background: rgba(4, 8, 15, 0.6);
   border: 1px solid var(--ll-border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
@@ -1572,14 +1618,16 @@ body.gfx-transparent {
 .control-root .live-deck__primary {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 10px;
+  gap: 11px;
+  padding: 14px;
+  border-radius: 11px;
   background:
-    linear-gradient(180deg, rgba(34, 211, 238, 0.07), rgba(34, 211, 238, 0.018)),
-    rgba(255, 255, 255, 0.018);
-  border: 1px solid rgba(34, 211, 238, 0.16);
+    linear-gradient(180deg, rgba(54, 226, 122, 0.08), rgba(54, 226, 122, 0.012)),
+    rgba(255, 255, 255, 0.014);
+  border: 1px solid rgba(54, 226, 122, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
+.control-root .live-deck__primary[data-armed="true"] { border-color: rgba(54, 226, 122, 0.42); }
 
 .control-root .live-deck__cue {
   display: flex;
@@ -1591,12 +1639,19 @@ body.gfx-transparent {
 
 .control-root .live-deck__cue-kicker {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: 10px;
   font-weight: 850;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ll-accent);
+  color: var(--ll-muted);
 }
+
+.control-root .live-deck__tally { width: 8px; height: 8px; border-radius: 999px; background: var(--ll-muted-3); flex: none; transition: background-color 0.2s ease; }
+.control-root .live-deck__primary[data-armed="true"] .live-deck__cue-kicker { color: var(--ll-live); }
+.control-root .live-deck__primary[data-armed="true"] .live-deck__tally { background: var(--ll-live); box-shadow: 0 0 9px rgba(54, 226, 122, 0.85); animation: ll-pulse 1.6s ease-in-out infinite; }
 
 .control-root .live-deck__cue-title {
   min-width: 0;
@@ -1612,25 +1667,25 @@ body.gfx-transparent {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 11px;
   width: 100%;
-  padding: 17px;
-  border-radius: 9px;
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  padding: 21px;
+  border-radius: 10px;
+  font-size: 19px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #021016;
+  color: #04140a;
   cursor: pointer;
-  background: linear-gradient(135deg, #2de0c4, #22d3ee 55%, #38bdf8);
-  border: 1px solid rgba(45, 224, 196, 0.5);
-  box-shadow: 0 12px 30px rgba(34, 211, 238, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: linear-gradient(135deg, #4ade80, #22c55e 52%, #16a34a);
+  border: 1px solid rgba(74, 222, 128, 0.55);
+  box-shadow: 0 16px 36px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.34);
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 
-.control-root .take-btn:hover { transform: translateY(-1px); box-shadow: 0 16px 38px rgba(34, 211, 238, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.32); }
+.control-root .take-btn:hover { transform: translateY(-1px); box-shadow: 0 20px 44px rgba(34, 197, 94, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.34); }
 .control-root .take-btn:active { transform: translateY(0); filter: brightness(0.96); }
-.control-root .take-btn__icon { font-size: 13px; }
+.control-root .take-btn__icon { font-size: 14px; }
 
 .control-root .clear-btn {
   width: 100%;
@@ -1847,32 +1902,33 @@ body.gfx-transparent {
 .control-root .library-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-  padding: 5px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.018);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--ll-border-soft);
 }
 
 .control-root .library-tab {
-  min-height: 34px;
-  padding: 0 6px;
-  border-radius: 7px;
+  min-height: 42px;
+  padding: 0 10px;
+  border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: #8b97ac;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0;
+  color: #9aa7ba;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease, border-color 0.14s ease;
 }
 
-.control-root .library-tab:hover { color: #dfe6f0; }
+.control-root .library-tab:hover { color: #eef2f8; background: rgba(255, 255, 255, 0.03); }
 .control-root .library-tab--active {
-  color: #dff9ff;
-  background: rgba(34, 211, 238, 0.105);
-  border-color: rgba(34, 211, 238, 0.28);
-  box-shadow: inset 0 0 0 1px rgba(139, 233, 255, 0.08);
+  color: #04121a;
+  background: linear-gradient(135deg, var(--ll-accent), var(--ll-accent-strong));
+  border-color: rgba(34, 211, 238, 0.5);
+  box-shadow: 0 6px 16px rgba(34, 211, 238, 0.22);
 }
 
 /* --- rundown library (R2 management) --- */
@@ -2205,7 +2261,7 @@ body.gfx-transparent {
 
 .control-root .dock-status__id { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .control-root .dock-status__logo { display: inline-flex; align-items: center; gap: 8px; flex: none; color: var(--ll-text-strong); }
-.control-root .dock-status__logo-mark { width: 22px; height: 22px; border-radius: 6px; filter: drop-shadow(0 0 7px rgba(34, 211, 238, 0.32)); }
+.control-root .dock-status__logo-mark { width: 30px; height: 30px; padding: 5px; border-radius: 8px; background: linear-gradient(160deg, rgba(34, 211, 238, 0.18), rgba(34, 211, 238, 0.02)); border: 1px solid rgba(34, 211, 238, 0.3); filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.4)); }
 .control-root .dock-status__logo-copy { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
 .control-root .dock-status__logo-name { font-size: 11.5px; font-weight: 850; letter-spacing: 0.13em; text-transform: uppercase; }
 .control-root .dock-status__logo-sub { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; color: var(--ll-muted-2); }

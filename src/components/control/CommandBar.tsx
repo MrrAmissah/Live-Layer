@@ -11,25 +11,31 @@ function openRoute(path: string) {
 export default function CommandBar() {
   return (
     <header className="cmd-bar">
-      <div className="cmd-bar__left">
+      <div className="cmd-bar__brand">
         <span className="cmd-logo">
           <img className="cmd-logo__mark" src="/livelayer-mark.svg" alt="" aria-hidden="true" />
-          <span className="cmd-logo__copy">
-            <span className="cmd-logo__name">LiveLayer</span>
-            <span className="cmd-logo__sub">Control room</span>
-          </span>
         </span>
-        <span className="cmd-divider" aria-hidden />
-        <span className="cmd-badge cmd-badge--live">
-          <span className="cmd-badge__dot" aria-hidden />
-          Local
-        </span>
-        <span className="cmd-badge cmd-badge--route">/control</span>
-        <span className="cmd-hint">
-          <span className="cmd-hint__key" aria-hidden />
-          OBS-ready output
+        <span className="cmd-logo__copy">
+          <span className="cmd-logo__name">LiveLayer</span>
+          <span className="cmd-logo__sub">Broadcast control</span>
         </span>
       </div>
+
+      <div className="cmd-cluster" role="group" aria-label="Session status">
+        <div className="cmd-mod cmd-mod--live">
+          <span className="cmd-mod__label">Signal</span>
+          <span className="cmd-mod__val"><span className="cmd-mod__dot" aria-hidden />Local</span>
+        </div>
+        <div className="cmd-mod cmd-mod--route">
+          <span className="cmd-mod__label">Surface</span>
+          <span className="cmd-mod__val">/control</span>
+        </div>
+        <div className="cmd-mod cmd-mod--out">
+          <span className="cmd-mod__label">Output</span>
+          <span className="cmd-mod__val">OBS-ready</span>
+        </div>
+      </div>
+
       <div className="cmd-bar__right">
         <button type="button" className="btn btn--ghost btn--sm" onClick={() => openRoute('/output?debug=1')}>
           Output debug
