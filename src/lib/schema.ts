@@ -14,7 +14,8 @@ export const templateThemeSchema = z.object({
   accentColor: z.string(),
   backgroundColor: z.string(),
   surfaceColor: z.string().optional(),
-  accent2Color: z.string().optional()
+  accent2Color: z.string().optional(),
+  logoAssetId: z.string().optional()
 });
 
 export const layoutSettingsSchema = z.object({

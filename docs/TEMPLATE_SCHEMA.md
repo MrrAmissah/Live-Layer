@@ -25,6 +25,7 @@ Templates are defined in `src/components/templates/registry.ts` and typed in
 - `primaryColor`, `accentColor`, `backgroundColor`
 - `surfaceColor?`
 - `accent2Color?` — secondary accent (stripes/keylines) for output graphics
+- `logoAssetId?` — optional theme-level local logo reference
 
 ### `TemplateAnimation`
 
