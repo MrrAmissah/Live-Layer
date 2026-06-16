@@ -53,3 +53,17 @@ Templates are defined in `src/components/templates/registry.ts` and typed in
 2. Add a `TemplateDefinition` to `registry.ts` (include `animation`).
 3. Register the renderer in `templateRendererMap`.
 4. Add a scoped CSS block in `src/styles.css` and verify via `seed-test.html`.
+
+## Built-In Templates
+
+- `preacher-lower-third` — Lower Third
+- `scripture-card` — Card
+- `quote-card` — Card
+- `announcement-banner` — Banner
+- `event-banner` — Banner
+- `sermon-title` — Fullscreen
+- `fullscreen-message` — Fullscreen
+
+All built-in templates use string fields only. Asset-backed imagery remains on
+the existing lower-third logo/headshot path, so live messages and selected
+rundown packs continue to store ids and field values only.

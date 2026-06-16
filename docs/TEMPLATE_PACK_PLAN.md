@@ -5,7 +5,7 @@ template contract: JSON-safe `GraphicInstance` snapshots, preview/output parity,
 dynamic token resolution, layout controls where safe, and asset ids instead of
 inline image data.
 
-## Templates To Build Now
+## Templates Built In This Sprint
 
 ### Quote Card
 
@@ -114,10 +114,19 @@ Dock mode must remain readable and quick to operate.
 - `git diff --check`
 - `/output` remains transparent.
 - `SHOW_GRAPHIC` messages contain ids and field values only, no blobs/data URLs.
-- Saved Graphics can save/load each new template.
-- Rundowns can include each new template.
-- Selected-rundown export/import preserves each new template.
+- Saved Graphics can save/load Quote Card, Event Banner, Sermon Title, and Fullscreen Message.
+- Rundowns can include Quote Card, Event Banner, Sermon Title, and Fullscreen Message.
+- Selected-rundown export/import preserves each new template snapshot.
 - Dynamic fields resolve in text fields.
 - Layout controls do not push content outside title-safe areas.
 - Seed harness can render the new templates for screenshot and stress testing.
 
+## Implementation Notes
+
+- New templates are text-only in this pass; they do not introduce new asset slots.
+- Registry categories are now **Lower Third**, **Card**, **Banner**, and
+  **Fullscreen**.
+- Rundown item titles derive from the new key fields (`quoteText`, `eventTitle`,
+  `sermonTitle`, or `headline`) so queues stay readable.
+- The seed harness includes buttons and stress samples for all seven built-in
+  templates.

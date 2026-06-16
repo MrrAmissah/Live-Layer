@@ -129,6 +129,14 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Switching templates loads that template's default values and fields
 - [ ] The preview, status-bar name, and editor all update together
 - [ ] Radio selection is obvious; only one template selected at a time
+- [ ] Template rail groups read clearly as **Lower Third**, **Card**, **Banner**, and **Fullscreen**
+- [ ] New templates render in preview and `/output`: Quote Card, Event Banner, Sermon Title, Fullscreen Message
+- [ ] `seed-test.html` can show every template over Camera / Dark / Bright backdrops
+- [ ] Long / stress content stays inside title-safe for every new template
+- [ ] Layout Size / Position / Density / Safe margin controls do not push new templates outside the frame
+- [ ] Saved Graphics save/load each new template
+- [ ] Rundowns can add, select, Take, and Clear each new template
+- [ ] Selected-rundown export/import preserves new-template snapshots without adding blobs or data URLs to messages
 
 ## 9A. People Library
 

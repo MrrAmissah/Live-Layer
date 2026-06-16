@@ -46,7 +46,7 @@ source of truth for the final visual sign-off.
   the preview, and the sticky **Take live / Clear** bar pinned at the bottom.
 - Optional second shot: the **Graphic** tab showing the radio-style template list.
 
-## 3–5. `/output` overlays (over a backdrop)
+## 3–9. `/output` overlays (over a backdrop)
 
 Use the seed harness so the overlay sits over a simulated camera, not black glass:
 
@@ -54,14 +54,19 @@ Use the seed harness so the overlay sits over a simulated camera, not black glas
 - Click each template and capture the stage area (hide the top button bar in the crop):
   - **Preacher Lower Third** → `output-lower-third.png`
   - **Scripture Card** → `output-scripture.png`
+  - **Quote Card** → `output-quote.png`
   - **Announcement Banner** → `output-announcement.png`
+  - **Event Banner** → `output-event.png`
+  - **Sermon Title** → `output-sermon-title.png`
+  - **Fullscreen Message** → `output-fullscreen-message.png`
 
-## 6. Long-content stress  → `output-long-content.png`
+## 10. Long-content stress  → `output-long-content.png`
 
-- In `seed-test.html`, tick **long / stress content**, choose **Scripture** (longest verse),
-  Background **Bright** to also show light-background contrast. Capture the stage.
+- In `seed-test.html`, tick **long / stress content**, test **Scripture**, **Quote**,
+  **Event**, **Sermon**, and **Message** over **Bright** to show light-background
+  contrast. Capture the most stressful stage.
 
-## 7. OBS Browser Source setup (optional)  → `obs-setup.png`
+## 11. OBS Browser Source setup (optional)  → `obs-setup.png`
 
 - Screenshot the OBS **Browser Source** properties showing URL `…/output`, size
   `1920×1080`, and the transparent result over a camera/colour source in the scene.
