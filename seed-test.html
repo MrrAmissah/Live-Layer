@@ -33,6 +33,8 @@
     <button data-t="quote-card">Quote</button>
     <button data-t="announcement-banner">Announcement</button>
     <button data-t="event-banner">Event</button>
+    <button data-t="sermon-title">Sermon</button>
+    <button data-t="fullscreen-message">Message</button>
     <button class="clear" data-clear>Clear</button>
     <strong style="margin-left:10px">Background</strong>
     <button data-bg="camera">Camera</button>
@@ -81,6 +83,14 @@
       'event-banner': {
         short: { eventTitle: 'Youth Night Live', dateTime: 'Friday • 7:00 PM', location: 'Main Auditorium', callToAction: 'Invite a friend and register after service.', tag: 'Tonight' },
         long:  { eventTitle: 'Annual Community Thanksgiving Outreach', dateTime: 'Saturday • 6:30 PM', location: 'North Campus Family Center', callToAction: 'Volunteer, bring a guest, and stop by the info desk for details.', tag: 'Next Up' }
+      },
+      'sermon-title': {
+        short: { sermonTitle: 'Anchored in Hope', speakerName: 'Pastor Anna Grace', churchName: 'Grace Harbor Church', seriesTitle: 'Summer Psalms', scriptureReference: 'Psalm 23:1-2', date: '{{date}}' },
+        long:  { sermonTitle: 'Learning to Trust God in the Waiting Season', speakerName: 'Pastor Bartholomew Higginbotham', churchName: 'Cornerstone Family Worship Center', seriesTitle: 'Faith for the Long Road', scriptureReference: 'Romans 8:28-39', date: '{{weekday}} · {{date}}' }
+      },
+      'fullscreen-message': {
+        short: { headline: 'Welcome to Church', body: 'We are glad you are here. Take a moment to greet someone near you.', footerNote: 'Grace Harbor Church', callToAction: 'Service begins at {{time}}' },
+        long:  { headline: 'We Will Be Right Back', body: 'Thank you for joining us online. Stay connected, share the stream, and prepare your heart as service resumes shortly.', footerNote: 'Live from Grace Harbor', callToAction: 'Visit example.com/connect' }
       }
     };
 

@@ -4,6 +4,8 @@ import ScriptureCard from './ScriptureCard';
 import AnnouncementBanner from './AnnouncementBanner';
 import QuoteCard from './QuoteCard';
 import EventBanner from './EventBanner';
+import SermonTitle from './SermonTitle';
+import FullscreenMessage from './FullscreenMessage';
 
 export const templateRegistry: TemplateDefinition[] = [
   {
@@ -132,6 +134,60 @@ export const templateRegistry: TemplateDefinition[] = [
       accent2Color: '#E8B93C'
     },
     animation: { in: 'slide', out: 'slide' }
+  },
+  {
+    id: 'sermon-title',
+    name: 'Sermon Title',
+    category: 'Fullscreen',
+    description: 'Premium sermon intro card with title, series, scripture, speaker, and date.',
+    fields: [
+      { id: 'sermonTitle', label: 'Sermon title', type: 'text', placeholder: 'Sermon title' },
+      { id: 'speakerName', label: 'Speaker name', type: 'text', placeholder: 'Speaker name', optional: true },
+      { id: 'churchName', label: 'Church name', type: 'text', placeholder: 'Church or ministry', optional: true },
+      { id: 'seriesTitle', label: 'Series title', type: 'text', placeholder: 'Series or theme', optional: true },
+      { id: 'scriptureReference', label: 'Scripture reference', type: 'text', placeholder: 'Romans 8:28', optional: true },
+      { id: 'date', label: 'Date', type: 'text', placeholder: '{{date}}', optional: true }
+    ],
+    defaultValues: {
+      sermonTitle: 'Anchored in Hope',
+      speakerName: 'Pastor Anna Grace',
+      churchName: 'Grace Harbor Church',
+      seriesTitle: 'Summer Psalms',
+      scriptureReference: 'Psalm 23:1-2',
+      date: '{{date}}'
+    },
+    theme: {
+      primaryColor: '#f8fafc',
+      accentColor: '#0E7C86',
+      backgroundColor: 'transparent',
+      accent2Color: '#E8B93C'
+    },
+    animation: { in: 'slide', out: 'slide' }
+  },
+  {
+    id: 'fullscreen-message',
+    name: 'Fullscreen Message',
+    category: 'Fullscreen',
+    description: 'Readable full-screen service message for welcome, prayer, pause, and next-step moments.',
+    fields: [
+      { id: 'headline', label: 'Headline', type: 'text', placeholder: 'Welcome' },
+      { id: 'body', label: 'Body', type: 'textarea', placeholder: 'Short supporting message', rows: 4, optional: true },
+      { id: 'footerNote', label: 'Footer note', type: 'text', placeholder: 'Service starts soon', optional: true },
+      { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Connect with us', optional: true }
+    ],
+    defaultValues: {
+      headline: 'Welcome to Church',
+      body: 'We are glad you are here. Take a moment to greet someone near you.',
+      footerNote: 'Grace Harbor Church',
+      callToAction: 'Service begins at {{time}}'
+    },
+    theme: {
+      primaryColor: '#f8fafc',
+      accentColor: '#0E7C86',
+      backgroundColor: 'transparent',
+      accent2Color: '#E8B93C'
+    },
+    animation: { in: 'slide', out: 'slide' }
   }
 ];
 
@@ -140,5 +196,7 @@ export const templateRendererMap: Record<string, React.ComponentType<{ values: R
   'scripture-card': ScriptureCard,
   'announcement-banner': AnnouncementBanner,
   'quote-card': QuoteCard,
-  'event-banner': EventBanner
+  'event-banner': EventBanner,
+  'sermon-title': SermonTitle,
+  'fullscreen-message': FullscreenMessage
 };

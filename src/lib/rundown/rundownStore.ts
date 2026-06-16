@@ -149,6 +149,7 @@ export function deriveItemTitle(graphic: GraphicInstance): string {
     values.headline ||
     values.eventTitle ||
     values.quoteText ||
+    values.sermonTitle ||
     values.title;
   if (candidate && candidate.trim()) return candidate.trim();
   return graphic.templateId;
