@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import AppSidebar from './AppSidebar';
 
 interface ControlShellProps {
   commandBar: ReactNode;
@@ -35,13 +36,16 @@ export default function ControlShell({
     <div className="control-root">
       <div className="control-inner">
         {commandBar}
-        <div className="studio-grid">
-          <div className="area area--rail">{rail}</div>
-          <div className="area area--preview">{preview}</div>
-          <div className="area area--editor">{editor}</div>
-          <div className="area area--actions">{actions}</div>
-          <div className="area area--brand">{brand}</div>
-          <div className="area area--presets">{presets}</div>
+        <div className="control-workspace">
+          <AppSidebar />
+          <div className="studio-grid">
+            <div className="area area--rail">{rail}</div>
+            <div className="area area--preview">{preview}</div>
+            <div className="area area--editor">{editor}</div>
+            <div className="area area--actions">{actions}</div>
+            <div className="area area--brand">{brand}</div>
+            <div className="area area--presets">{presets}</div>
+          </div>
         </div>
       </div>
     </div>

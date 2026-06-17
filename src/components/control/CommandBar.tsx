@@ -1,3 +1,5 @@
+import { ExternalLink, Settings, Signal, UserRound } from 'lucide-react';
+
 /** Opens an app route in a new tab (output source / setup dock helpers). */
 function openRoute(path: string) {
   window.open(`${window.location.origin}${path}`, '_blank');
@@ -23,26 +25,28 @@ export default function CommandBar() {
 
       <div className="cmd-cluster" role="group" aria-label="Session status">
         <div className="cmd-mod cmd-mod--live">
-          <span className="cmd-mod__label">Signal</span>
           <span className="cmd-mod__val"><span className="cmd-mod__dot" aria-hidden />Local</span>
         </div>
         <div className="cmd-mod cmd-mod--route">
-          <span className="cmd-mod__label">Surface</span>
           <span className="cmd-mod__val">/control</span>
         </div>
         <div className="cmd-mod cmd-mod--out">
-          <span className="cmd-mod__label">Output</span>
-          <span className="cmd-mod__val">OBS-ready</span>
+          <span className="cmd-mod__val"><Signal size={15} aria-hidden />OBS Ready</span>
         </div>
       </div>
 
       <div className="cmd-bar__right">
-        <button type="button" className="btn btn--ghost btn--sm" onClick={() => openRoute('/output?debug=1')}>
-          Output debug
+        <button type="button" className="btn btn--ghost btn--md" onClick={() => openRoute('/output?debug=1')}>
+          <ExternalLink size={17} aria-hidden />
+          Preview Output
         </button>
-        <button type="button" className="btn btn--ghost btn--sm" onClick={() => openRoute('/setup')}>
+        <button type="button" className="btn btn--ghost btn--md" onClick={() => openRoute('/setup')}>
+          <Settings size={17} aria-hidden />
           Setup
         </button>
+        <span className="cmd-avatar" aria-label="Operator">
+          <UserRound size={17} aria-hidden />
+        </span>
       </div>
     </header>
   );

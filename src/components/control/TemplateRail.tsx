@@ -1,4 +1,5 @@
 import { templateRegistry } from '../templates/registry';
+import { ListFilter } from 'lucide-react';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
 import TemplateList from './TemplateList';
@@ -11,9 +12,12 @@ export default function TemplateRail() {
   return (
     <Panel className="ll-fill">
       <SectionHeader
-        kicker="Graphics"
         title="Templates"
-        aside={<span className="ll-count">{templateRegistry.length}</span>}
+        aside={
+          <button type="button" className="icon-btn" aria-label={`${templateRegistry.length} templates available`}>
+            <ListFilter size={18} aria-hidden />
+          </button>
+        }
       />
       <div className="ll-panel__body">
         <TemplateList />
