@@ -77,6 +77,7 @@
 
   <script>
     const channel = new BroadcastChannel('livelayer:graphics');
+    let paramVariant = null;
     const sample = {
       'preacher-lower-third': {
         short: { name: 'Anna Grace', title: 'Lead Pastor', subtitle: 'Grace Harbor Church', logoUrl: '' },
@@ -95,7 +96,7 @@
         long:  { headline: 'Annual Community Thanksgiving Outreach', body: 'Worship, a powerful message, free meals, kids programming, and community updates for the whole family.', dateTime: 'Saturday • 6:30 PM', callToAction: 'RSVP and volunteer at example.com/serve' }
       },
       'event-banner': {
-        short: { eventTitle: 'Youth Night Live', dateTime: 'Friday • 7:00 PM', location: 'Main Auditorium', callToAction: 'Invite a friend and register after service.', tag: 'Tonight' },
+        short: { eventTitle: 'Zonal Music Festival', dateTime: 'Mallam Choir', location: '', callToAction: 'Revitalising our allegiance to God through music.', tag: 'Performing Now' },
         long:  { eventTitle: 'Annual Community Thanksgiving Outreach', dateTime: 'Saturday • 6:30 PM', location: 'North Campus Family Center', callToAction: 'Volunteer, bring a guest, and stop by the info desk for details.', tag: 'Next Up' }
       },
       'sermon-title': {
@@ -129,6 +130,9 @@
       const values = { ...sample[templateId][useLong ? 'long' : 'short'] };
       if (templateId === 'preacher-lower-third') {
         values.variantId = document.getElementById('l3variant').value;
+      }
+      if (paramVariant) {
+        values.variantId = paramVariant;
       }
 
       // Dynamic date/time tokens (announcement) — /output resolves these live.
@@ -210,7 +214,10 @@
       const variantId = params.get('variant');
       const bg = params.get('bg');
       if (variantId) {
-        document.getElementById('l3variant').value = variantId;
+        paramVariant = variantId;
+        if (templateId === 'preacher-lower-third') {
+          document.getElementById('l3variant').value = variantId;
+        }
       }
       if (bg) {
         document.getElementById('stage').className = 'stage bg-' + bg;

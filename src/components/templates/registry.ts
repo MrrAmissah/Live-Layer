@@ -112,6 +112,7 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Learn more at example.com', optional: true }
     ],
     defaultValues: {
+      variantId: 'info-ribbon',
       headline: 'Weekend Service Tonight',
       body: 'Join us in person or online for worship, community updates, and a powerful message.',
       dateTime: 'Sunday • 10:30 AM',
@@ -122,6 +123,28 @@ export const templateRegistry: TemplateDefinition[] = [
       accentColor: '#06b6d4',
       backgroundColor: 'transparent'
     },
+    variants: [
+      {
+        id: 'info-ribbon',
+        name: 'Info Ribbon',
+        description: 'White information band with textured blue footer.'
+      },
+      {
+        id: 'live-tab',
+        name: 'Live Tab',
+        description: 'Top label tab, ornamental corner marks, and info footer.'
+      },
+      {
+        id: 'plain-pattern',
+        name: 'Plain Pattern',
+        description: 'Minimal white message panel with decorative right marks.'
+      },
+      {
+        id: 'tag-strip',
+        name: 'Tag Strip',
+        description: 'Compact label tab with a clean white content bar.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   },
   {
@@ -137,6 +160,7 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'translationLabel', label: 'Small label', type: 'text', placeholder: 'Optional label', optional: true }
     ],
     defaultValues: {
+      variantId: 'quote-gradient',
       quoteText: 'Faith is not the absence of questions; it is the courage to keep walking with God through them.',
       sourceName: 'Pastor Anna Grace',
       sourceRole: 'Sunday Message',
@@ -149,6 +173,18 @@ export const templateRegistry: TemplateDefinition[] = [
       backgroundColor: 'transparent',
       accent2Color: '#E8B93C'
     },
+    variants: [
+      {
+        id: 'quote-gradient',
+        name: 'Gradient Quote',
+        description: 'Deep textured blue card with oversized quote marks.'
+      },
+      {
+        id: 'editorial-paper',
+        name: 'Editorial Paper',
+        description: 'Clean paper quote card with brand rail and source lockup.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   },
   {
@@ -164,11 +200,12 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'tag', label: 'Tag / status', type: 'text', placeholder: 'Tonight, Next, Free', optional: true }
     ],
     defaultValues: {
-      eventTitle: 'Youth Night Live',
-      dateTime: 'Friday • 7:00 PM',
-      location: 'Main Auditorium',
-      callToAction: 'Invite a friend and register after service.',
-      tag: 'Tonight'
+      variantId: 'festival-stage',
+      eventTitle: 'Zonal Music Festival',
+      dateTime: 'Mallam Choir',
+      location: '',
+      callToAction: 'Revitalising our allegiance to God through music.',
+      tag: 'Performing Now'
     },
     theme: {
       primaryColor: '#f8fafc',
@@ -176,6 +213,18 @@ export const templateRegistry: TemplateDefinition[] = [
       backgroundColor: 'transparent',
       accent2Color: '#E8B93C'
     },
+    variants: [
+      {
+        id: 'festival-stage',
+        name: 'Festival Stage',
+        description: 'White sponsor block with vivid gradient performer strip.'
+      },
+      {
+        id: 'broadcast-slate',
+        name: 'Broadcast Slate',
+        description: 'Bold event banner with cut paper schedule plate.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   },
   {

@@ -14,6 +14,7 @@ function quoteSizeClass(text: string): string {
 }
 
 export default function QuoteCard({ values }: Props) {
+  const variantId = values.variantId?.trim() || 'quote-gradient';
   const quoteText = values.quoteText?.trim() || 'Grace makes room for people to come alive again.';
   const sourceName = values.sourceName?.trim() || '';
   const sourceRole = values.sourceRole?.trim() || '';
@@ -22,7 +23,7 @@ export default function QuoteCard({ values }: Props) {
   const hasSource = Boolean(sourceName || sourceRole);
 
   return (
-    <div className="gfx-quote">
+    <div className="gfx-quote" data-variant={variantId}>
       <Plate fill="paper" cut="right" cutDepth={54} className="quote-card">
         <span className="quote-mark" aria-hidden>
           &ldquo;

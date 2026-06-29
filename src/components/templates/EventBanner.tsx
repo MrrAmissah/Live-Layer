@@ -15,16 +15,26 @@ function titleSizeClass(text: string): string {
 }
 
 export default function EventBanner({ values }: Props) {
+  const variantId = values.variantId?.trim() || 'festival-stage';
   const eventTitle = values.eventTitle?.trim() || 'Upcoming Event';
   const dateTime = values.dateTime?.trim() || '';
   const location = values.location?.trim() || '';
   const callToAction = values.callToAction?.trim() || '';
   const tag = values.tag?.trim() || 'Event';
   const hasMeta = Boolean(dateTime || location);
+  const titleWords = eventTitle.split(/\s+/).filter(Boolean).slice(0, 3);
 
   return (
-    <div className="gfx-event">
+    <div className="gfx-event" data-variant={variantId}>
       <div className="event-shell">
+        <div className="event-brand-lockup">
+          {titleWords.map((word, index) => (
+            <span key={`${word}-${index}`} className="event-brand-word">
+              {word}
+            </span>
+          ))}
+          <span className="event-brand-note" aria-hidden />
+        </div>
         <Plate fill="ink" className="event-tag">
           <span className="event-tag-dot" aria-hidden />
           <span>{tag}</span>

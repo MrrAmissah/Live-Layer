@@ -26,13 +26,21 @@ function headlineSizeClass(text: string): string {
  * theme variables (theme prop is applied at the stage root, not here).
  */
 export default function AnnouncementBanner({ values }: Props) {
+  const variantId = values.variantId?.trim() || 'info-ribbon';
   const headline = values.headline?.trim() || 'Announcement';
   const body = values.body?.trim() || '';
   const dateTime = values.dateTime?.trim() || '';
   const callToAction = values.callToAction?.trim() || '';
 
   return (
-    <div className="gfx-announce">
+    <div className="gfx-announce" data-variant={variantId}>
+      <div className="announce-pattern" aria-hidden>
+        <span className="announce-pattern__dot" />
+        <span className="announce-pattern__spark" />
+        <span className="announce-pattern__leaf" />
+        <span className="announce-pattern__arch" />
+        <span className="announce-pattern__box" />
+      </div>
       <div className="announce-row">
         <Plate fill="brand" className="announce-main">
           <AccentStripe orientation="horizontal" thickness={8} color="accent-2" className="announce-rail" />
@@ -53,6 +61,7 @@ export default function AnnouncementBanner({ values }: Props) {
       </div>
       {callToAction ? (
         <Plate fill="ink" className="announce-cta">
+          <span className="announce-cta-label">Info</span>
           <span className="announce-cta-text">{callToAction}</span>
         </Plate>
       ) : null}

@@ -131,6 +131,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] The preview, status-bar name, and editor all update together
 - [ ] **Preacher Lower Third** exposes style variants as sub-options, not separate top-level templates
 - [ ] Each lower-third style variant renders over Camera / Dark / Bright in `seed-test.html`
+- [ ] Announcement, Event, and Quote variants render as sub-options and keep their sample-inspired layouts readable
 - [ ] Radio selection is obvious; only one template selected at a time
 - [ ] Template rail groups read clearly as **Lower Third**, **Card**, **Banner**, and **Fullscreen**
 - [ ] New templates render in preview and `/output`: Quote Card, Event Banner, Sermon Title, Fullscreen Message
