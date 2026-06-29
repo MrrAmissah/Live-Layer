@@ -17,6 +17,8 @@ interface GraphicStageProps {
   theme?: Partial<TemplateTheme>;
   /** 'transparent' for /output (OBS); other modes paint a preview backdrop. */
   backdrop?: StageBackdrop;
+  /** Preview-only focus crop. /output leaves this unset to preserve full-frame rendering. */
+  focus?: 'full' | 'lower-third';
   /** Draw action-safe / title-safe / lower-third guide rectangles (debug + preview). */
   showSafeAreas?: boolean;
   children?: ReactNode;
@@ -54,18 +56,21 @@ function SafeAreaGuides() {
  * Shared by /output (transparent) and the control-surface preview
  * (simulated backdrop), so composition is pixel-true in both.
  */
-export default function GraphicStage({ theme, backdrop = 'transparent', showSafeAreas = false, children }: GraphicStageProps) {
+export default function GraphicStage({ theme, backdrop = 'transparent', focus = 'full', showSafeAreas = false, children }: GraphicStageProps) {
   const { viewportRef, scale, offsetX, offsetY } = useStageScale<HTMLDivElement>();
+  const zoom = focus === 'lower-third' ? 1.38 : 1;
+  const translateX = focus === 'lower-third' ? offsetX - 40 * scale : offsetX;
+  const translateY = focus === 'lower-third' ? offsetY - 520 * scale : offsetY;
 
   return (
-    <div ref={viewportRef} className="gfx-viewport">
+    <div ref={viewportRef} className={`gfx-viewport gfx-viewport--${focus}`}>
       {backdrop !== 'transparent' ? <div className={`gfx-backdrop gfx-backdrop-${backdrop}`} /> : null}
       <div
         className="gfx-stage"
         style={{
           width: STAGE_WIDTH,
           height: STAGE_HEIGHT,
-          transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+          transform: `translate(${translateX}px, ${translateY}px) scale(${scale * zoom})`,
           ...themeToVars(theme)
         }}
       >

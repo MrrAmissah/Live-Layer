@@ -4,9 +4,8 @@ function openRoute(path: string) {
 }
 
 /**
- * Top command bar. Identity + operating-mode readouts on the left, quick
- * links to the OBS surfaces on the right. Deliberately compact so it reads as
- * a hardware faceplate, not a web header.
+ * Top command bar. Strong brand identity on the left, quick links to the OBS
+ * surfaces on the right.
  */
 export default function CommandBar() {
   return (
@@ -19,12 +18,6 @@ export default function CommandBar() {
           <span className="cmd-logo__name">LiveLayer</span>
           <span className="cmd-logo__sub">Broadcast control</span>
         </span>
-      </div>
-
-      <div className="cmd-cluster" role="group" aria-label="Session status">
-        <span className="cmd-status"><span className="cmd-mod__dot" aria-hidden />Local</span>
-        <span className="cmd-route">/control</span>
-        <span className="cmd-status cmd-status--muted">OBS ready</span>
       </div>
 
       <div className="cmd-bar__right">

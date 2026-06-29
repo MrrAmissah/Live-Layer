@@ -95,7 +95,7 @@ body {
   border-top: 1px solid rgba(132, 150, 174, 0.12);
 }
 .preview-monitor .monitor-bezel--top { display: none; }
-.preview-monitor .monitor-bezel--bottom { justify-content: flex-end; border-bottom: 0; min-height: 38px; padding: 8px 12px; }
+.preview-monitor .monitor-bezel--bottom { justify-content: flex-end; border-bottom: 0; min-height: 30px; padding: 5px 10px; }
 
 .preview-monitor .monitor-tally {
   flex: none;
@@ -180,8 +180,8 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 0 2px 12px;
+  gap: 8px;
+  padding: 0 2px 8px;
 }
 
 .preview-toolbar-title {
@@ -258,6 +258,12 @@ body {
 
 .animate-broadcast-enter {
   animation: broadcast-slide-in 0.52s ease-out both;
+}
+
+.template-preview-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* ==========================================================================
@@ -1742,10 +1748,10 @@ body.gfx-transparent {
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   flex-wrap: wrap;
   padding: 14px 22px;
-  min-height: 68px;
+  min-height: 76px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 72%),
     rgba(8, 14, 24, 0.95);
@@ -1758,52 +1764,29 @@ body.gfx-transparent {
   display: none;
 }
 
-.control-root .cmd-bar__brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.control-root .cmd-bar__brand { display: flex; align-items: center; gap: 15px; min-width: 0; }
 .control-root .cmd-bar__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 
 .control-root .cmd-logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   flex: none;
-  border-radius: 10px;
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 13px;
+  background: rgba(34, 211, 238, 0.11);
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.035), 0 12px 28px rgba(34, 211, 238, 0.08);
 }
 
-.control-root .cmd-logo__mark { width: 25px; height: 25px; }
+.control-root .cmd-logo__mark { width: 34px; height: 34px; }
 
 .control-root .cmd-logo__copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.control-root .cmd-logo__name { font-size: 14px; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--ll-text-strong); }
+.control-root .cmd-logo__name { font-size: 16px; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: var(--ll-text-strong); }
 .control-root .cmd-logo__sub { display: none; }
 
 .control-root .cmd-cluster { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
-
-.control-root .cmd-status,
-.control-root .cmd-route {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--ll-border-soft);
-  background: rgba(255, 255, 255, 0.026);
-  color: #c9d4e4;
-  font-size: 12.5px;
-  font-weight: 720;
-  white-space: nowrap;
-}
-
-.control-root .cmd-route {
-  color: #8bdcf8;
-  background: rgba(34, 211, 238, 0.07);
-  border-color: rgba(34, 211, 238, 0.18);
-}
-
-.control-root .cmd-status--muted { color: #7f8da3; }
 
 .control-root .cmd-mod {
   display: inline-flex;
@@ -1829,7 +1812,7 @@ body.gfx-transparent {
 /* --- app frame / navigation -------------------------------------------- */
 
 .control-root .control-workspace {
-  min-height: calc(100vh - 68px);
+  min-height: calc(100vh - 76px);
   padding: 18px;
 }
 
@@ -1842,9 +1825,9 @@ body.gfx-transparent {
   grid-template-columns: minmax(276px, 310px) minmax(560px, 1fr) minmax(320px, 370px);
   grid-template-areas:
     "rail    preview actions"
-    "presets editor  actions"
+    "rail    editor  actions"
     "presets brand   actions";
-  grid-template-rows: minmax(400px, auto) auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 @media (max-width: 1260px) {
@@ -1890,6 +1873,8 @@ body.gfx-transparent {
 .control-root .area--brand {
   background: transparent;
 }
+.control-root .area--preview { align-items: flex-start; }
+.control-root .area--preview > .ll-panel { width: 100%; }
 .control-root .area--actions .ll-panel {
   background: var(--ll-panel);
 }
@@ -1933,7 +1918,7 @@ body.gfx-transparent {
 .control-root .area--brand .ll-panel__body,
 .control-root .area--presets .ll-panel__body { padding: 16px 18px 18px; }
 .control-root .ll-panel--flush .ll-panel__body { padding: 20px; }
-.control-root .preview-console .ll-panel__body { padding: 16px; }
+.control-root .preview-console .ll-panel__body { flex: none; padding: 14px 16px 8px; }
 
 .control-root .ll-kicker {
   margin: 0;
@@ -2257,7 +2242,7 @@ body.gfx-transparent {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 18px 16px;
+  padding: 6px 16px 14px;
   border-top: 0;
 }
 

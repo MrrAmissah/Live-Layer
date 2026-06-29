@@ -43,11 +43,10 @@ function UnsupportedTemplateMessage({ templateId }: { templateId: string }) {
 }
 
 /**
- * Production preview monitor. Renders the template through the exact same
- * scaled 1920x1080 GraphicStage + renderer + theme used by /output, so the
- * preview composition is pixel-true to the broadcast output. The background
- * and safe-area guides are preview-only judging aids — they never change what
- * /output renders, which stays transparent.
+ * Production preview monitor. Renders through the same 1920x1080 GraphicStage
+ * + renderer + theme used by /output. Lower-thirds use a preview-only focus crop
+ * so operators can inspect the graphic without changing the full-frame output.
+ * Backgrounds and safe-area guides are also preview-only judging aids.
  */
 export default function TemplatePreview({ templateId, values, theme, layout, showControls = true }: Props) {
   const [backdrop, setBackdrop] = useState<Exclude<StageBackdrop, 'transparent'>>('neutral');
@@ -58,9 +57,10 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
   const Renderer = templateRendererMap[templateId];
   const mergedTheme = { ...(template?.theme ?? UNSUPPORTED_THEME), ...theme };
   const anim = resolveAnimationVariant(template?.animation);
+  const previewFocus = template?.category === 'Lower Third' ? 'lower-third' : 'full';
 
   return (
-    <div className="grid gap-3 animate-broadcast-enter">
+    <div className="template-preview-shell animate-broadcast-enter">
       {showControls ? (
         <div className="preview-toolbar">
           <div className="preview-toolbar-title">
@@ -100,7 +100,7 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
           <span className="monitor-bezel__hint">Updates on Take</span>
         </div>
         <div className="monitor-screen">
-          <GraphicStage theme={mergedTheme} backdrop={backdrop} showSafeAreas={showGuides}>
+          <GraphicStage theme={mergedTheme} backdrop={backdrop} focus={previewFocus} showSafeAreas={showGuides}>
             {template && Renderer ? (
               <div
                 key={templateId}
