@@ -784,20 +784,63 @@ body.gfx-transparent {
   display: none;
 }
 
+.gfx-l3[data-variant='signature-medallion'] .l3-name-plate {
+  height: 100px;
+  padding: 0 92px 0 108px;
+  background: linear-gradient(90deg, var(--gfx-brand), #11666d) !important;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 34px) 100%, 0 100%) !important;
+}
+
+.gfx-l3[data-variant='signature-medallion'] .l3-role-plate {
+  height: 50px;
+  padding: 0 66px 0 108px;
+  background: #070b12 !important;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 20px) 100%, 0 100%) !important;
+}
+
+.gfx-l3[data-variant='signature-medallion'] .l3-name {
+  font-size: 62px;
+  letter-spacing: 0.01em;
+}
+
+.gfx-l3[data-variant='signature-medallion'] .l3-role,
+.gfx-l3[data-variant='signature-medallion'] .l3-org {
+  font-size: 28px;
+}
+
+.gfx-l3[data-variant='signature-medallion'] .l3-medallion {
+  left: -54px;
+  top: -4px;
+  transform: scale(0.92);
+  transform-origin: center;
+}
+
+.gfx-l3[data-variant='signature-medallion'] .l3-stripe {
+  width: 10px !important;
+}
+
+.gfx-l3[data-variant='signature-medallion'] .l3-underbar {
+  left: 88px;
+  right: 22px;
+  bottom: -9px;
+  height: 10px;
+  background: var(--gfx-brand-deep);
+}
+
 .gfx-l3[data-variant='modern-minimal'] .l3-name-plate,
 .gfx-l3[data-variant='modern-minimal'] .l3-role-plate {
-  background: linear-gradient(90deg, rgba(4, 7, 12, 0.98), rgba(10, 14, 22, 0.94)) !important;
+  background: linear-gradient(90deg, rgba(4, 7, 12, 0.98), rgba(10, 14, 22, 0.96)) !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
   clip-path: polygon(0 0, calc(100% - 34px) 0, 100% 100%, 0 100%) !important;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-name-plate {
-  height: 86px;
-  padding: 0 130px 0 52px;
+  height: 78px;
+  padding: 0 126px 0 52px;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-role-plate {
-  height: 44px;
+  height: 40px;
   padding: 0 92px 0 52px;
 }
 
@@ -811,7 +854,7 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-name {
-  font-size: 48px;
+  font-size: 46px;
   font-weight: 760;
   letter-spacing: 0.02em;
 }
@@ -826,7 +869,7 @@ body.gfx-transparent {
   right: -8px;
   top: 0;
   width: 92px;
-  height: 130px;
+  height: 118px;
   background: var(--gfx-accent-2);
   clip-path: polygon(34px 0, 100% 0, calc(100% - 28px) 100%, 0 100%);
   z-index: 3;
@@ -834,17 +877,17 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='angled-accent'] .l3-name-plate,
 .gfx-l3[data-variant='angled-accent'] .l3-role-plate {
-  background: linear-gradient(90deg, var(--gfx-brand-deep), var(--gfx-ink) 24%, rgba(5, 8, 14, 0.98)) !important;
+  background: linear-gradient(90deg, #081018, var(--gfx-ink) 28%, rgba(5, 8, 14, 0.98)) !important;
   clip-path: polygon(44px 0, 100% 0, calc(100% - 36px) 100%, 0 100%) !important;
 }
 
 .gfx-l3[data-variant='angled-accent'] .l3-name-plate {
-  height: 92px;
+  height: 86px;
   padding: 0 96px 0 140px;
 }
 
 .gfx-l3[data-variant='angled-accent'] .l3-role-plate {
-  height: 46px;
+  height: 42px;
   padding: 0 74px 0 140px;
 }
 
@@ -854,7 +897,7 @@ body.gfx-transparent {
   left: 0;
   top: 0;
   width: 128px;
-  height: 138px;
+  height: 128px;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--gfx-brand), var(--gfx-brand-deep));
@@ -879,8 +922,8 @@ body.gfx-transparent {
   left: 36px;
   right: 18px;
   bottom: -10px;
-  height: 12px;
-  background: var(--gfx-brand);
+  height: 9px;
+  background: var(--gfx-brand-deep);
 }
 
 .gfx-l3[data-variant='angled-accent'] .l3-stripe {
@@ -899,18 +942,18 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-name-plate {
-  height: 84px;
+  height: 78px;
   padding: 0 150px 0 74px;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-role-plate {
-  height: 44px;
+  height: 38px;
   padding: 0 120px 0 74px;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-name {
   color: #101827;
-  font-size: 50px;
+  font-size: 46px;
   letter-spacing: 0.005em;
 }
 
@@ -934,7 +977,7 @@ body.gfx-transparent {
   left: 18px;
   right: 58px;
   bottom: -8px;
-  height: 10px;
+  height: 7px;
   background: var(--gfx-brand);
 }
 
@@ -952,26 +995,26 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='bold-plate'] .l3-name-plate,
 .gfx-l3[data-variant='bold-plate'] .l3-role-plate {
-  background: linear-gradient(90deg, #07090d, #151515 54%, #07090d) !important;
+  background: linear-gradient(90deg, #080b10, #12151c 56%, #06080c) !important;
   clip-path: polygon(42px 0, 100% 0, calc(100% - 42px) 100%, 0 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .gfx-l3[data-variant='bold-plate'] .l3-name-plate {
-  height: 96px;
+  height: 88px;
   padding: 0 120px 0 150px;
 }
 
 .gfx-l3[data-variant='bold-plate'] .l3-role-plate {
-  height: 48px;
+  height: 42px;
   padding: 0 90px 0 150px;
 }
 
 .gfx-l3[data-variant='bold-plate'] .l3-name {
-  font-size: 60px;
+  font-size: 54px;
   font-stretch: 125%;
   font-style: italic;
-  letter-spacing: 0.035em;
+  letter-spacing: 0.02em;
 }
 
 .gfx-l3[data-variant='bold-plate'] .l3-symbol-block {
@@ -980,7 +1023,7 @@ body.gfx-transparent {
   left: 0;
   top: 0;
   width: 142px;
-  height: 144px;
+  height: 130px;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, var(--gfx-brand), var(--gfx-brand-deep));
@@ -1003,7 +1046,7 @@ body.gfx-transparent {
 .gfx-l3[data-variant='bold-plate'] .l3-underbar {
   left: 64px;
   right: 34px;
-  height: 12px;
+  height: 9px;
   background: var(--gfx-accent-2);
 }
 
@@ -1013,7 +1056,7 @@ body.gfx-transparent {
   right: -42px;
   top: 6px;
   width: 48px;
-  height: 132px;
+  height: 118px;
   background: var(--gfx-brand);
   clip-path: polygon(28px 0, 100% 0, calc(100% - 18px) 100%, 0 100%);
   z-index: 3;
@@ -1026,12 +1069,12 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-name-plate {
-  height: 86px;
+  height: 80px;
   padding: 0 330px 0 58px;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-role-plate {
-  height: 46px;
+  height: 40px;
   padding: 0 330px 0 58px;
 }
 
@@ -1055,7 +1098,7 @@ body.gfx-transparent {
   right: 0;
   top: 0;
   width: 300px;
-  height: 132px;
+  height: 120px;
   background: var(--gfx-accent-2);
   clip-path: polygon(42px 0, 100% 0, calc(100% - 22px) 100%, 0 100%);
   z-index: 3;
@@ -1068,17 +1111,17 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='event-style'] .l3-name-plate {
-  height: 92px;
+  height: 84px;
   padding: 0 116px 0 166px;
 }
 
 .gfx-l3[data-variant='event-style'] .l3-role-plate {
-  height: 46px;
+  height: 40px;
   padding: 0 100px 0 166px;
 }
 
 .gfx-l3[data-variant='event-style'] .l3-name {
-  font-size: 54px;
+  font-size: 48px;
   letter-spacing: 0.005em;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
 }
@@ -1161,18 +1204,18 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='subtle-elegance'] .l3-name-plate {
-  height: 86px;
+  height: 80px;
   padding: 0 116px 0 138px;
 }
 
 .gfx-l3[data-variant='subtle-elegance'] .l3-role-plate {
-  height: 46px;
+  height: 40px;
   padding: 0 92px 0 138px;
   border-top: 0;
 }
 
 .gfx-l3[data-variant='subtle-elegance'] .l3-name {
-  font-size: 52px;
+  font-size: 48px;
   font-weight: 600;
   letter-spacing: 0.035em;
 }
