@@ -16,6 +16,7 @@ interface StickyLiveBarProps {
  */
 export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiveBarProps) {
   const { takeLabel, takeDisabled, durationSeconds } = useLiveTakeContext();
+  const takeDisplayLabel = lastAction === 'taken' ? 'Update live' : takeLabel;
 
   return (
     <div className="dock-livebar" data-state={lastAction}>
@@ -25,9 +26,14 @@ export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiv
         </span>
       </div>
       <div className="dock-livebar__actions">
-        <button type="button" className="take-btn dock-livebar__take" onClick={onTake} disabled={takeDisabled}>
-          <span className="take-btn__icon" aria-hidden>▶</span>
-          {takeLabel}
+        <button
+          type="button"
+          className="take-btn dock-livebar__take"
+          data-state={lastAction}
+          onClick={onTake}
+          disabled={takeDisabled}
+        >
+          {takeDisplayLabel}
         </button>
         <button type="button" className="clear-btn dock-livebar__clear" onClick={onClear}>
           Clear
