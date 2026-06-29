@@ -22,23 +22,25 @@ interface LiveActionsPanelProps {
  */
 export default function LiveActionsPanel({ onTake, onClear, lastAction, lastTakenAt }: LiveActionsPanelProps) {
   const { takeLabel, takeDisabled, rundownActive, selectedItem } = useLiveTakeContext();
-  const cueLabel = rundownActive
-    ? (selectedItem ? `Selected: ${selectedItem.title}` : 'Select a rundown item')
-    : 'Current draft';
+  const takeDisplayLabel = lastAction === 'taken' ? 'Update live' : takeLabel;
+  const takeAriaLabel = rundownActive && selectedItem
+    ? `${takeDisplayLabel}: ${selectedItem.title}`
+    : takeDisplayLabel;
 
   return (
     <Panel>
       <SectionHeader kicker="Live" title="On-air actions" aside={<StatusBadge status={lastAction} />} />
       <div className="ll-panel__body live-deck">
-        <div className="live-deck__primary" data-armed={!takeDisabled}>
-          <div className="live-deck__cue">
-            <span className="live-deck__cue-copy">
-              <span className="live-deck__cue-kicker"><span className="live-deck__tally" aria-hidden />Live standby</span>
-              <span className="live-deck__cue-title">{cueLabel}</span>
-            </span>
-          </div>
-          <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled}>
-            {takeLabel}
+        <div className="live-deck__primary">
+          <button
+            type="button"
+            className="take-btn"
+            data-state={lastAction}
+            onClick={onTake}
+            disabled={takeDisabled}
+            aria-label={takeAriaLabel}
+          >
+            {takeDisplayLabel}
           </button>
           <button type="button" className="clear-btn" onClick={onClear}>
             Clear graphic

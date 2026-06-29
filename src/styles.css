@@ -2379,47 +2379,6 @@ body.gfx-transparent {
   border: 0;
   box-shadow: none;
 }
-.control-root .live-deck__primary[data-armed="true"] { border-color: rgba(54, 226, 122, 0.42); }
-
-.control-root .live-deck__cue {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-  padding: 13px 14px;
-  border-radius: 12px;
-  background: rgba(54, 226, 122, 0.08);
-  border: 1px solid rgba(54, 226, 122, 0.16);
-}
-
-.control-root .live-deck__cue-copy { display: grid; gap: 5px; min-width: 0; }
-
-.control-root .live-deck__cue-kicker {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 10px;
-  font-weight: 850;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: var(--ll-muted);
-}
-
-.control-root .live-deck__tally { width: 8px; height: 8px; border-radius: 999px; background: var(--ll-muted-3); flex: none; transition: background-color 0.2s ease; }
-.control-root .live-deck__primary[data-armed="true"] .live-deck__cue-kicker { color: var(--ll-live); }
-.control-root .live-deck__primary[data-armed="true"] .live-deck__tally { background: var(--ll-live); box-shadow: 0 0 9px rgba(54, 226, 122, 0.85); animation: ll-pulse 1.6s ease-in-out infinite; }
-
-.control-root .live-deck__cue-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--ll-text);
-}
 
 .control-root .take-btn {
   display: flex;
@@ -2442,6 +2401,15 @@ body.gfx-transparent {
 }
 
 .control-root .take-btn:hover { transform: translateY(-1px); box-shadow: 0 20px 44px rgba(34, 197, 94, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.34); }
+.control-root .take-btn[data-state='taken'] {
+  color: #dff3ff;
+  background: rgba(24, 119, 242, 0.24);
+  border-color: rgba(34, 151, 255, 0.46);
+  box-shadow: inset 0 0 0 1px rgba(34, 151, 255, 0.08);
+}
+.control-root .take-btn[data-state='taken']:hover {
+  box-shadow: 0 16px 32px rgba(24, 119, 242, 0.16), inset 0 0 0 1px rgba(34, 151, 255, 0.12);
+}
 .control-root .take-btn:active { transform: translateY(0); filter: brightness(0.96); }
 .control-root .take-btn__icon { font-size: 14px; }
 
