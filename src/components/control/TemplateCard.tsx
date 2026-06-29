@@ -1,5 +1,4 @@
 import type { TemplateDefinition } from '../../types/graphics';
-import { MoreVertical } from 'lucide-react';
 
 interface TemplateCardProps {
   template: TemplateDefinition;
@@ -39,7 +38,6 @@ export default function TemplateCard({ template, active, onSelect }: TemplateCar
         <span className="tpl-card__name">{template.name}</span>
         <span className="tpl-card__cat">{template.category}</span>
       </span>
-      <MoreVertical className="tpl-card__more" size={18} aria-hidden />
     </button>
   );
 }

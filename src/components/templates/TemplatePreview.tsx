@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Camera, Grid2X2, Maximize2, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { templateRegistry, templateRendererMap } from './registry';
 import GraphicStage, { type StageBackdrop } from '../graphics/GraphicStage';
 import { resolveAnimationVariant } from '../graphics/stage';
@@ -20,11 +19,11 @@ interface Props {
   showControls?: boolean;
 }
 
-const BACKDROPS: { id: Exclude<StageBackdrop, 'transparent'>; label: string; icon: typeof Camera }[] = [
-  { id: 'neutral', label: 'Camera', icon: Camera },
-  { id: 'dark', label: 'Dark', icon: Moon },
-  { id: 'bright', label: 'Light', icon: Sun },
-  { id: 'checker', label: 'Checker', icon: Grid2X2 }
+const BACKDROPS: { id: Exclude<StageBackdrop, 'transparent'>; label: string }[] = [
+  { id: 'neutral', label: 'Camera' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'bright', label: 'Light' },
+  { id: 'checker', label: 'Checker' }
 ];
 
 const UNSUPPORTED_THEME: TemplateDefinition['theme'] = {
@@ -71,7 +70,6 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
           <div className="preview-toolbar-group" role="group" aria-label="Preview background">
             <span className="preview-toolbar-label">Background</span>
             {BACKDROPS.map((option) => {
-              const Icon = option.icon;
               return (
                 <button
                   key={option.id}
@@ -79,7 +77,6 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
                   onClick={() => setBackdrop(option.id)}
                   className={`preview-chip ${backdrop === option.id ? 'preview-chip-active' : ''}`}
                 >
-                  <Icon size={15} aria-hidden />
                   {option.label}
                 </button>
               );
@@ -91,7 +88,6 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
             className={`preview-chip ${showGuides ? 'preview-chip-active' : ''}`}
             aria-pressed={showGuides}
           >
-            <ShieldCheck size={15} aria-hidden />
             Safe Area
           </button>
         </div>
@@ -126,7 +122,6 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
         <div className="monitor-bezel monitor-bezel--bottom">
           <span className="monitor-spec">1920 × 1080</span>
           <span className="monitor-spec monitor-spec--accent">PVW</span>
-          <Maximize2 className="monitor-expand" size={18} aria-hidden />
         </div>
       </div>
     </div>
