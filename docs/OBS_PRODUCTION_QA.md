@@ -74,6 +74,22 @@ and `/seed-test.html` return 200.
 
 If step 10 or 20 fails, the dock and source are not on the same origin.
 
+## Optional LAN control QA
+
+Run this only when testing second-PC or tablet control:
+
+1. On the graphics machine, start `npm run dev:lan`.
+2. In another terminal on the graphics machine, start `npm run lan:relay`.
+3. Open `/setup` using the graphics machine LAN URL.
+4. Copy the LAN Control URL to the controller device.
+5. Use the LAN Output URL in the OBS Browser Source on the graphics machine.
+6. Press Take from the controller device → OBS output updates.
+7. Press Clear from the controller device → OBS output clears.
+8. Refresh the OBS Browser Source → the last live graphic recovers from the relay.
+
+Current limitation: this proves live command transport only. Uploaded assets,
+People, Saved Graphics, and rundowns are still browser-local.
+
 ## Feature QA (run from real `/control`)
 
 Detailed per-feature checklists live in [`QA_CHECKLIST.md`](QA_CHECKLIST.md):
@@ -84,6 +100,24 @@ Detailed per-feature checklists live in [`QA_CHECKLIST.md`](QA_CHECKLIST.md):
 - **Rundown** — build a service rundown, run it live (Take selected / Next), edit a
   selected item, dock vs studio queue.
 - **Output** — Take, Clear, refresh recovery, transparency, preview-vs-output match.
+
+## Optional NDI bridge QA
+
+Run this only when sending the finished OBS scene/program to another PC or Mac:
+
+1. Keep LiveLayer running on the graphics machine.
+2. Add `/output` to OBS as the transparent Browser Source and confirm Take/Clear
+   locally first.
+3. Enable your OBS NDI output workflow, such as DistroAV/NDI, for the scene or
+   program feed.
+4. On the receiving PC/Mac, add the NDI source and confirm the LiveLayer graphic
+   appears in the received video.
+5. Clear the graphic on the graphics machine and confirm the remote NDI feed
+   clears too.
+
+If the remote feed updates but remote `/control` does not work, that is expected:
+NDI is only carrying rendered video. Use the LAN relay URLs from `/setup` when
+you want beta remote Take/Clear control.
 
 ## Output-rendering harness (no OBS needed)
 

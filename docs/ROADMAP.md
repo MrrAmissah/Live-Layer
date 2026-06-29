@@ -38,13 +38,16 @@ does **not** include.
   and non-destructive remap-on-import. **IE1 helpers + IE2 export-a-rundown + IE3
   import preview + IE4 safe selected-rundown import are done** (Library → Import).
   Next: manually prove the rundown round-trip, then IE5 Full Backup / restore.
+- **LAN control relay** — beta event relay for second-PC/tablet Take/Clear is in
+  place; next is host-owned assets/libraries so remote operators can share logos,
+  People, presets, and rundowns safely.
 
 ## Later — production scale
 
 - **OBS WebSocket helper** — assist or automate adding the dock and Browser Source,
   and optionally trigger scene/source actions.
-- **Remote / tablet control** — drive the output from a second device (requires a
-  small local relay; today's `BroadcastChannel` is single-machine).
+- **Remote / tablet control hardening** — host-owned asset/library storage,
+  connection status, and better operator diagnostics around the beta LAN relay.
 
 ## Eventually — packaging & ecosystem
 
