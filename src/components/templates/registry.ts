@@ -34,11 +34,6 @@ export const templateRegistry: TemplateDefinition[] = [
     },
     variants: [
       {
-        id: 'signature-medallion',
-        name: 'Signature Medallion',
-        description: 'Brand seal, angled nameplate, and strong church ID.'
-      },
-      {
         id: 'modern-minimal',
         name: 'Modern Minimal',
         description: 'Slim black glass plate with a gold edge accent.'
@@ -47,6 +42,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'angled-accent',
         name: 'Angled Accent',
         description: 'Dark broadcast bar with bold angled end caps.'
+      },
+      {
+        id: 'signature-medallion',
+        name: 'Logo Medallion',
+        description: 'Brand seal, angled nameplate, and strong church ID.'
       },
       {
         id: 'clean-broadcast',

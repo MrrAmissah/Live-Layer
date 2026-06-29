@@ -43,7 +43,9 @@ Templates are defined in `src/components/templates/registry.ts` and typed in
 
 Use variants when several visual samples share the same field contract. For
 example, **Preacher Lower Third** remains one template while its lower-third
-sample pack is selected through `variantId`.
+sample pack is selected through `variantId`. Variant ids should stay stable once
+presets may have been saved; rename the display `name` instead of changing the
+stored id.
 
 ## `GraphicInstance` (a graphic taken to output / saved as a preset)
 
