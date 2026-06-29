@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
 import { deleteAsset, getAssetBlob, listAssets, saveAsset } from '../../lib/assets/assetStore';
+import { getRealtimeRelayUrl } from '../../lib/realtime';
 
 type CheckState = 'pending' | 'ok' | 'warn' | 'fail';
 interface Check {
@@ -14,6 +15,7 @@ interface Check {
 const DIAG_ASSET_ID = '__livelayer_diag__';
 const STORAGE_ESTIMATE_LABEL = 'Browser storage space';
 const ASSET_HEALTH_LABEL = 'Uploaded asset originals';
+const RELAY_HEALTH_LABEL = 'Beta LAN relay';
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB';
@@ -140,6 +142,66 @@ async function probeAssetHealth(): Promise<Check> {
   }
 }
 
+function createRelayIdleCheck(relayUrl = getRealtimeRelayUrl()): Check {
+  if (!relayUrl) {
+    return {
+      label: RELAY_HEALTH_LABEL,
+      state: 'warn',
+      detail: 'No relay configured; same-machine local control is active. Add ?relay=http://<graphics-host-ip>:4174 to test beta LAN control.'
+    };
+  }
+
+  return {
+    label: RELAY_HEALTH_LABEL,
+    state: 'pending',
+    detail: `Configured at ${relayUrl}; check health before using a second device.`
+  };
+}
+
+async function probeRelayHealth(relayUrl: string): Promise<Check> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(`${relayUrl}/health`, {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      return {
+        label: RELAY_HEALTH_LABEL,
+        state: 'fail',
+        detail: `Relay health returned HTTP ${response.status}. Start npm run lan:relay on the graphics machine and check the URL.`
+      };
+    }
+
+    const health = await response.json() as { ok?: unknown; clients?: unknown; hasLastMessage?: unknown };
+    if (health.ok !== true) {
+      return {
+        label: RELAY_HEALTH_LABEL,
+        state: 'fail',
+        detail: `Relay answered at ${relayUrl}, but did not report ready. Restart npm run lan:relay.`
+      };
+    }
+
+    const clients = typeof health.clients === 'number' && Number.isFinite(health.clients) ? health.clients : 0;
+    const lastMessage = health.hasLastMessage === true ? 'last live message available' : 'no live message sent yet';
+    return {
+      label: RELAY_HEALTH_LABEL,
+      state: 'ok',
+      detail: `Reachable at ${relayUrl}; ${clients} connected page${clients === 1 ? '' : 's'}, ${lastMessage}.`
+    };
+  } catch {
+    return {
+      label: RELAY_HEALTH_LABEL,
+      state: 'fail',
+      detail: `Cannot reach ${relayUrl}. Start npm run lan:relay on the graphics machine, then check firewall and the relay URL.`
+    };
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 const PILL: Record<CheckState, string> = {
   pending: 'diag-pill--pending',
   ok: 'diag-pill--ok',
@@ -179,6 +241,8 @@ export default function SetupDiagnostics() {
     state: 'pending',
     detail: 'Not run yet — tap “Run storage test”.'
   });
+  const [relayCheck, setRelayCheck] = useState<Check>(() => createRelayIdleCheck());
+  const [relayBusy, setRelayBusy] = useState(false);
   const [copyHint, setCopyHint] = useState('');
   const copyTimerRef = useRef<number | undefined>(undefined);
 
@@ -200,6 +264,32 @@ export default function SetupDiagnostics() {
     return () => {
       active = false;
     };
+  }, []);
+
+  const runRelayCheck = async () => {
+    const relayUrl = getRealtimeRelayUrl();
+    if (!relayUrl) {
+      setRelayCheck(createRelayIdleCheck(null));
+      return;
+    }
+
+    setRelayBusy(true);
+    setRelayCheck({
+      label: RELAY_HEALTH_LABEL,
+      state: 'pending',
+      detail: `Checking ${relayUrl}...`
+    });
+    const result = await probeRelayHealth(relayUrl);
+    setRelayCheck(result);
+    setRelayBusy(false);
+  };
+
+  useEffect(() => {
+    const relayUrl = getRealtimeRelayUrl();
+    setRelayCheck(createRelayIdleCheck(relayUrl));
+    if (relayUrl) void runRelayCheck();
+    // Run once on page load so a stored ?relay URL is visible immediately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const flashCopyHint = (text: string) => {
@@ -307,7 +397,11 @@ export default function SetupDiagnostics() {
             <CheckRow key={check.label} check={check} />
           ))}
           <CheckRow check={assetTest} />
+          <CheckRow check={relayCheck} />
           <button type="button" className="btn btn--secondary btn--sm" onClick={runAssetTest}>Run storage test</button>
+          <button type="button" className="btn btn--secondary btn--sm" onClick={runRelayCheck} disabled={relayBusy}>
+            {relayBusy ? 'Checking LAN relay...' : 'Check LAN relay'}
+          </button>
         </div>
 
         <p className="diag-real">
