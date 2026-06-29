@@ -20,6 +20,7 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional logo URL', optional: true }
     ],
     defaultValues: {
+      variantId: 'signature-medallion',
       name: 'Anna Grace',
       title: 'Lead Pastor',
       subtitle: 'Grace Harbor Church',
@@ -31,6 +32,48 @@ export const templateRegistry: TemplateDefinition[] = [
       backgroundColor: 'transparent',
       accent2Color: '#E8B93C'
     },
+    variants: [
+      {
+        id: 'signature-medallion',
+        name: 'Signature Medallion',
+        description: 'Brand seal, angled nameplate, and strong church ID.'
+      },
+      {
+        id: 'modern-minimal',
+        name: 'Modern Minimal',
+        description: 'Slim black glass plate with a gold edge accent.'
+      },
+      {
+        id: 'angled-accent',
+        name: 'Angled Accent',
+        description: 'Dark broadcast bar with bold angled end caps.'
+      },
+      {
+        id: 'clean-broadcast',
+        name: 'Clean Broadcast',
+        description: 'Bright network-style strip for camera-heavy scenes.'
+      },
+      {
+        id: 'bold-plate',
+        name: 'Bold Plate',
+        description: 'Heavy title plate with strong icon block energy.'
+      },
+      {
+        id: 'split-bar',
+        name: 'Split Bar',
+        description: 'Deep bar with a premium accent slab on the right.'
+      },
+      {
+        id: 'event-style',
+        name: 'Event Style',
+        description: 'Conference-ready teal bar with a round brand mark.'
+      },
+      {
+        id: 'subtle-elegance',
+        name: 'Subtle Elegance',
+        description: 'Quiet framed plate with refined gold detailing.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   },
   {

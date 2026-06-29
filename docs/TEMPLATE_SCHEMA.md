@@ -12,6 +12,7 @@ Templates are defined in `src/components/templates/registry.ts` and typed in
 - `fields: TemplateField[]` — control-UI input definitions
 - `defaultValues: Record<string,string>` — starter text per field id
 - `theme: TemplateTheme` — default brand colours
+- `variants?: TemplateVariant[]` — optional style samples under one template
 - `animation?: TemplateAnimation` — default motion (see below)
 
 ### `TemplateField`
@@ -33,6 +34,16 @@ Templates are defined in `src/components/templates/registry.ts` and typed in
 - Shipped behaviours: **`slide`** (per-element build, the default) and **`fade`**
   (whole-layer crossfade). Resolved by `resolveAnimationVariant()` and applied via
   `data-anim` on `.gfx-layer`. See `docs/DESIGN_SYSTEM.md` → Motion.
+
+### `TemplateVariant`
+
+- `id` — stored as a normal string value such as `values.variantId`
+- `name` — short operator-facing style name
+- `description` — one-line distinction for picker cards
+
+Use variants when several visual samples share the same field contract. For
+example, **Preacher Lower Third** remains one template while its lower-third
+sample pack is selected through `variantId`.
 
 ## `GraphicInstance` (a graphic taken to output / saved as a preset)
 

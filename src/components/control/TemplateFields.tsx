@@ -81,6 +81,36 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
   );
 }
 
+function TemplateVariantPicker({
+  variants,
+  value,
+  onChange
+}: {
+  variants: NonNullable<(typeof templateRegistry)[number]['variants']>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="variant-picker">
+      <span className="field__label">Design sample</span>
+      <div className="variant-picker__grid">
+        {variants.map((variant) => (
+          <button
+            key={variant.id}
+            type="button"
+            aria-pressed={value === variant.id}
+            className={`variant-choice ${value === variant.id ? 'variant-choice--active' : ''}`}
+            onClick={() => onChange(variant.id)}
+          >
+            <span className="variant-choice__name">{variant.name}</span>
+            <span className="variant-choice__desc">{variant.description}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The content fields for the currently selected template: required fields
  * first, optional fields below a divider. Shared verbatim by the studio
@@ -95,6 +125,13 @@ export default function TemplateFields() {
 
   return (
     <div className="field-grid">
+      {template?.variants?.length ? (
+        <TemplateVariantPicker
+          variants={template.variants}
+          value={draftValues.variantId ?? template.defaultValues.variantId ?? template.variants[0].id}
+          onChange={(value) => setField('variantId', value)}
+        />
+      ) : null}
       {required.map((field) => (
         <div key={field.id} className="field-stack">
           {currentTemplateId === 'scripture-card' && field.id === 'reference' ? (

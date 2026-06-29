@@ -27,6 +27,12 @@ export interface TemplateAnimation {
   out: 'fade' | 'slide' | 'shrink';
 }
 
+export interface TemplateVariant {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface TemplateDefinition {
   id: string;
   name: string;
@@ -35,6 +41,7 @@ export interface TemplateDefinition {
   fields: TemplateField[];
   defaultValues: Record<string, string>;
   theme: TemplateTheme;
+  variants?: TemplateVariant[];
   animation?: TemplateAnimation;
 }
 

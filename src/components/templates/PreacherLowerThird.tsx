@@ -35,6 +35,7 @@ function nameSizeClass(name: string): string {
  */
 export default function PreacherLowerThird({ values }: Props) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
+  const variantId = values.variantId?.trim() || 'signature-medallion';
   const name = values.name?.trim() || 'Speaker Name';
   const title = values.title?.trim() || '';
   const subtitle = values.subtitle?.trim() || '';
@@ -55,9 +56,12 @@ export default function PreacherLowerThird({ values }: Props) {
   }, [resolvedHeadshot]);
 
   return (
-    <div className="gfx-l3">
+    <div className="gfx-l3" data-variant={variantId} data-logo={resolvedLogo ? 'true' : 'false'}>
       <div className="l3-stack">
         <div className="l3-underbar" aria-hidden />
+        <div className="l3-symbol-block" aria-hidden>
+          <span className="l3-symbol-mark" />
+        </div>
         <div className="l3-mask">
           <Plate fill="brand" cut="right" cutDepth={22} className="l3-name-plate">
             <span className="l3-cap" aria-hidden />
@@ -80,6 +84,7 @@ export default function PreacherLowerThird({ values }: Props) {
           </div>
         ) : null}
         <AccentStripe className="l3-stripe" thickness={14} color="accent-2" />
+        <span className="l3-end-slab" aria-hidden />
       </div>
       {showHeadshot ? (
         <div className="l3-headshot">

@@ -50,6 +50,17 @@
       <option value="medium">Medium</option>
       <option value="large">Large</option>
     </select>
+    <strong style="margin-left:10px">Lower Third Style</strong>
+    <select id="l3variant" title="Preacher lower-third style">
+      <option value="signature-medallion">Signature Medallion</option>
+      <option value="modern-minimal">Modern Minimal</option>
+      <option value="angled-accent">Angled Accent</option>
+      <option value="clean-broadcast">Clean Broadcast</option>
+      <option value="bold-plate">Bold Plate</option>
+      <option value="split-bar">Split Bar</option>
+      <option value="event-style">Event Style</option>
+      <option value="subtle-elegance">Subtle Elegance</option>
+    </select>
     <strong style="margin-left:10px">Accent</strong>
     <select id="accent" title="Accent (keyline) colour">
       <option value="">Default</option>
@@ -116,6 +127,9 @@
       const useLong = document.getElementById('long').checked;
       // Copy so the harness never mutates the shared sample objects.
       const values = { ...sample[templateId][useLong ? 'long' : 'short'] };
+      if (templateId === 'preacher-lower-third') {
+        values.variantId = document.getElementById('l3variant').value;
+      }
 
       // Dynamic date/time tokens (announcement) — /output resolves these live.
       if (document.getElementById('dynamic').checked && templateId === 'announcement-banner') {
@@ -189,6 +203,30 @@
     document.getElementById('debug').addEventListener('change', (e) => {
       document.getElementById('out').src = '/output' + (e.target.checked ? '?debug=1' : '');
     });
+
+    function applyParams() {
+      const params = new URLSearchParams(window.location.search);
+      const templateId = params.get('template');
+      const variantId = params.get('variant');
+      const bg = params.get('bg');
+      if (variantId) {
+        document.getElementById('l3variant').value = variantId;
+      }
+      if (bg) {
+        document.getElementById('stage').className = 'stage bg-' + bg;
+      }
+      if (params.get('long') === '1') {
+        document.getElementById('long').checked = true;
+      }
+      if (params.get('fade') === '1') {
+        document.getElementById('fade').checked = true;
+      }
+      if (templateId && sample[templateId]) {
+        window.setTimeout(() => show(templateId), 150);
+      }
+    }
+
+    applyParams();
   </script>
 </body>
 </html>

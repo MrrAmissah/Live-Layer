@@ -8,7 +8,8 @@ needs this hands-on checklist before a release or demo.
 > (dev server port **4173**, set in `vite.config.ts`). It seeds each template into
 > a real `/output` iframe over simulated **camera / dark / bright** backdrops,
 > with toggles for **long / stress content**, **layout size**, **accent colour**,
-> **dynamic date/time**, the **fade crossfade** variant, and **safe-area guides**.
+> **lower-third style**, **dynamic date/time**, the **fade crossfade** variant,
+> and **safe-area guides**.
 
 > **Local asset origin rule:** use the same origin for every route during asset
 > QA, for example `http://127.0.0.1:4173/control` and
@@ -128,6 +129,8 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 
 - [ ] Switching templates loads that template's default values and fields
 - [ ] The preview, status-bar name, and editor all update together
+- [ ] **Preacher Lower Third** exposes style variants as sub-options, not separate top-level templates
+- [ ] Each lower-third style variant renders over Camera / Dark / Bright in `seed-test.html`
 - [ ] Radio selection is obvious; only one template selected at a time
 - [ ] Template rail groups read clearly as **Lower Third**, **Card**, **Banner**, and **Fullscreen**
 - [ ] New templates render in preview and `/output`: Quote Card, Event Banner, Sermon Title, Fullscreen Message

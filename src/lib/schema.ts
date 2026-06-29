@@ -30,6 +30,12 @@ export const templateAnimationSchema = z.object({
   out: z.enum(['fade', 'slide', 'shrink'])
 }).optional();
 
+export const templateVariantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string()
+});
+
 export const templateDefinitionSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -38,6 +44,7 @@ export const templateDefinitionSchema = z.object({
   fields: z.array(templateFieldSchema),
   defaultValues: z.record(z.string(), z.string()),
   theme: templateThemeSchema,
+  variants: z.array(templateVariantSchema).optional(),
   animation: templateAnimationSchema
 });
 

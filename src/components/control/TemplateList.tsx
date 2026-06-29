@@ -15,7 +15,9 @@ interface TemplateListProps {
  */
 export default function TemplateList({ onAfterSelect }: TemplateListProps) {
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
+  const currentVariantId = useLiveLayerStore((state) => state.draftValues.variantId);
   const setTemplate = useLiveLayerStore((state) => state.setTemplate);
+  const setField = useLiveLayerStore((state) => state.setField);
 
   const grouped = useMemo(() => {
     return templateRegistry.reduce<Record<string, typeof templateRegistry>>((acc, template) => {
@@ -34,15 +36,33 @@ export default function TemplateList({ onAfterSelect }: TemplateListProps) {
           </p>
           <div className="tpl-rail__list">
             {items.map((template) => (
-              <TemplateCard
-                key={template.id}
-                template={template}
-                active={template.id === currentTemplateId}
-                onSelect={() => {
-                  setTemplate(template.id);
-                  onAfterSelect?.();
-                }}
-              />
+              <div key={template.id} className="tpl-card-wrap">
+                <TemplateCard
+                  template={template}
+                  active={template.id === currentTemplateId}
+                  onSelect={() => {
+                    setTemplate(template.id);
+                    onAfterSelect?.();
+                  }}
+                />
+                {template.id === currentTemplateId && template.variants?.length ? (
+                  <div className="tpl-variants" aria-label={`${template.name} variants`}>
+                    <span className="tpl-variants__label">Styles</span>
+                    {template.variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        title={variant.description}
+                        aria-pressed={currentVariantId === variant.id}
+                        className={`tpl-variant ${currentVariantId === variant.id ? 'tpl-variant--active' : ''}`}
+                        onClick={() => setField('variantId', variant.id)}
+                      >
+                        <span className="tpl-variant__name">{variant.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         </div>
