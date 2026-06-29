@@ -14,8 +14,8 @@ account, or the cloud. It runs as two browser surfaces you point OBS at:
 - **`/output`** — a transparent 1920×1080 overlay you add to OBS as a Browser Source.
 
 > **Status: alpha (v0.1).** The core loop — templates, live preview, Take/Clear,
-> auto-hide, presets, and transparent output — works end to end. It is local-first
-> and single-machine; see [Known limitations](docs/KNOWN_LIMITATIONS.md).
+> auto-hide, presets, rundowns, import/export, and transparent output — works end
+> to end. It is local-first; see [Known limitations](docs/KNOWN_LIMITATIONS.md).
 
 ## Screenshots
 
@@ -46,7 +46,8 @@ as the compositor and keeps everything on your machine.
   Take/Clear bar; at desktop widths a full studio dashboard. One route, responsive.
 - **True preview parity** — the control preview renders through the *same* 1920×1080
   stage, scale, theme, and animation as `/output`, so what you see is what airs.
-- **Three broadcast templates** — preacher lower third, scripture card, announcement banner.
+- **Expanded broadcast templates** — lower third, scripture, announcement, quote,
+  event, sermon title, and fullscreen message graphics.
 - **Take / Clear / auto-hide** — instant show/clear with optional self-clear (Off/3/6/10/15s).
 - **Two motion styles** — a per-element *slide build* (default) and a flat *fade*
   crossfade, configured per template (with a per-instance override path).
@@ -87,9 +88,11 @@ A single-page app with three routes and no backend:
   `localStorage` (validated with **Zod** on read).
 
 More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
+[`docs/NETWORK_OUTPUT_ARCHITECTURE.md`](docs/NETWORK_OUTPUT_ARCHITECTURE.md),
 [`docs/CONTROL_UI_UX.md`](docs/CONTROL_UI_UX.md),
 [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
-[`docs/TEMPLATE_SCHEMA.md`](docs/TEMPLATE_SCHEMA.md).
+[`docs/TEMPLATE_SCHEMA.md`](docs/TEMPLATE_SCHEMA.md), and
+[`docs/TEMPLATE_PACK_PLAN.md`](docs/TEMPLATE_PACK_PLAN.md).
 
 ## Run locally
 
@@ -131,6 +134,7 @@ open <http://127.0.0.1:4173/seed-test.html>.
 - [QA checklist](docs/QA_CHECKLIST.md) · [Screenshot guide](docs/SCREENSHOT_GUIDE.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md) · [Roadmap](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Control UI/UX](docs/CONTROL_UI_UX.md) · [Design system](docs/DESIGN_SYSTEM.md) · [Template schema](docs/TEMPLATE_SCHEMA.md)
+- [Network output architecture](docs/NETWORK_OUTPUT_ARCHITECTURE.md) · [NDI workflow](docs/NDI_WORKFLOW.md) · [Cloud architecture](docs/CLOUD_ARCHITECTURE.md) · [Template pack plan](docs/TEMPLATE_PACK_PLAN.md)
 
 ## Roadmap & limitations
 
