@@ -116,7 +116,7 @@ export function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
   return null;
 }
 
-function getRelayUrl(): string | null {
+export function getRealtimeRelayUrl(): string | null {
   if (typeof window === 'undefined') return null;
 
   const params = new URLSearchParams(window.location.search);
@@ -163,7 +163,7 @@ function normalizeRelayUrl(raw: string): string | null {
 }
 
 function createRelayClient(onRelayMessage: (message: RealtimeMessage) => void) {
-  const relayUrl = getRelayUrl();
+  const relayUrl = getRealtimeRelayUrl();
   if (!relayUrl || typeof EventSource === 'undefined') return null;
 
   const events = new EventSource(`${relayUrl}/events`);
