@@ -41,8 +41,7 @@ Shell sizing tokens:
 
 Single source of truth for the broadcast output layer. Defined on `.gfx-stage`
 in `src/styles.css`; every template renderer reads `var(--gfx-*)` rather than
-inline theme colors, so a whole composition re-themes from one place. See
-`REFERENCE_STYLE_ANALYSIS.md` for the rationale behind these choices.
+inline theme colors, so a whole composition re-themes from one place.
 
 | Token | Value | Role |
 |---|---|---|

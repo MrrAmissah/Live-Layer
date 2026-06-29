@@ -319,10 +319,10 @@ export default function SetupDiagnostics() {
         <div className="diag-network">
           <span className="diag-network__label">Network mode</span>
           <p>
-            Today, live Take/Clear is same-browser-origin. For a second PC, run
-            LiveLayer on the graphics host and use that machine’s LAN address for
-            both <code>/control</code> and <code>/output</code>. A WebSocket LAN
-            event bus is planned before true cross-device asset sharing.
+            Today, live Take/Clear only works when <code>/control</code> and
+            <code> /output</code> run in the same local browser/OBS context on one
+            machine. A second-PC or tablet controller is not supported yet; it
+            needs a WebSocket LAN event bus and host-owned asset storage first.
           </p>
         </div>
 

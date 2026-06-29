@@ -82,7 +82,7 @@ Detailed per-feature checklists live in [`QA_CHECKLIST.md`](QA_CHECKLIST.md):
 - **Scripture** — book/chapter/verse picker, auto-load, range, typed + Lookup, manual paste, WEB/KJV, fast-tap race guard, offline fallback.
 - **Announcement** — normal/long, dynamic `{{date}}` / `{{time}}` / `{{weekday}}`.
 - **Rundown** — build a service rundown, run it live (Take selected / Next), edit a
-  selected item, dock vs studio queue. Full pack: [`RUNDOWN_QA.md`](RUNDOWN_QA.md).
+  selected item, dock vs studio queue.
 - **Output** — Take, Clear, refresh recovery, transparency, preview-vs-output match.
 
 ## Output-rendering harness (no OBS needed)

@@ -16,8 +16,6 @@ does **not** include.
 
 ## Phase 2 — shipped locally
 
-> Phase 2 is specified in detail: [`PHASE_2_PRODUCT_SPEC.md`](PHASE_2_PRODUCT_SPEC.md).
-
 - **Local asset system** — upload logos/headshots, store locally (IndexedDB), reference by id.
 - **People / speaker library** — enter a speaker once, recall in two taps.
 - **Scripture picker** — book/chapter/verse picker with auto-load (race-guarded); manual entry stays.
@@ -31,20 +29,18 @@ does **not** include.
 > current local-first phase; selected-rundown import/export packs are ready for
 > manual browser/OBS round-trip confirmation before Full Backup work starts.
 
-- **Rundown / queue mode** — build/run an ordered list of graphics live. **Complete for this phase (R1–R6).** See [`RUNDOWN_QA.md`](RUNDOWN_QA.md). Future: Take Next, auto-advance, drag-reorder, per-item brand.
+- **Rundown / queue mode** — build/run an ordered list of graphics live. **Complete for this phase.** Future: Take Next, auto-advance, drag-reorder, per-item brand.
 - **More template layouts** — additional lower-third styles, full-frame title/section
   cards, scoreboard/ticker, headshot slot for lower thirds.
 - **Operator animation picker** — surface slide vs fade in `/control` (the data path exists).
 - **Import / export packs** — back up / move / share rundowns, Saved Graphics,
-  People, and referenced assets between machines. Designed in
-  [`IMPORT_EXPORT_PACKS_SPEC.md`](IMPORT_EXPORT_PACKS_SPEC.md) (`.livelayerpack` ZIP,
-  non-destructive remap-on-import). **IE1 helpers + IE2 export-a-rundown + IE3
+  People, and referenced assets between machines with `.livelayerpack` ZIP files
+  and non-destructive remap-on-import. **IE1 helpers + IE2 export-a-rundown + IE3
   import preview + IE4 safe selected-rundown import are done** (Library → Import).
   Next: manually prove the rundown round-trip, then IE5 Full Backup / restore.
 
 ## Later — production scale
 
-<!-- Rundown / queue mode moved up to "Next" — designed in RUNDOWN_QUEUE_SPEC.md. -->
 - **OBS WebSocket helper** — assist or automate adding the dock and Browser Source,
   and optionally trigger scene/source actions.
 - **Remote / tablet control** — drive the output from a second device (requires a

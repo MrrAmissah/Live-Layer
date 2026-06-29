@@ -44,8 +44,7 @@ deliberately narrow. These are honest constraints, not bugs.
   **selected item** on every tab (deselect the rundown to air a fresh draft); and
   **Brand colours/logo stay global** — editing them does not change a selected
   item's captured theme (per-item theme/logo editing is deferred). Soft caps apply
-  (50 rundowns, 100 items each) with a friendly message at the limit. See
-  [`RUNDOWN_QA.md`](RUNDOWN_QA.md) and [`RUNDOWN_QUEUE_SPEC.md`](RUNDOWN_QUEUE_SPEC.md).
+  (50 rundowns, 100 items each) with a friendly message at the limit.
 - **No full asset browser yet** — logos/headshots upload locally, but there is no
   general-purpose asset management grid.
 - **Import/export is selected-rundown only.** You can **export** one rundown
@@ -57,8 +56,7 @@ deliberately narrow. These are honest constraints, not bugs.
   and fall back to placeholder/monogram behavior. **Full Backup / restore** (IE5),
   replace mode, People/Assets-only packs, and standalone Saved Graphics import are
   not built yet. A pack made by a **newer** LiveLayer is blocked with a clear
-  message. See
-  [`IMPORT_EXPORT_PACKS_SPEC.md`](IMPORT_EXPORT_PACKS_SPEC.md).
+  message.
 
 ## Smaller caveats
 
@@ -67,7 +65,7 @@ deliberately narrow. These are honest constraints, not bugs.
   configured per template / via a per-instance override (exercised through the seed
   harness), not yet operator-selectable in `/control`.
 - **Brand override applies one accent across templates** — distinctness comes from
-  layout, not colour (see `docs/REFERENCE_STYLE_ANALYSIS.md`).
+  layout, not colour.
 - **Long text is handled by step-down sizing**, not reflow — extreme inputs are
   clamped, not perfectly typeset.
 - **No full browser/OBS automation yet** — `npm run verify` guards the build,
