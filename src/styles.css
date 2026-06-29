@@ -2765,8 +2765,8 @@ body.gfx-transparent {
 
 .control-root .variant-picker {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.018);
   border: 1px solid var(--ll-border-soft);
@@ -2774,16 +2774,16 @@ body.gfx-transparent {
 
 .control-root .variant-picker__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  gap: 8px;
 }
 
 .control-root .variant-choice {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-height: 58px;
-  padding: 9px 10px;
+  gap: 6px;
+  min-height: 98px;
+  padding: 10px;
   border-radius: 9px;
   text-align: left;
   color: #aebbd0;
@@ -2795,6 +2795,7 @@ body.gfx-transparent {
 .control-root .variant-choice:hover {
   color: #eef6ff;
   border-color: rgba(148, 163, 184, 0.26);
+  background: rgba(7, 13, 24, 0.66);
 }
 
 .control-root .variant-choice--active {
@@ -2807,6 +2808,128 @@ body.gfx-transparent {
 .control-root .variant-choice__name { font-size: 12px; font-weight: 800; }
 .control-root .variant-choice__desc { font-size: 10.5px; line-height: 1.32; color: #748298; }
 .control-root .variant-choice--active .variant-choice__desc { color: #a7bedc; }
+
+.control-root .variant-choice__preview {
+  position: relative;
+  display: block;
+  height: 34px;
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 70% 12%, rgba(255, 255, 255, 0.12), transparent 34%),
+    #080d15;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.control-root .variant-choice__bar {
+  position: absolute;
+  left: 34px;
+  right: 15px;
+  bottom: 8px;
+  height: 15px;
+  background: #101827;
+  clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 100%, 0 100%);
+}
+
+.control-root .variant-choice__line,
+.control-root .variant-choice__subline {
+  position: absolute;
+  left: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.control-root .variant-choice__line {
+  top: 4px;
+  width: 48%;
+  height: 3px;
+}
+
+.control-root .variant-choice__subline {
+  top: 10px;
+  width: 68%;
+  height: 2px;
+  background: #e8b93c;
+}
+
+.control-root .variant-choice__mark {
+  position: absolute;
+  left: 10px;
+  bottom: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #071014;
+  border: 2px solid #e8b93c;
+  z-index: 2;
+}
+
+.control-root .variant-choice[data-variant='modern-minimal'] .variant-choice__mark {
+  width: 3px;
+  height: 24px;
+  left: 17px;
+  bottom: 5px;
+  border-radius: 999px;
+  border: 0;
+  background: #e8b93c;
+}
+
+.control-root .variant-choice[data-variant='modern-minimal'] .variant-choice__bar {
+  left: 28px;
+  right: 22px;
+  background: #070b12;
+}
+
+.control-root .variant-choice[data-variant='angled-accent'] .variant-choice__mark,
+.control-root .variant-choice[data-variant='bold-plate'] .variant-choice__mark {
+  left: 8px;
+  bottom: 7px;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: 0;
+  background: #0e7c86;
+  clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%);
+}
+
+.control-root .variant-choice[data-variant='clean-broadcast'] .variant-choice__bar {
+  left: 20px;
+  right: 18px;
+  background: #f4f7fb;
+}
+
+.control-root .variant-choice[data-variant='clean-broadcast'] .variant-choice__line {
+  background: #0f172a;
+}
+
+.control-root .variant-choice[data-variant='split-bar'] .variant-choice__bar {
+  right: 46px;
+  background: #07111f;
+  clip-path: none;
+}
+
+.control-root .variant-choice[data-variant='split-bar'] .variant-choice__preview::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  bottom: 8px;
+  width: 36px;
+  height: 15px;
+  background: #e8b93c;
+  clip-path: polygon(9px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+}
+
+.control-root .variant-choice[data-variant='event-style'] .variant-choice__bar {
+  left: 30px;
+  background: #075f67;
+}
+
+.control-root .variant-choice[data-variant='subtle-elegance'] .variant-choice__bar {
+  left: 42px;
+  right: 24px;
+  background: transparent;
+  border: 1px solid rgba(232, 185, 60, 0.7);
+}
 
 @media (max-width: 520px) {
   .control-root .variant-picker__grid { grid-template-columns: 1fr; }

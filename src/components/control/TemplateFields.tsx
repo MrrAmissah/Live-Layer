@@ -99,9 +99,17 @@ function TemplateVariantPicker({
             key={variant.id}
             type="button"
             aria-pressed={value === variant.id}
+            data-variant={variant.id}
             className={`variant-choice ${value === variant.id ? 'variant-choice--active' : ''}`}
             onClick={() => onChange(variant.id)}
           >
+            <span className="variant-choice__preview" aria-hidden>
+              <span className="variant-choice__mark" />
+              <span className="variant-choice__bar">
+                <span className="variant-choice__line" />
+                <span className="variant-choice__subline" />
+              </span>
+            </span>
             <span className="variant-choice__name">{variant.name}</span>
             <span className="variant-choice__desc">{variant.description}</span>
           </button>
