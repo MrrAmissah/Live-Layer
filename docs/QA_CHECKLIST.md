@@ -320,7 +320,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 
 - [ ] **Long text:** Lower Third long name steps the type down (not the band); Scripture 3-line verse and Announcement long headline/CTA stay inside title-safe — no overflow
 - [ ] **Empty optionals:** missing logo / CTA still balance
-- [ ] **Bright background:** all three templates stay legible over the **Bright** backdrop
+- [ ] **Bright background:** all built-in templates stay legible over the **Bright** backdrop
 - [ ] **Dark background:** all three stay legible over the **Dark** backdrop
 - [ ] **Camera background:** legible over the simulated camera gradient
 - [ ] Safe-area guides confirm text stays inside title-safe at all sizes

@@ -11,7 +11,9 @@
     button, select { font: inherit; font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid #2a3340; background: #1a212b; color: #e6edf5; cursor: pointer; }
     select { padding: 8px 10px; }
     button:hover { border-color: #3b82f6; }
+    button.active { border-color: #38bdf8; background: #0f3d5c; color: #f0f9ff; box-shadow: inset 0 0 0 1px rgba(56,189,248,0.22); }
     button.clear { background: #2a1416; border-color: #5a2327; color: #fecaca; }
+    button.cycle { background: #132235; border-color: #2b4a70; color: #bfdbfe; }
     label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; margin-left: 8px; }
     /* Simulated backdrops behind the transparent /output iframe so legibility
        can be judged over "video". The iframe itself stays transparent. */
@@ -35,6 +37,7 @@
     <button data-t="event-banner">Event</button>
     <button data-t="sermon-title">Sermon</button>
     <button data-t="fullscreen-message">Message</button>
+    <button class="cycle" data-cycle>Cycle all</button>
     <button class="clear" data-clear>Clear</button>
     <strong style="margin-left:10px">Background</strong>
     <button data-bg="camera">Camera</button>
@@ -55,7 +58,7 @@
       <option value="#f43f5e">Red</option>
     </select>
     <label class="toggle"><input type="checkbox" id="long" /> long / stress content</label>
-    <label class="toggle"><input type="checkbox" id="dynamic" /> dynamic date/time (announcement)</label>
+    <label class="toggle"><input type="checkbox" id="dynamic" /> dynamic date/time</label>
     <label class="toggle"><input type="checkbox" id="fade" /> fade crossfade</label>
     <label class="toggle"><input type="checkbox" id="debug" /> safe-area guides</label>
   </div>
@@ -93,6 +96,21 @@
         long:  { headline: 'We Will Be Right Back', body: 'Thank you for joining us online. Stay connected, share the stream, and prepare your heart as service resumes shortly.', footerNote: 'Live from Grace Harbor', callToAction: 'Visit example.com/connect' }
       }
     };
+    const templateIds = Object.keys(sample);
+    let cycleTimer = null;
+
+    function markActive(templateId) {
+      document.querySelectorAll('button[data-t]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.t === templateId);
+      });
+    }
+
+    function stopCycle() {
+      if (cycleTimer) {
+        clearInterval(cycleTimer);
+        cycleTimer = null;
+      }
+    }
 
     function show(templateId) {
       const useLong = document.getElementById('long').checked;
@@ -132,16 +150,37 @@
       const msg = { id: 'msg-' + Date.now(), type: 'SHOW_GRAPHIC', payload: instance, timestamp: Date.now() };
       localStorage.setItem('livelayer:lastMessage', JSON.stringify(msg));
       channel.postMessage(msg);
+      markActive(templateId);
     }
 
     function clear() {
+      stopCycle();
       const msg = { id: 'msg-' + Date.now(), type: 'CLEAR_ALL', payload: {}, timestamp: Date.now() };
       localStorage.removeItem('livelayer:lastMessage');
       channel.postMessage(msg);
+      markActive(null);
+    }
+
+    function cycleAll() {
+      stopCycle();
+      let index = 0;
+      show(templateIds[index]);
+      cycleTimer = setInterval(() => {
+        index += 1;
+        if (index >= templateIds.length) {
+          stopCycle();
+          return;
+        }
+        show(templateIds[index]);
+      }, 1800);
     }
 
     document.querySelectorAll('button[data-t]').forEach((b) =>
-      b.addEventListener('click', () => show(b.dataset.t)));
+      b.addEventListener('click', () => {
+        stopCycle();
+        show(b.dataset.t);
+      }));
+    document.querySelector('[data-cycle]').addEventListener('click', cycleAll);
     document.querySelector('[data-clear]').addEventListener('click', clear);
     document.querySelectorAll('button[data-bg]').forEach((b) =>
       b.addEventListener('click', () => {
