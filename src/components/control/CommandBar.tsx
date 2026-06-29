@@ -22,9 +22,9 @@ export default function CommandBar() {
       </div>
 
       <div className="cmd-cluster" role="group" aria-label="Session status">
-        <span className="cmd-status"><span className="cmd-mod__dot" aria-hidden />Local session</span>
+        <span className="cmd-status"><span className="cmd-mod__dot" aria-hidden />Local</span>
         <span className="cmd-route">/control</span>
-        <span className="cmd-status cmd-status--muted">Same machine OBS</span>
+        <span className="cmd-status cmd-status--muted">OBS ready</span>
       </div>
 
       <div className="cmd-bar__right">
