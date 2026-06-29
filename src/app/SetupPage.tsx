@@ -38,6 +38,9 @@ function UrlRow({
 export default function SetupPage() {
   const controlUrl = useMemo(() => `${window.location.origin}/control`, []);
   const outputUrl = useMemo(() => `${window.location.origin}/output`, []);
+  const relayUrl = useMemo(() => `${window.location.protocol}//${window.location.hostname}:4174`, []);
+  const lanControlUrl = useMemo(() => `${controlUrl}?relay=${encodeURIComponent(relayUrl)}`, [controlUrl, relayUrl]);
+  const lanOutputUrl = useMemo(() => `${outputUrl}?relay=${encodeURIComponent(relayUrl)}`, [outputUrl, relayUrl]);
   const [copyHint, setCopyHint] = useState('');
   const copyTimerRef = useRef<number | undefined>(undefined);
 
@@ -159,6 +162,35 @@ export default function SetupPage() {
                 <p className="setup-text">
                   This sends rendered video only. Control and Take/Clear still run on the local graphics
                   machine until LiveLayer has a LAN event bus.
+                </p>
+              </div>
+            </Panel>
+
+            <Panel>
+              <SectionHeader kicker="Beta" title="Control over LAN" />
+              <div className="ll-panel__body setup-body">
+                <p className="setup-text">
+                  For a second PC or tablet controller, run the app and relay on the graphics machine:
+                  <code className="setup-kbd">npm run dev:lan</code> and
+                  <code className="setup-kbd">npm run lan:relay</code>. Then use the relay URLs below.
+                </p>
+                <UrlRow
+                  url={lanControlUrl}
+                  label="LAN Control URL"
+                  onCopy={() => copyToClipboard(lanControlUrl, 'LAN Control URL')}
+                  onOpen={() => window.open(lanControlUrl, '_blank')}
+                  openLabel="Open"
+                />
+                <UrlRow
+                  url={lanOutputUrl}
+                  label="LAN Output URL"
+                  onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
+                  onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
+                  openLabel="Debug"
+                />
+                <p className="setup-text">
+                  This relays live commands only. Uploaded asset libraries, People, presets, and saved
+                  rundowns are still stored per browser until host-owned asset storage is added.
                 </p>
               </div>
             </Panel>

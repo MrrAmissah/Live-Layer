@@ -2,6 +2,8 @@ import type { GraphicInstance, RealtimeMessage, TemplateTheme } from '../types/g
 
 const CHANNEL_NAME = 'livelayer:graphics';
 const STORAGE_MESSAGE_KEY = 'livelayer:lastMessage';
+const RELAY_QUERY_PARAM = 'relay';
+const RELAY_STORAGE_KEY = 'livelayer:relayUrl';
 
 function createMessageId() {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -19,6 +21,7 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
     lastSeenId = message.id;
     onMessage(message);
   };
+  const relay = createRelayClient(handleMessage);
 
   if (channel) {
     channel.onmessage = (event) => {
@@ -44,6 +47,7 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
       if (channel) {
         channel.postMessage(message);
       }
+      relay?.post(message);
       try {
         localStorage.setItem(STORAGE_MESSAGE_KEY, JSON.stringify(message));
       } catch {
@@ -54,6 +58,7 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
       if (channel) {
         channel.close();
       }
+      relay?.close();
       window.removeEventListener('storage', storageListener);
     }
   };
@@ -78,7 +83,7 @@ export function loadLastRealtimeMessage(): RealtimeMessage | null {
   }
 }
 
-function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
+export function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
   if (!isRecord(value)) return null;
   if (typeof value.id !== 'string') return null;
   if (typeof value.type !== 'string') return null;
@@ -109,6 +114,82 @@ function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
     return { id: value.id, type: value.type, payload: value.payload, timestamp: value.timestamp };
   }
   return null;
+}
+
+function getRelayUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const rawParam = params.get(RELAY_QUERY_PARAM);
+  if (rawParam !== null) {
+    if (rawParam === '' || rawParam.toLowerCase() === 'off') {
+      try {
+        localStorage.removeItem(RELAY_STORAGE_KEY);
+      } catch {
+        // ignore storage errors
+      }
+      return null;
+    }
+
+    const normalized = normalizeRelayUrl(rawParam);
+    if (normalized) {
+      try {
+        localStorage.setItem(RELAY_STORAGE_KEY, normalized);
+      } catch {
+        // ignore storage errors
+      }
+      return normalized;
+    }
+  }
+
+  try {
+    const stored = localStorage.getItem(RELAY_STORAGE_KEY);
+    return stored ? normalizeRelayUrl(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeRelayUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw, window.location.href);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    url.hash = '';
+    url.search = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
+function createRelayClient(onRelayMessage: (message: RealtimeMessage) => void) {
+  const relayUrl = getRelayUrl();
+  if (!relayUrl || typeof EventSource === 'undefined') return null;
+
+  const events = new EventSource(`${relayUrl}/events`);
+  events.onmessage = (event) => {
+    try {
+      const message = parseRealtimeMessage(JSON.parse(event.data));
+      if (message) onRelayMessage(message);
+    } catch {
+      // ignore malformed relay messages
+    }
+  };
+
+  return {
+    post(message: RealtimeMessage) {
+      fetch(`${relayUrl}/message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(message)
+      }).catch(() => {
+        // The local BroadcastChannel/localStorage path still works if LAN is unavailable.
+      });
+    },
+    close() {
+      events.close();
+    }
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

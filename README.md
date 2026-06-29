@@ -104,6 +104,8 @@ npm run dev        # Vite dev server on http://127.0.0.1:4173
 - Build: `npm run build` (runs `tsc` then `vite build`)
 - Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard, production build)
 - Route smoke: with the dev server running, `npm run smoke:routes`
+- LAN beta: `npm run dev:lan` plus `npm run lan:relay`, then open matching
+  `?relay=http://<graphics-host-ip>:4174` URLs on `/control` and `/output`.
 
 ## OBS setup
 
@@ -116,6 +118,10 @@ npm run dev        # Vite dev server on http://127.0.0.1:4173
 Need to send the finished output to another PC or Mac? Render LiveLayer inside
 OBS first, then send the OBS scene/program over NDI using an OBS NDI workflow
 such as DistroAV/NDI. LiveLayer itself does not emit native NDI.
+
+Need a second PC or tablet to press Take/Clear? Start the LAN relay on the
+graphics machine and use `/setup` to copy the beta relay URLs. This carries live
+commands only; uploaded assets and saved libraries are still browser-local.
 
 Full steps: [`docs/OBS_SETUP.md`](docs/OBS_SETUP.md). Fast visual QA without OBS:
 open <http://127.0.0.1:4173/seed-test.html>.

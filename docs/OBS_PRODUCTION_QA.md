@@ -74,6 +74,22 @@ and `/seed-test.html` return 200.
 
 If step 10 or 20 fails, the dock and source are not on the same origin.
 
+## Optional LAN control QA
+
+Run this only when testing second-PC or tablet control:
+
+1. On the graphics machine, start `npm run dev:lan`.
+2. In another terminal on the graphics machine, start `npm run lan:relay`.
+3. Open `/setup` using the graphics machine LAN URL.
+4. Copy the LAN Control URL to the controller device.
+5. Use the LAN Output URL in the OBS Browser Source on the graphics machine.
+6. Press Take from the controller device → OBS output updates.
+7. Press Clear from the controller device → OBS output clears.
+8. Refresh the OBS Browser Source → the last live graphic recovers from the relay.
+
+Current limitation: this proves live command transport only. Uploaded assets,
+People, Saved Graphics, and rundowns are still browser-local.
+
 ## Feature QA (run from real `/control`)
 
 Detailed per-feature checklists live in [`QA_CHECKLIST.md`](QA_CHECKLIST.md):
@@ -100,8 +116,8 @@ Run this only when sending the finished OBS scene/program to another PC or Mac:
    clears too.
 
 If the remote feed updates but remote `/control` does not work, that is expected:
-NDI is only carrying rendered video. LiveLayer remote control still needs a
-future LAN event bus.
+NDI is only carrying rendered video. Use the LAN relay URLs from `/setup` when
+you want beta remote Take/Clear control.
 
 ## Output-rendering harness (no OBS needed)
 

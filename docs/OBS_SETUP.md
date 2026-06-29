@@ -52,6 +52,30 @@ port. Fix the port conflict before opening OBS.
 - The output page displays the active overlay.
 - Press `Clear` to remove the overlay from the scene.
 
+## Beta LAN control
+
+The default workflow is still same-machine. For beta second-PC or tablet control,
+run LiveLayer and the relay on the graphics machine:
+
+```bash
+npm run dev:lan
+npm run lan:relay
+```
+
+Then open `/setup` from the graphics machine's LAN URL and copy the LAN relay
+pairs. They look like:
+
+- Control: `http://192.168.1.50:4173/control?relay=http%3A%2F%2F192.168.1.50%3A4174`
+- Output: `http://192.168.1.50:4173/output?relay=http%3A%2F%2F192.168.1.50%3A4174`
+
+Use the LAN Control URL on the controller device and the LAN Output URL in OBS.
+Both pages must point at the same relay. Add `?relay=off` to disable a stored
+relay URL in that browser.
+
+Limitations: the relay carries live commands only. Uploaded assets, People,
+presets, and saved rundowns still live in each browser's local storage until
+LiveLayer has host-owned asset/library storage.
+
 ## Sending to another PC or Mac with NDI
 
 LiveLayer does **not** emit native NDI. The supported workflow is to use OBS as
@@ -66,8 +90,8 @@ the renderer and NDI bridge:
    NDI-compatible app.
 
 This sends the rendered OBS video feed across the network. It does **not** make
-`/control` work from a second computer; Take/Clear still need the same local
-browser/OBS context until LiveLayer has a LAN event bus.
+`/control` share uploaded assets or libraries with a second computer. Use the
+LAN control relay above for beta Take/Clear from a second device.
 
 ## Verifying the overlay
 

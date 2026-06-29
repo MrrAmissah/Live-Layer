@@ -319,10 +319,11 @@ export default function SetupDiagnostics() {
         <div className="diag-network">
           <span className="diag-network__label">Network mode</span>
           <p>
-            Today, live Take/Clear only works when <code>/control</code> and
-            <code> /output</code> run in the same local browser/OBS context on one
-            machine. A second-PC or tablet controller is not supported yet; it
-            needs a WebSocket LAN event bus and host-owned asset storage first.
+            By default, live Take/Clear works in the same local browser/OBS context.
+            For beta second-PC or tablet control, start <code>npm run lan:relay</code>
+            on the graphics machine and add the same <code>?relay=...</code> URL to
+            both <code>/control</code> and <code>/output</code>. Uploaded assets and
+            saved libraries are still per-browser until host-owned storage lands.
           </p>
         </div>
 

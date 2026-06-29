@@ -23,8 +23,10 @@ deliberately narrow. These are honest constraints, not bugs.
   `/output` page — there is no native OBS plugin or native NDI output. You can
   send the finished OBS scene/program over NDI with an OBS plugin workflow such
   as DistroAV/NDI.
-- **No multi-operator / network sync.** Two people on two machines cannot drive the
-  same output; there is no server relaying state.
+- **LAN control is beta.** The optional LAN relay can carry Take/Clear/live graphic
+  messages between devices, but uploaded assets, People, Saved Graphics, and
+  rundowns are still browser-local. Host-owned asset/library storage is not built
+  yet.
 
 ## Not built yet
 
