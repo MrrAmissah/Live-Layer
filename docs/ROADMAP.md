@@ -1,15 +1,16 @@
 # Roadmap
 
 Direction, not a commitment. Today's **alpha (v0.1)** ships the core loop:
-two-surface OBS workflow, three templates, dock-first + studio control UI, live
-preview parity, Take/Clear, auto-hide, slide/fade motion, brand theming, and
-local presets. See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for what that
-does **not** include.
+two-surface OBS workflow, expanded templates, dock-first + studio control UI,
+live preview parity, Take/Clear, auto-hide, slide/fade motion, brand theming,
+local presets, rundowns, and selected-rundown import/export. See
+[KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for what that does **not** include.
 
 ## Now (shipped in alpha)
 
 - Transparent `/output` Browser Source + `/control` dock/studio surfaces
-- Preacher lower third, scripture card, announcement banner
+- Preacher lower third, scripture card, announcement banner, quote card, event
+  banner, sermon title, and fullscreen message
 - Take / Clear / auto-hide, slide build + fade crossfade motion
 - Brand colours + logo, reset-to-template, local presets
 - Preview parity with `/output`, seed-test QA harness
