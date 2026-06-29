@@ -223,9 +223,8 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Clear removes the live graphic
 - [ ] Selecting a scripture suggestion while a graphic is live does **not** change `/output`
 
-> **Rundown** is feature-complete (R1–R6). The sections below (§9E–9H) are the
-> per-phase checks; the consolidated manual QA pack + guards live in
-> [`RUNDOWN_QA.md`](RUNDOWN_QA.md).
+> **Rundown** is feature-complete for the current local-first phase. The sections
+> below (§9E–9H) are the manual queue checks.
 
 ## 9E. Rundowns (R2 — build/manage)
 

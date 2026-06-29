@@ -1,11 +1,9 @@
 import type { GraphicInstance } from './graphics';
 
 /**
- * Rundown / Queue Mode data model (R1 — data + store only, no UI yet).
- * See docs/RUNDOWN_QUEUE_SPEC.md. A rundown item is a deep-cloned snapshot of a
+ * Rundown / Queue Mode data model. A rundown item is a deep-cloned snapshot of a
  * GraphicInstance: asset *ids* only, raw dynamic tokens, layout preserved, no
- * blobs. Item status is derived later from the cursors below; only `done` is
- * persisted.
+ * blobs. Item status is derived from the cursors below; only `done` is persisted.
  */
 
 /** Versioned localStorage wrapper persisted under `livelayer.rundowns`. */

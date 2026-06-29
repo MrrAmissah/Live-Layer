@@ -89,7 +89,7 @@ default). With an **active rundown and a selected item**, the editors target tha
 the ad-hoc draft is preserved, and (in rundown mode) the Edit surface gains the
 layout/duration controls so it's the full item editor. Editing a *live* item updates
 the preview only; **Take selected** re-fires it. Brand colours/logo stay global (they
-don't alter a selected item's captured theme). See `RUNDOWN_QUEUE_SPEC.md`.
+don't alter a selected item's captured theme).
 
 ### Plain language
 
