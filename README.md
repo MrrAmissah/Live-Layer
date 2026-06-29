@@ -113,6 +113,10 @@ npm run dev        # Vite dev server on http://127.0.0.1:4173
    URL `http://127.0.0.1:4173/control`.
 3. Pick a graphic, edit the text, press **Take live**; **Clear** to remove it.
 
+Need to send the finished output to another PC or Mac? Render LiveLayer inside
+OBS first, then send the OBS scene/program over NDI using an OBS NDI workflow
+such as DistroAV/NDI. LiveLayer itself does not emit native NDI.
+
 Full steps: [`docs/OBS_SETUP.md`](docs/OBS_SETUP.md). Fast visual QA without OBS:
 open <http://127.0.0.1:4173/seed-test.html>.
 

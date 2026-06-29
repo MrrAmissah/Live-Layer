@@ -52,6 +52,23 @@ port. Fix the port conflict before opening OBS.
 - The output page displays the active overlay.
 - Press `Clear` to remove the overlay from the scene.
 
+## Sending to another PC or Mac with NDI
+
+LiveLayer does **not** emit native NDI. The supported workflow is to use OBS as
+the renderer and NDI bridge:
+
+1. Run LiveLayer and OBS on the graphics machine.
+2. Add `http://127.0.0.1:4173/output` as the transparent OBS Browser Source.
+3. Place that Browser Source above the camera/video sources in the OBS scene.
+4. Install and configure an OBS NDI workflow such as DistroAV/NDI.
+5. Enable NDI output for the OBS scene/program you want to send.
+6. On the second PC or Mac, receive that NDI feed in OBS or another
+   NDI-compatible app.
+
+This sends the rendered OBS video feed across the network. It does **not** make
+`/control` work from a second computer; Take/Clear still need the same local
+browser/OBS context until LiveLayer has a LAN event bus.
+
 ## Verifying the overlay
 
 - Put the Browser source **above an actual camera/video scene** (not a black

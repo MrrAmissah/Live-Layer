@@ -20,7 +20,9 @@ deliberately narrow. These are honest constraints, not bugs.
   same origin (scheme + host + port). Mixing `localhost` and `127.0.0.1` silently
   breaks Take/Clear and uploaded-image resolution.
 - **Output is a Browser Source.** Graphics composite inside OBS via the transparent
-  `/output` page — there is no native OBS plugin or hardware output.
+  `/output` page — there is no native OBS plugin or native NDI output. You can
+  send the finished OBS scene/program over NDI with an OBS plugin workflow such
+  as DistroAV/NDI.
 - **No multi-operator / network sync.** Two people on two machines cannot drive the
   same output; there is no server relaying state.
 

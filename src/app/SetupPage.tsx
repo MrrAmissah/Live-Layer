@@ -141,6 +141,27 @@ export default function SetupPage() {
                 </ul>
               </div>
             </Panel>
+
+            <Panel>
+              <SectionHeader kicker="Optional" title="Send the OBS output over NDI" />
+              <div className="ll-panel__body setup-body">
+                <p className="setup-text">
+                  LiveLayer does not emit native NDI. To send graphics to another PC or Mac today, render
+                  <code className="setup-kbd">/output</code> inside OBS on the graphics machine, then use
+                  OBS with DistroAV/NDI to send the finished scene or program feed across the network.
+                </p>
+                <ul className="setup-list">
+                  <li>Install the same NDI runtime/plugin workflow on the sending and receiving machines.</li>
+                  <li>In OBS, keep the LiveLayer Browser Source above the camera/video layer.</li>
+                  <li>Enable OBS NDI output for the scene/program you want to send.</li>
+                  <li>On the second machine, receive that NDI feed in OBS or another NDI-compatible app.</li>
+                </ul>
+                <p className="setup-text">
+                  This sends rendered video only. Control and Take/Clear still run on the local graphics
+                  machine until LiveLayer has a LAN event bus.
+                </p>
+              </div>
+            </Panel>
           </div>
 
           <div className="setup-col">

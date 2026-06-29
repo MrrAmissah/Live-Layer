@@ -85,6 +85,24 @@ Detailed per-feature checklists live in [`QA_CHECKLIST.md`](QA_CHECKLIST.md):
   selected item, dock vs studio queue.
 - **Output** — Take, Clear, refresh recovery, transparency, preview-vs-output match.
 
+## Optional NDI bridge QA
+
+Run this only when sending the finished OBS scene/program to another PC or Mac:
+
+1. Keep LiveLayer running on the graphics machine.
+2. Add `/output` to OBS as the transparent Browser Source and confirm Take/Clear
+   locally first.
+3. Enable your OBS NDI output workflow, such as DistroAV/NDI, for the scene or
+   program feed.
+4. On the receiving PC/Mac, add the NDI source and confirm the LiveLayer graphic
+   appears in the received video.
+5. Clear the graphic on the graphics machine and confirm the remote NDI feed
+   clears too.
+
+If the remote feed updates but remote `/control` does not work, that is expected:
+NDI is only carrying rendered video. LiveLayer remote control still needs a
+future LAN event bus.
+
 ## Output-rendering harness (no OBS needed)
 
 `http://127.0.0.1:4173/seed-test.html` seeds each template into a real `/output`
