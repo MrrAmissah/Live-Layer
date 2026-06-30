@@ -12,6 +12,8 @@ interface Props {
   theme: TemplateDefinition['theme'];
 }
 
+const DEFAULT_CHURCH_LOGO_URL = '/default%20logo.png';
+
 /**
  * Step the name size down as it gets longer so a long-but-realistic name (e.g.
  * a 24-char two-word name) reads as a nameplate, not a headline, and the line
@@ -47,7 +49,7 @@ export default function PreacherLowerThird({ values }: Props) {
   const preResolvedHeadshot = values.headshotResolvedSrc?.trim() || undefined;
   const asset = useAsset(preResolvedLogo ? undefined : logoAssetId);
   const headshot = useAsset(preResolvedHeadshot ? undefined : headshotAssetId);
-  const resolvedLogo = preResolvedLogo || (asset.status === 'ready' ? asset.src : logoUrl);
+  const resolvedLogo = preResolvedLogo || (asset.status === 'ready' ? asset.src : logoUrl) || DEFAULT_CHURCH_LOGO_URL;
   const resolvedHeadshot = preResolvedHeadshot || (headshot.status === 'ready' ? headshot.src : undefined);
   const showHeadshot = Boolean(resolvedHeadshot && !headshotFailed);
   const hasRoleRow = Boolean(title || subtitle);

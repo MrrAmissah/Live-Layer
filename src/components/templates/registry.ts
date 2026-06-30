@@ -18,6 +18,8 @@ const HOUSE_BLUE = {
   ink: '#07111f'
 };
 
+const DEFAULT_CHURCH_LOGO_URL = '/default%20logo.png';
+
 export const templateRegistry: TemplateDefinition[] = [
   {
     id: 'preacher-lower-third',
@@ -32,10 +34,10 @@ export const templateRegistry: TemplateDefinition[] = [
     ],
     defaultValues: {
       variantId: 'signature-medallion',
-      name: 'Anna Grace',
+      name: 'Rev. Ishamel K. Awotwe',
       title: 'Lead Pastor',
-      subtitle: 'Grace Harbor Church',
-      logoUrl: '',
+      subtitle: 'Mathapoly Church International',
+      logoUrl: DEFAULT_CHURCH_LOGO_URL,
       colorBrand: HOUSE_BLUE.brand,
       colorAccent: HOUSE_BLUE.gold,
       colorSurface: HOUSE_BLUE.paper,

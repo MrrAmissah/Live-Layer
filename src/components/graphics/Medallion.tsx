@@ -43,7 +43,15 @@ export default function Medallion({ logoUrl, monogramSource = '', size = 132, cl
       style={{ width: size, height: size, ...style }}
     >
       {showLogo ? (
-        <img src={logoUrl} alt="" className="gfx-medallion-img" onError={() => setImageFailed(true)} />
+        <img
+          src={logoUrl}
+          alt=""
+          className="gfx-medallion-img"
+          decoding="async"
+          draggable={false}
+          style={{ objectFit: 'contain' }}
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <span className="gfx-medallion-monogram" style={{ fontSize: size * 0.34 }}>
           {initials}
