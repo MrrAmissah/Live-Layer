@@ -1414,6 +1414,337 @@ body.gfx-transparent {
   transform: skewX(-12deg);
 }
 
+/* Reference-led preacher lower-third refinement.
+   These overrides intentionally follow the attached broadcast samples: opaque
+   foundation bars, crisp logo anchors, confident contrast, and limited
+   decoration that reads as built geometry instead of loose floating plates. */
+
+.gfx-l3[data-variant='modern-minimal'] .l3-stack {
+  width: 980px;
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-name-plate {
+  box-sizing: border-box;
+  width: 780px;
+  height: 62px;
+  padding: 0 34px 0 104px;
+  background: #ffffff !important;
+  border-radius: 0 8px 8px 0;
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.2);
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 900px;
+  height: 44px;
+  margin-left: 44px;
+  padding: 0 32px 0 76px;
+  background: transparent !important;
+  border: 3px solid #ffffff;
+  border-top: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-cap {
+  left: 0;
+  top: 0;
+  width: 84px;
+  height: 62px;
+  background:
+    linear-gradient(90deg, #d51222 0 20%, #f59e0b 20% 34%, #ffffff 34% 44%, var(--gfx-premium-brand) 44% 100%);
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-name {
+  color: #050816;
+  font-size: 38px;
+  letter-spacing: 0.005em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-role,
+.gfx-l3[data-variant='modern-minimal'] .l3-org {
+  color: #ffffff;
+  font-size: 20px;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, 0.58);
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-stack {
+  width: 980px;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-name-plate {
+  box-sizing: border-box;
+  width: 820px;
+  height: 58px;
+  padding: 0 40px 0 118px;
+  background: #07091d !important;
+  border-radius: 0;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 820px;
+  height: 28px;
+  padding: 0 40px 0 118px;
+  background: linear-gradient(90deg, #02796e, #0e9686) !important;
+  border-radius: 0;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-name {
+  color: #ffffff;
+  font-size: 35px;
+  letter-spacing: 0.018em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-role,
+.gfx-l3[data-variant='clean-broadcast'] .l3-org {
+  color: #ffffff;
+  font-size: 17px;
+  letter-spacing: 0.065em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-medallion {
+  display: block;
+  left: -48px;
+  top: -20px;
+  transform: scale(0.66);
+  transform-origin: center;
+  z-index: 8;
+  --gfx-accent-2: #ffffff;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-stripe {
+  left: 0;
+  width: 16px !important;
+  background: #0e9686 !important;
+  transform: none;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-underbar {
+  left: 16px;
+  right: 144px;
+  bottom: -6px;
+  height: 6px;
+  background: var(--gfx-premium-accent);
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-name-plate::after {
+  top: 8px;
+  right: 22px;
+  width: 104px;
+  height: 40px;
+  opacity: 0.18;
+  background-image: radial-gradient(#ffffff 1.8px, transparent 1.8px);
+  background-size: 12px 12px;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-stack {
+  width: 1240px;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-name-plate,
+.gfx-l3[data-variant='split-bar'] .l3-role-plate {
+  background:
+    linear-gradient(135deg, transparent 0 42%, rgba(255, 255, 255, 0.09) 42% 47%, transparent 47% 100%),
+    linear-gradient(90deg, #00947f 0%, #05857b 46%, #063973 100%) !important;
+  background-size: 96px 96px, auto;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 56px) 0, 100% 50%, calc(100% - 56px) 100%, 0 100%) !important;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-name-plate {
+  box-sizing: border-box;
+  width: 1080px;
+  height: 84px;
+  padding: 0 260px 0 156px;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 920px;
+  height: 42px;
+  margin-left: 88px;
+  padding: 0 72px;
+  background: #ffffff !important;
+  clip-path: polygon(34px 0, calc(100% - 34px) 0, 100% 100%, 0 100%) !important;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-name {
+  color: #ffffff;
+  font-size: 42px;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-role,
+.gfx-l3[data-variant='split-bar'] .l3-org {
+  color: #04756f;
+  font-size: 20px;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-stripe {
+  left: -30px;
+  top: -18px;
+  width: 134px !important;
+  height: 134px !important;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #18d7aa 0 44%, #0ca184 45% 100%) !important;
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.9), 0 12px 24px rgba(0, 0, 0, 0.22);
+  transform: none;
+  z-index: 7;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-end-slab {
+  right: 78px;
+  top: -12px;
+  width: 210px;
+  height: 110px;
+  background:
+    radial-gradient(circle at 24% 50%, transparent 0 34%, #f7cf27 35% 48%, transparent 49%),
+    linear-gradient(120deg, transparent 0 60%, #f7cf27 61% 100%);
+  border-radius: 0;
+  z-index: 4;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-medallion {
+  display: block;
+  left: -14px;
+  top: -2px;
+  transform: scale(0.58);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: #ffffff;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-stack {
+  width: 1280px;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-name-plate,
+.gfx-l3[data-variant='event-style'] .l3-role-plate {
+  background: linear-gradient(90deg, #f3c858 0 12%, #8c1019 12% 82%, #f3c858 82% 100%) !important;
+  clip-path: none !important;
+  border-radius: 0;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-name-plate {
+  box-sizing: border-box;
+  width: 1080px;
+  height: 70px;
+  padding: 0 176px 0 176px;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 1080px;
+  height: 38px;
+  padding: 0 176px;
+  background: linear-gradient(90deg, #f3c858 0 12%, #8c1019 12% 82%, #f3c858 82% 100%) !important;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-name {
+  color: #ffffff;
+  font-size: 39px;
+  font-weight: 740;
+  letter-spacing: 0.01em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-role,
+.gfx-l3[data-variant='event-style'] .l3-org {
+  color: #fff4c4;
+  font-size: 22px;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-name-plate::after {
+  display: none;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-underbar {
+  display: none;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-medallion {
+  display: block;
+  left: auto;
+  right: 88px;
+  top: -28px;
+  transform: scale(0.68);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: #ffffff;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-stripe {
+  display: block;
+  left: 124px;
+  width: 2px !important;
+  background: rgba(255, 255, 255, 0.65) !important;
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-stack {
+  width: 980px;
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-name-plate {
+  box-sizing: border-box;
+  width: 780px;
+  height: 58px;
+  padding: 0 44px 0 116px;
+  background: #ffffff !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.22);
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 860px;
+  height: 44px;
+  margin-left: 64px;
+  padding: 0 34px;
+  background: transparent !important;
+  border: 3px solid #ffffff;
+  border-top: 0;
+  border-radius: 0;
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-name {
+  color: #050816;
+  font-size: 38px;
+  font-weight: 760;
+  letter-spacing: 0.005em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-role,
+.gfx-l3[data-variant='subtle-elegance'] .l3-org {
+  color: #ffffff;
+  font-size: 19px;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, 0.58);
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-symbol-block {
+  left: 0;
+  top: 0;
+  width: 96px;
+  height: 58px;
+  border: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, #d51222 0 18%, #f59e0b 18% 34%, #ffffff 34% 44%, var(--gfx-premium-brand) 44% 100%);
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-symbol-mark {
+  display: none;
+}
+
 /* --- lower-third build choreography -------------------------------------
    0ms underbar/stripe wipe -> 80ms plates slide in behind masks ->
    220ms+ text lines rise inside line masks -> 250ms medallion pop. */
