@@ -5,6 +5,7 @@ import AccentStripe from '../graphics/AccentStripe';
 import Medallion from '../graphics/Medallion';
 import MaskedLine from '../graphics/MaskedLine';
 import { useAsset } from '../../hooks/useAsset';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -56,7 +57,7 @@ export default function PreacherLowerThird({ values }: Props) {
   }, [resolvedHeadshot]);
 
   return (
-    <div className="gfx-l3" data-variant={variantId} data-logo={resolvedLogo ? 'true' : 'false'}>
+    <div className="gfx-l3" data-variant={variantId} data-logo={resolvedLogo ? 'true' : 'false'} style={templateColorStyle(values)}>
       <div className="l3-stack">
         <div className="l3-underbar" aria-hidden />
         <div className="l3-symbol-block" aria-hidden>

@@ -7,6 +7,17 @@ import EventBanner from './EventBanner';
 import SermonTitle from './SermonTitle';
 import FullscreenMessage from './FullscreenMessage';
 
+const HOUSE_BLUE = {
+  brand: '#0d2095',
+  surface: '#07106a',
+  deep: '#081052',
+  electric: '#1284ff',
+  gold: '#E8B93C',
+  yellow: '#ffcf20',
+  paper: '#f8fafc',
+  ink: '#07111f'
+};
+
 export const templateRegistry: TemplateDefinition[] = [
   {
     id: 'preacher-lower-third',
@@ -24,13 +35,19 @@ export const templateRegistry: TemplateDefinition[] = [
       name: 'Anna Grace',
       title: 'Lead Pastor',
       subtitle: 'Grace Harbor Church',
-      logoUrl: ''
+      logoUrl: '',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.gold,
+      colorSurface: HOUSE_BLUE.paper,
+      colorText: HOUSE_BLUE.deep,
+      colorSecondary: HOUSE_BLUE.surface
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#0E7C86',
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.brand,
       backgroundColor: 'transparent',
-      accent2Color: '#E8B93C'
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.gold
     },
     variants: [
       {
@@ -88,16 +105,36 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'themeTitle', label: 'Optional theme title', type: 'text', placeholder: 'Theme title', optional: true }
     ],
     defaultValues: {
+      variantId: 'blue-quote-card',
       reference: 'Psalm 23:1-2',
       verseText: 'Yahweh is my shepherd: I shall lack nothing. He makes me lie down in green pastures.',
       translationLabel: 'WEB',
-      themeTitle: 'Scripture'
+      themeTitle: 'Scripture',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.electric,
+      colorSurface: HOUSE_BLUE.surface,
+      colorText: HOUSE_BLUE.paper,
+      colorSecondary: HOUSE_BLUE.deep
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#fbbf24',
-      backgroundColor: 'transparent'
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.electric,
+      backgroundColor: 'transparent',
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.gold
     },
+    variants: [
+      {
+        id: 'blue-quote-card',
+        name: 'Blue Quote Card',
+        description: 'Textured blue scripture card with oversized quote marks.'
+      },
+      {
+        id: 'classic-band',
+        name: 'Classic Band',
+        description: 'Reference tab over a clean opaque scripture plate.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   },
   {
@@ -116,12 +153,19 @@ export const templateRegistry: TemplateDefinition[] = [
       headline: 'Weekend Service Tonight',
       body: 'Join us in person or online for worship, community updates, and a powerful message.',
       dateTime: 'Sunday • 10:30 AM',
-      callToAction: 'Visit the info desk after the service.'
+      callToAction: 'Visit the info desk after the service.',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.yellow,
+      colorSurface: HOUSE_BLUE.paper,
+      colorText: HOUSE_BLUE.ink,
+      colorSecondary: HOUSE_BLUE.surface
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#06b6d4',
-      backgroundColor: 'transparent'
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.brand,
+      backgroundColor: 'transparent',
+      surfaceColor: HOUSE_BLUE.paper,
+      accent2Color: HOUSE_BLUE.yellow
     },
     variants: [
       {
@@ -165,13 +209,19 @@ export const templateRegistry: TemplateDefinition[] = [
       sourceName: 'Pastor Anna Grace',
       sourceRole: 'Sunday Message',
       themeTitle: 'Key Thought',
-      translationLabel: ''
+      translationLabel: '',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.electric,
+      colorSurface: HOUSE_BLUE.surface,
+      colorText: HOUSE_BLUE.paper,
+      colorSecondary: HOUSE_BLUE.deep
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#0E7C86',
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.electric,
       backgroundColor: 'transparent',
-      accent2Color: '#E8B93C'
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.electric
     },
     variants: [
       {
@@ -205,13 +255,19 @@ export const templateRegistry: TemplateDefinition[] = [
       dateTime: 'Mallam Choir',
       location: '',
       callToAction: 'Revitalising our allegiance to God through music.',
-      tag: 'Performing Now'
+      tag: 'Performing Now',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.yellow,
+      colorSurface: HOUSE_BLUE.paper,
+      colorText: HOUSE_BLUE.paper,
+      colorSecondary: HOUSE_BLUE.electric
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#0E7C86',
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.brand,
       backgroundColor: 'transparent',
-      accent2Color: '#E8B93C'
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.yellow
     },
     variants: [
       {
@@ -246,13 +302,19 @@ export const templateRegistry: TemplateDefinition[] = [
       churchName: 'Grace Harbor Church',
       seriesTitle: 'Summer Psalms',
       scriptureReference: 'Psalm 23:1-2',
-      date: '{{date}}'
+      date: '{{date}}',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.gold,
+      colorSurface: HOUSE_BLUE.surface,
+      colorText: HOUSE_BLUE.paper,
+      colorSecondary: HOUSE_BLUE.deep
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#0E7C86',
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.brand,
       backgroundColor: 'transparent',
-      accent2Color: '#E8B93C'
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.gold
     },
     animation: { in: 'slide', out: 'slide' }
   },
@@ -271,13 +333,19 @@ export const templateRegistry: TemplateDefinition[] = [
       headline: 'Welcome to Church',
       body: 'We are glad you are here. Take a moment to greet someone near you.',
       footerNote: 'Grace Harbor Church',
-      callToAction: 'Service begins at {{time}}'
+      callToAction: 'Service begins at {{time}}',
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.gold,
+      colorSurface: HOUSE_BLUE.surface,
+      colorText: HOUSE_BLUE.paper,
+      colorSecondary: HOUSE_BLUE.deep
     },
     theme: {
-      primaryColor: '#f8fafc',
-      accentColor: '#0E7C86',
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.brand,
       backgroundColor: 'transparent',
-      accent2Color: '#E8B93C'
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.gold
     },
     animation: { in: 'slide', out: 'slide' }
   }

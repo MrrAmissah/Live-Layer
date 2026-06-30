@@ -1,6 +1,7 @@
 import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -23,7 +24,7 @@ export default function QuoteCard({ values }: Props) {
   const hasSource = Boolean(sourceName || sourceRole);
 
   return (
-    <div className="gfx-quote" data-variant={variantId}>
+    <div className="gfx-quote" data-variant={variantId} style={templateColorStyle(values)}>
       <Plate fill="paper" cut="right" cutDepth={54} className="quote-card">
         <span className="quote-mark" aria-hidden>
           &ldquo;

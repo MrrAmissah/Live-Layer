@@ -1,6 +1,7 @@
 import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -25,13 +26,14 @@ function verseSizeClass(text: string): string {
  * --gfx-* theme variables (theme prop is applied at the stage root, not here).
  */
 export default function ScriptureCard({ values }: Props) {
+  const variantId = values.variantId?.trim() || 'blue-quote-card';
   const reference = values.reference?.trim() || 'Scripture';
   const verseText = values.verseText?.trim() || 'The Lord is my shepherd; I shall not want.';
   const translationLabel = values.translationLabel?.trim() || '';
   const themeTitle = values.themeTitle?.trim() || '';
 
   return (
-    <div className="gfx-scripture">
+    <div className="gfx-scripture" data-variant={variantId} style={templateColorStyle(values)}>
       <div className="scripture-band">
         <Plate fill="ink" className="scripture-tab">
           <span className="scripture-tab-accent" aria-hidden />

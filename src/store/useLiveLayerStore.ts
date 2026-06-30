@@ -3,7 +3,7 @@ import { devtools } from 'zustand/middleware';
 import { GraphicInstance, TemplateDefinition } from '../types/graphics';
 import type { PersonProfile } from '../types/people';
 import type { LayoutSettings } from '../types/layout';
-import { clearAllData, loadBrandOverrides, loadPresets, loadRecentGraphics, saveBrandOverrides, savePresets, saveRecentGraphics } from '../lib/storage';
+import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadPresets, loadRecentGraphics, saveBrandOverrides, savePresets, saveRecentGraphics } from '../lib/storage';
 import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
@@ -90,8 +90,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         }
       })),
     resetTheme: () =>
-      set((state) => {
-        const defaults = loadBrandOverrides();
+      set(() => {
+        const defaults = defaultBrandTheme();
         saveBrandOverrides(defaults);
         return { theme: defaults };
       }),
@@ -140,9 +140,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         currentTemplateId: graphic.templateId,
         draftValues: { ...graphic.values },
         theme: {
-          primaryColor: graphic.theme.primaryColor || '#ffffff',
-          accentColor: graphic.theme.accentColor || '#38bdf8',
-          backgroundColor: graphic.theme.backgroundColor || 'transparent'
+          ...defaultBrandTheme(),
+          ...graphic.theme
         },
         layout: graphic.layout ?? {},
         durationSeconds: graphic.durationSeconds

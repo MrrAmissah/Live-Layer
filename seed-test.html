@@ -78,34 +78,55 @@
   <script>
     const channel = new BroadcastChannel('livelayer:graphics');
     let paramVariant = null;
+    const housePalette = {
+      colorBrand: '#0d2095',
+      colorAccent: '#1284ff',
+      colorSurface: '#07106a',
+      colorText: '#ffffff',
+      colorSecondary: '#081052'
+    };
+    const houseGoldPalette = {
+      colorBrand: '#0d2095',
+      colorAccent: '#E8B93C',
+      colorSurface: '#07106a',
+      colorText: '#ffffff',
+      colorSecondary: '#081052'
+    };
+    const housePaperPalette = {
+      colorBrand: '#0d2095',
+      colorAccent: '#ffcf20',
+      colorSurface: '#f8fafc',
+      colorText: '#07111f',
+      colorSecondary: '#07106a'
+    };
     const sample = {
       'preacher-lower-third': {
-        short: { name: 'Anna Grace', title: 'Lead Pastor', subtitle: 'Grace Harbor Church', logoUrl: '' },
-        long:  { name: 'Bartholomew Higginbotham', title: 'Founder & Senior Teaching Pastor', subtitle: 'Cornerstone Family Worship Center', logoUrl: '' }
+        short: { name: 'Anna Grace', title: 'Lead Pastor', subtitle: 'Grace Harbor Church', logoUrl: '', ...houseGoldPalette, colorSurface: '#f8fafc', colorText: '#081052' },
+        long:  { name: 'Bartholomew Higginbotham', title: 'Founder & Senior Teaching Pastor', subtitle: 'Cornerstone Family Worship Center', logoUrl: '', ...houseGoldPalette, colorSurface: '#f8fafc', colorText: '#081052' }
       },
       'scripture-card': {
-        short: { reference: 'Psalm 23:1-2', verseText: 'The Lord is my shepherd; I shall not want. He makes me lie down in green pastures.', translationLabel: 'ESV', themeTitle: 'Scripture' },
-        long:  { reference: 'Romans 8:38-39', verseText: 'For I am convinced that neither death nor life, neither angels nor demons, neither the present nor the future, nor any powers, neither height nor depth, nor anything else in all creation, will be able to separate us from the love of God.', translationLabel: 'NIV', themeTitle: 'Sunday Service' }
+        short: { reference: 'Psalm 23:1-2', verseText: 'The Lord is my shepherd; I shall not want. He makes me lie down in green pastures.', translationLabel: 'ESV', themeTitle: 'Scripture', ...housePalette },
+        long:  { reference: 'Romans 8:38-39', verseText: 'For I am convinced that neither death nor life, neither angels nor demons, neither the present nor the future, nor any powers, neither height nor depth, nor anything else in all creation, will be able to separate us from the love of God.', translationLabel: 'NIV', themeTitle: 'Sunday Service', ...housePalette }
       },
       'quote-card': {
-        short: { quoteText: 'Faith is not the absence of questions; it is the courage to keep walking with God through them.', sourceName: 'Pastor Anna Grace', sourceRole: 'Sunday Message', themeTitle: 'Key Thought', translationLabel: '' },
-        long:  { quoteText: 'The church becomes a sign of hope when ordinary people practice extraordinary mercy in ordinary rooms, around ordinary tables, with the patience of Christ.', sourceName: 'Grace Harbor Notes', sourceRole: 'Reflection', themeTitle: 'Reflection', translationLabel: 'Series' }
+        short: { quoteText: 'Faith is not the absence of questions; it is the courage to keep walking with God through them.', sourceName: 'Pastor Anna Grace', sourceRole: 'Sunday Message', themeTitle: 'Key Thought', translationLabel: '', ...housePalette },
+        long:  { quoteText: 'The church becomes a sign of hope when ordinary people practice extraordinary mercy in ordinary rooms, around ordinary tables, with the patience of Christ.', sourceName: 'Grace Harbor Notes', sourceRole: 'Reflection', themeTitle: 'Reflection', translationLabel: 'Series', ...housePalette }
       },
       'announcement-banner': {
-        short: { headline: 'Weekend Service Tonight', body: 'Join us in person or online for worship and a message.', dateTime: 'Sun • 10:30 AM', callToAction: 'Visit the info desk after the service.' },
-        long:  { headline: 'Annual Community Thanksgiving Outreach', body: 'Worship, a powerful message, free meals, kids programming, and community updates for the whole family.', dateTime: 'Saturday • 6:30 PM', callToAction: 'RSVP and volunteer at example.com/serve' }
+        short: { headline: 'Weekend Service Tonight', body: 'Join us in person or online for worship and a message.', dateTime: 'Sun • 10:30 AM', callToAction: 'Visit the info desk after the service.', ...housePaperPalette },
+        long:  { headline: 'Annual Community Thanksgiving Outreach', body: 'Worship, a powerful message, free meals, kids programming, and community updates for the whole family.', dateTime: 'Saturday • 6:30 PM', callToAction: 'RSVP and volunteer at example.com/serve', ...housePaperPalette }
       },
       'event-banner': {
-        short: { eventTitle: 'Zonal Music Festival', dateTime: 'Mallam Choir', location: '', callToAction: 'Revitalising our allegiance to God through music.', tag: 'Performing Now' },
-        long:  { eventTitle: 'Annual Community Thanksgiving Outreach', dateTime: 'Saturday • 6:30 PM', location: 'North Campus Family Center', callToAction: 'Volunteer, bring a guest, and stop by the info desk for details.', tag: 'Next Up' }
+        short: { eventTitle: 'Zonal Music Festival', dateTime: 'Mallam Choir', location: '', callToAction: 'Revitalising our allegiance to God through music.', tag: 'Performing Now', ...housePaperPalette, colorText: '#ffffff', colorSecondary: '#1284ff' },
+        long:  { eventTitle: 'Annual Community Thanksgiving Outreach', dateTime: 'Saturday • 6:30 PM', location: 'North Campus Family Center', callToAction: 'Volunteer, bring a guest, and stop by the info desk for details.', tag: 'Next Up', ...housePaperPalette, colorText: '#ffffff', colorSecondary: '#1284ff' }
       },
       'sermon-title': {
-        short: { sermonTitle: 'Anchored in Hope', speakerName: 'Pastor Anna Grace', churchName: 'Grace Harbor Church', seriesTitle: 'Summer Psalms', scriptureReference: 'Psalm 23:1-2', date: '{{date}}' },
-        long:  { sermonTitle: 'Learning to Trust God in the Waiting Season', speakerName: 'Pastor Bartholomew Higginbotham', churchName: 'Cornerstone Family Worship Center', seriesTitle: 'Faith for the Long Road', scriptureReference: 'Romans 8:28-39', date: '{{weekday}} · {{date}}' }
+        short: { sermonTitle: 'Anchored in Hope', speakerName: 'Pastor Anna Grace', churchName: 'Grace Harbor Church', seriesTitle: 'Summer Psalms', scriptureReference: 'Psalm 23:1-2', date: '{{date}}', ...houseGoldPalette },
+        long:  { sermonTitle: 'Learning to Trust God in the Waiting Season', speakerName: 'Pastor Bartholomew Higginbotham', churchName: 'Cornerstone Family Worship Center', seriesTitle: 'Faith for the Long Road', scriptureReference: 'Romans 8:28-39', date: '{{weekday}} · {{date}}', ...houseGoldPalette }
       },
       'fullscreen-message': {
-        short: { headline: 'Welcome to Church', body: 'We are glad you are here. Take a moment to greet someone near you.', footerNote: 'Grace Harbor Church', callToAction: 'Service begins at {{time}}' },
-        long:  { headline: 'We Will Be Right Back', body: 'Thank you for joining us online. Stay connected, share the stream, and prepare your heart as service resumes shortly.', footerNote: 'Live from Grace Harbor', callToAction: 'Visit example.com/connect' }
+        short: { headline: 'Welcome to Church', body: 'We are glad you are here. Take a moment to greet someone near you.', footerNote: 'Grace Harbor Church', callToAction: 'Service begins at {{time}}', ...houseGoldPalette },
+        long:  { headline: 'We Will Be Right Back', body: 'Thank you for joining us online. Stay connected, share the stream, and prepare your heart as service resumes shortly.', footerNote: 'Live from Grace Harbor', callToAction: 'Visit example.com/connect', ...houseGoldPalette }
       }
     };
     const templateIds = Object.keys(sample);

@@ -56,11 +56,15 @@ export function luminance(color: string): number {
 export function themeToVars(theme?: Partial<TemplateTheme>): CSSProperties {
   const brand = theme?.accentColor || GFX_DEFAULT_BRAND;
   const accent2 = theme?.accent2Color || GFX_DEFAULT_ACCENT_2;
+  const surface = theme?.surfaceColor || theme?.primaryColor;
+  const text = theme?.primaryColor;
   const onBrand = luminance(brand) > 0.45 ? 'var(--gfx-ink)' : 'var(--gfx-paper-cool)';
   return {
     '--gfx-brand': brand,
     '--gfx-brand-deep': darken(brand, 0.32),
     '--gfx-accent-2': accent2,
-    '--gfx-on-brand': onBrand
+    '--gfx-on-brand': onBrand,
+    ...(surface ? { '--gfx-template-surface': surface } : {}),
+    ...(text ? { '--gfx-template-text': text } : {})
   } as CSSProperties;
 }

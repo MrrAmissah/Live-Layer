@@ -1,6 +1,7 @@
 import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -20,7 +21,7 @@ export default function FullscreenMessage({ values }: Props) {
   const callToAction = values.callToAction?.trim() || '';
 
   return (
-    <div className="gfx-fullmsg">
+    <div className="gfx-fullmsg" style={templateColorStyle(values)}>
       <Plate fill="brand" className="fullmsg-panel">
         <span className="fullmsg-accent-block" aria-hidden />
         <div className="fullmsg-content">

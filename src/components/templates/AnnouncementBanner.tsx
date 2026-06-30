@@ -2,6 +2,7 @@ import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import AccentStripe from '../graphics/AccentStripe';
 import MaskedLine from '../graphics/MaskedLine';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -33,7 +34,7 @@ export default function AnnouncementBanner({ values }: Props) {
   const callToAction = values.callToAction?.trim() || '';
 
   return (
-    <div className="gfx-announce" data-variant={variantId}>
+    <div className="gfx-announce" data-variant={variantId} style={templateColorStyle(values)}>
       <div className="announce-pattern" aria-hidden>
         <span className="announce-pattern__dot" />
         <span className="announce-pattern__spark" />

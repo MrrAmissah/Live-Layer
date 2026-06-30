@@ -2,6 +2,7 @@ import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import AccentStripe from '../graphics/AccentStripe';
 import MaskedLine from '../graphics/MaskedLine';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -23,7 +24,7 @@ export default function SermonTitle({ values }: Props) {
   const date = values.date?.trim() || '';
 
   return (
-    <div className="gfx-sermon">
+    <div className="gfx-sermon" style={templateColorStyle(values)}>
       <div className="sermon-frame">
         <AccentStripe orientation="horizontal" thickness={10} color="accent-2" className="sermon-top-rule" />
         <div className="sermon-main">

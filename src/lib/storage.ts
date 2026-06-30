@@ -11,8 +11,10 @@ const STORAGE_KEYS = {
 
 const DEFAULT_THEME: TemplateDefinition['theme'] = {
   primaryColor: '#f8fafc',
-  accentColor: '#fbbf24',
-  backgroundColor: 'transparent'
+  accentColor: '#0d2095',
+  backgroundColor: 'transparent',
+  surfaceColor: '#07106a',
+  accent2Color: '#1284ff'
 };
 const THEME_KEYS = ['primaryColor', 'accentColor', 'backgroundColor', 'surfaceColor', 'accent2Color', 'logoAssetId'] as const;
 
@@ -55,6 +57,10 @@ export function loadBrandOverrides() {
     ...DEFAULT_THEME,
     ...parseTheme(raw)
   };
+}
+
+export function defaultBrandTheme(): TemplateDefinition['theme'] {
+  return { ...DEFAULT_THEME };
 }
 
 export function saveBrandOverrides(theme: TemplateDefinition['theme']) {

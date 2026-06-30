@@ -5,6 +5,21 @@ import { resolveDynamicFields } from '../../lib/dynamicFields';
 import type { ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+const COLOR_FIELDS = [
+  { id: 'colorBrand', label: 'Main' },
+  { id: 'colorAccent', label: 'Accent' },
+  { id: 'colorSurface', label: 'Surface' },
+  { id: 'colorText', label: 'Text' },
+  { id: 'colorSecondary', label: 'Second' }
+] as const;
+
+function colorValue(value: string | undefined, fallback: string): string {
+  const next = value?.trim();
+  return next && HEX_COLOR.test(next) ? next : fallback;
+}
+
 function FieldRow({
   field,
   value,
@@ -119,6 +134,54 @@ function TemplateVariantPicker({
   );
 }
 
+function TemplateColorControls({
+  template,
+  values,
+  setField
+}: {
+  template: (typeof templateRegistry)[number];
+  values: Record<string, string>;
+  setField: (key: string, value: string) => void;
+}) {
+  const defaults = template.defaultValues;
+  const hasOverrides = COLOR_FIELDS.some((field) => colorValue(values[field.id], defaults[field.id]) !== defaults[field.id]);
+
+  return (
+    <div className="template-colors">
+      <span className="field__label">
+        <span>Template colours</span>
+        {hasOverrides ? (
+          <button
+            type="button"
+            className="template-colors__reset"
+            onClick={() => COLOR_FIELDS.forEach((field) => setField(field.id, defaults[field.id]))}
+          >
+            Reset
+          </button>
+        ) : null}
+      </span>
+      <div className="template-colors__grid" aria-label="Template colour controls">
+        {COLOR_FIELDS.map((field) => {
+          const value = colorValue(values[field.id], defaults[field.id]);
+          return (
+            <label key={field.id} className="template-color">
+              <input
+                type="color"
+                className="template-color__input"
+                value={value}
+                onChange={(event) => setField(field.id, event.target.value)}
+                aria-label={`${field.label} colour`}
+              />
+              <span className="template-color__label">{field.label}</span>
+              <span className="template-color__hex">{value.toUpperCase()}</span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /**
  * The content fields for the currently selected template: required fields
  * first, optional fields below a divider. Shared verbatim by the studio
@@ -139,6 +202,9 @@ export default function TemplateFields() {
           value={draftValues.variantId ?? template.defaultValues.variantId ?? template.variants[0].id}
           onChange={(value) => setField('variantId', value)}
         />
+      ) : null}
+      {template ? (
+        <TemplateColorControls template={template} values={draftValues} setField={setField} />
       ) : null}
       {required.map((field) => (
         <div key={field.id} className="field-stack">

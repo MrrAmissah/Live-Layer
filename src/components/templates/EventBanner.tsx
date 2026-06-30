@@ -2,6 +2,7 @@ import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import AccentStripe from '../graphics/AccentStripe';
 import MaskedLine from '../graphics/MaskedLine';
+import { templateColorStyle } from './colorVars';
 
 interface Props {
   values: Record<string, string>;
@@ -25,7 +26,7 @@ export default function EventBanner({ values }: Props) {
   const titleWords = eventTitle.split(/\s+/).filter(Boolean).slice(0, 3);
 
   return (
-    <div className="gfx-event" data-variant={variantId}>
+    <div className="gfx-event" data-variant={variantId} style={templateColorStyle(values)}>
       <div className="event-shell">
         <div className="event-brand-lockup">
           {titleWords.map((word, index) => (
