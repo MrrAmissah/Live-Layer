@@ -638,6 +638,12 @@ body.gfx-transparent {
   position: absolute;
   left: var(--gfx-safe-title-x);
   bottom: var(--gfx-safe-title-bottom);
+  --gfx-l3-dark-surface: color-mix(in srgb, var(--gfx-premium-brand-deep) 72%, #020617);
+  --gfx-l3-dark-surface-soft: color-mix(in srgb, var(--gfx-premium-brand-deep) 52%, #08111f);
+  --gfx-l3-blue-surface: linear-gradient(100deg, color-mix(in srgb, var(--gfx-premium-brand) 88%, #08143b) 0%, var(--gfx-premium-brand-mid) 48%, var(--gfx-premium-brand-deep) 100%);
+  --gfx-l3-light-surface: color-mix(in srgb, var(--gfx-premium-surface) 96%, #ffffff);
+  --gfx-l3-on-dark: #f8fafc;
+  --gfx-l3-on-light: var(--gfx-premium-text, #07111f);
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35));
   transform-origin: left bottom;
 }
@@ -830,15 +836,15 @@ body.gfx-transparent {
   height: 100px;
   padding: 0 92px 0 108px;
   background:
-    radial-gradient(88% 130% at 12% 52%, color-mix(in srgb, var(--gfx-premium-brand) 22%, transparent), transparent 62%),
-    linear-gradient(100deg, color-mix(in srgb, var(--gfx-premium-brand) 86%, #0a1740) 0%, var(--gfx-premium-brand-mid) 48%, var(--gfx-premium-brand-deep) 100%) !important;
+    radial-gradient(88% 130% at 12% 52%, color-mix(in srgb, var(--gfx-premium-blue-glow) 18%, transparent), transparent 62%),
+    var(--gfx-l3-blue-surface) !important;
   clip-path: polygon(0 0, 100% 0, calc(100% - 34px) 100%, 0 100%) !important;
 }
 
 .gfx-l3[data-variant='signature-medallion'] .l3-role-plate {
   height: 50px;
   padding: 0 66px 0 108px;
-  background: var(--gfx-template-surface, #070b12) !important;
+  background: linear-gradient(90deg, var(--gfx-l3-light-surface), color-mix(in srgb, var(--gfx-l3-light-surface) 92%, var(--gfx-premium-brand))) !important;
   clip-path: polygon(0 0, 100% 0, calc(100% - 20px) 100%, 0 100%) !important;
 }
 
@@ -853,11 +859,13 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='signature-medallion'] .l3-role {
-  color: #f8fafc;
+  color: var(--gfx-l3-on-light);
+  text-shadow: none;
 }
 
 .gfx-l3[data-variant='signature-medallion'] .l3-org {
-  color: var(--gfx-premium-accent);
+  color: color-mix(in srgb, var(--gfx-premium-brand) 86%, #020617);
+  text-shadow: none;
 }
 
 .gfx-l3[data-variant='signature-medallion'] .l3-medallion {
@@ -882,38 +890,52 @@ body.gfx-transparent {
 .gfx-l3[data-variant='modern-minimal'] .l3-name-plate,
 .gfx-l3[data-variant='modern-minimal'] .l3-role-plate {
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 42%),
-    linear-gradient(90deg, var(--gfx-template-surface, rgba(4, 7, 12, 0.98)), color-mix(in srgb, var(--gfx-premium-brand-deep) 18%, rgba(10, 14, 22, 0.96))) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px 30px 30px 18px;
+    linear-gradient(90deg, #ffffff 0%, #ffffff 68%, color-mix(in srgb, #ffffff 86%, var(--gfx-premium-blue-glow)) 100%) !important;
+  border: 0;
+  border-radius: 0 8px 8px 0;
   clip-path: none !important;
   overflow: hidden;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-name-plate {
-  height: 78px;
-  padding: 0 126px 0 52px;
+  height: 58px;
+  padding: 0 74px 0 92px;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-role-plate {
-  height: 40px;
-  padding: 0 92px 0 52px;
+  height: 42px;
+  padding: 0 76px 0 92px;
+  margin-left: 42px;
+  background: transparent !important;
+  border: 2px solid #ffffff;
+  border-top: 0;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-cap {
-  left: 28px;
+  left: 0;
   right: auto;
-  top: 14px;
-  width: 5px;
-  height: 96px;
-  background: var(--gfx-accent-2);
-  border-radius: 999px;
+  top: 0;
+  width: 70px;
+  height: 100%;
+  background:
+    linear-gradient(90deg, #b80014 0 20%, #f59e0b 20% 36%, var(--gfx-premium-brand) 36% 100%);
+  border-radius: 0;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-name {
-  font-size: 46px;
-  font-weight: 760;
-  letter-spacing: 0.02em;
+  color: #050816;
+  font-size: 42px;
+  font-weight: 780;
+  letter-spacing: 0.005em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-role,
+.gfx-l3[data-variant='modern-minimal'] .l3-org {
+  color: #ffffff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-underbar {
@@ -921,7 +943,7 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-end-slab {
-  display: block;
+  display: none;
   position: absolute;
   right: -8px;
   top: 0;
@@ -936,8 +958,19 @@ body.gfx-transparent {
 .gfx-l3[data-variant='angled-accent'] .l3-name-plate,
 .gfx-l3[data-variant='angled-accent'] .l3-role-plate {
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--gfx-premium-brand-deep) 36%, #081018), var(--gfx-template-surface, #0b0d12) 30%, rgba(5, 8, 14, 0.98)) !important;
+    linear-gradient(90deg, color-mix(in srgb, var(--gfx-premium-brand) 22%, var(--gfx-l3-dark-surface)) 0%, var(--gfx-l3-dark-surface-soft) 34%, var(--gfx-l3-dark-surface) 100%) !important;
   clip-path: polygon(44px 0, 100% 0, calc(100% - 36px) 100%, 0 100%) !important;
+}
+
+.gfx-l3[data-variant='angled-accent'] .l3-name-plate::after {
+  content: '';
+  position: absolute;
+  inset: 0 96px 0 156px;
+  opacity: 0.18;
+  background:
+    linear-gradient(135deg, transparent 0 42%, rgba(255, 255, 255, 0.16) 42% 45%, transparent 45% 100%);
+  background-size: 52px 52px;
+  pointer-events: none;
 }
 
 .gfx-l3[data-variant='angled-accent'] .l3-name-plate {
@@ -995,33 +1028,35 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-name-plate,
 .gfx-l3[data-variant='clean-broadcast'] .l3-role-plate {
-  background: linear-gradient(90deg, var(--gfx-premium-surface) 0%, color-mix(in srgb, var(--gfx-premium-surface) 94%, var(--gfx-premium-brand)) 58%, color-mix(in srgb, var(--gfx-premium-surface) 88%, var(--gfx-premium-accent)) 100%) !important;
-  border-radius: 18px 30px 30px 18px;
+  background: #ffffff !important;
+  border-radius: 0 10px 10px 0;
   clip-path: none !important;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 0;
   overflow: hidden;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-name-plate {
-  height: 78px;
-  padding: 0 150px 0 74px;
+  height: 72px;
+  padding: 0 108px 0 132px;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-role-plate {
-  height: 38px;
-  padding: 0 120px 0 74px;
+  height: 34px;
+  padding: 0 96px 0 132px;
+  background: linear-gradient(90deg, var(--gfx-premium-brand), color-mix(in srgb, var(--gfx-premium-brand) 72%, #0f766e)) !important;
+  border-radius: 0;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-name {
-  color: var(--gfx-premium-text);
-  font-size: 46px;
+  color: color-mix(in srgb, var(--gfx-premium-brand) 82%, #020617);
+  font-size: 42px;
   letter-spacing: 0.005em;
   text-shadow: none;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-role,
 .gfx-l3[data-variant='clean-broadcast'] .l3-org {
-  color: var(--gfx-premium-brand);
+  color: #ffffff;
   text-shadow: none;
 }
 
@@ -1030,19 +1065,19 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-stripe {
-  left: -10px;
-  width: 18px !important;
+  left: 0;
+  width: 20px !important;
   background: var(--gfx-premium-brand) !important;
-  transform: skewX(-12deg);
+  transform: none;
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-underbar {
-  left: 18px;
-  right: 58px;
-  bottom: -8px;
-  height: 7px;
-  background: var(--gfx-premium-brand);
-  border-radius: 999px;
+  left: 20px;
+  right: 0;
+  bottom: -6px;
+  height: 6px;
+  background: var(--gfx-premium-accent);
+  border-radius: 0 0 10px 0;
   clip-path: none;
 }
 
@@ -1054,15 +1089,25 @@ body.gfx-transparent {
   width: 150px;
   height: 54px;
   opacity: 0.12;
-  background-image: radial-gradient(#0f172a 2px, transparent 2px);
+  background-image: radial-gradient(color-mix(in srgb, var(--gfx-premium-brand) 78%, transparent) 2px, transparent 2px);
   background-size: 14px 14px;
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-medallion {
+  display: block;
+  left: -44px;
+  top: -18px;
+  transform: scale(0.62);
+  transform-origin: center;
+  z-index: 6;
+  --gfx-accent-2: #ffffff;
 }
 
 .gfx-l3[data-variant='bold-plate'] .l3-name-plate,
 .gfx-l3[data-variant='bold-plate'] .l3-role-plate {
   background:
     radial-gradient(92% 120% at 78% 48%, var(--gfx-premium-brand-wash), transparent 66%),
-    linear-gradient(90deg, var(--gfx-template-surface, #080b10), color-mix(in srgb, #12151c 92%, var(--gfx-premium-brand)) 56%, #06080c) !important;
+    linear-gradient(90deg, #05070d, color-mix(in srgb, var(--gfx-l3-dark-surface-soft) 84%, var(--gfx-premium-brand)) 56%, #03050a) !important;
   clip-path: polygon(42px 0, 100% 0, calc(100% - 42px) 100%, 0 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -1132,22 +1177,22 @@ body.gfx-transparent {
 .gfx-l3[data-variant='split-bar'] .l3-name-plate,
 .gfx-l3[data-variant='split-bar'] .l3-role-plate {
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 48%),
-    linear-gradient(90deg, var(--gfx-template-surface, #07111f), color-mix(in srgb, var(--gfx-premium-brand) 16%, #07111f) 72%, color-mix(in srgb, var(--gfx-premium-brand-deep) 22%, #07111f)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px 28px 28px 16px;
+    radial-gradient(120px 120px at 88% 45%, color-mix(in srgb, var(--gfx-premium-accent) 22%, transparent), transparent 68%),
+    linear-gradient(90deg, var(--gfx-premium-brand) 0%, color-mix(in srgb, var(--gfx-premium-brand) 70%, #0f766e) 55%, var(--gfx-premium-brand-deep) 100%) !important;
+  border: 0;
+  border-radius: 0 16px 16px 0;
   clip-path: none !important;
   overflow: hidden;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-name-plate {
   height: 80px;
-  padding: 0 330px 0 58px;
+  padding: 0 330px 0 142px;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-role-plate {
   height: 40px;
-  padding: 0 330px 0 58px;
+  padding: 0 330px 0 142px;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-cap {
@@ -1155,9 +1200,13 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-stripe {
-  left: 22px;
-  width: 6px !important;
-  background: var(--gfx-accent-2) !important;
+  left: 0;
+  width: 118px !important;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--gfx-premium-brand) 70%, #0f766e), var(--gfx-premium-brand-deep)) !important;
+  border-radius: 50%;
+  transform: none;
+  z-index: 5;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-underbar {
@@ -1171,18 +1220,47 @@ body.gfx-transparent {
   top: 0;
   width: 300px;
   height: 120px;
-  background: linear-gradient(115deg, color-mix(in srgb, var(--gfx-premium-accent) 82%, #fff2b3), var(--gfx-premium-accent) 52%, color-mix(in srgb, var(--gfx-premium-accent) 76%, var(--gfx-premium-brand)));
-  border-radius: 30px 24px 24px 30px;
+  background:
+    radial-gradient(90px 90px at 28% 50%, transparent 50%, color-mix(in srgb, var(--gfx-premium-accent) 92%, #fff2b3) 51% 62%, transparent 63%),
+    linear-gradient(115deg, color-mix(in srgb, var(--gfx-premium-accent) 90%, #fff2b3), var(--gfx-premium-accent) 58%, color-mix(in srgb, var(--gfx-premium-accent) 76%, var(--gfx-premium-brand)));
+  border-radius: 0 16px 16px 0;
   clip-path: none;
   z-index: 3;
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-medallion {
+  display: block;
+  left: -18px;
+  top: -20px;
+  transform: scale(0.66);
+  transform-origin: center;
+  z-index: 7;
+  --gfx-accent-2: #ffffff;
 }
 
 .gfx-l3[data-variant='event-style'] .l3-name-plate,
 .gfx-l3[data-variant='event-style'] .l3-role-plate {
   background:
-    radial-gradient(72% 130% at 8% 48%, color-mix(in srgb, var(--gfx-premium-brand) 24%, transparent), transparent 64%),
-    linear-gradient(105deg, color-mix(in srgb, var(--gfx-premium-brand-deep) 92%, #020914) 0%, color-mix(in srgb, var(--gfx-premium-brand) 88%, var(--gfx-premium-brand-deep)) 48%, color-mix(in srgb, var(--gfx-premium-brand-mid) 52%, var(--gfx-premium-brand-deep)) 100%) !important;
-  clip-path: polygon(0 0, calc(100% - 64px) 0, 100% 100%, 0 100%) !important;
+    radial-gradient(210px 170px at 78% 46%, color-mix(in srgb, var(--gfx-premium-accent) 25%, transparent), transparent 62%),
+    linear-gradient(105deg, color-mix(in srgb, var(--gfx-premium-brand) 86%, #0f766e) 0%, color-mix(in srgb, var(--gfx-premium-brand) 72%, #0f766e) 58%, var(--gfx-premium-brand-deep) 100%) !important;
+  clip-path: polygon(0 0, calc(100% - 54px) 0, 100% 50%, calc(100% - 54px) 100%, 0 100%) !important;
+  overflow: hidden;
+}
+
+.gfx-l3[data-variant='event-style'] .l3-name-plate::after {
+  content: '';
+  position: absolute;
+  right: 54px;
+  top: -34px;
+  width: 160px;
+  height: 160px;
+  border: 20px solid color-mix(in srgb, var(--gfx-premium-accent) 90%, transparent);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  opacity: 0.9;
+  transform: rotate(18deg);
+  pointer-events: none;
 }
 
 .gfx-l3[data-variant='event-style'] .l3-name-plate {
@@ -1275,7 +1353,7 @@ body.gfx-transparent {
 .gfx-l3[data-variant='subtle-elegance'] .l3-role-plate {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 50%),
-    linear-gradient(90deg, var(--gfx-template-surface, rgba(5, 7, 10, 0.94)), color-mix(in srgb, var(--gfx-premium-brand) 8%, rgba(5, 7, 10, 0.94))) !important;
+    linear-gradient(90deg, var(--gfx-l3-dark-surface), color-mix(in srgb, var(--gfx-premium-brand) 10%, var(--gfx-l3-dark-surface-soft))) !important;
   border: 1px solid color-mix(in srgb, var(--gfx-premium-accent) 62%, transparent);
   border-radius: 18px 28px 28px 18px;
   clip-path: none !important;
