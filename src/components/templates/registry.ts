@@ -91,6 +91,21 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'subtle-elegance',
         name: 'Subtle Elegance',
         description: 'Quiet framed plate with refined gold detailing.'
+      },
+      {
+        id: 'canva-host-bar',
+        name: 'Host Bar',
+        description: 'Canva-inspired maroon and gold hosted service lower third.'
+      },
+      {
+        id: 'canva-celebration',
+        name: 'Celebration Strip',
+        description: 'Teal event-style strip with circular logo anchor and gold accents.'
+      },
+      {
+        id: 'canva-ministry',
+        name: 'Ministry Band',
+        description: 'Warm broadcast band with deep texture, gold rails, and medallion lockup.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }

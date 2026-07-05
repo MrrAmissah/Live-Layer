@@ -1745,6 +1745,264 @@ body.gfx-transparent {
   display: none;
 }
 
+.gfx-l3[data-variant='canva-host-bar'] .l3-stack {
+  width: 1160px;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-name-plate,
+.gfx-l3[data-variant='canva-host-bar'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 1240px;
+  background:
+    linear-gradient(90deg, #f3c858 0 118px, #8f111c 118px calc(100% - 178px), #f3c858 calc(100% - 178px) 100%) !important;
+  border-radius: 0;
+  clip-path: none !important;
+  overflow: hidden;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-name-plate {
+  height: 72px;
+  padding: 0 228px 0 164px;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-role-plate {
+  height: 42px;
+  padding: 0 228px 0 164px;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-name {
+  color: #ffffff;
+  font-size: 40px;
+  font-weight: 760;
+  letter-spacing: 0.012em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-role,
+.gfx-l3[data-variant='canva-host-bar'] .l3-org {
+  color: #fff1b8;
+  font-size: 20px;
+  letter-spacing: 0.05em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-role-divider {
+  background: #f3c858;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-cap {
+  display: block;
+  left: 126px;
+  right: auto;
+  top: 0;
+  width: 2px;
+  height: 114px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-stripe {
+  display: block;
+  left: 0;
+  width: 118px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 50%, rgba(0, 0, 0, 0.1)),
+    #f3c858 !important;
+  transform: none;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-underbar {
+  display: none;
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-medallion {
+  display: block;
+  left: auto;
+  right: 72px;
+  top: -24px;
+  transform: scale(0.68);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: #ffffff;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-stack {
+  width: 1240px;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-name-plate {
+  box-sizing: border-box;
+  width: 1220px;
+  height: 86px;
+  padding: 0 296px 0 168px;
+  background:
+    linear-gradient(135deg, transparent 0 42%, rgba(255, 255, 255, 0.1) 42% 47%, transparent 47% 100%),
+    linear-gradient(90deg, #0db39e 0%, #078b80 58%, #063973 100%) !important;
+  background-size: 92px 92px, auto;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 62px) 0, 100% 50%, calc(100% - 62px) 100%, 0 100%) !important;
+  overflow: hidden;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 820px;
+  height: 42px;
+  margin-left: 92px;
+  padding: 0 70px;
+  background: #ffffff !important;
+  border-radius: 0;
+  clip-path: polygon(32px 0, calc(100% - 44px) 0, 100% 100%, 0 100%) !important;
+  overflow: hidden;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-name {
+  color: #ffffff;
+  font-size: 39px;
+  letter-spacing: 0.01em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-role,
+.gfx-l3[data-variant='canva-celebration'] .l3-org {
+  color: #04756f;
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-role-divider {
+  background: #f5cd28;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-cap {
+  display: none;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-stripe {
+  display: block;
+  left: -30px;
+  top: -20px;
+  width: 136px !important;
+  height: 136px !important;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #22d3b5 0 46%, #0d9f83 47% 100%) !important;
+  box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.92), 0 12px 24px rgba(0, 0, 0, 0.24);
+  transform: none;
+  z-index: 7;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-end-slab {
+  display: block;
+  position: absolute;
+  right: 94px;
+  top: -12px;
+  width: 236px;
+  height: 112px;
+  background:
+    radial-gradient(circle at 24% 50%, transparent 0 34%, #f5cd28 35% 48%, transparent 49%),
+    linear-gradient(120deg, transparent 0 58%, #f5cd28 59% 100%);
+  z-index: 4;
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-medallion {
+  display: block;
+  left: -10px;
+  top: -2px;
+  transform: scale(0.58);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: #ffffff;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-stack {
+  width: 1180px;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-name-plate,
+.gfx-l3[data-variant='canva-ministry'] .l3-role-plate {
+  box-sizing: border-box;
+  width: 1040px;
+  background:
+    radial-gradient(240px 120px at 82% 42%, rgba(232, 185, 60, 0.2), transparent 62%),
+    repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 12px),
+    linear-gradient(90deg, #2f1906 0%, #5b3209 44%, #1b0d03 100%) !important;
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 36px) 0, 100% 100%, 0 100%) !important;
+  overflow: hidden;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-name-plate {
+  height: 72px;
+  padding: 0 210px 0 70px;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-role-plate {
+  width: 760px;
+  height: 38px;
+  margin-left: 190px;
+  padding: 0 42px;
+  background: rgba(12, 7, 3, 0.92) !important;
+  border: 1px solid rgba(232, 185, 60, 0.56);
+  clip-path: none !important;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-name {
+  color: #fff8e5;
+  font-size: 39px;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 9px rgba(0, 0, 0, 0.38);
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-role,
+.gfx-l3[data-variant='canva-ministry'] .l3-org {
+  color: #f3c858;
+  font-size: 20px;
+  letter-spacing: 0.075em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-role-divider {
+  background: #f3c858;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-cap {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #f3c858, rgba(243, 200, 88, 0.25));
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-stripe {
+  display: block;
+  left: 38px;
+  top: -10px;
+  width: 3px !important;
+  height: 122px !important;
+  background: #f3c858 !important;
+  transform: none;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-underbar {
+  left: 42px;
+  right: 92px;
+  bottom: -8px;
+  height: 6px;
+  background: linear-gradient(90deg, #f3c858, rgba(243, 200, 88, 0.12));
+  clip-path: none;
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-medallion {
+  display: block;
+  left: auto;
+  right: 38px;
+  top: -28px;
+  transform: scale(0.7);
+  transform-origin: center;
+  z-index: 8;
+  --gfx-accent-2: #f3c858;
+}
+
 /* --- lower-third build choreography -------------------------------------
    0ms underbar/stripe wipe -> 80ms plates slide in behind masks ->
    220ms+ text lines rise inside line masks -> 250ms medallion pop. */
@@ -4344,6 +4602,71 @@ body.gfx-transparent {
   border: 1px solid rgba(232, 185, 60, 0.7);
   border-radius: 8px 12px 12px 8px;
   clip-path: none;
+}
+
+.control-root .variant-choice[data-variant='canva-host-bar'] .variant-choice__bar {
+  left: 12px;
+  right: 14px;
+  background: linear-gradient(90deg, #f3c858 0 18%, #8f111c 18% 78%, #f3c858 78% 100%);
+  border-radius: 0;
+  clip-path: none;
+}
+
+.control-root .variant-choice[data-variant='canva-host-bar'] .variant-choice__mark {
+  left: auto;
+  right: 24px;
+  bottom: 6px;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #f3c858;
+}
+
+.control-root .variant-choice[data-variant='canva-celebration'] .variant-choice__bar {
+  left: 28px;
+  right: 34px;
+  background: linear-gradient(90deg, #0db39e, #063973);
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+}
+
+.control-root .variant-choice[data-variant='canva-celebration'] .variant-choice__mark {
+  left: 8px;
+  bottom: 4px;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #22d3b5;
+}
+
+.control-root .variant-choice[data-variant='canva-celebration'] .variant-choice__preview::after {
+  content: '';
+  position: absolute;
+  right: 20px;
+  bottom: 8px;
+  width: 34px;
+  height: 16px;
+  background: #f5cd28;
+}
+
+.control-root .variant-choice[data-variant='canva-ministry'] .variant-choice__bar {
+  left: 18px;
+  right: 22px;
+  background: linear-gradient(90deg, #2f1906, #5b3209, #1b0d03);
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
+}
+
+.control-root .variant-choice[data-variant='canva-ministry'] .variant-choice__mark {
+  left: 22px;
+  bottom: 6px;
+  width: 3px;
+  height: 25px;
+  border: 0;
+  border-radius: 0;
+  background: #f3c858;
 }
 
 .control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__preview,
