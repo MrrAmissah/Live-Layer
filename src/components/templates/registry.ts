@@ -349,6 +349,7 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'date', label: 'Date', type: 'text', placeholder: '{{date}}', optional: true }
     ],
     defaultValues: {
+      variantId: 'sermon-paper',
       sermonTitle: 'Anchored in Hope',
       speakerName: 'Pastor Anna Grace',
       churchName: 'Grace Harbor Church',
@@ -368,6 +369,23 @@ export const templateRegistry: TemplateDefinition[] = [
       surfaceColor: HOUSE_BLUE.surface,
       accent2Color: HOUSE_BLUE.gold
     },
+    variants: [
+      {
+        id: 'sermon-paper',
+        name: 'Sermon Paper',
+        description: 'Clean sermon title card with bright paper, scripture chip, and structured footer.'
+      },
+      {
+        id: 'midnight-manifest',
+        name: 'Midnight Manifest',
+        description: 'Dark blue-gold conference title card with oversized type and luminous frame.'
+      },
+      {
+        id: 'golden-outline',
+        name: 'Golden Outline',
+        description: 'Minimal dark title frame with gold border, quiet metadata, and premium spacing.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   },
   {

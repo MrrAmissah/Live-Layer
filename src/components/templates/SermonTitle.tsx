@@ -16,6 +16,7 @@ function sermonTitleSizeClass(text: string): string {
 }
 
 export default function SermonTitle({ values }: Props) {
+  const variantId = values.variantId?.trim() || 'sermon-paper';
   const sermonTitle = values.sermonTitle?.trim() || 'Sermon Title';
   const speakerName = values.speakerName?.trim() || '';
   const churchName = values.churchName?.trim() || '';
@@ -24,7 +25,7 @@ export default function SermonTitle({ values }: Props) {
   const date = values.date?.trim() || '';
 
   return (
-    <div className="gfx-sermon" style={templateColorStyle(values)}>
+    <div className="gfx-sermon" data-variant={variantId} style={templateColorStyle(values)}>
       <div className="sermon-frame">
         <AccentStripe orientation="horizontal" thickness={10} color="accent-2" className="sermon-top-rule" />
         <div className="sermon-main">
