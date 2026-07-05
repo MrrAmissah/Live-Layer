@@ -106,6 +106,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'canva-ministry',
         name: 'Ministry Band',
         description: 'Warm broadcast band with deep texture, gold rails, and medallion lockup.'
+      },
+      {
+        id: 'soft-broadcast',
+        name: 'Soft Broadcast',
+        description: 'Rounded blue-glass lower third with a clean logo seal and soft modern edges.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
@@ -155,6 +160,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'reference-runner',
         name: 'Reference Runner',
         description: 'Broadcast scripture runner with a dark reference rail and crisp reading band.'
+      },
+      {
+        id: 'theme-lower',
+        name: 'Theme Lower',
+        description: 'Wide scripture lower band with a pill reference label and textured blue reading surface.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
@@ -214,6 +224,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'service-alert',
         name: 'Service Alert',
         description: 'High-contrast alert band with a strong date slab and live-news pacing.'
+      },
+      {
+        id: 'communion-strip',
+        name: 'Communion Strip',
+        description: 'Compact service strip with a round seal, deep title bar, and teal support rail.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
@@ -311,6 +326,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'venue-runner',
         name: 'Venue Runner',
         description: 'Opaque venue-style lower band with separated status, title, and event details.'
+      },
+      {
+        id: 'offering-runner',
+        name: 'Offering Runner',
+        description: 'Clean lower information bar for giving, live status, and service calls.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
