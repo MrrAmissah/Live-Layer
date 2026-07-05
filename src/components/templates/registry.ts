@@ -150,6 +150,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'classic-band',
         name: 'Classic Band',
         description: 'Reference tab over a clean opaque scripture plate.'
+      },
+      {
+        id: 'reference-runner',
+        name: 'Reference Runner',
+        description: 'Broadcast scripture runner with a dark reference rail and crisp reading band.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
@@ -204,6 +209,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'tag-strip',
         name: 'Tag Strip',
         description: 'Compact label tab with a clean white content bar.'
+      },
+      {
+        id: 'service-alert',
+        name: 'Service Alert',
+        description: 'High-contrast alert band with a strong date slab and live-news pacing.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
@@ -296,6 +306,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'broadcast-slate',
         name: 'Broadcast Slate',
         description: 'Bold event banner with cut paper schedule plate.'
+      },
+      {
+        id: 'venue-runner',
+        name: 'Venue Runner',
+        description: 'Opaque venue-style lower band with separated status, title, and event details.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }

@@ -2281,6 +2281,87 @@ body.gfx-transparent {
   opacity: 1;
 }
 
+.gfx-scripture[data-variant='reference-runner'] {
+  left: var(--gfx-safe-title-x);
+  right: var(--gfx-safe-title-x);
+  bottom: calc(var(--gfx-safe-title-bottom) + 14px);
+  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.36));
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-band {
+  display: grid;
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-tab {
+  left: 0;
+  top: -62px;
+  height: 62px;
+  background: color-mix(in srgb, var(--gfx-premium-brand-deep) 86%, #020617) !important;
+  clip-path: polygon(0 0, calc(100% - 38px) 0, 100% 100%, 0 100%) !important;
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-tab-accent {
+  width: 12px;
+  background: var(--gfx-premium-accent);
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-tab-body {
+  gap: 18px;
+  padding: 0 58px 0 28px;
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-ref {
+  font-size: 34px;
+  letter-spacing: 0.08em;
+  color: var(--gfx-premium-on-dark);
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-theme-chip {
+  color: var(--gfx-premium-text);
+  background: var(--gfx-premium-accent);
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-plate {
+  min-height: 166px;
+  padding: 42px 86px 42px 58px;
+  gap: 34px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.98) 42%, var(--gfx-premium-surface) 100%) !important;
+  box-shadow:
+    inset 0 8px 0 var(--gfx-premium-accent),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.12);
+  clip-path: none !important;
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-rule {
+  width: 20px;
+  background: linear-gradient(180deg, var(--gfx-premium-brand), var(--gfx-premium-brand-deep));
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-verse {
+  font-family: var(--gfx-font-display);
+  font-size: 44px;
+  font-weight: 760;
+  line-height: 1.12;
+  color: var(--gfx-premium-text);
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-verse-md {
+  font-size: 38px;
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-verse-sm {
+  font-size: 33px;
+}
+
+.gfx-scripture[data-variant='reference-runner'] .scripture-translation {
+  align-self: center;
+  padding: 14px 18px;
+  color: var(--gfx-premium-on-dark);
+  background: var(--gfx-premium-brand-deep);
+  opacity: 1;
+}
+
 .gfx-layer:not([data-anim='fade'])[data-state='in'] .scripture-band {
   animation: gfx-band-up 440ms var(--gfx-ease-out) both;
 }
@@ -2793,6 +2874,113 @@ body.gfx-transparent {
 .gfx-announce[data-variant='tag-strip'] .announce-pattern__box {
   transform: scale(0.92);
   transform-origin: top right;
+}
+
+.gfx-announce[data-variant='service-alert'] {
+  left: 0;
+  right: 0;
+  bottom: calc(var(--gfx-safe-title-bottom) + 6px);
+  filter: drop-shadow(0 16px 34px rgba(0, 0, 0, 0.4));
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-pattern {
+  display: none;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-main {
+  min-height: 188px;
+  padding: 42px 650px 40px var(--gfx-safe-title-x);
+  background:
+    radial-gradient(circle at 18% 50%, color-mix(in srgb, var(--gfx-premium-brand) 36%, transparent), transparent 30%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 6px),
+    linear-gradient(100deg, color-mix(in srgb, var(--gfx-premium-brand-deep) 92%, #020617) 0%, var(--gfx-premium-brand-mid) 54%, color-mix(in srgb, var(--gfx-premium-brand-deep) 76%, #020617) 100%) !important;
+  border-top: 8px solid var(--gfx-premium-accent);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.16);
+  clip-path: none !important;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-rail {
+  display: none;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-headline {
+  font-size: 68px;
+  font-weight: 900;
+  line-height: 0.96;
+  color: var(--gfx-premium-on-dark);
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-headline-md {
+  font-size: 56px;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-headline-sm {
+  font-size: 46px;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-body {
+  max-width: 980px;
+  margin-top: 12px;
+  font-size: 28px;
+  font-weight: 650;
+  color: var(--gfx-premium-on-dark);
+  opacity: 0.88;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-date {
+  width: 560px;
+  padding: 0 var(--gfx-safe-title-x) 0 98px;
+  background: var(--gfx-premium-accent) !important;
+  clip-path: polygon(56px 0, 100% 0, 100% 100%, 0 100%) !important;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-date-accent {
+  width: 58px;
+  height: 7px;
+  background: var(--gfx-premium-text);
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-when {
+  color: var(--gfx-premium-text);
+  opacity: 0.66;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-datetime {
+  max-width: 300px;
+  font-size: 38px;
+  color: var(--gfx-premium-text);
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-cta {
+  margin-top: 0;
+  margin-left: 0;
+  min-height: 56px;
+  padding: 0 var(--gfx-safe-title-x);
+  border: 0;
+  background: color-mix(in srgb, var(--gfx-premium-brand-deep) 88%, #020617) !important;
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-cta-label {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  margin-right: 26px;
+  padding: 0 24px;
+  font-family: var(--gfx-font-display);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gfx-premium-text);
+  background: var(--gfx-premium-accent);
+}
+
+.gfx-announce[data-variant='service-alert'] .announce-cta-text {
+  font-family: var(--gfx-font-display);
+  font-size: 27px;
+  font-weight: 760;
+  color: var(--gfx-premium-on-dark);
 }
 
 .gfx-layer:not([data-anim='fade'])[data-state='in'] .announce-row {
@@ -3408,6 +3596,84 @@ body.gfx-transparent {
 
 .gfx-event[data-variant='broadcast-slate'] .event-brand-lockup {
   display: none;
+}
+
+.gfx-event[data-variant='venue-runner'] {
+  left: var(--gfx-safe-title-x);
+  right: var(--gfx-safe-title-x);
+  bottom: calc(var(--gfx-safe-title-bottom) + 10px);
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.4));
+}
+
+.gfx-event[data-variant='venue-runner'] .event-shell {
+  grid-template-columns: minmax(0, 1fr) 430px;
+  min-height: 194px;
+  background: color-mix(in srgb, var(--gfx-premium-brand-deep) 88%, #020617);
+}
+
+.gfx-event[data-variant='venue-runner'] .event-tag {
+  left: 0;
+  top: -58px;
+  height: 58px;
+  padding: 0 34px;
+  background: var(--gfx-premium-accent) !important;
+  color: var(--gfx-premium-text);
+  clip-path: polygon(0 0, calc(100% - 34px) 0, 100% 100%, 0 100%) !important;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-tag-dot {
+  background: var(--gfx-premium-brand-deep);
+}
+
+.gfx-event[data-variant='venue-runner'] .event-main {
+  min-height: 194px;
+  padding: 44px 74px 42px 58px;
+  background:
+    radial-gradient(circle at 24% 46%, color-mix(in srgb, var(--gfx-premium-brand) 42%, transparent), transparent 30%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 5px),
+    linear-gradient(100deg, color-mix(in srgb, var(--gfx-premium-brand-deep) 90%, #020617) 0%, var(--gfx-premium-brand-mid) 64%, color-mix(in srgb, var(--gfx-premium-brand-deep) 76%, #020617) 100%) !important;
+  clip-path: none !important;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-cap {
+  height: 8px !important;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-title {
+  font-size: 66px;
+  color: var(--gfx-premium-on-dark);
+}
+
+.gfx-event[data-variant='venue-runner'] .event-title-md {
+  font-size: 56px;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-title-sm {
+  font-size: 46px;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-cta {
+  max-width: 860px;
+  color: var(--gfx-premium-on-dark);
+  opacity: 0.88;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-meta {
+  min-height: 194px;
+  gap: 18px;
+  padding: 32px 42px 32px 54px;
+  background: var(--gfx-premium-surface) !important;
+  border-left: 10px solid var(--gfx-premium-accent);
+  clip-path: none !important;
+}
+
+.gfx-event[data-variant='venue-runner'] .event-meta-label {
+  color: var(--gfx-premium-brand);
+}
+
+.gfx-event[data-variant='venue-runner'] .event-meta-value {
+  font-size: 32px;
+  color: var(--gfx-premium-text);
 }
 
 /* --- sermon title (gfx-sermon) ------------------------------------------
