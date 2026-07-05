@@ -105,9 +105,18 @@ function TemplateVariantPicker({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const selectedIndex = variants.findIndex((variant) => variant.id === value);
+  const selectedVariant = variants[selectedIndex] ?? variants[0];
+  const selectedPosition = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+
   return (
     <div className="variant-picker">
-      <span className="field__label">Design sample</span>
+      <span className="field__label">
+        <span>Design sample</span>
+        <span className="field__meta">
+          {selectedVariant.name} · {selectedPosition} of {variants.length}
+        </span>
+      </span>
       <div className="variant-picker__grid">
         {variants.map((variant) => (
           <button
@@ -125,7 +134,10 @@ function TemplateVariantPicker({
                 <span className="variant-choice__subline" />
               </span>
             </span>
-            <span className="variant-choice__name">{variant.name}</span>
+            <span className="variant-choice__name">
+              <span>{variant.name}</span>
+              {value === variant.id ? <span className="variant-choice__active">Selected</span> : null}
+            </span>
             <span className="variant-choice__desc">{variant.description}</span>
           </button>
         ))}
@@ -150,15 +162,18 @@ function TemplateColorControls({
     <div className="template-colors">
       <span className="field__label">
         <span>Template colours</span>
-        {hasOverrides ? (
-          <button
-            type="button"
-            className="template-colors__reset"
-            onClick={() => COLOR_FIELDS.forEach((field) => setField(field.id, defaults[field.id]))}
-          >
-            Reset
-          </button>
-        ) : null}
+        <span className="template-colors__aside">
+          <span className="field__meta">{COLOR_FIELDS.length} swatches</span>
+          {hasOverrides ? (
+            <button
+              type="button"
+              className="template-colors__reset"
+              onClick={() => COLOR_FIELDS.forEach((field) => setField(field.id, defaults[field.id]))}
+            >
+              Reset
+            </button>
+          ) : null}
+        </span>
       </span>
       <div className="template-colors__grid" aria-label="Template colour controls">
         {COLOR_FIELDS.map((field) => {
