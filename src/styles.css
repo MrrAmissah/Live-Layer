@@ -4328,6 +4328,151 @@ body.gfx-transparent {
   opacity: 0.65;
 }
 
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-panel {
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 18% 28%, rgba(18, 132, 255, 0.35), transparent 34%),
+    radial-gradient(circle at 80% 28%, rgba(232, 185, 60, 0.16), transparent 28%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 14px),
+    linear-gradient(108deg, #07106a 0%, #1021a1 48%, #050a38 100%) !important;
+  border: 1px solid rgba(159, 211, 255, 0.22);
+}
+
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-accent-block {
+  left: 54px;
+  top: 54px;
+  bottom: 54px;
+  width: 8px;
+  border-radius: 999px;
+  background: #e8b93c;
+}
+
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-content {
+  padding-left: 46px;
+}
+
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-headline,
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-body,
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-footer {
+  color: #f8fafc;
+}
+
+.gfx-fullmsg[data-variant='welcome-field'] .fullmsg-cta {
+  border: 0;
+  border-radius: 999px;
+  color: #07106a;
+  background: #f8fafc !important;
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] {
+  inset: calc(var(--gfx-safe-title-bottom) + 34px) var(--gfx-safe-title-x);
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-panel {
+  min-height: 560px;
+  justify-content: center;
+  text-align: center;
+  border-radius: 44px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(232, 185, 60, 0.14), transparent 38%),
+    radial-gradient(circle at 50% 100%, rgba(18, 132, 255, 0.22), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    #050a38 !important;
+  border: 1px solid rgba(232, 185, 60, 0.28);
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-accent-block {
+  left: 110px;
+  right: 110px;
+  top: 58px;
+  bottom: auto;
+  width: auto;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(232, 185, 60, 0), #e8b93c, rgba(232, 185, 60, 0));
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-content {
+  margin: 0 auto;
+  max-width: 1120px;
+  justify-items: center;
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-headline {
+  color: #f8fafc;
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-body {
+  max-width: 900px;
+  color: #dbeafe;
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-cta {
+  border: 1px solid rgba(232, 185, 60, 0.42);
+  border-radius: 999px;
+  color: #f8fafc;
+  background: rgba(232, 185, 60, 0.12) !important;
+}
+
+.gfx-fullmsg[data-variant='be-right-back'] .fullmsg-footer {
+  left: 72px;
+  right: 72px;
+  text-align: center;
+  color: #e8b93c;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-panel {
+  min-height: 600px;
+  padding: 92px 112px 86px;
+  border-radius: 0 52px 52px 52px;
+  background:
+    linear-gradient(180deg, rgba(13, 32, 149, 0.08), transparent 44%),
+    #f8fafc !important;
+  border-left: 14px solid #07106a;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-panel::before {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(18, 132, 255, 0.16), transparent 28%),
+    radial-gradient(circle at 14% 82%, rgba(232, 185, 60, 0.18), transparent 26%);
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-accent-block {
+  left: 72px;
+  top: 72px;
+  bottom: auto;
+  width: 86px;
+  height: 9px;
+  border-radius: 999px;
+  background: #e8b93c;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-content {
+  max-width: 1220px;
+  padding-top: 30px;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-headline {
+  color: #07106a;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-body {
+  max-width: 1050px;
+  color: #111827;
+  opacity: 0.86;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-cta {
+  border-left-color: #e8b93c;
+  color: #f8fafc;
+  background: #07106a !important;
+}
+
+.gfx-fullmsg[data-variant='prayer-focus'] .fullmsg-footer {
+  color: #07106a;
+  opacity: 0.72;
+}
+
 .gfx-layer[data-density='compact'] .gfx-fullmsg .fullmsg-panel { min-height: 560px; padding-top: 78px; padding-bottom: 78px; }
 .gfx-layer[data-density='compact'] .gfx-fullmsg .fullmsg-headline { font-size: 96px; }
 .gfx-layer[data-density='compact'] .gfx-fullmsg .fullmsg-body { font-size: 34px; }
@@ -5560,6 +5705,61 @@ body.gfx-transparent {
   border: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, #c758ff, #07106a);
+}
+
+.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__preview,
+.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__preview,
+.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__preview {
+  background: #05070c;
+}
+
+.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__bar,
+.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__bar,
+.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__bar {
+  left: 14px;
+  right: 14px;
+  bottom: 5px;
+  height: 24px;
+  border-radius: 8px;
+  clip-path: none;
+}
+
+.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__bar {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px),
+    linear-gradient(90deg, #07106a, #1021a1, #050a38);
+}
+
+.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__bar {
+  background: #050a38;
+  border: 1px solid rgba(232, 185, 60, 0.42);
+}
+
+.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__bar {
+  background: #f8fafc;
+  border-left: 5px solid #07106a;
+}
+
+.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__mark,
+.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__mark,
+.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__mark {
+  left: 22px;
+  bottom: 24px;
+  width: 42px;
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: #e8b93c;
+}
+
+.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__mark {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__line,
+.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__subline {
+  background: #07106a;
 }
 
 @media (max-width: 520px) {

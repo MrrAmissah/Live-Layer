@@ -382,6 +382,7 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Connect with us', optional: true }
     ],
     defaultValues: {
+      variantId: 'welcome-field',
       headline: 'Welcome to Church',
       body: 'We are glad you are here. Take a moment to greet someone near you.',
       footerNote: 'Grace Harbor Church',
@@ -399,6 +400,23 @@ export const templateRegistry: TemplateDefinition[] = [
       surfaceColor: HOUSE_BLUE.surface,
       accent2Color: HOUSE_BLUE.gold
     },
+    variants: [
+      {
+        id: 'welcome-field',
+        name: 'Welcome Field',
+        description: 'Full-screen welcome card with deep blue texture and a clear service CTA.'
+      },
+      {
+        id: 'be-right-back',
+        name: 'Be Right Back',
+        description: 'Centered pause screen with calm dark glass, gold rails, and roomy copy.'
+      },
+      {
+        id: 'prayer-focus',
+        name: 'Prayer Focus',
+        description: 'Quiet prayer screen with a paper scripture-style card and soft blue frame.'
+      }
+    ],
     animation: { in: 'slide', out: 'slide' }
   }
 ];

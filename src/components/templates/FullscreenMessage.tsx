@@ -15,13 +15,14 @@ function headlineSizeClass(text: string): string {
 }
 
 export default function FullscreenMessage({ values }: Props) {
+  const variantId = values.variantId?.trim() || 'welcome-field';
   const headline = values.headline?.trim() || 'Welcome';
   const body = values.body?.trim() || '';
   const footerNote = values.footerNote?.trim() || '';
   const callToAction = values.callToAction?.trim() || '';
 
   return (
-    <div className="gfx-fullmsg" style={templateColorStyle(values)}>
+    <div className="gfx-fullmsg" data-variant={variantId} style={templateColorStyle(values)}>
       <Plate fill="brand" className="fullmsg-panel">
         <span className="fullmsg-accent-block" aria-hidden />
         <div className="fullmsg-content">
