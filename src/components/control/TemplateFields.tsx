@@ -2,7 +2,7 @@ import { templateRegistry } from '../templates/registry';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import type { TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
@@ -15,9 +15,38 @@ const COLOR_FIELDS = [
   { id: 'colorSecondary', label: 'Second' }
 ] as const;
 
+type TemplateVariant = NonNullable<(typeof templateRegistry)[number]['variants']>[number];
+type VariantGroupId = 'all' | 'classic' | 'broadcast' | 'event' | 'compact';
+
+const VARIANT_GROUPS: Array<{ id: VariantGroupId; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'classic', label: 'Classic' },
+  { id: 'broadcast', label: 'Broadcast' },
+  { id: 'event', label: 'Event' },
+  { id: 'compact', label: 'Compact' }
+];
+
 function colorValue(value: string | undefined, fallback: string): string {
   const next = value?.trim();
   return next && HEX_COLOR.test(next) ? next : fallback;
+}
+
+function variantGroupFor(variant: TemplateVariant): Exclude<VariantGroupId, 'all'> {
+  const text = `${variant.name} ${variant.description}`.toLowerCase();
+
+  if (/\b(strip|runner|alert|tab|ribbon|communion|offering|tag)\b/.test(text)) {
+    return 'compact';
+  }
+
+  if (/\b(event|festival|celebration|conference|hosted)\b/.test(text)) {
+    return 'event';
+  }
+
+  if (/\b(broadcast|blue|gradient|venue|ministry|soft|slate|angled|bold)\b/.test(text)) {
+    return 'broadcast';
+  }
+
+  return 'classic';
 }
 
 function FieldRow({
@@ -101,13 +130,34 @@ function TemplateVariantPicker({
   value,
   onChange
 }: {
-  variants: NonNullable<(typeof templateRegistry)[number]['variants']>;
+  variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
 }) {
+  const [query, setQuery] = useState('');
+  const [groupId, setGroupId] = useState<VariantGroupId>('all');
   const selectedIndex = variants.findIndex((variant) => variant.id === value);
   const selectedVariant = variants[selectedIndex] ?? variants[0];
   const selectedPosition = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+  const enabledGroups = useMemo(() => {
+    const groups = new Set<VariantGroupId>(['all']);
+    variants.forEach((variant) => groups.add(variantGroupFor(variant)));
+    return VARIANT_GROUPS.filter((group) => groups.has(group.id));
+  }, [variants]);
+  const filteredVariants = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return variants.filter((variant) => {
+      const matchesGroup = groupId === 'all' || variantGroupFor(variant) === groupId;
+      const matchesQuery =
+        !normalizedQuery ||
+        variant.name.toLowerCase().includes(normalizedQuery) ||
+        variant.description.toLowerCase().includes(normalizedQuery);
+
+      return matchesGroup && matchesQuery;
+    });
+  }, [groupId, query, variants]);
+  const showNavigation = variants.length > 5;
 
   return (
     <div className="variant-picker">
@@ -117,8 +167,38 @@ function TemplateVariantPicker({
           {selectedVariant.name} · {selectedPosition} of {variants.length}
         </span>
       </span>
+      {showNavigation ? (
+        <>
+          <input
+            className="field__input"
+            type="search"
+            value={query}
+            placeholder="Search design samples"
+            aria-label="Search design samples"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {enabledGroups.length > 2 ? (
+            <div className="dynamic-insert" aria-label="Filter design samples">
+              {enabledGroups.map((group) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  className="dynamic-insert__btn"
+                  aria-pressed={groupId === group.id}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setGroupId(group.id);
+                  }}
+                >
+                  {group.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
+      ) : null}
       <div className="variant-picker__grid">
-        {variants.map((variant) => (
+        {filteredVariants.map((variant) => (
           <button
             key={variant.id}
             type="button"
@@ -142,6 +222,9 @@ function TemplateVariantPicker({
           </button>
         ))}
       </div>
+      {filteredVariants.length === 0 ? (
+        <span className="field__hint">No design samples match that search.</span>
+      ) : null}
     </div>
   );
 }
