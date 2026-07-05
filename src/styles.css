@@ -3509,6 +3509,179 @@ body.gfx-transparent {
   background: var(--gfx-premium-blue-glow);
 }
 
+.gfx-quote[data-variant='editorial-paper'] .quote-card {
+  min-height: 420px;
+  padding: 70px 104px 66px 148px;
+  border-radius: 0 46px 46px 46px;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(18, 132, 255, 0.12), transparent 30%),
+    #f8fafc !important;
+  border-left: 14px solid #07106a;
+  clip-path: none !important;
+}
+
+.gfx-quote[data-variant='editorial-paper'] .quote-card::before {
+  display: none;
+}
+
+.gfx-quote[data-variant='editorial-paper'] .quote-card::after {
+  left: 148px;
+  right: 104px;
+  bottom: 48px;
+  height: 5px;
+  border-radius: 999px;
+  background: #e8b93c;
+}
+
+.gfx-quote[data-variant='editorial-paper'] .quote-mark {
+  left: 54px;
+  top: 46px;
+  color: #07106a;
+  opacity: 0.16;
+}
+
+.gfx-quote[data-variant='editorial-paper'] .quote-kicker {
+  color: #07106a;
+}
+
+.gfx-quote[data-variant='editorial-paper'] .quote-text,
+.gfx-quote[data-variant='editorial-paper'] .quote-source-name {
+  color: #07111f;
+}
+
+.gfx-quote[data-variant='editorial-paper'] .quote-source-role {
+  color: #07111f;
+  opacity: 0.58;
+}
+
+.gfx-quote[data-variant='teaching-note'] {
+  top: auto;
+  bottom: calc(var(--gfx-safe-title-bottom) + 96px);
+  transform: none;
+}
+
+.gfx-layer[data-size='small'] .gfx-quote[data-variant='teaching-note'] {
+  transform: scale(0.86);
+}
+
+.gfx-layer[data-size='large'] .gfx-quote[data-variant='teaching-note'] {
+  transform: scale(1.08);
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-card {
+  min-height: 300px;
+  padding: 58px 86px 56px 112px;
+  border-radius: 28px;
+  background:
+    linear-gradient(90deg, rgba(13, 32, 149, 0.08), transparent 42%),
+    #f8fafc !important;
+  border: 1px solid rgba(7, 16, 106, 0.12);
+  clip-path: none !important;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-card::before {
+  width: 70px;
+  background: #07106a;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-card::after {
+  left: 70px;
+  height: 7px;
+  background: #e8b93c;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-mark {
+  left: 20px;
+  top: 24px;
+  font-size: 132px;
+  color: #f8fafc;
+  opacity: 0.92;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-kicker {
+  color: #07106a;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-text {
+  max-width: 1260px;
+  font-size: 46px;
+  color: #07111f;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-source-name {
+  color: #07111f;
+}
+
+.gfx-quote[data-variant='teaching-note'] .quote-source-role {
+  color: #07111f;
+  opacity: 0.58;
+}
+
+.gfx-quote[data-variant='devotional-blue'] {
+  left: calc(var(--gfx-safe-title-x) + 120px);
+  right: calc(var(--gfx-safe-title-x) + 120px);
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-card {
+  min-height: 380px;
+  padding: 70px 96px 64px;
+  text-align: center;
+  border-radius: 42px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(18, 132, 255, 0.32), transparent 34%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 14px),
+    linear-gradient(112deg, #050a38 0%, #07106a 52%, #03071e 100%) !important;
+  border: 1px solid rgba(159, 211, 255, 0.22);
+  clip-path: none !important;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-card::before,
+.gfx-quote[data-variant='devotional-blue'] .quote-card::after {
+  display: none;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-mark {
+  left: 50%;
+  top: -42px;
+  transform: translateX(-50%);
+  color: #f8fafc;
+  opacity: 1;
+  text-shadow: 8px 0 0 #1284ff;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-content,
+.gfx-quote[data-variant='devotional-blue'] .quote-kicker-row,
+.gfx-quote[data-variant='devotional-blue'] .quote-source {
+  justify-content: center;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-kicker {
+  color: #9fd3ff;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-chip {
+  color: #07106a;
+  background: #f8fafc;
+  border-left: 0;
+  border-radius: 999px;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-text {
+  max-width: 1100px;
+  margin: 0 auto;
+  font-size: 48px;
+  color: #f8fafc;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-source-name,
+.gfx-quote[data-variant='devotional-blue'] .quote-source-role {
+  color: #f8fafc;
+}
+
+.gfx-quote[data-variant='devotional-blue'] .quote-source-rule {
+  background: #e8b93c;
+}
+
 /* --- event banner (gfx-event) -------------------------------------------
    Lower broadcast banner, louder and more operational than Announcement.
    Title lives on brand, schedule/location on a cut paper end-cap. */
@@ -5722,6 +5895,12 @@ body.gfx-transparent {
 .control-root .variant-choice[data-variant='theme-lower'] .variant-choice__subline,
 .control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__line,
 .control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__subline,
+.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__line,
+.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__subline,
+.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__line,
+.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__subline,
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__line,
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__subline,
 .control-root .variant-choice[data-variant='festival-stage'] .variant-choice__line,
 .control-root .variant-choice[data-variant='festival-stage'] .variant-choice__subline,
 .control-root .variant-choice[data-variant='offering-runner'] .variant-choice__line,
@@ -5731,13 +5910,19 @@ body.gfx-transparent {
 
 .control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__preview,
 .control-root .variant-choice[data-variant='theme-lower'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__preview {
+.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__preview,
+.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__preview,
+.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__preview,
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__preview {
   overflow: visible;
 }
 
 .control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__bar,
 .control-root .variant-choice[data-variant='theme-lower'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__bar {
+.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__bar,
+.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__bar,
+.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__bar,
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__bar {
   left: 12px;
   right: 9px;
   bottom: 6px;
@@ -5751,7 +5936,8 @@ body.gfx-transparent {
 
 .control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__mark,
 .control-root .variant-choice[data-variant='theme-lower'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__mark {
+.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__mark,
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__mark {
   left: 16px;
   bottom: 20px;
   width: auto;
@@ -5764,7 +5950,8 @@ body.gfx-transparent {
 
 .control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__mark::before,
 .control-root .variant-choice[data-variant='theme-lower'] .variant-choice__mark::before,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__mark::before {
+.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__mark::before,
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__mark::before {
   content: '\201c';
   font-family: var(--gfx-font-display);
   font-size: 32px;
@@ -5778,6 +5965,33 @@ body.gfx-transparent {
   background:
     repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px),
     linear-gradient(90deg, #07106a, #1021a1, #050a38);
+}
+
+.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__bar {
+  background: #f8fafc;
+  border-left: 5px solid #07106a;
+}
+
+.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__mark,
+.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__mark {
+  left: 18px;
+  bottom: 20px;
+  width: 36px;
+  height: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: #e8b93c;
+}
+
+.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__bar {
+  background: #f8fafc;
+  border-left: 12px solid #07106a;
+}
+
+.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__bar {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 6px),
+    linear-gradient(90deg, #050a38, #07106a);
 }
 
 .control-root .variant-choice[data-variant='festival-stage'] .variant-choice__preview,

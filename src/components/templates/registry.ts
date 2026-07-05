@@ -275,6 +275,16 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'editorial-paper',
         name: 'Editorial Paper',
         description: 'Clean paper quote card with brand rail and source lockup.'
+      },
+      {
+        id: 'teaching-note',
+        name: 'Teaching Note',
+        description: 'Bright teaching-card layout with a blue label rail and gold underline.'
+      },
+      {
+        id: 'devotional-blue',
+        name: 'Devotional Blue',
+        description: 'Compact blue devotional card with centered quote and soft paper metadata.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
