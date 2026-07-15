@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
   presets: 'livelayer.presets',
   brand: 'livelayer.brand',
   recent: 'livelayer.recent',
+  quickQueue: 'livelayer.quickQueue',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   lastRealtimeMessage: 'livelayer:lastMessage'
@@ -45,6 +46,14 @@ export function savePresets(presets: GraphicInstance[]) {
 
 export function loadRecentGraphics() {
   return loadGraphicList(STORAGE_KEYS.recent);
+}
+
+export function loadQuickQueue() {
+  return loadGraphicList(STORAGE_KEYS.quickQueue);
+}
+
+export function saveQuickQueue(queue: GraphicInstance[]) {
+  safeWrite(STORAGE_KEYS.quickQueue, queue);
 }
 
 export function saveRecentGraphics(recent: GraphicInstance[]) {

@@ -3,7 +3,7 @@ import { devtools } from 'zustand/middleware';
 import { GraphicInstance, TemplateDefinition } from '../types/graphics';
 import type { PersonProfile } from '../types/people';
 import type { LayoutSettings } from '../types/layout';
-import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadPresets, loadRecentGraphics, saveBrandOverrides, savePresets, saveRecentGraphics } from '../lib/storage';
+import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadPresets, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, savePresets, saveQuickQueue, saveRecentGraphics } from '../lib/storage';
 import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
@@ -18,6 +18,10 @@ interface LiveLayerState {
   durationSeconds: number;
   presets: GraphicInstance[];
   recent: GraphicInstance[];
+  quickQueue: GraphicInstance[];
+  addToQuickQueue: (label: string) => void;
+  removeFromQuickQueue: (id: string) => void;
+  moveInQuickQueue: (id: string, delta: -1 | 1) => void;
   activePackId: string;
   setActivePack: (packId: string) => void;
   setTemplate: (templateId: string) => void;
@@ -62,6 +66,45 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     durationSeconds: 6,
     presets: loadPresets(),
     recent: loadRecentGraphics(),
+    quickQueue: loadQuickQueue(),
+    addToQuickQueue: (label) => {
+      const state = get();
+      const clone = <T,>(value: T): T =>
+        typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+      const item: GraphicInstance = {
+        id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        templateId: state.currentTemplateId,
+        presetName: label,
+        values: clone(state.draftValues),
+        theme: clone(state.theme),
+        layout: clone(state.layout),
+        assetRefs: {
+          ...(state.draftValues.headshotAssetId ? { headshot: state.draftValues.headshotAssetId } : {}),
+          ...(state.draftValues.logoAssetId ? { logo: state.draftValues.logoAssetId } : {})
+        },
+        personId: state.draftValues.personId,
+        durationSeconds: state.durationSeconds,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      const next = [...state.quickQueue, item];
+      saveQuickQueue(next);
+      set({ quickQueue: next });
+    },
+    removeFromQuickQueue: (id) => {
+      const next = get().quickQueue.filter((item) => item.id !== id);
+      saveQuickQueue(next);
+      set({ quickQueue: next });
+    },
+    moveInQuickQueue: (id, delta) => {
+      const queue = [...get().quickQueue];
+      const index = queue.findIndex((item) => item.id === id);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= queue.length) return;
+      [queue[index], queue[target]] = [queue[target], queue[index]];
+      saveQuickQueue(queue);
+      set({ quickQueue: queue });
+    },
     setTemplate: (templateId) =>
       set((state) => ({
         currentTemplateId: templateId,
@@ -127,7 +170,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           layout: {},
           durationSeconds: 6,
           presets: [],
-          recent: []
+          recent: [],
+          quickQueue: []
         };
       }),
     savePreset: (name) => {

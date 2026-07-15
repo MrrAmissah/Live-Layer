@@ -19,6 +19,7 @@ import TemplateRail from '../components/control/TemplateRail';
 import PreviewPanel from '../components/control/PreviewPanel';
 import FieldEditor from '../components/control/FieldEditor';
 import LiveActionsPanel from '../components/control/LiveActionsPanel';
+import QuickQueuePanel from '../components/control/QuickQueuePanel';
 import BrandPanel from '../components/control/BrandPanel';
 import LibraryPanel from '../components/control/LibraryPanel';
 
@@ -115,6 +116,23 @@ export default function ControlPage() {
     if (activeRundownId) setActiveItem(activeRundownId, undefined);
   };
 
+  /**
+   * Take a stored quick-queue graphic straight to air. A fresh id/timestamp
+   * per take so repeated takes of the same entry always re-fire the output.
+   */
+  const onTakeInstance = (item: GraphicInstance) => {
+    const instance: GraphicInstance = {
+      ...snapshot(item),
+      id: `${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    channelRef.current?.post(createMessage('SHOW_GRAPHIC', instance));
+    useLiveLayerStore.getState().addRecent(instance);
+    setLastAction('taken');
+    setLastTakenAt(Date.now());
+  };
+
   if (!isStudio) {
     return (
       <DockShell
@@ -133,12 +151,15 @@ export default function ControlPage() {
       preview={<PreviewPanel />}
       editor={<FieldEditor />}
       actions={
-        <LiveActionsPanel
-          onTake={onTake}
-          onClear={onClear}
-          lastAction={lastAction}
-          lastTakenAt={lastTakenAt}
-        />
+        <>
+          <LiveActionsPanel
+            onTake={onTake}
+            onClear={onClear}
+            lastAction={lastAction}
+            lastTakenAt={lastTakenAt}
+          />
+          <QuickQueuePanel onTakeInstance={onTakeInstance} />
+        </>
       }
       brand={<BrandPanel />}
       presets={<LibraryPanel />}
