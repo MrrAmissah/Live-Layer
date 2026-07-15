@@ -2131,10 +2131,11 @@ body.gfx-transparent {
 .gfx-l3[data-variant='convention-strap'] {
   /* Flush to the left edge but stop well short of the right side — it's a
      lower third, not the full-bleed event ticker. Bottom offset clears the
-     70px OBS scrolling ticker plus a gap. */
+     70px OBS scrolling ticker plus a gap, measured from the LOWEST element:
+     the strap logo dips 38px below the bar, so the box rides higher. */
   left: 0;
   right: 460px;
-  bottom: calc(var(--gfx-safe-action-bottom) + 26px);
+  bottom: calc(var(--gfx-safe-action-bottom) + 56px);
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-stack {
