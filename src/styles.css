@@ -5667,13 +5667,28 @@ body.gfx-transparent {
 .control-root .variant-choice__preview {
   position: relative;
   display: block;
-  height: 34px;
+  aspect-ratio: 16 / 9;
   border-radius: 6px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 70% 12%, rgba(255, 255, 255, 0.12), transparent 34%),
-    #080d15;
+  background: #080d15;
   border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* Real scaled-down render of the variant. Kill all motion so each thumb
+   rests at its final frame instantly, and ignore pointer events so clicks
+   land on the choice button. */
+.control-root .variant-thumb {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.control-root .variant-thumb *,
+.control-root .variant-thumb *::before,
+.control-root .variant-thumb *::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 .control-root .variant-choice__bar {

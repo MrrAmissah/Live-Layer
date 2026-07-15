@@ -1,4 +1,5 @@
-import { templateRegistry } from '../templates/registry';
+import { templateRegistry, templateRendererMap } from '../templates/registry';
+import GraphicStage from '../graphics/GraphicStage';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { TemplateField } from '../../types/graphics';
@@ -127,11 +128,47 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
   );
 }
 
+/**
+ * Real miniature render of a variant: the actual template renderer inside a
+ * scaled GraphicStage, using the operator's current draft values and palette,
+ * so the picker shows exactly what each design produces. Entrance animations
+ * are killed via CSS so thumbs rest at their final frame.
+ */
+function VariantThumb({
+  templateId,
+  variantId,
+  values
+}: {
+  templateId: string;
+  variantId: string;
+  values: Record<string, string>;
+}) {
+  const storeTheme = useLiveLayerStore((state) => state.theme);
+  const template = templateRegistry.find((item) => item.id === templateId);
+  const Renderer = templateRendererMap[templateId];
+  if (!template || !Renderer) return null;
+  const mergedTheme = { ...template.theme, ...storeTheme };
+  const focus = template.category === 'Lower Third' ? 'lower-third' : 'full';
+  return (
+    <span className="variant-thumb" aria-hidden>
+      <GraphicStage theme={mergedTheme} backdrop="neutral" focus={focus}>
+        <div className="gfx-layer" data-anim="fade" data-state="in">
+          <Renderer values={{ ...values, variantId }} theme={mergedTheme} />
+        </div>
+      </GraphicStage>
+    </span>
+  );
+}
+
 function TemplateVariantPicker({
+  templateId,
+  draftValues,
   variants,
   value,
   onChange
 }: {
+  templateId: string;
+  draftValues: Record<string, string>;
   variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
@@ -210,11 +247,7 @@ function TemplateVariantPicker({
             onClick={() => onChange(variant.id)}
           >
             <span className="variant-choice__preview" aria-hidden>
-              <span className="variant-choice__mark" />
-              <span className="variant-choice__bar">
-                <span className="variant-choice__line" />
-                <span className="variant-choice__subline" />
-              </span>
+              <VariantThumb templateId={templateId} variantId={variant.id} values={draftValues} />
             </span>
             <span className="variant-choice__name">
               <span>{variant.name}</span>
@@ -314,10 +347,12 @@ export default function TemplateFields() {
 
   return (
     <div className="field-grid">
-      {packVariants.length ? (
+      {packVariants.length && template ? (
         <TemplateVariantPicker
+          templateId={template.id}
+          draftValues={draftValues}
           variants={packVariants}
-          value={draftValues.variantId ?? template?.defaultValues.variantId ?? packVariants[0].id}
+          value={draftValues.variantId ?? template.defaultValues.variantId ?? packVariants[0].id}
           onChange={(value) => setField('variantId', value)}
         />
       ) : null}
