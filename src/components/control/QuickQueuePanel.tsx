@@ -36,6 +36,21 @@ const PRIMARY_NAME_FIELD: Record<string, string> = {
   'fullscreen-message': 'headline'
 };
 
+/** Subtle identity hue per template, used on queue items and filter chips. */
+export const TEMPLATE_COLORS: Record<string, string> = {
+  'preacher-lower-third': '#38bdf8',
+  'scripture-card': '#e8b93c',
+  'quote-card': '#c084fc',
+  'announcement-banner': '#2dd4bf',
+  'event-banner': '#4ade80',
+  'sermon-title': '#fb7185',
+  'fullscreen-message': '#94a3b8'
+};
+
+export function templateColor(templateId: string): string {
+  return TEMPLATE_COLORS[templateId] ?? '#94a3b8';
+}
+
 /**
  * Live quick queue (studio right column, under the on-air actions).
  *
@@ -58,6 +73,16 @@ export default function QuickQueuePanel({
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
   const [lastTakenId, setLastTakenId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [templateFilter, setTemplateFilter] = useState<string | null>(null);
+
+  const presentTemplates = [...new Set(quickQueue.map((item) => item.templateId))];
+  // Self-healing: a filter pointing at a template with no remaining entries
+  // (e.g. after deletes) falls back to "all" instead of a dead-end empty list.
+  const effectiveFilter =
+    templateFilter && presentTemplates.includes(templateFilter) ? templateFilter : null;
+  const visibleQueue = effectiveFilter
+    ? quickQueue.filter((item) => item.templateId === effectiveFilter)
+    : quickQueue;
 
   /**
    * Type-and-enter add: uses the current draft as the base (template, design,
@@ -121,6 +146,29 @@ export default function QuickQueuePanel({
           + Add current graphic{draftLabel ? ` (“${String(draftLabel).slice(0, 22)}”)` : ''}
         </button>
 
+        {presentTemplates.length > 1 ? (
+          <div className="qq-filter" role="group" aria-label="Filter queue by template">
+            <button
+              type="button"
+              className={`qq-chip${effectiveFilter === null ? ' qq-chip--active' : ''}`}
+              onClick={() => setTemplateFilter(null)}
+            >
+              All · {quickQueue.length}
+            </button>
+            {presentTemplates.map((templateId) => (
+              <button
+                key={templateId}
+                type="button"
+                className={`qq-chip${effectiveFilter === templateId ? ' qq-chip--active' : ''}`}
+                onClick={() => setTemplateFilter(effectiveFilter === templateId ? null : templateId)}
+              >
+                <span className="qq-chip__dot" style={{ background: templateColor(templateId) }} />
+                {templateShortName(templateId)} · {quickQueue.filter((i) => i.templateId === templateId).length}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {quickQueue.length === 0 ? (
           <p className="field__hint">
             Prepare a graphic in the editor, then add it here. Line up every performer before the
@@ -128,14 +176,23 @@ export default function QuickQueuePanel({
           </p>
         ) : (
           <ol className="qq-list">
-            {quickQueue.map((item, index) => (
-              <li key={item.id} className={`qq-item${lastTakenId === item.id ? ' qq-item--live' : ''}`}>
+            {visibleQueue.map((item) => {
+              const index = quickQueue.indexOf(item);
+              return (
+              <li
+                key={item.id}
+                className={`qq-item${lastTakenId === item.id ? ' qq-item--live' : ''}`}
+                style={{ borderLeft: `3px solid ${templateColor(item.templateId)}` }}
+              >
                 <span className="qq-item__head">
                   <span className="qq-item__pos">{index + 1}</span>
                   <span className="qq-item__label">{entryLabel(item)}</span>
                 </span>
                 <span className="qq-item__row">
-                  <span className="qq-item__template">{templateShortName(item.templateId)}</span>
+                  <span className="qq-item__template">
+                    <span className="qq-chip__dot" style={{ background: templateColor(item.templateId) }} />
+                    {templateShortName(item.templateId)}
+                  </span>
                   <span className="qq-item__actions">
                   <button
                     type="button"
@@ -155,24 +212,28 @@ export default function QuickQueuePanel({
                   >
                     Edit
                   </button>
-                  <button
-                    type="button"
-                    className="qq-btn"
-                    aria-label="Move up"
-                    disabled={index === 0}
-                    onClick={() => moveInQuickQueue(item.id, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="qq-btn"
-                    aria-label="Move down"
-                    disabled={index === quickQueue.length - 1}
-                    onClick={() => moveInQuickQueue(item.id, 1)}
-                  >
-                    ↓
-                  </button>
+                  {effectiveFilter === null ? (
+                    <>
+                      <button
+                        type="button"
+                        className="qq-btn"
+                        aria-label="Move up"
+                        disabled={index === 0}
+                        onClick={() => moveInQuickQueue(item.id, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="qq-btn"
+                        aria-label="Move down"
+                        disabled={index === quickQueue.length - 1}
+                        onClick={() => moveInQuickQueue(item.id, 1)}
+                      >
+                        ↓
+                      </button>
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     className="qq-btn qq-btn--remove"
@@ -184,9 +245,13 @@ export default function QuickQueuePanel({
                   </span>
                 </span>
               </li>
-            ))}
+              );
+            })}
           </ol>
         )}
+        {effectiveFilter !== null && visibleQueue.length === 0 ? (
+          <p className="field__hint">No queue entries for this template.</p>
+        ) : null}
       </div>
     </Panel>
   );

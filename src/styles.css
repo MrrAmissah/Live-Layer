@@ -5188,6 +5188,39 @@ body.gfx-transparent {
   flex-direction: column;
   gap: 6px;
 }
+.control-root .qq-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.control-root .qq-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #aab6c8;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.control-root .qq-chip:hover { color: #e6edf5; border-color: rgba(148, 163, 184, 0.34); }
+.control-root .qq-chip--active {
+  color: #eaf7ff;
+  background: rgba(24, 119, 242, 0.24);
+  border-color: rgba(34, 151, 255, 0.45);
+}
+.control-root .qq-chip__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.control-root .qq-item__template { display: inline-flex; align-items: center; gap: 6px; }
 .control-root .qq-quick-add {
   display: flex;
   gap: 8px;
