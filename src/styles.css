@@ -1927,7 +1927,6 @@ body.gfx-transparent {
   width: 1040px;
   background:
     radial-gradient(240px 120px at 82% 42%, rgba(232, 185, 60, 0.2), transparent 62%),
-    repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 12px),
     linear-gradient(90deg, #2f1906 0%, #5b3209 44%, #1b0d03 100%) !important;
   border-radius: 0;
   clip-path: polygon(0 0, calc(100% - 36px) 0, 100% 100%, 0 100%) !important;
@@ -2800,7 +2799,6 @@ body.gfx-transparent {
   background:
     radial-gradient(circle at 16% 58%, rgba(18, 132, 255, 0.3), transparent 34%),
     radial-gradient(circle at 78% 42%, rgba(232, 185, 60, 0.12), transparent 32%),
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.055) 0 2px, transparent 2px 13px),
     linear-gradient(96deg, #07106a 0%, #1021a1 52%, #050a38 100%) !important;
   border-bottom: 7px solid #e8b93c;
   clip-path: none !important;
@@ -3927,7 +3925,6 @@ body.gfx-transparent {
   border-radius: 42px;
   background:
     radial-gradient(circle at 50% 0%, rgba(18, 132, 255, 0.32), transparent 34%),
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 14px),
     linear-gradient(112deg, #050a38 0%, #07106a 52%, #03071e 100%) !important;
   border: 1px solid rgba(159, 211, 255, 0.22);
   clip-path: none !important;
@@ -4678,7 +4675,6 @@ body.gfx-transparent {
   background:
     radial-gradient(circle at 24% 30%, rgba(18, 132, 255, 0.34), transparent 34%),
     radial-gradient(circle at 82% 26%, rgba(232, 185, 60, 0.14), transparent 28%),
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 16px),
     linear-gradient(112deg, #050a38 0%, #07106a 44%, #03071e 100%) !important;
   border: 1px solid rgba(232, 185, 60, 0.25);
 }
@@ -4932,7 +4928,6 @@ body.gfx-transparent {
   background:
     radial-gradient(circle at 18% 28%, rgba(18, 132, 255, 0.35), transparent 34%),
     radial-gradient(circle at 80% 28%, rgba(232, 185, 60, 0.16), transparent 28%),
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 14px),
     linear-gradient(108deg, #07106a 0%, #1021a1 48%, #050a38 100%) !important;
   border: 1px solid rgba(159, 211, 255, 0.22);
 }
