@@ -2586,10 +2586,11 @@ body.gfx-transparent {
   white-space: nowrap;
 }
 
+/* Scripture lives in its own ticker-free OBS scene, so the cards sit low. */
 .gfx-scripture[data-variant='blue-quote-card'] {
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
-  bottom: calc(var(--gfx-safe-title-bottom) + 42px);
+  bottom: var(--gfx-safe-title-bottom);
   filter: drop-shadow(0 22px 34px rgba(0, 0, 0, 0.36));
 }
 
@@ -2685,16 +2686,14 @@ body.gfx-transparent {
   opacity: 1;
 }
 
-/* Classic band inherits the base action-safe anchor, which sits inside the
-   70px OBS ticker zone — give it its own clearance. */
 .gfx-scripture[data-variant='classic-band'] {
-  bottom: calc(var(--gfx-safe-action-bottom) + 56px);
+  bottom: calc(var(--gfx-safe-action-bottom) + 12px);
 }
 
 .gfx-scripture[data-variant='reference-runner'] {
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
-  bottom: calc(var(--gfx-safe-title-bottom) + 14px);
+  bottom: calc(var(--gfx-safe-action-bottom) + 16px);
   filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.36));
 }
 
@@ -2777,7 +2776,7 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='theme-lower'] {
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
-  bottom: calc(var(--gfx-safe-title-bottom) + 18px);
+  bottom: calc(var(--gfx-safe-action-bottom) + 20px);
   filter: drop-shadow(0 18px 36px rgba(4, 8, 32, 0.42));
 }
 
@@ -3460,10 +3459,10 @@ body.gfx-transparent {
   position: absolute;
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
-  top: 50%;
-  transform: translateY(-50%);
+  /* Bottom-anchored, not centered — quotes must never cover the speaker. */
+  bottom: calc(var(--gfx-safe-title-bottom) + 8px);
   filter: drop-shadow(0 14px 34px rgba(0, 0, 0, 0.36));
-  transform-origin: center center;
+  transform-origin: center bottom;
 }
 
 .gfx-layer[data-size='small'] .gfx-quote {
@@ -3617,7 +3616,7 @@ body.gfx-transparent {
   left: var(--gfx-safe-title-x);
   right: var(--gfx-safe-title-x);
   top: auto;
-  bottom: calc(var(--gfx-safe-title-bottom) + 80px);
+  bottom: calc(var(--gfx-safe-title-bottom) + 16px);
   transform: none;
   transform-origin: left bottom;
 }
@@ -3691,7 +3690,7 @@ body.gfx-transparent {
 }
 
 .gfx-quote[data-variant='editorial-paper'] .quote-card {
-  min-height: 420px;
+  min-height: 330px;
   padding: 70px 104px 66px 148px;
   border-radius: 0 46px 46px 46px;
   background:
@@ -3737,7 +3736,7 @@ body.gfx-transparent {
 
 .gfx-quote[data-variant='teaching-note'] {
   top: auto;
-  bottom: calc(var(--gfx-safe-title-bottom) + 96px);
+  bottom: calc(var(--gfx-safe-title-bottom) + 24px);
   transform: none;
 }
 
