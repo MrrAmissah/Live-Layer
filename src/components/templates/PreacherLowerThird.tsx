@@ -13,6 +13,10 @@ interface Props {
 }
 
 const DEFAULT_CHURCH_LOGO_URL = '/default%20logo.png';
+/* The convention strap is an event graphic — falling back to the church logo
+   there puts the wrong brand on a conference frame, so it gets the event
+   logo instead when the operator hasn't set one. */
+const CONVENTION_LOGO_URL = '/ppc-2026-logo.png';
 
 /**
  * Step the name size down as it gets longer so a long-but-realistic name (e.g.
@@ -62,6 +66,8 @@ export default function PreacherLowerThird({ values }: Props) {
   const asset = useAsset(preResolvedLogo ? undefined : logoAssetId);
   const headshot = useAsset(preResolvedHeadshot ? undefined : headshotAssetId);
   const resolvedLogo = preResolvedLogo || (asset.status === 'ready' ? asset.src : logoUrl) || DEFAULT_CHURCH_LOGO_URL;
+  const explicitLogo = preResolvedLogo || (asset.status === 'ready' ? asset.src : logoUrl);
+  const strapLogo = explicitLogo && explicitLogo !== DEFAULT_CHURCH_LOGO_URL ? explicitLogo : CONVENTION_LOGO_URL;
   const resolvedHeadshot = preResolvedHeadshot || (headshot.status === 'ready' ? headshot.src : undefined);
   const showHeadshot = Boolean(resolvedHeadshot && !headshotFailed);
   const hasRoleRow = Boolean(title || subtitle);
@@ -114,7 +120,7 @@ export default function PreacherLowerThird({ values }: Props) {
       ) : null}
       <Medallion className="l3-medallion" logoUrl={resolvedLogo} monogramSource={subtitle || name} size={150} />
       {variantId === 'convention-strap' ? (
-        <img src={resolvedLogo} alt="" className="l3-strap-logo" draggable={false} />
+        <img src={strapLogo} alt="" className="l3-strap-logo" draggable={false} />
       ) : null}
     </div>
   );

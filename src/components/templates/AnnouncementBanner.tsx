@@ -26,15 +26,22 @@ function headlineSizeClass(text: string): string {
  * beneath. Opaque fills throughout; colors come from the stage-scoped --gfx-*
  * theme variables (theme prop is applied at the stage root, not here).
  */
+/** Convention variants ship with the event logo unless the operator sets one. */
+const CONVENTION_LOGO_URL = '/ppc-2026-logo.png';
+
 export default function AnnouncementBanner({ values }: Props) {
   const variantId = values.variantId?.trim() || 'info-ribbon';
   const headline = values.headline?.trim() || 'Announcement';
   const body = values.body?.trim() || '';
   const dateTime = values.dateTime?.trim() || '';
   const callToAction = values.callToAction?.trim() || '';
+  const logoSrc = values.logoResolvedSrc?.trim() || values.logoUrl?.trim() || CONVENTION_LOGO_URL;
 
   return (
     <div className="gfx-announce" data-variant={variantId} style={templateColorStyle(values)}>
+      {variantId === 'convention-ticker' ? (
+        <img src={logoSrc} alt="" className="announce-ticker-logo" draggable={false} />
+      ) : null}
       <div className="announce-pattern" aria-hidden>
         <span className="announce-pattern__dot" />
         <span className="announce-pattern__spark" />

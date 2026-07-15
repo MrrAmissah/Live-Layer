@@ -15,6 +15,9 @@ function titleSizeClass(text: string): string {
   return '';
 }
 
+/** Convention variants ship with the event logo unless the operator sets one. */
+const CONVENTION_LOGO_URL = '/ppc-2026-logo.png';
+
 export default function EventBanner({ values }: Props) {
   const variantId = values.variantId?.trim() || 'festival-stage';
   const eventTitle = values.eventTitle?.trim() || 'Upcoming Event';
@@ -24,9 +27,13 @@ export default function EventBanner({ values }: Props) {
   const tag = values.tag?.trim() || 'Event';
   const hasMeta = Boolean(dateTime || location);
   const titleWords = eventTitle.split(/\s+/).filter(Boolean).slice(0, 3);
+  const logoSrc = values.logoResolvedSrc?.trim() || values.logoUrl?.trim() || CONVENTION_LOGO_URL;
 
   return (
     <div className="gfx-event" data-variant={variantId} style={templateColorStyle(values)}>
+      {variantId === 'convention-bar' ? (
+        <img src={logoSrc} alt="" className="event-bar-logo" draggable={false} />
+      ) : null}
       <div className="event-shell">
         <div className="event-brand-lockup">
           {titleWords.map((word, index) => (

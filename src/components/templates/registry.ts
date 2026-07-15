@@ -183,7 +183,8 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'headline', label: 'Headline', type: 'text', placeholder: 'Big announcement title' },
       { id: 'body', label: 'Body', type: 'textarea', placeholder: 'Details or supporting copy', rows: 4 },
       { id: 'dateTime', label: 'Date / Time', type: 'text', placeholder: 'Sat • 7:00 PM' },
-      { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Learn more at example.com', optional: true }
+      { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Learn more at example.com', optional: true },
+      { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional event logo URL', optional: true }
     ],
     defaultValues: {
       variantId: 'info-ribbon',
@@ -229,6 +230,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'service-alert',
         name: 'Service Alert',
         description: 'High-contrast alert band with a strong date slab and live-news pacing.'
+      },
+      {
+        id: 'convention-ticker',
+        name: 'Convention Ticker',
+        description: 'Slim full-bleed royal ticker with the event logo anchored at the left edge.'
       },
       {
         id: 'communion-strip',
@@ -304,7 +310,8 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'dateTime', label: 'Date / Time', type: 'text', placeholder: 'Friday • 7:00 PM' },
       { id: 'location', label: 'Location', type: 'text', placeholder: 'Main Auditorium', optional: true },
       { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Register after service', optional: true },
-      { id: 'tag', label: 'Tag / status', type: 'text', placeholder: 'Tonight, Next, Free', optional: true }
+      { id: 'tag', label: 'Tag / status', type: 'text', placeholder: 'Tonight, Next, Free', optional: true },
+      { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional event logo URL', optional: true }
     ],
     defaultValues: {
       variantId: 'festival-stage',
@@ -341,6 +348,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'venue-runner',
         name: 'Venue Runner',
         description: 'Opaque venue-style lower band with separated status, title, and event details.'
+      },
+      {
+        id: 'convention-bar',
+        name: 'Convention Bar',
+        description: 'Slim full-bleed royal bar with the event logo, title, and schedule inline.'
       },
       {
         id: 'offering-runner',
