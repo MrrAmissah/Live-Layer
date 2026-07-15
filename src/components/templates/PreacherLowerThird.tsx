@@ -28,6 +28,18 @@ function nameSizeClass(name: string): string {
 }
 
 /**
+ * Same idea for the role bar: a long title+org combo ("Founder & Senior
+ * Teaching Pastor" + a full church name) steps down before the ellipsis
+ * fallback ever cuts it off mid-word on air.
+ */
+function roleFit(title: string, subtitle: string): string | undefined {
+  const n = title.length + subtitle.length;
+  if (n > 56) return 'sm';
+  if (n > 42) return 'md';
+  return undefined;
+}
+
+/**
  * Speaker lower third.
  *
  * Anchored to the lower-left title-safe corner of the 1920x1080 stage.
@@ -59,7 +71,13 @@ export default function PreacherLowerThird({ values }: Props) {
   }, [resolvedHeadshot]);
 
   return (
-    <div className="gfx-l3" data-variant={variantId} data-logo={resolvedLogo ? 'true' : 'false'} style={templateColorStyle(values)}>
+    <div
+      className="gfx-l3"
+      data-variant={variantId}
+      data-logo={resolvedLogo ? 'true' : 'false'}
+      data-role-fit={roleFit(title, subtitle)}
+      style={templateColorStyle(values)}
+    >
       <div className="l3-stack">
         <div className="l3-underbar" aria-hidden />
         <div className="l3-symbol-block" aria-hidden>

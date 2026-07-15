@@ -353,7 +353,10 @@ body.gfx-transparent {
   --gfx-premium-surface: var(--gfx-template-surface, #f8fafc);
   --gfx-premium-text: var(--gfx-template-text, #07111f);
   --gfx-premium-secondary: var(--gfx-template-secondary, #334155);
-  --gfx-premium-on-dark: var(--gfx-template-text, #ffffff);
+  /* Text sitting on the dark gradient plates. Palettes seed colorText for
+     paper surfaces (often deep navy), so mix hard toward white to stay
+     legible no matter what the operator picked. */
+  --gfx-premium-on-dark: color-mix(in srgb, var(--gfx-template-text, #ffffff) 20%, #ffffff);
   --gfx-premium-blue-glow: var(--gfx-template-accent, #1284ff);
 }
 
@@ -2100,6 +2103,27 @@ body.gfx-transparent {
   --gfx-accent-2: #e8b93c;
 }
 
+/* --- role-line overflow guards -------------------------------------------
+   The role bar may run wider than the nameplate (normal broadcast geometry);
+   only the 1500px stack cap limits it. Long title+org combos step down in
+   size before the ellipsis fallback ever triggers. Placed after all variant
+   blocks so the size steps win the cascade at equal specificity. */
+
+.gfx-l3 .l3-role-mask {
+  max-width: none;
+}
+
+.gfx-l3[data-role-fit='md'] .l3-role,
+.gfx-l3[data-role-fit='md'] .l3-org {
+  font-size: 26px;
+}
+
+.gfx-l3[data-role-fit='sm'] .l3-role,
+.gfx-l3[data-role-fit='sm'] .l3-org {
+  font-size: 23px;
+  letter-spacing: 0.03em;
+}
+
 /* --- lower-third build choreography -------------------------------------
    0ms underbar/stripe wipe -> 80ms plates slide in behind masks ->
    220ms+ text lines rise inside line masks -> 250ms medallion pop. */
@@ -2374,7 +2398,8 @@ body.gfx-transparent {
   position: absolute;
   right: 92px;
   bottom: 48px;
-  color: var(--gfx-template-secondary, #9fd3ff);
+  /* Same guard as the quote kicker: secondary may be seeded dark. */
+  color: color-mix(in srgb, var(--gfx-template-secondary, #9fd3ff) 42%, #e9f3ff);
   opacity: 1;
 }
 
@@ -3485,7 +3510,9 @@ body.gfx-transparent {
 }
 
 .gfx-quote[data-variant='quote-gradient'] .quote-kicker {
-  color: var(--gfx-template-secondary, #9ed4ff);
+  /* Secondary doubles as a plate color in other variants, so it can arrive
+     dark; keep its hue but force lightness for text on the gradient. */
+  color: color-mix(in srgb, var(--gfx-template-secondary, #9ed4ff) 42%, #e9f3ff);
 }
 
 .gfx-quote[data-variant='quote-gradient'] .quote-chip {
