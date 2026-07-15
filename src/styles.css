@@ -5188,16 +5188,27 @@ body.gfx-transparent {
   flex-direction: column;
   gap: 6px;
 }
+.control-root .qq-quick-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.control-root .qq-quick-add__input { flex: 1 1 auto; min-width: 0; }
 .control-root .qq-item {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 11px;
   border-radius: 8px;
   background: rgba(15, 22, 34, 0.72);
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 .control-root .qq-item--live { border-color: rgba(74, 222, 128, 0.45); }
+.control-root .qq-item__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
 .control-root .qq-item__pos {
   flex: none;
   width: 22px;
@@ -5211,22 +5222,24 @@ body.gfx-transparent {
   color: #cbd5e1;
   background: rgba(148, 163, 184, 0.14);
 }
-.control-root .qq-item__meta {
+.control-root .qq-item__label {
   flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.control-root .qq-item__label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 1.3;
   color: #eef2f8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+.control-root .qq-item__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .control-root .qq-item__template {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 11px;
   color: #7d8aa0;
   white-space: nowrap;

@@ -19,7 +19,7 @@ interface LiveLayerState {
   presets: GraphicInstance[];
   recent: GraphicInstance[];
   quickQueue: GraphicInstance[];
-  addToQuickQueue: (label: string) => void;
+  addToQuickQueue: (label: string, valueOverrides?: Record<string, string>) => void;
   removeFromQuickQueue: (id: string) => void;
   moveInQuickQueue: (id: string, delta: -1 | 1) => void;
   activePackId: string;
@@ -67,7 +67,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     presets: loadPresets(),
     recent: loadRecentGraphics(),
     quickQueue: loadQuickQueue(),
-    addToQuickQueue: (label) => {
+    addToQuickQueue: (label, valueOverrides) => {
       const state = get();
       const clone = <T,>(value: T): T =>
         typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
@@ -75,7 +75,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         templateId: state.currentTemplateId,
         presetName: label,
-        values: clone(state.draftValues),
+        values: { ...clone(state.draftValues), ...(valueOverrides ?? {}) },
         theme: clone(state.theme),
         layout: clone(state.layout),
         assetRefs: {

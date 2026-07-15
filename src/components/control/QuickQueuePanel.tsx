@@ -25,6 +25,17 @@ function templateShortName(templateId: string): string {
   return templateRegistry.find((t) => t.id === templateId)?.name ?? templateId;
 }
 
+/** The field a quick-added name should land in, per template. */
+const PRIMARY_NAME_FIELD: Record<string, string> = {
+  'preacher-lower-third': 'name',
+  'event-banner': 'eventTitle',
+  'announcement-banner': 'headline',
+  'sermon-title': 'speakerName',
+  'quote-card': 'sourceName',
+  'scripture-card': 'reference',
+  'fullscreen-message': 'headline'
+};
+
 /**
  * Live quick queue (studio right column, under the on-air actions).
  *
@@ -46,6 +57,27 @@ export default function QuickQueuePanel({
   const draftValues = useLiveLayerStore((state) => state.draftValues);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
   const [lastTakenId, setLastTakenId] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+
+  /**
+   * Type-and-enter add: uses the current draft as the base (template, design,
+   * colors) and swaps in the typed name — so a whole choir lineup can be
+   * queued without touching the editor after the first setup.
+   */
+  const quickAddName = () => {
+    const name = newName.trim();
+    if (!name) return;
+    const field = PRIMARY_NAME_FIELD[currentTemplateId] ?? 'name';
+    addToQuickQueue(name, { [field]: name });
+    setNewName('');
+  };
+
+  const editEntry = (item: GraphicInstance) => {
+    loadGraphicInstance(item);
+    // The editor lives in the center column — bring it into view so the
+    // loaded entry is visibly there to tweak.
+    document.querySelector('.area--editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const draftLabel =
     draftValues.name ||
@@ -63,9 +95,27 @@ export default function QuickQueuePanel({
         aside={quickQueue.length ? <span className="qq-count">{quickQueue.length}</span> : undefined}
       />
       <div className="ll-panel__body qq-body">
+        <div className="qq-quick-add">
+          <input
+            className="field__input qq-quick-add__input"
+            type="text"
+            value={newName}
+            placeholder="Type a name, press Enter to queue"
+            onChange={(event) => setNewName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                quickAddName();
+              }
+            }}
+          />
+          <button type="button" className="btn btn--secondary btn--sm" onClick={quickAddName} disabled={!newName.trim()}>
+            Add
+          </button>
+        </div>
         <button
           type="button"
-          className="btn btn--secondary btn--sm qq-add"
+          className="btn btn--ghost btn--sm qq-add"
           onClick={() => addToQuickQueue(draftLabel)}
         >
           + Add current graphic{draftLabel ? ` (“${String(draftLabel).slice(0, 22)}”)` : ''}
@@ -80,12 +130,13 @@ export default function QuickQueuePanel({
           <ol className="qq-list">
             {quickQueue.map((item, index) => (
               <li key={item.id} className={`qq-item${lastTakenId === item.id ? ' qq-item--live' : ''}`}>
-                <span className="qq-item__pos">{index + 1}</span>
-                <span className="qq-item__meta">
+                <span className="qq-item__head">
+                  <span className="qq-item__pos">{index + 1}</span>
                   <span className="qq-item__label">{entryLabel(item)}</span>
-                  <span className="qq-item__template">{templateShortName(item.templateId)}</span>
                 </span>
-                <span className="qq-item__actions">
+                <span className="qq-item__row">
+                  <span className="qq-item__template">{templateShortName(item.templateId)}</span>
+                  <span className="qq-item__actions">
                   <button
                     type="button"
                     className="qq-btn qq-btn--take"
@@ -100,7 +151,7 @@ export default function QuickQueuePanel({
                     type="button"
                     className="qq-btn"
                     title="Load into editor"
-                    onClick={() => loadGraphicInstance(item)}
+                    onClick={() => editEntry(item)}
                   >
                     Edit
                   </button>
@@ -130,6 +181,7 @@ export default function QuickQueuePanel({
                   >
                     ✕
                   </button>
+                  </span>
                 </span>
               </li>
             ))}
