@@ -2130,10 +2130,11 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='convention-strap'] {
   /* Flush to the left edge but stop well short of the right side — it's a
-     lower third, not the full-bleed event ticker. */
+     lower third, not the full-bleed event ticker. Bottom offset clears the
+     70px OBS scrolling ticker plus a gap. */
   left: 0;
   right: 460px;
-  bottom: var(--gfx-safe-action-bottom);
+  bottom: calc(var(--gfx-safe-action-bottom) + 26px);
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-stack {
@@ -2240,7 +2241,9 @@ body.gfx-transparent {
 .gfx-event[data-variant='convention-bar'] {
   left: 0;
   right: 0;
-  bottom: var(--gfx-safe-action-bottom);
+  /* Clears the 70px OBS scrolling ticker at the bottom of frame plus a
+     deliberate gap, so the bars never touch it. */
+  bottom: calc(var(--gfx-safe-action-bottom) + 26px);
   filter: drop-shadow(0 10px 26px rgba(2, 8, 60, 0.4));
 }
 
