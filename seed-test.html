@@ -119,7 +119,7 @@
       'preacher-lower-third': { name: 'Rev. Ishmael K. Awotwe', title: 'Convener', subtitle: "Annual Peace Prayer Convention '26", logoUrl: ppcLogoUrl, ...ppcPalette },
       'scripture-card': { reference: 'Philippians 4:6-7', verseText: 'Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.', translationLabel: 'NIV', themeTitle: "PPC '26", ...ppcPalette },
       'quote-card': { quoteText: 'Prayer is where the battle for peace is won before it is ever seen.', sourceName: 'Rev. Ishmael K. Awotwe', sourceRole: "PPC '26 Evening Session", themeTitle: 'Key Thought', translationLabel: '', ...ppcPalette },
-      'announcement-banner': { variantId: 'convention-ticker', headline: 'Evening Prayer Session', body: 'Doors open at 5:30 PM. Intercessory teams meet in the main auditorium.', dateTime: 'Tonight • 6:00 PM', callToAction: '', logoUrl: ppcLogoUrl, ...ppcPalette },
+      'announcement-banner': { variantId: 'convention-ticker', headline: 'Evening Prayer Session', body: 'Doors open at 5:30 PM. Intercessory teams meet in the main auditorium.', dateTime: 'Tonight • 6:00 PM', logoUrl: ppcLogoUrl, ...ppcPalette },
       'event-banner': { variantId: 'convention-bar', eventTitle: 'Annual Peace Prayer Convention', dateTime: 'July 22–26 • 6:00 PM', location: 'Main Auditorium', callToAction: '', tag: "PPC '26", logoUrl: ppcLogoUrl, ...ppcPalette },
       'sermon-title': { variantId: 'midnight-manifest', sermonTitle: 'The Peace That Guards the Heart', speakerName: 'Rev. Ishmael K. Awotwe', churchName: "Annual Peace Prayer Convention '26", seriesTitle: "PPC '26 • Night 3", scriptureReference: 'Philippians 4:7', date: '{{weekday}} · {{date}}', logoUrl: ppcLogoUrl, ...ppcPalette },
       'fullscreen-message': { headline: "Welcome to PPC '26", body: 'The Annual Peace Prayer Convention. Silence your phone and prepare your heart for prayer.', footerNote: 'Annual Peace Prayer Convention 2026', callToAction: 'First session begins at {{time}}', ...ppcPalette }
@@ -138,8 +138,8 @@
         long:  { quoteText: 'The church becomes a sign of hope when ordinary people practice extraordinary mercy in ordinary rooms, around ordinary tables, with the patience of Christ.', sourceName: 'Grace Harbor Notes', sourceRole: 'Reflection', themeTitle: 'Reflection', translationLabel: 'Series', ...housePalette }
       },
       'announcement-banner': {
-        short: { headline: 'Weekend Service Tonight', body: 'Join us in person or online for worship and a message.', dateTime: 'Sun • 10:30 AM', callToAction: 'Visit the info desk after the service.', ...housePaperPalette },
-        long:  { headline: 'Annual Community Thanksgiving Outreach', body: 'Worship, a powerful message, free meals, kids programming, and community updates for the whole family.', dateTime: 'Saturday • 6:30 PM', callToAction: 'RSVP and volunteer at example.com/serve', ...housePaperPalette }
+        short: { headline: 'Weekend Service Tonight', body: 'Join us in person or online for worship and a message.', dateTime: 'Sun • 10:30 AM', ...housePaperPalette },
+        long:  { headline: 'Annual Community Thanksgiving Outreach', body: 'Worship, a powerful message, free meals, kids programming, and community updates for the whole family.', dateTime: 'Saturday • 6:30 PM', ...housePaperPalette }
       },
       'event-banner': {
         short: { eventTitle: 'Zonal Music Festival', dateTime: 'Mallam Choir', location: '', callToAction: 'Revitalising our allegiance to God through music.', tag: 'Performing Now', ...housePaperPalette, colorText: '#ffffff', colorSecondary: '#1284ff' },
@@ -187,7 +187,6 @@
       // Dynamic date/time tokens (announcement) — /output resolves these live.
       if (document.getElementById('dynamic').checked && templateId === 'announcement-banner') {
         values.dateTime = '{{weekday}} · {{time}}';
-        values.callToAction = 'Today is {{date}}';
       }
 
       const now = new Date().toISOString();

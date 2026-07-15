@@ -9,7 +9,7 @@ production moments while preserving the current `GraphicInstance` contract.
 | --- | --- | --- | --- |
 | Preacher Lower Third | Lower Third | speaker ID and role | `name`, `title`, `subtitle`, `logoUrl` |
 | Scripture Card | Card | scripture reference and verse | `reference`, `verseText`, `translationLabel`, `themeTitle` |
-| Announcement Banner | Banner | general announcements | `headline`, `body`, `dateTime`, `callToAction` |
+| Announcement Banner | Banner | general announcements | `headline`, `body`, `dateTime`, `logoUrl` (CTA/info strip removed — scrolling tickers come from OBS) |
 | Quote Card | Card | sermon quotes and reflections | `quoteText`, `sourceName`, `sourceRole`, `themeTitle`, `translationLabel` |
 | Event Banner | Banner | event/session promotion | `eventTitle`, `dateTime`, `location`, `callToAction`, `tag` |
 | Sermon Title | Fullscreen | sermon intro/title moment | `sermonTitle`, `speakerName`, `churchName`, `seriesTitle`, `scriptureReference`, `date` |

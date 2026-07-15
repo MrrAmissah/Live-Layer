@@ -183,7 +183,6 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'headline', label: 'Headline', type: 'text', placeholder: 'Big announcement title' },
       { id: 'body', label: 'Body', type: 'textarea', placeholder: 'Details or supporting copy', rows: 4 },
       { id: 'dateTime', label: 'Date / Time', type: 'text', placeholder: 'Sat • 7:00 PM' },
-      { id: 'callToAction', label: 'Call to action', type: 'text', placeholder: 'Learn more at example.com', optional: true },
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional event logo URL', optional: true }
     ],
     defaultValues: {
@@ -191,7 +190,6 @@ export const templateRegistry: TemplateDefinition[] = [
       headline: 'Weekend Service Tonight',
       body: 'Join us in person or online for worship, community updates, and a powerful message.',
       dateTime: 'Sunday • 10:30 AM',
-      callToAction: 'Visit the info desk after the service.',
       colorBrand: HOUSE_BLUE.brand,
       colorAccent: HOUSE_BLUE.yellow,
       colorSurface: HOUSE_BLUE.paper,

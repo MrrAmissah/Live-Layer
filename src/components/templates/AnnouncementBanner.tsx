@@ -34,7 +34,6 @@ export default function AnnouncementBanner({ values }: Props) {
   const headline = values.headline?.trim() || 'Announcement';
   const body = values.body?.trim() || '';
   const dateTime = values.dateTime?.trim() || '';
-  const callToAction = values.callToAction?.trim() || '';
   const logoSrc = values.logoResolvedSrc?.trim() || values.logoUrl?.trim() || CONVENTION_LOGO_URL;
 
   return (
@@ -67,12 +66,6 @@ export default function AnnouncementBanner({ values }: Props) {
           </Plate>
         ) : null}
       </div>
-      {callToAction ? (
-        <Plate fill="ink" className="announce-cta">
-          <span className="announce-cta-label">Info</span>
-          <span className="announce-cta-text">{callToAction}</span>
-        </Plate>
-      ) : null}
     </div>
   );
 }
