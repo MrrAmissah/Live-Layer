@@ -6553,6 +6553,7 @@ body.gfx-transparent {
 
 .control-root .layout-group { display: flex; flex-direction: column; gap: 6px; }
 .control-root .layout-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.control-root .pack-seg { grid-template-columns: repeat(2, 1fr); }
 .control-root .layout-group:nth-child(4) .layout-seg { grid-template-columns: repeat(2, 1fr); }
 
 .control-root .layout-seg__btn {

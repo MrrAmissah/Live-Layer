@@ -1,7 +1,9 @@
 import { templateRegistry } from '../templates/registry';
 import { useEditTarget } from '../../hooks/useEditTarget';
+import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
+import { packVariantIdsFor } from '../../lib/packs';
 import { useMemo, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 
@@ -287,17 +289,35 @@ function TemplateColorControls({
  */
 export default function TemplateFields() {
   const { templateId: currentTemplateId, values: draftValues, setField } = useEditTarget();
+  const activePackId = useLiveLayerStore((state) => state.activePackId);
 
   const template = templateRegistry.find((item) => item.id === currentTemplateId);
   const required = template?.fields.filter((field) => !field.optional) ?? [];
   const optional = template?.fields.filter((field) => field.optional) ?? [];
 
+  // Packs may curate the design-sample list; the operator's current pick
+  // stays offered even if it's off-list so an open draft never jumps styles.
+  const packVariants = useMemo(() => {
+    if (!template?.variants?.length) return [];
+    const curated = packVariantIdsFor(activePackId, template.id);
+    if (!curated) return template.variants;
+    const currentId = draftValues.variantId;
+    const list = curated
+      .map((id) => template.variants?.find((variant) => variant.id === id))
+      .filter((variant): variant is NonNullable<typeof variant> => Boolean(variant));
+    if (currentId && !list.some((variant) => variant.id === currentId)) {
+      const current = template.variants.find((variant) => variant.id === currentId);
+      if (current) list.push(current);
+    }
+    return list;
+  }, [template, activePackId, draftValues.variantId]);
+
   return (
     <div className="field-grid">
-      {template?.variants?.length ? (
+      {packVariants.length ? (
         <TemplateVariantPicker
-          variants={template.variants}
-          value={draftValues.variantId ?? template.defaultValues.variantId ?? template.variants[0].id}
+          variants={packVariants}
+          value={draftValues.variantId ?? template?.defaultValues.variantId ?? packVariants[0].id}
           onChange={(value) => setField('variantId', value)}
         />
       ) : null}

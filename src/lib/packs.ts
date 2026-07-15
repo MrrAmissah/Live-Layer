@@ -1,0 +1,122 @@
+/**
+ * Graphic packs: named looks that re-skin every template for an event or
+ * season without touching the registry. A pack contributes per-template
+ * value overrides (palette, variant, logo, identity copy) that are merged
+ * over registry defaults whenever a new draft is created, so operators get
+ * the event look by default while every field stays editable.
+ */
+
+export interface GraphicPack {
+  id: string;
+  name: string;
+  description: string;
+  /** Per-template partial `values` merged over registry defaultValues. */
+  valueOverrides: Record<string, Record<string, string>>;
+  /**
+   * Optional curated design-sample sets per template. When set, the control
+   * variant picker only offers these (in this order) while the pack is
+   * active; templates without an entry keep the full registry list.
+   */
+  variantChoices?: Record<string, string[]>;
+}
+
+const PPC_LOGO_URL = '/ppc-2026-logo.png';
+
+/* Royal palette pulled from the PPC '26 reference sample. The white event
+   logo needs dark/royal surfaces, so paper-surface templates keep their own
+   surface and only take the royal brand + identity copy. */
+const PPC_PALETTE = {
+  colorBrand: '#2338dd',
+  colorAccent: '#9db1ff',
+  colorSurface: '#101fae',
+  colorText: '#ffffff',
+  colorSecondary: '#b9c6ff'
+};
+
+export const graphicPacks: GraphicPack[] = [
+  {
+    id: 'house',
+    name: 'House Style',
+    description: 'The default church look — house blue, gold accents, church logo.',
+    valueOverrides: {}
+  },
+  {
+    id: 'ppc-2026',
+    name: "PPC '26",
+    description:
+      "Annual Peace Prayer Convention '26 — royal palette, convention strap and ticker layouts, and the event logo.",
+    variantChoices: {
+      'preacher-lower-third': ['convention-strap', 'modern-minimal', 'split-bar', 'soft-broadcast']
+    },
+    valueOverrides: {
+      'preacher-lower-third': {
+        variantId: 'convention-strap',
+        subtitle: "Annual Peace Prayer Convention '26",
+        logoUrl: PPC_LOGO_URL,
+        ...PPC_PALETTE
+      },
+      'scripture-card': {
+        themeTitle: "PPC '26",
+        ...PPC_PALETTE
+      },
+      'quote-card': {
+        themeTitle: 'Key Thought',
+        ...PPC_PALETTE
+      },
+      'announcement-banner': {
+        variantId: 'convention-ticker',
+        logoUrl: PPC_LOGO_URL,
+        ...PPC_PALETTE
+      },
+      'event-banner': {
+        variantId: 'convention-bar',
+        tag: "PPC '26",
+        logoUrl: PPC_LOGO_URL,
+        ...PPC_PALETTE
+      },
+      'sermon-title': {
+        variantId: 'midnight-manifest',
+        churchName: "Annual Peace Prayer Convention '26",
+        seriesTitle: "PPC '26",
+        logoUrl: PPC_LOGO_URL,
+        ...PPC_PALETTE
+      },
+      'fullscreen-message': {
+        footerNote: 'Annual Peace Prayer Convention 2026',
+        ...PPC_PALETTE
+      }
+    }
+  }
+];
+
+export function getPack(id: string): GraphicPack {
+  return graphicPacks.find((pack) => pack.id === id) ?? graphicPacks[0];
+}
+
+export function packOverridesFor(packId: string, templateId: string): Record<string, string> {
+  return getPack(packId).valueOverrides[templateId] ?? {};
+}
+
+/** Curated variant ids for a template under a pack, or undefined for "all". */
+export function packVariantIdsFor(packId: string, templateId: string): string[] | undefined {
+  return getPack(packId).variantChoices?.[templateId];
+}
+
+const PACK_STORAGE_KEY = 'livelayer.activePack';
+
+export function loadActivePackId(): string {
+  try {
+    const id = localStorage.getItem(PACK_STORAGE_KEY);
+    return id && graphicPacks.some((pack) => pack.id === id) ? id : 'house';
+  } catch {
+    return 'house';
+  }
+}
+
+export function saveActivePackId(id: string) {
+  try {
+    localStorage.setItem(PACK_STORAGE_KEY, id);
+  } catch {
+    // ignore storage errors, pack falls back to house next load
+  }
+}

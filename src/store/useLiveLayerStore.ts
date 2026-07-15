@@ -8,6 +8,7 @@ import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
+import { loadActivePackId, packOverridesFor, saveActivePackId } from '../lib/packs';
 
 interface LiveLayerState {
   currentTemplateId: string;
@@ -17,6 +18,8 @@ interface LiveLayerState {
   durationSeconds: number;
   presets: GraphicInstance[];
   recent: GraphicInstance[];
+  activePackId: string;
+  setActivePack: (packId: string) => void;
   setTemplate: (templateId: string) => void;
   setField: (fieldId: string, value: string) => void;
   setTheme: (theme: Partial<TemplateDefinition['theme']>) => void;
@@ -33,15 +36,27 @@ interface LiveLayerState {
   addRecent: (item: GraphicInstance) => void;
 }
 
-function createDraftValues(templateId: string) {
+function createDraftValues(templateId: string, packId: string) {
   const template = templateRegistry.find((item) => item.id === templateId);
-  return template ? { ...template.defaultValues } : {};
+  if (!template) return {};
+  return { ...template.defaultValues, ...packOverridesFor(packId, templateId) };
 }
+
+const initialPackId = loadActivePackId();
 
 export const useLiveLayerStore = create<LiveLayerState>()(
   devtools((set, get) => ({
     currentTemplateId: templateRegistry[0].id,
-    draftValues: createDraftValues(templateRegistry[0].id),
+    draftValues: createDraftValues(templateRegistry[0].id, initialPackId),
+    activePackId: initialPackId,
+    setActivePack: (packId) =>
+      set((state) => {
+        saveActivePackId(packId);
+        return {
+          activePackId: packId,
+          draftValues: createDraftValues(state.currentTemplateId, packId)
+        };
+      }),
     theme: loadBrandOverrides(),
     layout: {},
     durationSeconds: 6,
@@ -51,9 +66,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       set((state) => ({
         currentTemplateId: templateId,
         draftValues: {
-          ...createDraftValues(templateId),
-          logoUrl: state.draftValues.logoUrl,
-          logoAssetId: state.draftValues.logoAssetId
+          ...createDraftValues(templateId, state.activePackId),
+          // Carry the operator's logo across template switches, but never let
+          // an absent value clobber the pack's own logo default.
+          ...(state.draftValues.logoUrl ? { logoUrl: state.draftValues.logoUrl } : {}),
+          ...(state.draftValues.logoAssetId ? { logoAssetId: state.draftValues.logoAssetId } : {})
         }
       })),
     setField: (fieldId, value) =>
@@ -84,9 +101,9 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     resetDraft: () =>
       set((state) => ({
         draftValues: {
-          ...createDraftValues(state.currentTemplateId),
-          logoUrl: state.draftValues.logoUrl,
-          logoAssetId: state.draftValues.logoAssetId
+          ...createDraftValues(state.currentTemplateId, state.activePackId),
+          ...(state.draftValues.logoUrl ? { logoUrl: state.draftValues.logoUrl } : {}),
+          ...(state.draftValues.logoAssetId ? { logoAssetId: state.draftValues.logoAssetId } : {})
         }
       })),
     resetTheme: () =>
@@ -101,9 +118,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         clearAllRundowns();
         clearAllAssets().catch(() => undefined);
         clearPeople().catch(() => undefined);
+        saveActivePackId('house');
         return {
           currentTemplateId: templateRegistry[0].id,
-          draftValues: createDraftValues(templateRegistry[0].id),
+          draftValues: createDraftValues(templateRegistry[0].id, 'house'),
+          activePackId: 'house',
           theme: loadBrandOverrides(),
           layout: {},
           durationSeconds: 6,
@@ -153,7 +172,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         return {
           currentTemplateId: 'preacher-lower-third',
           draftValues: {
-            ...createDraftValues('preacher-lower-third'),
+            ...createDraftValues('preacher-lower-third', state.activePackId),
             ...state.draftValues,
             personId: person.id,
             name: person.displayName,

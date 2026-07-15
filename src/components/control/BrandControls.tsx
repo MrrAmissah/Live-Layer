@@ -5,6 +5,7 @@ import { validateImageFile } from '../../lib/assets/imageProcessing';
 import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { GFX_DEFAULT_ACCENT_2 } from '../graphics/stage';
+import { getPack, graphicPacks } from '../../lib/packs';
 
 function Swatch({
   label,
@@ -40,6 +41,8 @@ function Swatch({
 export default function BrandControls() {
   const theme = useLiveLayerStore((state) => state.theme);
   const setTheme = useLiveLayerStore((state) => state.setTheme);
+  const activePackId = useLiveLayerStore((state) => state.activePackId);
+  const setActivePack = useLiveLayerStore((state) => state.setActivePack);
   const logoUrl = useLiveLayerStore((state) => state.draftValues.logoUrl ?? '');
   const logoAssetId = useLiveLayerStore((state) => state.draftValues.logoAssetId ?? '');
   const setField = useLiveLayerStore((state) => state.setField);
@@ -109,6 +112,26 @@ export default function BrandControls() {
       {isRundownItem ? (
         <p className="field__hint">Brand changes apply to new graphics, not the selected rundown item (its colours/logo were captured when it was added).</p>
       ) : null}
+      <div className="field">
+        <span className="field__label">
+          <span>Event pack</span>
+        </span>
+        <div className="layout-seg pack-seg">
+          {graphicPacks.map((pack) => (
+            <button
+              key={pack.id}
+              type="button"
+              className={`layout-seg__btn${pack.id === activePackId ? ' layout-seg__btn--active' : ''}`}
+              onClick={() => setActivePack(pack.id)}
+            >
+              {pack.name}
+            </button>
+          ))}
+        </div>
+        <div className="field__hint">
+          {getPack(activePackId).description} Applies to new graphics; switching re-seeds the current draft.
+        </div>
+      </div>
       <div className="brand-grid__swatches">
         <Swatch label="Main colour" value={theme.accentColor} onChange={(value) => setTheme({ accentColor: value })} />
         <Swatch label="Accent" value={theme.accent2Color ?? GFX_DEFAULT_ACCENT_2} onChange={(value) => setTheme({ accent2Color: value })} />
