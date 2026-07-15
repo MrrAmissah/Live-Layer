@@ -111,6 +111,11 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'soft-broadcast',
         name: 'Soft Broadcast',
         description: 'Rounded blue-glass lower third with a clean logo seal and soft modern edges.'
+      },
+      {
+        id: 'convention-strap',
+        name: 'Convention Strap',
+        description: 'Full-bleed royal gradient strap with the event logo anchored at the left.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
@@ -356,7 +361,8 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'churchName', label: 'Church name', type: 'text', placeholder: 'Church or ministry', optional: true },
       { id: 'seriesTitle', label: 'Series title', type: 'text', placeholder: 'Series or theme', optional: true },
       { id: 'scriptureReference', label: 'Scripture reference', type: 'text', placeholder: 'Romans 8:28', optional: true },
-      { id: 'date', label: 'Date', type: 'text', placeholder: '{{date}}', optional: true }
+      { id: 'date', label: 'Date', type: 'text', placeholder: '{{date}}', optional: true },
+      { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional event/church logo URL', optional: true }
     ],
     defaultValues: {
       variantId: 'sermon-paper',

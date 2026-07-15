@@ -353,10 +353,10 @@ body.gfx-transparent {
   --gfx-premium-surface: var(--gfx-template-surface, #f8fafc);
   --gfx-premium-text: var(--gfx-template-text, #07111f);
   --gfx-premium-secondary: var(--gfx-template-secondary, #334155);
-  /* Text sitting on the dark gradient plates. Palettes seed colorText for
-     paper surfaces (often deep navy), so mix hard toward white to stay
-     legible no matter what the operator picked. */
-  --gfx-premium-on-dark: color-mix(in srgb, var(--gfx-template-text, #ffffff) 20%, #ffffff);
+  /* NOTE: several paper-surface variants use this for their main text, so it
+     must track the palette as-is. Guard legibility at the point of use for
+     surfaces that are always dark (e.g. the announce CTA strip). */
+  --gfx-premium-on-dark: var(--gfx-template-text, #ffffff);
   --gfx-premium-blue-glow: var(--gfx-template-accent, #1284ff);
 }
 
@@ -2124,6 +2124,96 @@ body.gfx-transparent {
   letter-spacing: 0.03em;
 }
 
+/* --- convention strap ------------------------------------------------------
+   Full-bleed event strap (PPC-style): royal gradient bar across the frame,
+   white event logo anchored left and rising above the bar, name + role on
+   the gradient. Built for light/white logo artwork. */
+
+.gfx-l3[data-variant='convention-strap'] {
+  left: 0;
+  right: 0;
+  bottom: var(--gfx-safe-action-bottom);
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-stack {
+  width: 100%;
+  max-width: none;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-underbar {
+  left: 0;
+  right: 0;
+  top: -18px;
+  bottom: -18px;
+  height: auto;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gfx-premium-brand) 62%, #040d5e) 0%,
+    var(--gfx-premium-brand) 44%,
+    color-mix(in srgb, var(--gfx-premium-brand) 26%, #ffffff) 100%
+  );
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-stripe,
+.gfx-l3[data-variant='convention-strap'] .l3-cap {
+  display: none;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-mask {
+  max-width: none;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-name-plate {
+  height: 62px;
+  padding: 0 60px 0 500px;
+  background: transparent !important;
+  clip-path: none !important;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-name {
+  font-size: 54px;
+  color: #ffffff;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-role-plate {
+  height: 38px;
+  padding: 0 60px 0 502px;
+  background: transparent !important;
+  clip-path: none !important;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-role {
+  color: #eef2ff;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-org {
+  color: #c7d4ff;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-role-divider {
+  background: #ffffff;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-strap-logo {
+  position: absolute;
+  left: 64px;
+  bottom: -40px;
+  height: 250px;
+  z-index: 2;
+  filter: drop-shadow(0 6px 20px rgba(3, 10, 70, 0.4));
+}
+
+/* Sermon title event/church logo — top-right brand mark, sized for wide
+   white artwork on the dark variants. */
+.gfx-sermon .sermon-logo {
+  position: absolute;
+  top: 54px;
+  right: 84px;
+  height: 210px;
+  z-index: 3;
+  filter: drop-shadow(0 4px 18px rgba(2, 8, 60, 0.38));
+}
+
 /* --- lower-third build choreography -------------------------------------
    0ms underbar/stripe wipe -> 80ms plates slide in behind masks ->
    220ms+ text lines rise inside line masks -> 250ms medallion pop. */
@@ -2892,7 +2982,9 @@ body.gfx-transparent {
   font-family: var(--gfx-font-display);
   font-size: 27px;
   font-weight: 760;
-  color: var(--gfx-premium-on-dark);
+  /* The CTA strip is always a dark gradient while colorText tracks the paper
+     headline (often deep navy) — force lightness but keep the palette hue. */
+  color: color-mix(in srgb, var(--gfx-template-text, #ffffff) 20%, #ffffff);
 }
 
 .gfx-announce[data-variant='plain-pattern'] .announce-cta,

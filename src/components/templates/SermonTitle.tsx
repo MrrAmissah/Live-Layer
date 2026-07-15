@@ -23,9 +23,11 @@ export default function SermonTitle({ values }: Props) {
   const seriesTitle = values.seriesTitle?.trim() || '';
   const scriptureReference = values.scriptureReference?.trim() || '';
   const date = values.date?.trim() || '';
+  const logoSrc = values.logoResolvedSrc?.trim() || values.logoUrl?.trim() || '';
 
   return (
     <div className="gfx-sermon" data-variant={variantId} style={templateColorStyle(values)}>
+      {logoSrc ? <img src={logoSrc} alt="" className="sermon-logo" draggable={false} /> : null}
       <div className="sermon-frame">
         <AccentStripe orientation="horizontal" thickness={10} color="accent-2" className="sermon-top-rule" />
         <div className="sermon-main">

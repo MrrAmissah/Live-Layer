@@ -64,6 +64,7 @@
       <option value="canva-celebration">Celebration Strip</option>
       <option value="canva-ministry">Ministry Band</option>
       <option value="soft-broadcast">Soft Broadcast</option>
+      <option value="convention-strap">Convention Strap</option>
     </select>
     <strong style="margin-left:10px">Accent</strong>
     <select id="accent" title="Accent (keyline) colour">
@@ -72,6 +73,7 @@
       <option value="#e8b93c">Gold</option>
       <option value="#f43f5e">Red</option>
     </select>
+    <label class="toggle"><input type="checkbox" id="ppc" /> PPC 2026 pack</label>
     <label class="toggle"><input type="checkbox" id="long" /> long / stress content</label>
     <label class="toggle"><input type="checkbox" id="dynamic" /> dynamic date/time</label>
     <label class="toggle"><input type="checkbox" id="fade" /> fade crossfade</label>
@@ -104,6 +106,24 @@
       colorSecondary: '#07106a'
     };
     const defaultChurchLogoUrl = '/default%20logo.png';
+    // Annual Peace Prayer Convention '26 — white logo artwork, needs dark/royal surfaces.
+    const ppcLogoUrl = '/ppc-2026-logo.png';
+    const ppcPalette = {
+      colorBrand: '#2338dd',
+      colorAccent: '#9db1ff',
+      colorSurface: '#101fae',
+      colorText: '#ffffff',
+      colorSecondary: '#b9c6ff'
+    };
+    const ppcSample = {
+      'preacher-lower-third': { name: 'Rev. Ishamel K. Awotwe', title: 'Convener', subtitle: "Annual Peace Prayer Convention '26", logoUrl: ppcLogoUrl, ...ppcPalette },
+      'scripture-card': { reference: 'Philippians 4:6-7', verseText: 'Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.', translationLabel: 'NIV', themeTitle: "PPC '26", ...ppcPalette },
+      'quote-card': { quoteText: 'Prayer is where the battle for peace is won before it is ever seen.', sourceName: 'Rev. Ishamel K. Awotwe', sourceRole: "PPC '26 Evening Session", themeTitle: 'Key Thought', translationLabel: '', ...ppcPalette },
+      'announcement-banner': { headline: 'Evening Prayer Session', body: 'Doors open at 5:30 PM. Intercessory teams meet in the main auditorium.', dateTime: 'Tonight • 6:00 PM', callToAction: 'Overflow seating available in Hall B.', ...ppcPalette, colorSurface: '#f8fafc', colorText: '#0a1670', colorSecondary: '#1e2fc9' },
+      'event-banner': { eventTitle: 'Annual Peace Prayer Convention', dateTime: 'July 22–26 • 6:00 PM Nightly', location: 'Main Auditorium', callToAction: 'Theme: The Peace of God That Passes Understanding', tag: "PPC '26", ...ppcPalette, colorSurface: '#f8fafc', colorSecondary: '#1e2fc9' },
+      'sermon-title': { variantId: 'midnight-manifest', sermonTitle: 'The Peace That Guards the Heart', speakerName: 'Rev. Ishamel K. Awotwe', churchName: "Annual Peace Prayer Convention '26", seriesTitle: "PPC '26 • Night 3", scriptureReference: 'Philippians 4:7', date: '{{weekday}} · {{date}}', logoUrl: ppcLogoUrl, ...ppcPalette },
+      'fullscreen-message': { headline: "Welcome to PPC '26", body: 'The Annual Peace Prayer Convention. Silence your phone and prepare your heart for prayer.', footerNote: 'Annual Peace Prayer Convention 2026', callToAction: 'First session begins at {{time}}', ...ppcPalette }
+    };
     const sample = {
       'preacher-lower-third': {
         short: { name: 'Rev. Ishamel K. Awotwe', title: 'Lead Pastor', subtitle: 'Mathapoly Church International', logoUrl: defaultChurchLogoUrl, ...houseGoldPalette, colorSurface: '#f8fafc', colorText: '#081052' },
@@ -152,8 +172,11 @@
 
     function show(templateId) {
       const useLong = document.getElementById('long').checked;
+      const ppcMode = document.getElementById('ppc').checked;
       // Copy so the harness never mutates the shared sample objects.
-      const values = { ...sample[templateId][useLong ? 'long' : 'short'] };
+      const values = ppcMode
+        ? { ...ppcSample[templateId] }
+        : { ...sample[templateId][useLong ? 'long' : 'short'] };
       if (templateId === 'preacher-lower-third') {
         values.variantId = document.getElementById('l3variant').value;
       }
@@ -232,6 +255,10 @@
       }));
     document.getElementById('debug').addEventListener('change', (e) => {
       document.getElementById('out').src = '/output' + (e.target.checked ? '?debug=1' : '');
+    });
+    // PPC pack defaults the lower third to the convention strap style.
+    document.getElementById('ppc').addEventListener('change', (e) => {
+      if (e.target.checked) document.getElementById('l3variant').value = 'convention-strap';
     });
 
     function applyParams() {

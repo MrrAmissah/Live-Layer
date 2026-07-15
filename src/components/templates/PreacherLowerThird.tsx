@@ -113,6 +113,9 @@ export default function PreacherLowerThird({ values }: Props) {
         </div>
       ) : null}
       <Medallion className="l3-medallion" logoUrl={resolvedLogo} monogramSource={subtitle || name} size={150} />
+      {variantId === 'convention-strap' ? (
+        <img src={resolvedLogo} alt="" className="l3-strap-logo" draggable={false} />
+      ) : null}
     </div>
   );
 }
