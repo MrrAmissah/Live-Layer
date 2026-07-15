@@ -2135,7 +2135,7 @@ body.gfx-transparent {
      the strap logo dips 38px below the bar, so the box rides higher. */
   left: 0;
   right: 460px;
-  bottom: calc(var(--gfx-safe-action-bottom) + 56px);
+  bottom: calc(var(--gfx-safe-action-bottom) + 76px);
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-stack {
