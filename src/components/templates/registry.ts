@@ -34,7 +34,7 @@ export const templateRegistry: TemplateDefinition[] = [
     ],
     defaultValues: {
       variantId: 'signature-medallion',
-      name: 'Rev. Ishamel K. Awotwe',
+      name: 'Rev. Ishmael K. Awotwe',
       title: 'Lead Pastor',
       subtitle: 'Mathapoly Church International',
       logoUrl: DEFAULT_CHURCH_LOGO_URL,
