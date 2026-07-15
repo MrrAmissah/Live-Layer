@@ -2809,8 +2809,7 @@ body.gfx-transparent {
 }
 
 .gfx-scripture[data-variant='theme-lower'] .scripture-theme-chip {
-  color: #07106a;
-  background: #f8fafc;
+  display: none;
 }
 
 .gfx-scripture[data-variant='theme-lower'] .scripture-plate {
@@ -2818,10 +2817,11 @@ body.gfx-transparent {
   padding: 42px 78px 42px 56px;
   gap: 30px;
   border-radius: 0 22px 22px 22px;
+  /* Paper plate with colored text — balances the colored reference tab. */
   background:
-    radial-gradient(circle at 16% 58%, rgba(18, 132, 255, 0.3), transparent 34%),
-    radial-gradient(circle at 78% 42%, rgba(232, 185, 60, 0.12), transparent 32%),
-    linear-gradient(96deg, #07106a 0%, #1021a1 52%, #050a38 100%) !important;
+    radial-gradient(circle at 16% 58%, rgba(18, 132, 255, 0.08), transparent 34%),
+    radial-gradient(circle at 78% 42%, rgba(232, 185, 60, 0.1), transparent 32%),
+    linear-gradient(96deg, #ffffff 0%, #f4f7ff 55%, #e8edfc 100%) !important;
   border-bottom: 7px solid #e8b93c;
   clip-path: none !important;
 }
@@ -2837,7 +2837,9 @@ body.gfx-transparent {
   font-size: 40px;
   font-weight: 760;
   line-height: 1.16;
-  color: #f8fafc;
+  /* Brand-tied royal on the paper plate, forced dark enough to stay legible
+     whatever the palette. */
+  color: color-mix(in srgb, var(--gfx-premium-brand) 78%, #071060);
 }
 
 .gfx-scripture[data-variant='theme-lower'] .scripture-verse-md {
@@ -2852,8 +2854,8 @@ body.gfx-transparent {
   align-self: center;
   padding: 12px 16px;
   border-radius: 999px;
-  color: #07106a;
-  background: #f8fafc;
+  color: #ffffff;
+  background: var(--gfx-premium-brand);
   opacity: 1;
 }
 
