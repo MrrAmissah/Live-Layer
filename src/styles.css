@@ -639,8 +639,12 @@ body.gfx-transparent {
 
 .gfx-l3 {
   position: absolute;
-  left: var(--gfx-safe-title-x);
-  bottom: var(--gfx-safe-title-bottom);
+  /* All lower thirds start where the OBS ticker artwork starts (x≈108 on the
+     1920 canvas) so the frame's left column reads as one aligned system, and
+     ride high enough that their lowest overhangs clear the ticker bar (its
+     top edge sits ≈130px from the frame bottom). */
+  left: 108px;
+  bottom: calc(var(--gfx-safe-title-bottom) + 56px);
   --gfx-l3-dark-surface: color-mix(in srgb, var(--gfx-premium-brand-deep) 72%, #020617);
   --gfx-l3-dark-surface-soft: color-mix(in srgb, var(--gfx-premium-brand-deep) 52%, #08111f);
   --gfx-l3-blue-surface: linear-gradient(100deg, color-mix(in srgb, var(--gfx-premium-brand) 88%, #08143b) 0%, var(--gfx-premium-brand-mid) 48%, var(--gfx-premium-brand-deep) 100%);
@@ -2157,6 +2161,8 @@ body.gfx-transparent {
   top: -7px;
   bottom: -7px;
   height: auto;
+  /* Dead-straight right end — neutralize the base underbar's slanted cut. */
+  clip-path: none;
   /* Shorter run than the event ticker, so the gradient stays royal at the
      flat end instead of fading toward white under the text. */
   background: linear-gradient(
