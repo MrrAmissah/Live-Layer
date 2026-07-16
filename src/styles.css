@@ -2129,13 +2129,21 @@ body.gfx-transparent {
    the gradient. Built for light/white logo artwork. */
 
 .gfx-l3[data-variant='convention-strap'] {
-  /* Flush to the left edge but stop well short of the right side — it's a
-     lower third, not the full-bleed event ticker. Bottom offset clears the
-     70px OBS scrolling ticker plus a gap, measured from the LOWEST element:
-     the strap logo dips 38px below the bar, so the box rides higher. */
-  left: 0;
+  /* Left edge aligns with where the OBS ticker artwork starts (x≈108 on the
+     1920 canvas) and stops well short of the right side. Bottom offset clears
+     the ticker bar, measured from the LOWEST element (the overhanging logo). */
+  left: 108px;
   right: 460px;
   bottom: calc(var(--gfx-safe-action-bottom) + 96px);
+}
+
+/* Layout position overrides (center/full) must not stretch the strap back
+   across the frame — its geometry is tied to the ticker artwork. */
+.gfx-layer[data-position='center'] .gfx-l3[data-variant='convention-strap'],
+.gfx-layer[data-position='full'] .gfx-l3[data-variant='convention-strap'] {
+  left: 108px;
+  right: 460px;
+  transform: none;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-stack {
@@ -2146,8 +2154,8 @@ body.gfx-transparent {
 .gfx-l3[data-variant='convention-strap'] .l3-underbar {
   left: 0;
   right: 0;
-  top: -10px;
-  bottom: -10px;
+  top: -7px;
+  bottom: -7px;
   height: auto;
   /* Shorter run than the event ticker, so the gradient stays royal at the
      flat end instead of fading toward white under the text. */
@@ -2169,31 +2177,33 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-name-plate {
-  height: 44px;
-  padding: 0 90px 0 372px;
+  height: 37px;
+  padding: 0 80px 0 300px;
   background: transparent !important;
   clip-path: none !important;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-name {
-  font-size: 35px;
+  font-size: 30px;
+  font-stretch: 104%;
+  letter-spacing: 0.01em;
   color: #ffffff;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-role-plate {
-  height: 27px;
-  padding: 0 90px 0 374px;
+  height: 24px;
+  padding: 0 80px 0 302px;
   background: transparent !important;
   clip-path: none !important;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-role {
-  font-size: 20px;
+  font-size: 18px;
   color: #eef2ff;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-org {
-  font-size: 20px;
+  font-size: 18px;
   color: #c7d4ff;
 }
 
@@ -2203,9 +2213,9 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='convention-strap'] .l3-strap-logo {
   position: absolute;
-  left: 24px;
-  bottom: -26px;
-  height: 168px;
+  left: 0;
+  bottom: -20px;
+  height: 140px;
   z-index: 2;
   filter: drop-shadow(0 6px 20px rgba(3, 10, 70, 0.4));
 }
