@@ -51,7 +51,7 @@ export const graphicPacks: GraphicPack[] = [
     valueOverrides: {
       'preacher-lower-third': {
         variantId: 'convention-strap',
-        subtitle: "Annual Peace Prayer Convention '26",
+        subtitle: "Annual PPC '26",
         logoUrl: PPC_LOGO_URL,
         ...PPC_PALETTE
       },

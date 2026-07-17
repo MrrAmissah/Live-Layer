@@ -1427,12 +1427,21 @@ body.gfx-transparent {
    decoration that reads as built geometry instead of loose floating plates. */
 
 .gfx-l3[data-variant='modern-minimal'] .l3-stack {
-  width: 980px;
+  /* Grows with content: long title+org combos widen the plates instead of
+     truncating the org line. */
+  width: fit-content;
+  min-width: 980px;
+  max-width: 1500px;
+}
+
+.gfx-l3[data-variant='modern-minimal'] .l3-mask {
+  max-width: none;
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-name-plate {
   box-sizing: border-box;
-  width: 780px;
+  width: auto;
+  min-width: 780px;
   height: 62px;
   padding: 0 34px 0 104px;
   background: #ffffff !important;
@@ -1442,7 +1451,8 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='modern-minimal'] .l3-role-plate {
   box-sizing: border-box;
-  width: 900px;
+  width: auto;
+  min-width: 900px;
   height: 44px;
   margin-left: 44px;
   padding: 0 32px 0 76px;
@@ -2134,10 +2144,11 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='convention-strap'] {
   /* Left edge aligns with where the OBS ticker artwork starts (x≈108 on the
-     1920 canvas) and stops well short of the right side. Bottom offset clears
-     the ticker bar, measured from the LOWEST element (the overhanging logo). */
+     1920 canvas); width hugs the content instead of a fixed right edge, so a
+     short name gets a short bar. Bottom offset clears the ticker bar,
+     measured from the LOWEST element (the overhanging logo). */
   left: 108px;
-  right: 460px;
+  right: auto;
   bottom: calc(var(--gfx-safe-action-bottom) + 96px);
 }
 
@@ -2146,13 +2157,17 @@ body.gfx-transparent {
 .gfx-layer[data-position='center'] .gfx-l3[data-variant='convention-strap'],
 .gfx-layer[data-position='full'] .gfx-l3[data-variant='convention-strap'] {
   left: 108px;
-  right: 460px;
+  right: auto;
   transform: none;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-stack {
-  width: 100%;
-  max-width: none;
+  /* Bar length follows the longer text line: short name, short bar. Caps at
+     the old fixed right edge (1460 on canvas) and never collapses below a
+     credible bar length. */
+  width: fit-content;
+  min-width: 560px;
+  max-width: 1352px;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-underbar {
