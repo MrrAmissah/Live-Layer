@@ -1630,8 +1630,9 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='split-bar'] .l3-medallion {
   display: block;
-  left: -14px;
-  top: -2px;
+  /* Concentric with the painted ring cluster on the stripe (measured). */
+  left: -38px;
+  top: -26px;
   transform: scale(0.58);
   transform-origin: center;
   z-index: 9;
@@ -2108,8 +2109,9 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-medallion {
   display: block;
-  left: 18px;
-  top: 6px;
+  /* Concentric with the rounded seal pad behind it (measured). */
+  left: -1px;
+  top: -17px;
   transform: scale(0.62);
   transform-origin: center;
   z-index: 9;
