@@ -18,6 +18,8 @@ interface LiveLayerState {
   durationSeconds: number;
   presets: GraphicInstance[];
   recent: GraphicInstance[];
+  /** Last-used auto-hide duration per template, so defaults don't leak across. */
+  durationByTemplate: Record<string, number>;
   quickQueue: GraphicInstance[];
   addToQuickQueue: (label: string, valueOverrides?: Record<string, string>) => void;
   removeFromQuickQueue: (id: string) => void;
@@ -64,6 +66,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     theme: loadBrandOverrides(),
     layout: {},
     durationSeconds: 6,
+    durationByTemplate: {},
     presets: loadPresets(),
     recent: loadRecentGraphics(),
     quickQueue: loadQuickQueue(),
@@ -110,11 +113,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         const template = templateRegistry.find((item) => item.id === templateId);
         return {
           currentTemplateId: templateId,
-          // Performance templates default auto-hide off; others keep the
-          // operator's current duration.
-          ...(template?.defaultDurationSeconds !== undefined
-            ? { durationSeconds: template.defaultDurationSeconds }
-            : {}),
+          // Each template keeps its own auto-hide duration: the operator's
+          // last choice for it, else its declared default, else 6s.
+          durationSeconds:
+            state.durationByTemplate[templateId] ?? template?.defaultDurationSeconds ?? 6,
           draftValues: {
             ...createDraftValues(templateId, state.activePackId),
             // Carry the operator's logo across template switches, but never let
@@ -163,7 +165,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         }
       })),
     resetLayout: () => set(() => ({ layout: {} })),
-    setDurationSeconds: (duration) => set(() => ({ durationSeconds: duration })),
+    setDurationSeconds: (duration) =>
+      set((state) => ({
+        durationSeconds: duration,
+        durationByTemplate: { ...state.durationByTemplate, [state.currentTemplateId]: duration }
+      })),
     resetDraft: () =>
       set((state) => ({
         draftValues: {
@@ -192,6 +198,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           theme: loadBrandOverrides(),
           layout: {},
           durationSeconds: 6,
+          durationByTemplate: {},
           presets: [],
           recent: [],
           quickQueue: []
