@@ -106,16 +106,24 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       set({ quickQueue: queue });
     },
     setTemplate: (templateId) =>
-      set((state) => ({
-        currentTemplateId: templateId,
-        draftValues: {
-          ...createDraftValues(templateId, state.activePackId),
-          // Carry the operator's logo across template switches, but never let
-          // an absent value clobber the pack's own logo default.
-          ...(state.draftValues.logoUrl ? { logoUrl: state.draftValues.logoUrl } : {}),
-          ...(state.draftValues.logoAssetId ? { logoAssetId: state.draftValues.logoAssetId } : {})
-        }
-      })),
+      set((state) => {
+        const template = templateRegistry.find((item) => item.id === templateId);
+        return {
+          currentTemplateId: templateId,
+          // Performance templates default auto-hide off; others keep the
+          // operator's current duration.
+          ...(template?.defaultDurationSeconds !== undefined
+            ? { durationSeconds: template.defaultDurationSeconds }
+            : {}),
+          draftValues: {
+            ...createDraftValues(templateId, state.activePackId),
+            // Carry the operator's logo across template switches, but never let
+            // an absent value clobber the pack's own logo default.
+            ...(state.draftValues.logoUrl ? { logoUrl: state.draftValues.logoUrl } : {}),
+            ...(state.draftValues.logoAssetId ? { logoAssetId: state.draftValues.logoAssetId } : {})
+          }
+        };
+      }),
     setField: (fieldId, value) =>
       set((state) => ({
         draftValues: {

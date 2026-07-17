@@ -43,6 +43,12 @@ export interface TemplateDefinition {
   theme: TemplateTheme;
   variants?: TemplateVariant[];
   animation?: TemplateAnimation;
+  /**
+   * Auto-hide default applied when the operator switches to this template
+   * (0 = manual/off). Templates without one keep the operator's current
+   * setting.
+   */
+  defaultDurationSeconds?: number;
 }
 
 export interface GraphicInstance {

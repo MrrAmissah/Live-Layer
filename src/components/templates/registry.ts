@@ -131,8 +131,10 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'subtitle', label: 'Event / tag', type: 'text', placeholder: 'Event or ministry tag', optional: true },
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional logo URL', optional: true }
     ],
+    // Performances stay up as long as the moment lasts — no auto-hide.
+    defaultDurationSeconds: 0,
     defaultValues: {
-      variantId: 'split-bar',
+      variantId: 'performer-pill',
       name: 'Mass Choir',
       title: 'Praise & Worship',
       subtitle: 'Mathapoly Church International',
@@ -150,10 +152,20 @@ export const templateRegistry: TemplateDefinition[] = [
       surfaceColor: HOUSE_BLUE.surface,
       accent2Color: HOUSE_BLUE.gold
     },
-    // Same renderer and design catalogue as the preacher lower third — a
-    // separate template identity so performer names, queue entries, and
-    // presets stay their own collection.
+    // Shares the lower-third renderer but leads with its own performance
+    // designs; a separate template identity keeps performer names, queue
+    // entries, and presets their own collection.
     variants: [
+      {
+        id: 'performer-pill',
+        name: 'Stage Pill',
+        description: 'Rounded gradient pill with a logo seal and a performance chip.'
+      },
+      {
+        id: 'performer-note',
+        name: 'Praise Tag',
+        description: 'Dark glass nameplate with a floating gold performance tag.'
+      },
       {
         id: 'convention-strap',
         name: 'Convention Strap',

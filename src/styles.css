@@ -2254,6 +2254,168 @@ body.gfx-transparent {
   filter: drop-shadow(0 4px 18px rgba(2, 8, 60, 0.38));
 }
 
+/* --- performer: stage pill -------------------------------------------------
+   Fully-rounded gradient pill with the logo seal overlapping the left cap and
+   the performance shown as an accent chip — a silhouette none of the preacher
+   designs use, built for choir/worship moments. */
+
+.gfx-l3[data-variant='performer-pill'] .l3-stack {
+  width: fit-content;
+  min-width: 640px;
+  max-width: 1500px;
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-mask {
+  max-width: none;
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-underbar,
+.gfx-l3[data-variant='performer-pill'] .l3-stripe,
+.gfx-l3[data-variant='performer-pill'] .l3-cap {
+  display: none;
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-name-plate {
+  height: 66px;
+  padding: 0 52px 0 148px;
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 190% at 12% 40%, color-mix(in srgb, var(--gfx-premium-blue-glow) 24%, transparent), transparent 55%),
+    linear-gradient(100deg, color-mix(in srgb, var(--gfx-premium-brand) 62%, #060f52) 0%, var(--gfx-premium-brand) 52%, var(--gfx-premium-brand-deep) 100%) !important;
+  clip-path: none !important;
+  box-shadow: 0 14px 30px rgba(2, 8, 50, 0.42);
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-name {
+  font-size: 33px;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-role-plate {
+  height: 40px;
+  margin-top: 6px;
+  padding: 0 26px 0 150px;
+  background: transparent !important;
+  clip-path: none !important;
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-role {
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  color: #10182b;
+  background: var(--gfx-premium-accent);
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-role-divider {
+  display: none;
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-org {
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 17px;
+  letter-spacing: 0.06em;
+  color: #d7e0ff;
+  background: color-mix(in srgb, var(--gfx-premium-brand-deep) 84%, #04060f);
+}
+
+.gfx-l3[data-variant='performer-pill'] .l3-medallion {
+  display: block;
+  left: -22px;
+  top: -26px;
+  transform: scale(0.79);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: var(--gfx-premium-accent);
+}
+
+/* --- performer: praise tag -------------------------------------------------
+   Dark glass nameplate with the performance floating above it as a gold tag —
+   label-first, so what is happening reads before who is doing it. */
+
+.gfx-l3[data-variant='performer-note'] .l3-stack {
+  width: fit-content;
+  min-width: 600px;
+  max-width: 1500px;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-mask {
+  max-width: none;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-underbar,
+.gfx-l3[data-variant='performer-note'] .l3-stripe,
+.gfx-l3[data-variant='performer-note'] .l3-cap {
+  display: none;
+}
+
+/* DOM puts the role mask after the name mask; float it above the plate. */
+.gfx-l3[data-variant='performer-note'] .l3-role-mask {
+  position: absolute;
+  left: 96px;
+  top: -36px;
+  overflow: visible;
+  z-index: 3;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-role-plate {
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 10px 10px 10px 0;
+  background: var(--gfx-premium-accent) !important;
+  clip-path: none !important;
+  box-shadow: 0 10px 22px rgba(2, 8, 50, 0.35);
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-role {
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  color: #10182b;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-role-divider {
+  background: #10182b;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-org {
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, #10182b 78%, var(--gfx-premium-brand));
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-name-plate {
+  height: 70px;
+  margin-top: 4px;
+  padding: 0 46px 0 138px;
+  border-radius: 14px;
+  background:
+    radial-gradient(140% 200% at 8% 30%, color-mix(in srgb, var(--gfx-premium-brand) 34%, transparent), transparent 52%),
+    color-mix(in srgb, var(--gfx-premium-brand-deep) 82%, #04060f) !important;
+  clip-path: none !important;
+  border-left: 6px solid var(--gfx-premium-accent);
+  box-shadow: 0 14px 30px rgba(2, 8, 50, 0.4);
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-name {
+  font-size: 34px;
+  color: #ffffff;
+}
+
+.gfx-l3[data-variant='performer-note'] .l3-medallion {
+  display: block;
+  left: -20px;
+  top: -8px;
+  transform: scale(0.72);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: var(--gfx-premium-accent);
+}
+
 /* --- convention ticker / bar (PPC reference sample) ------------------------
    Slim full-bleed royal bar hugging the bottom of frame with the white event
    logo rising above it at the far left — the reference layout for event and
