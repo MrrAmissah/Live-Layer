@@ -121,6 +121,73 @@ export const templateRegistry: TemplateDefinition[] = [
     animation: { in: 'slide', out: 'slide' }
   },
   {
+    id: 'performer-lower-third',
+    name: 'Performer Lower Third',
+    category: 'Lower Third',
+    description: 'Lower third for choirs, praise and worship teams, and special performances.',
+    fields: [
+      { id: 'name', label: 'Performer / group', type: 'text', placeholder: 'Choir or performer name' },
+      { id: 'title', label: 'Performance', type: 'text', placeholder: 'Praise, Worship, Special Song' },
+      { id: 'subtitle', label: 'Event / tag', type: 'text', placeholder: 'Event or ministry tag', optional: true },
+      { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional logo URL', optional: true }
+    ],
+    defaultValues: {
+      variantId: 'split-bar',
+      name: 'Mass Choir',
+      title: 'Praise & Worship',
+      subtitle: 'Mathapoly Church International',
+      logoUrl: DEFAULT_CHURCH_LOGO_URL,
+      colorBrand: HOUSE_BLUE.brand,
+      colorAccent: HOUSE_BLUE.gold,
+      colorSurface: HOUSE_BLUE.paper,
+      colorText: HOUSE_BLUE.deep,
+      colorSecondary: HOUSE_BLUE.surface
+    },
+    theme: {
+      primaryColor: HOUSE_BLUE.paper,
+      accentColor: HOUSE_BLUE.brand,
+      backgroundColor: 'transparent',
+      surfaceColor: HOUSE_BLUE.surface,
+      accent2Color: HOUSE_BLUE.gold
+    },
+    // Same renderer and design catalogue as the preacher lower third — a
+    // separate template identity so performer names, queue entries, and
+    // presets stay their own collection.
+    variants: [
+      {
+        id: 'convention-strap',
+        name: 'Convention Strap',
+        description: 'Full-bleed royal gradient strap with the event logo anchored at the left.'
+      },
+      {
+        id: 'split-bar',
+        name: 'Split Bar',
+        description: 'Deep bar with a premium accent slab on the right.'
+      },
+      {
+        id: 'modern-minimal',
+        name: 'Modern Minimal',
+        description: 'Slim black glass plate with a gold edge accent.'
+      },
+      {
+        id: 'soft-broadcast',
+        name: 'Soft Broadcast',
+        description: 'Rounded blue-glass lower third with a clean logo seal and soft modern edges.'
+      },
+      {
+        id: 'event-style',
+        name: 'Event Style',
+        description: 'Conference-ready teal bar with a round brand mark.'
+      },
+      {
+        id: 'canva-celebration',
+        name: 'Celebration Strip',
+        description: 'Teal event-style strip with circular logo anchor and gold accents.'
+      }
+    ],
+    animation: { in: 'slide', out: 'slide' }
+  },
+  {
     id: 'scripture-card',
     name: 'Scripture Card',
     category: 'Card',
@@ -467,6 +534,7 @@ export const templateRegistry: TemplateDefinition[] = [
 
 export const templateRendererMap: Record<string, React.ComponentType<{ values: Record<string, string>; theme: TemplateDefinition['theme'] }>> = {
   'preacher-lower-third': PreacherLowerThird,
+  'performer-lower-third': PreacherLowerThird,
   'scripture-card': ScriptureCard,
   'announcement-banner': AnnouncementBanner,
   'quote-card': QuoteCard,

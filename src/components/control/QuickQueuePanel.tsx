@@ -28,6 +28,7 @@ function templateShortName(templateId: string): string {
 /** The field a quick-added name should land in, per template. */
 const PRIMARY_NAME_FIELD: Record<string, string> = {
   'preacher-lower-third': 'name',
+  'performer-lower-third': 'name',
   'event-banner': 'eventTitle',
   'announcement-banner': 'headline',
   'sermon-title': 'speakerName',
@@ -39,6 +40,7 @@ const PRIMARY_NAME_FIELD: Record<string, string> = {
 /** Subtle identity hue per template, used on queue items and filter chips. */
 export const TEMPLATE_COLORS: Record<string, string> = {
   'preacher-lower-third': '#38bdf8',
+  'performer-lower-third': '#fb923c',
   'scripture-card': '#e8b93c',
   'quote-card': '#c084fc',
   'announcement-banner': '#2dd4bf',

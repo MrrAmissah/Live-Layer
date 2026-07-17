@@ -46,11 +46,19 @@ export const graphicPacks: GraphicPack[] = [
     description:
       "Annual Peace Prayer Convention '26 — royal palette, convention strap and ticker layouts, and the event logo.",
     variantChoices: {
-      'preacher-lower-third': ['convention-strap', 'modern-minimal', 'split-bar', 'soft-broadcast']
+      'preacher-lower-third': ['convention-strap', 'modern-minimal', 'split-bar', 'soft-broadcast'],
+      'performer-lower-third': ['convention-strap', 'modern-minimal', 'split-bar', 'soft-broadcast']
     },
     valueOverrides: {
       'preacher-lower-third': {
         variantId: 'convention-strap',
+        subtitle: "Annual PPC '26",
+        logoUrl: PPC_LOGO_URL,
+        ...PPC_PALETTE
+      },
+      'performer-lower-third': {
+        variantId: 'convention-strap',
+        title: 'Ministration in Songs',
         subtitle: "Annual PPC '26",
         logoUrl: PPC_LOGO_URL,
         ...PPC_PALETTE
