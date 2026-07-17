@@ -125,12 +125,27 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         };
       }),
     setField: (fieldId, value) =>
-      set((state) => ({
-        draftValues: {
-          ...state.draftValues,
-          [fieldId]: value
+      set((state) => {
+        // Choosing a design sample also loads its signature palette so the
+        // color controls correspond to the selected look.
+        if (fieldId === 'variantId') {
+          const template = templateRegistry.find((item) => item.id === state.currentTemplateId);
+          const variant = template?.variants?.find((item) => item.id === value);
+          return {
+            draftValues: {
+              ...state.draftValues,
+              variantId: value,
+              ...(variant?.palette ?? {})
+            }
+          };
         }
-      })),
+        return {
+          draftValues: {
+            ...state.draftValues,
+            [fieldId]: value
+          }
+        };
+      }),
     setTheme: (theme) =>
       set((state) => {
         const next = {

@@ -544,6 +544,38 @@ export const templateRegistry: TemplateDefinition[] = [
   }
 ];
 
+/**
+ * Signature palettes per lower-third design. Selecting a design loads these
+ * into the draft (see store setField), so the palette editor always matches
+ * the look on screen instead of freezing on whatever the pack seeded.
+ */
+const LOWER_THIRD_VARIANT_PALETTES: Record<string, Record<string, string>> = {
+  'modern-minimal': { colorBrand: '#1230c4', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#081052', colorSecondary: '#07106a' },
+  'angled-accent': { colorBrand: '#0d2095', colorAccent: '#E8B93C', colorSurface: '#0b1120', colorText: '#f8fafc', colorSecondary: '#131c2e' },
+  'signature-medallion': { colorBrand: '#0d2095', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#081052', colorSecondary: '#07106a' },
+  'clean-broadcast': { colorBrand: '#1284ff', colorAccent: '#0d2095', colorSurface: '#ffffff', colorText: '#07111f', colorSecondary: '#334155' },
+  'bold-plate': { colorBrand: '#07111f', colorAccent: '#E8B93C', colorSurface: '#0d1626', colorText: '#f8fafc', colorSecondary: '#1f2a3d' },
+  'split-bar': { colorBrand: '#0f766e', colorAccent: '#f7cf27', colorSurface: '#e7fdf6', colorText: '#f8fafc', colorSecondary: '#115e59' },
+  'event-style': { colorBrand: '#0d9488', colorAccent: '#E8B93C', colorSurface: '#0b3b36', colorText: '#f0fdfa', colorSecondary: '#134e4a' },
+  'subtle-elegance': { colorBrand: '#111c33', colorAccent: '#d8b452', colorSurface: '#0e1526', colorText: '#f3f4f6', colorSecondary: '#1d2a44' },
+  'canva-host-bar': { colorBrand: '#6d1f2c', colorAccent: '#E8B93C', colorSurface: '#4a1017', colorText: '#fdf3e3', colorSecondary: '#8a2939' },
+  'canva-celebration': { colorBrand: '#0d9488', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#062f2b', colorSecondary: '#0f766e' },
+  'canva-ministry': { colorBrand: '#5b3209', colorAccent: '#E8B93C', colorSurface: '#2f1906', colorText: '#fdf3e3', colorSecondary: '#7c4a12' },
+  'soft-broadcast': { colorBrand: '#1284ff', colorAccent: '#E8B93C', colorSurface: '#0b2a6b', colorText: '#f8fafc', colorSecondary: '#123f9e' },
+  'convention-strap': { colorBrand: '#2338dd', colorAccent: '#9db1ff', colorSurface: '#101fae', colorText: '#ffffff', colorSecondary: '#b9c6ff' },
+  'performer-pill': { colorBrand: '#2338dd', colorAccent: '#9db1ff', colorSurface: '#101fae', colorText: '#ffffff', colorSecondary: '#b9c6ff' },
+  'performer-note': { colorBrand: '#2338dd', colorAccent: '#E8B93C', colorSurface: '#0a1130', colorText: '#ffffff', colorSecondary: '#9db1ff' }
+};
+
+for (const template of templateRegistry) {
+  if (template.category === 'Lower Third' && template.variants) {
+    for (const variant of template.variants) {
+      const palette = LOWER_THIRD_VARIANT_PALETTES[variant.id];
+      if (palette && !variant.palette) variant.palette = palette;
+    }
+  }
+}
+
 export const templateRendererMap: Record<string, React.ComponentType<{ values: Record<string, string>; theme: TemplateDefinition['theme'] }>> = {
   'preacher-lower-third': PreacherLowerThird,
   'performer-lower-third': PreacherLowerThird,

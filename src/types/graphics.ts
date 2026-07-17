@@ -31,6 +31,12 @@ export interface TemplateVariant {
   id: string;
   name: string;
   description: string;
+  /**
+   * Signature colors for this design. Selecting the variant loads these into
+   * the draft's color fields so the palette editor always corresponds to the
+   * look on screen; the operator can still tweak each swatch afterwards.
+   */
+  palette?: Record<string, string>;
 }
 
 export interface TemplateDefinition {
