@@ -2792,8 +2792,8 @@ body.gfx-transparent {
 }
 
 .gfx-scripture[data-variant='blue-quote-card'] .scripture-tab {
-  left: 128px;
-  top: -42px;
+  left: 208px;
+  top: -58px;
   height: auto;
   z-index: 4;
   background: transparent !important;
@@ -2806,7 +2806,10 @@ body.gfx-transparent {
 
 .gfx-scripture[data-variant='blue-quote-card'] .scripture-tab-body {
   gap: 12px;
-  padding: 0;
+  /* Backing chip: the floating reference stays legible over bright footage. */
+  padding: 8px 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gfx-premium-brand-deep) 86%, #04060f);
 }
 
 .gfx-scripture[data-variant='blue-quote-card'] .scripture-ref {
