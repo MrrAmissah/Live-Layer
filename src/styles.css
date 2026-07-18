@@ -918,7 +918,7 @@ body.gfx-transparent {
   height: 42px;
   padding: 0 76px 0 92px;
   margin-left: 42px;
-  background: transparent !important;
+  background: rgba(6, 12, 30, 0.32) !important; /* scrim: white role text stays legible over bright footage */
   border: 2px solid #ffffff;
   border-top: 0;
   border-radius: 0;
@@ -1461,7 +1461,7 @@ body.gfx-transparent {
   height: 44px;
   margin-left: 44px;
   padding: 0 32px 0 76px;
-  background: transparent !important;
+  background: rgba(6, 12, 30, 0.32) !important; /* scrim: white role text stays legible over bright footage */
   border: 3px solid #ffffff;
   border-top: 0;
   border-radius: 0;
@@ -1732,7 +1732,7 @@ body.gfx-transparent {
   height: 44px;
   margin-left: 64px;
   padding: 0 34px;
-  background: transparent !important;
+  background: rgba(6, 12, 30, 0.32) !important; /* scrim: white role text stays legible over bright footage */
   border: 3px solid #ffffff;
   border-top: 0;
   border-radius: 0;
@@ -2440,9 +2440,9 @@ body.gfx-transparent {
 .gfx-event[data-variant='convention-bar'] {
   left: 0;
   right: 0;
-  /* Clears the 70px OBS scrolling ticker at the bottom of frame plus a
-     deliberate gap, so the bars never touch it. */
-  bottom: calc(var(--gfx-safe-action-bottom) + 26px);
+  /* Clears the OBS ticker artwork (its bar tops out ≈130px from the frame
+     bottom) with a deliberate gap, so the bars never touch it. */
+  bottom: calc(var(--gfx-safe-action-bottom) + 86px);
   filter: drop-shadow(0 10px 26px rgba(2, 8, 60, 0.4));
 }
 
