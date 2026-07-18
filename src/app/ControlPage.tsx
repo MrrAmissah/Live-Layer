@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLiveLayerStore } from '../store/useLiveLayerStore';
+import { buildInstanceFromDraft, useLiveLayerStore } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage } from '../lib/realtime';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import {
@@ -27,37 +27,6 @@ import LibraryPanel from '../components/control/LibraryPanel';
 function snapshot<T>(value: T): T {
   if (typeof structuredClone === 'function') return structuredClone(value);
   return JSON.parse(JSON.stringify(value));
-}
-
-/**
- * Build the immutable graphic the operator is taking live. Every nested field is
- * deep-cloned from the draft, so editing fields after Take never mutates what is
- * on air — the live output only ever changes via a new SHOW_GRAPHIC on the next
- * Take (and the realtime message is itself structured-cloned/serialized to
- * `/output`, which never reads the control store).
- */
-function buildGraphicInstance(
-  templateId: string,
-  values: Record<string, string>,
-  theme: TemplateDefinition['theme'],
-  layout: LayoutSettings,
-  durationSeconds: number
-): GraphicInstance {
-  return {
-    id: `${Date.now()}`,
-    templateId,
-    values: snapshot(values),
-    theme: snapshot(theme),
-    layout: snapshot(layout),
-    assetRefs: {
-      ...(values.headshotAssetId ? { headshot: values.headshotAssetId } : {}),
-      ...(values.logoAssetId ? { logo: values.logoAssetId } : {})
-    },
-    personId: values.personId,
-    durationSeconds,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
 }
 
 /**
@@ -100,8 +69,11 @@ export default function ControlPage() {
     }
 
     // --- ad-hoc draft Take (unchanged when no rundown is active) ---
-    const { currentTemplateId, draftValues, theme, layout, durationSeconds, addRecent } = useLiveLayerStore.getState();
-    const instance = buildGraphicInstance(currentTemplateId, draftValues, theme, layout, durationSeconds);
+    const state = useLiveLayerStore.getState();
+    const { addRecent } = state;
+    // Deep-cloned snapshot: editing fields after Take never mutates what is
+    // on air — the output only changes via the next SHOW_GRAPHIC.
+    const instance = buildInstanceFromDraft(state);
     channelRef.current?.post(createMessage('SHOW_GRAPHIC', instance));
     addRecent(instance);
     setLastAction('taken');

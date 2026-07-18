@@ -336,6 +336,12 @@ body.gfx-transparent {
   --gfx-safe-title-x: 160px;
   --gfx-safe-title-bottom: 120px;
 
+  /* Where the OBS "Permanent Sources" ticker artwork starts on the 1920
+     canvas — lower thirds left-align to it. If the ticker art changes,
+     update this one value (its bar TOP sits ≈130px from the frame bottom;
+     the bottom offsets below were tuned against that). */
+  --gfx-ticker-left: 108px;
+
   font-family: var(--gfx-font-text);
   color: var(--gfx-paper-cool);
 }
@@ -355,7 +361,7 @@ body.gfx-transparent {
   --gfx-premium-secondary: var(--gfx-template-secondary, #334155);
   /* NOTE: several paper-surface variants use this for their main text, so it
      must track the palette as-is. Guard legibility at the point of use for
-     surfaces that are always dark (e.g. the announce CTA strip). */
+     surfaces that are always dark. */
   --gfx-premium-on-dark: var(--gfx-template-text, #ffffff);
   --gfx-premium-blue-glow: var(--gfx-template-accent, #1284ff);
 }
@@ -639,11 +645,10 @@ body.gfx-transparent {
 
 .gfx-l3 {
   position: absolute;
-  /* All lower thirds start where the OBS ticker artwork starts (x≈108 on the
-     1920 canvas) so the frame's left column reads as one aligned system, and
-     ride high enough that their lowest overhangs clear the ticker bar (its
-     top edge sits ≈130px from the frame bottom). */
-  left: 108px;
+  /* All lower thirds start where the OBS ticker artwork starts so the
+     frame's left column reads as one aligned system, and ride high enough
+     that their lowest overhangs clear the ticker bar. */
+  left: var(--gfx-ticker-left);
   bottom: calc(var(--gfx-safe-title-bottom) + 56px);
   --gfx-l3-dark-surface: color-mix(in srgb, var(--gfx-premium-brand-deep) 72%, #020617);
   --gfx-l3-dark-surface-soft: color-mix(in srgb, var(--gfx-premium-brand-deep) 52%, #08111f);
@@ -2145,11 +2150,11 @@ body.gfx-transparent {
    the gradient. Built for light/white logo artwork. */
 
 .gfx-l3[data-variant='convention-strap'] {
-  /* Left edge aligns with where the OBS ticker artwork starts (x≈108 on the
-     1920 canvas); width hugs the content instead of a fixed right edge, so a
-     short name gets a short bar. Bottom offset clears the ticker bar,
-     measured from the LOWEST element (the overhanging logo). */
-  left: 108px;
+  /* Left edge aligns with the ticker artwork; width hugs the content instead
+     of a fixed right edge, so a short name gets a short bar. Bottom offset
+     clears the ticker bar, measured from the LOWEST element (the overhanging
+     logo). */
+  left: var(--gfx-ticker-left);
   right: auto;
   bottom: calc(var(--gfx-safe-action-bottom) + 96px);
 }
@@ -2158,7 +2163,7 @@ body.gfx-transparent {
    across the frame — its geometry is tied to the ticker artwork. */
 .gfx-layer[data-position='center'] .gfx-l3[data-variant='convention-strap'],
 .gfx-layer[data-position='full'] .gfx-l3[data-variant='convention-strap'] {
-  left: 108px;
+  left: var(--gfx-ticker-left);
   right: auto;
   transform: none;
 }
@@ -2421,7 +2426,6 @@ body.gfx-transparent {
    logo rising above it at the far left — the reference layout for event and
    announcement moments. The gradient stays saturated at the right end. */
 
-.gfx-l3,
 .gfx-announce,
 .gfx-event {
   --gfx-convention-gradient: linear-gradient(
@@ -2504,7 +2508,9 @@ body.gfx-transparent {
   color: #ffffff;
 }
 
-.gfx-announce[data-variant='convention-ticker'] .announce-ticker-logo {
+/* Shared white event logo riding above the convention ticker and bar. */
+.gfx-announce[data-variant='convention-ticker'] .gfx-convention-logo,
+.gfx-event[data-variant='convention-bar'] .gfx-convention-logo {
   position: absolute;
   left: 60px;
   bottom: -8px;
@@ -2592,14 +2598,6 @@ body.gfx-transparent {
   font-size: 27px;
 }
 
-.gfx-event[data-variant='convention-bar'] .event-bar-logo {
-  position: absolute;
-  left: 60px;
-  bottom: -8px;
-  height: 218px;
-  z-index: 2;
-  filter: drop-shadow(0 6px 18px rgba(3, 10, 70, 0.42));
-}
 
 /* --- lower-third build choreography -------------------------------------
    0ms underbar/stripe wipe -> 80ms plates slide in behind masks ->
@@ -6043,49 +6041,6 @@ body.gfx-transparent {
   transition: none !important;
 }
 
-.control-root .variant-choice__bar {
-  position: absolute;
-  left: 34px;
-  right: 15px;
-  bottom: 8px;
-  height: 15px;
-  background: #101827;
-  clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 100%, 0 100%);
-}
-
-.control-root .variant-choice__line,
-.control-root .variant-choice__subline {
-  position: absolute;
-  left: 9px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-}
-
-.control-root .variant-choice__line {
-  top: 4px;
-  width: 48%;
-  height: 3px;
-}
-
-.control-root .variant-choice__subline {
-  top: 10px;
-  width: 68%;
-  height: 2px;
-  background: #e8b93c;
-}
-
-.control-root .variant-choice__mark {
-  position: absolute;
-  left: 10px;
-  bottom: 6px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #071014;
-  border: 2px solid #e8b93c;
-  z-index: 2;
-}
-
 .control-root .template-colors {
   display: grid;
   gap: 10px;
@@ -6179,519 +6134,6 @@ body.gfx-transparent {
   font-size: 10px;
   font-weight: 760;
   color: #748298;
-}
-
-.control-root .variant-choice[data-variant='modern-minimal'] .variant-choice__mark {
-  width: 3px;
-  height: 24px;
-  left: 17px;
-  bottom: 5px;
-  border-radius: 999px;
-  border: 0;
-  background: #e8b93c;
-}
-
-.control-root .variant-choice[data-variant='modern-minimal'] .variant-choice__bar {
-  left: 28px;
-  right: 22px;
-  background: #070b12;
-  border-radius: 8px 12px 12px 8px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='angled-accent'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='bold-plate'] .variant-choice__mark {
-  left: 8px;
-  bottom: 7px;
-  width: 32px;
-  height: 20px;
-  border: 0;
-  border-radius: 0;
-  background: #0e7c86;
-  clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%);
-}
-
-.control-root .variant-choice[data-variant='clean-broadcast'] .variant-choice__bar {
-  left: 20px;
-  right: 18px;
-  background: #f4f7fb;
-  border-radius: 8px 12px 12px 8px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='clean-broadcast'] .variant-choice__line {
-  background: #0f172a;
-}
-
-.control-root .variant-choice[data-variant='split-bar'] .variant-choice__bar {
-  right: 46px;
-  background: #07111f;
-  border-radius: 8px 12px 12px 8px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='split-bar'] .variant-choice__preview::after {
-  content: '';
-  position: absolute;
-  right: 18px;
-  bottom: 8px;
-  width: 36px;
-  height: 15px;
-  background: #e8b93c;
-  border-radius: 12px 8px 8px 12px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='event-style'] .variant-choice__bar {
-  left: 30px;
-  background: #075f67;
-}
-
-.control-root .variant-choice[data-variant='subtle-elegance'] .variant-choice__bar {
-  left: 42px;
-  right: 24px;
-  background: transparent;
-  border: 1px solid rgba(232, 185, 60, 0.7);
-  border-radius: 8px 12px 12px 8px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='canva-host-bar'] .variant-choice__bar {
-  left: 12px;
-  right: 14px;
-  background: linear-gradient(90deg, #f3c858 0 18%, #8f111c 18% 78%, #f3c858 78% 100%);
-  border-radius: 0;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='canva-host-bar'] .variant-choice__mark {
-  left: auto;
-  right: 24px;
-  bottom: 6px;
-  width: 22px;
-  height: 22px;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  background: #f3c858;
-}
-
-.control-root .variant-choice[data-variant='canva-celebration'] .variant-choice__bar {
-  left: 28px;
-  right: 34px;
-  background: linear-gradient(90deg, #0db39e, #063973);
-  border-radius: 0;
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
-}
-
-.control-root .variant-choice[data-variant='canva-celebration'] .variant-choice__mark {
-  left: 8px;
-  bottom: 4px;
-  width: 28px;
-  height: 28px;
-  border: 3px solid #ffffff;
-  border-radius: 50%;
-  background: #22d3b5;
-}
-
-.control-root .variant-choice[data-variant='canva-celebration'] .variant-choice__preview::after {
-  content: '';
-  position: absolute;
-  right: 20px;
-  bottom: 8px;
-  width: 34px;
-  height: 16px;
-  background: #f5cd28;
-}
-
-.control-root .variant-choice[data-variant='canva-ministry'] .variant-choice__bar {
-  left: 18px;
-  right: 22px;
-  background: linear-gradient(90deg, #2f1906, #5b3209, #1b0d03);
-  border-radius: 0;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 100%, 0 100%);
-}
-
-.control-root .variant-choice[data-variant='canva-ministry'] .variant-choice__mark {
-  left: 22px;
-  bottom: 6px;
-  width: 3px;
-  height: 25px;
-  border: 0;
-  border-radius: 0;
-  background: #f3c858;
-}
-
-.control-root .variant-choice[data-variant='soft-broadcast'] .variant-choice__bar {
-  left: 20px;
-  right: 18px;
-  bottom: 9px;
-  height: 17px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #07106a, #1284ff, #050a38);
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='soft-broadcast'] .variant-choice__mark {
-  left: 11px;
-  bottom: 6px;
-  width: 25px;
-  height: 25px;
-  border: 3px solid #e8b93c;
-  border-radius: 50%;
-  background: #f8fafc;
-}
-
-.control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='plain-pattern'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='communion-strip'] .variant-choice__preview {
-  background: #05070c;
-}
-
-.control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='plain-pattern'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='communion-strip'] .variant-choice__bar {
-  left: 10px;
-  right: 10px;
-  bottom: 7px;
-  height: 16px;
-  border-radius: 9px 0 0 0;
-  background: #f8fafc;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__bar::after,
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__bar::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -6px;
-  height: 6px;
-  background: linear-gradient(90deg, #ffbd00 0 16%, #0712a7 16%, #071153 100%);
-}
-
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__bar::before,
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__bar::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -10px;
-  width: 48px;
-  height: 10px;
-  border-top-left-radius: 10px;
-  background: #29158f;
-}
-
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__bar::before {
-  background: #99105b;
-}
-
-.control-root .variant-choice[data-variant='communion-strip'] .variant-choice__bar {
-  left: 20px;
-  right: 18px;
-  bottom: 9px;
-  height: 14px;
-  border-radius: 999px 4px 4px 999px;
-  background: linear-gradient(90deg, #050a38, #07106a, #00947f);
-}
-
-.control-root .variant-choice[data-variant='communion-strip'] .variant-choice__mark {
-  left: 8px;
-  bottom: 4px;
-  width: 27px;
-  height: 27px;
-  border: 3px solid #e8b93c;
-  border-radius: 50%;
-  background: #f8fafc;
-}
-
-.control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='plain-pattern'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__mark {
-  left: auto;
-  right: 17px;
-  bottom: 20px;
-  width: 22px;
-  height: 10px;
-  border: 0;
-  border-radius: 0;
-  background: linear-gradient(90deg, #ffcc32 0 28%, #0057bd 28% 58%, #10059a 58% 100%);
-}
-
-.control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__line,
-.control-root .variant-choice[data-variant='info-ribbon'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__line,
-.control-root .variant-choice[data-variant='live-tab'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='plain-pattern'] .variant-choice__line,
-.control-root .variant-choice[data-variant='plain-pattern'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__line,
-.control-root .variant-choice[data-variant='tag-strip'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='communion-strip'] .variant-choice__line,
-.control-root .variant-choice[data-variant='communion-strip'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__line,
-.control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__line,
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__line,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__line,
-.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__line,
-.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__line,
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='festival-stage'] .variant-choice__line,
-.control-root .variant-choice[data-variant='festival-stage'] .variant-choice__subline,
-.control-root .variant-choice[data-variant='offering-runner'] .variant-choice__line,
-.control-root .variant-choice[data-variant='offering-runner'] .variant-choice__subline {
-  display: none;
-}
-
-.control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__preview {
-  overflow: visible;
-}
-
-.control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__bar {
-  left: 12px;
-  right: 9px;
-  bottom: 6px;
-  height: 19px;
-  border-radius: 0 10px 10px 10px;
-  background:
-    radial-gradient(circle at 28% 50%, rgba(31, 104, 255, 0.78), transparent 40%),
-    linear-gradient(90deg, #07106a, #0d2095 46%, #081052);
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__mark {
-  left: 16px;
-  bottom: 20px;
-  width: auto;
-  height: auto;
-  border: 0;
-  border-radius: 0;
-  color: #ffffff;
-  background: transparent;
-}
-
-.control-root .variant-choice[data-variant='blue-quote-card'] .variant-choice__mark::before,
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__mark::before,
-.control-root .variant-choice[data-variant='quote-gradient'] .variant-choice__mark::before,
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__mark::before {
-  content: '\201c';
-  font-family: var(--gfx-font-display);
-  font-size: 32px;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 3px 0 0 #1284ff;
-}
-
-.control-root .variant-choice[data-variant='theme-lower'] .variant-choice__bar {
-  border-radius: 0 8px 8px 8px;
-  background:
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px),
-    linear-gradient(90deg, #07106a, #1021a1, #050a38);
-}
-
-.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__bar {
-  background: #f8fafc;
-  border-left: 5px solid #07106a;
-}
-
-.control-root .variant-choice[data-variant='editorial-paper'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__mark {
-  left: 18px;
-  bottom: 20px;
-  width: 36px;
-  height: 4px;
-  border: 0;
-  border-radius: 999px;
-  background: #e8b93c;
-}
-
-.control-root .variant-choice[data-variant='teaching-note'] .variant-choice__bar {
-  background: #f8fafc;
-  border-left: 12px solid #07106a;
-}
-
-.control-root .variant-choice[data-variant='devotional-blue'] .variant-choice__bar {
-  background:
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 6px),
-    linear-gradient(90deg, #050a38, #07106a);
-}
-
-.control-root .variant-choice[data-variant='festival-stage'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='offering-runner'] .variant-choice__preview {
-  background: #05070c;
-}
-
-.control-root .variant-choice[data-variant='festival-stage'] .variant-choice__bar {
-  left: 9px;
-  right: 0;
-  bottom: 0;
-  height: 17px;
-  background: linear-gradient(90deg, #f8fafc 0 47%, #7140f6 47%, #15ace4 100%);
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='festival-stage'] .variant-choice__bar::before {
-  content: '';
-  position: absolute;
-  left: 47%;
-  top: 0;
-  width: 18px;
-  height: 100%;
-  background: #7140f6;
-  transform: skewX(-18deg) translateX(-8px);
-}
-
-.control-root .variant-choice[data-variant='festival-stage'] .variant-choice__mark {
-  left: 9px;
-  bottom: 14px;
-  width: 54px;
-  height: 17px;
-  border: 0;
-  border-radius: 0;
-  background: linear-gradient(#1594ff 0 33%, #5866ff 33% 66%, #7758ff 66% 100%);
-}
-
-.control-root .variant-choice[data-variant='offering-runner'] .variant-choice__bar {
-  left: 9px;
-  right: 0;
-  bottom: 0;
-  height: 16px;
-  border-radius: 0;
-  background: linear-gradient(90deg, #f8fafc 0 25%, #6841f4 25% 76%, #f8fafc 76% 100%);
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='offering-runner'] .variant-choice__mark {
-  left: 14px;
-  bottom: 9px;
-  width: 18px;
-  height: 18px;
-  border: 0;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #c758ff, #07106a);
-}
-
-.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__preview {
-  background: #05070c;
-}
-
-.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__bar {
-  left: 14px;
-  right: 14px;
-  bottom: 5px;
-  height: 24px;
-  border-radius: 8px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__bar {
-  background:
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px),
-    linear-gradient(90deg, #07106a, #1021a1, #050a38);
-}
-
-.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__bar {
-  background: #050a38;
-  border: 1px solid rgba(232, 185, 60, 0.42);
-}
-
-.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__bar {
-  background: #f8fafc;
-  border-left: 5px solid #07106a;
-}
-
-.control-root .variant-choice[data-variant='welcome-field'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__mark {
-  left: 22px;
-  bottom: 24px;
-  width: 42px;
-  height: 4px;
-  border: 0;
-  border-radius: 999px;
-  background: #e8b93c;
-}
-
-.control-root .variant-choice[data-variant='be-right-back'] .variant-choice__mark {
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__line,
-.control-root .variant-choice[data-variant='prayer-focus'] .variant-choice__subline {
-  background: #07106a;
-}
-
-.control-root .variant-choice[data-variant='sermon-paper'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='midnight-manifest'] .variant-choice__preview,
-.control-root .variant-choice[data-variant='golden-outline'] .variant-choice__preview {
-  background: #05070c;
-}
-
-.control-root .variant-choice[data-variant='sermon-paper'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='midnight-manifest'] .variant-choice__bar,
-.control-root .variant-choice[data-variant='golden-outline'] .variant-choice__bar {
-  left: 16px;
-  right: 16px;
-  bottom: 5px;
-  height: 24px;
-  border-radius: 3px;
-  clip-path: none;
-}
-
-.control-root .variant-choice[data-variant='sermon-paper'] .variant-choice__bar {
-  background: #f8fafc;
-  border-top: 3px solid #e8b93c;
-}
-
-.control-root .variant-choice[data-variant='midnight-manifest'] .variant-choice__bar {
-  background:
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 6px),
-    linear-gradient(90deg, #050a38, #07106a);
-  border: 1px solid rgba(232, 185, 60, 0.35);
-}
-
-.control-root .variant-choice[data-variant='golden-outline'] .variant-choice__bar {
-  background: #05070c;
-  border: 1px solid rgba(232, 185, 60, 0.65);
-}
-
-.control-root .variant-choice[data-variant='sermon-paper'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='midnight-manifest'] .variant-choice__mark,
-.control-root .variant-choice[data-variant='golden-outline'] .variant-choice__mark {
-  left: 24px;
-  bottom: 21px;
-  width: 38px;
-  height: 5px;
-  border: 0;
-  border-radius: 999px;
-  background: #e8b93c;
 }
 
 @media (max-width: 520px) {

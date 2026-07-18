@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   brand: 'livelayer.brand',
   recent: 'livelayer.recent',
   quickQueue: 'livelayer.quickQueue',
+  activePack: 'livelayer.activePack',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   lastRealtimeMessage: 'livelayer:lastMessage'
@@ -54,6 +55,24 @@ export function loadQuickQueue() {
 
 export function saveQuickQueue(queue: GraphicInstance[]) {
   safeWrite(STORAGE_KEYS.quickQueue, queue);
+}
+
+/* Active pack id is stored as a raw string (not JSON) for backwards
+   compatibility with values written before it moved into this module. */
+export function loadActivePackRaw(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.activePack);
+  } catch {
+    return null;
+  }
+}
+
+export function saveActivePackRaw(id: string) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.activePack, id);
+  } catch {
+    // ignore storage errors, pack falls back to house next load
+  }
 }
 
 export function saveRecentGraphics(recent: GraphicInstance[]) {

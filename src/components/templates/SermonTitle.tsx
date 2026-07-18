@@ -3,6 +3,7 @@ import Plate from '../graphics/Plate';
 import AccentStripe from '../graphics/AccentStripe';
 import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
+import { resolveLogoSrc } from '../../lib/brandAssets';
 
 interface Props {
   values: Record<string, string>;
@@ -23,7 +24,7 @@ export default function SermonTitle({ values }: Props) {
   const seriesTitle = values.seriesTitle?.trim() || '';
   const scriptureReference = values.scriptureReference?.trim() || '';
   const date = values.date?.trim() || '';
-  const logoSrc = values.logoResolvedSrc?.trim() || values.logoUrl?.trim() || '';
+  const logoSrc = resolveLogoSrc(values);
 
   return (
     <div className="gfx-sermon" data-variant={variantId} style={templateColorStyle(values)}>

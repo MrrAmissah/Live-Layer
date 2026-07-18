@@ -106,7 +106,9 @@
       colorSecondary: '#07106a'
     };
     const defaultChurchLogoUrl = '/default%20logo.png';
-    // Annual Peace Prayer Convention '26 — white logo artwork, needs dark/royal surfaces.
+    // Hand copies of PPC_PALETTE / CONVENTION_LOGO_URL — this no-build harness
+    // can't import TS, so keep these in sync with src/lib/packs.ts and
+    // src/lib/brandAssets.ts. The palette/logo are applied centrally in show().
     const ppcLogoUrl = '/ppc-2026-logo.png';
     const ppcPalette = {
       colorBrand: '#2338dd',
@@ -115,14 +117,15 @@
       colorText: '#ffffff',
       colorSecondary: '#b9c6ff'
     };
+    // Content-only: the shared PPC look (palette + logo) is merged in show().
     const ppcSample = {
-      'preacher-lower-third': { name: 'Rev. Ishmael K. Awotwe', title: 'Convener', subtitle: "Annual PPC '26", logoUrl: ppcLogoUrl, ...ppcPalette },
-      'scripture-card': { reference: 'Philippians 4:6-7', verseText: 'Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.', translationLabel: 'NIV', themeTitle: "PPC '26", ...ppcPalette },
-      'quote-card': { quoteText: 'Prayer is where the battle for peace is won before it is ever seen.', sourceName: 'Rev. Ishmael K. Awotwe', sourceRole: "PPC '26 Evening Session", themeTitle: 'Key Thought', translationLabel: '', ...ppcPalette },
-      'announcement-banner': { variantId: 'convention-ticker', headline: 'Evening Prayer Session', body: 'Doors open at 5:30 PM. Intercessory teams meet in the main auditorium.', dateTime: 'Tonight • 6:00 PM', logoUrl: ppcLogoUrl, ...ppcPalette },
-      'event-banner': { variantId: 'convention-bar', eventTitle: 'Annual Peace Prayer Convention', dateTime: 'July 22–26 • 6:00 PM', location: 'Main Auditorium', callToAction: '', tag: "PPC '26", logoUrl: ppcLogoUrl, ...ppcPalette },
-      'sermon-title': { variantId: 'midnight-manifest', sermonTitle: 'The Peace That Guards the Heart', speakerName: 'Rev. Ishmael K. Awotwe', churchName: "Annual Peace Prayer Convention '26", seriesTitle: "PPC '26 • Night 3", scriptureReference: 'Philippians 4:7', date: '{{weekday}} · {{date}}', logoUrl: ppcLogoUrl, ...ppcPalette },
-      'fullscreen-message': { headline: "Welcome to PPC '26", body: 'The Annual Peace Prayer Convention. Silence your phone and prepare your heart for prayer.', footerNote: 'Annual Peace Prayer Convention 2026', callToAction: 'First session begins at {{time}}', ...ppcPalette }
+      'preacher-lower-third': { name: 'Rev. Ishmael K. Awotwe', title: 'Convener', subtitle: "Annual PPC '26" },
+      'scripture-card': { reference: 'Philippians 4:6-7', verseText: 'Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God. And the peace of God, which transcends all understanding, will guard your hearts and your minds in Christ Jesus.', translationLabel: 'NIV', themeTitle: "PPC '26" },
+      'quote-card': { quoteText: 'Prayer is where the battle for peace is won before it is ever seen.', sourceName: 'Rev. Ishmael K. Awotwe', sourceRole: "PPC '26 Evening Session", themeTitle: 'Key Thought' },
+      'announcement-banner': { variantId: 'convention-ticker', headline: 'Evening Prayer Session', body: 'Doors open at 5:30 PM. Intercessory teams meet in the main auditorium.', dateTime: 'Tonight • 6:00 PM' },
+      'event-banner': { variantId: 'convention-bar', eventTitle: 'Annual Peace Prayer Convention', dateTime: 'July 22–26 • 6:00 PM', location: 'Main Auditorium', tag: "PPC '26" },
+      'sermon-title': { variantId: 'midnight-manifest', sermonTitle: 'The Peace That Guards the Heart', speakerName: 'Rev. Ishmael K. Awotwe', churchName: "Annual Peace Prayer Convention '26", seriesTitle: "PPC '26 • Night 3", scriptureReference: 'Philippians 4:7', date: '{{weekday}} · {{date}}' },
+      'fullscreen-message': { headline: "Welcome to PPC '26", body: 'The Annual Peace Prayer Convention. Silence your phone and prepare your heart for prayer.', footerNote: 'Annual Peace Prayer Convention 2026', callToAction: 'First session begins at {{time}}' }
     };
     const sample = {
       'preacher-lower-third': {
@@ -175,7 +178,7 @@
       const ppcMode = document.getElementById('ppc').checked;
       // Copy so the harness never mutates the shared sample objects.
       const values = ppcMode
-        ? { ...ppcSample[templateId] }
+        ? { ...ppcSample[templateId], ...ppcPalette, logoUrl: ppcLogoUrl }
         : { ...sample[templateId][useLong ? 'long' : 'short'] };
       if (templateId === 'preacher-lower-third') {
         values.variantId = document.getElementById('l3variant').value;

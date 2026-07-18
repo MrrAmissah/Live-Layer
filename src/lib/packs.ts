@@ -6,6 +6,9 @@
  * the event look by default while every field stays editable.
  */
 
+import { CONVENTION_LOGO_URL } from './brandAssets';
+import { loadActivePackRaw, saveActivePackRaw } from './storage';
+
 export interface GraphicPack {
   id: string;
   name: string;
@@ -20,12 +23,14 @@ export interface GraphicPack {
   variantChoices?: Record<string, string[]>;
 }
 
-const PPC_LOGO_URL = '/ppc-2026-logo.png';
+const PPC_LOGO_URL = CONVENTION_LOGO_URL;
 
 /* Royal palette pulled from the PPC '26 reference sample. The white event
    logo needs dark/royal surfaces, so paper-surface templates keep their own
-   surface and only take the royal brand + identity copy. */
-const PPC_PALETTE = {
+   surface and only take the royal brand + identity copy. Exported so the
+   registry's convention variants share the same source of truth (seed-test
+   .html keeps a hand copy — it can't import TS). */
+export const PPC_PALETTE = {
   colorBrand: '#2338dd',
   colorAccent: '#9db1ff',
   colorSurface: '#101fae',
@@ -110,21 +115,11 @@ export function packVariantIdsFor(packId: string, templateId: string): string[] 
   return getPack(packId).variantChoices?.[templateId];
 }
 
-const PACK_STORAGE_KEY = 'livelayer.activePack';
-
 export function loadActivePackId(): string {
-  try {
-    const id = localStorage.getItem(PACK_STORAGE_KEY);
-    return id && graphicPacks.some((pack) => pack.id === id) ? id : 'house';
-  } catch {
-    return 'house';
-  }
+  const id = loadActivePackRaw();
+  return id && graphicPacks.some((pack) => pack.id === id) ? id : 'house';
 }
 
 export function saveActivePackId(id: string) {
-  try {
-    localStorage.setItem(PACK_STORAGE_KEY, id);
-  } catch {
-    // ignore storage errors, pack falls back to house next load
-  }
+  saveActivePackRaw(id);
 }

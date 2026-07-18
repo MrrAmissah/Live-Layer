@@ -5,7 +5,7 @@ import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
 import { packVariantIdsFor } from '../../lib/packs';
-import { useMemo, useState, type ReactNode } from 'react';
+import { memo, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
@@ -132,9 +132,11 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
  * Real miniature render of a variant: the actual template renderer inside a
  * scaled GraphicStage, using the operator's current draft values and palette,
  * so the picker shows exactly what each design produces. Entrance animations
- * are killed via CSS so thumbs rest at their final frame.
+ * are killed via CSS so thumbs rest at their final frame. Memoized — with the
+ * picker feeding it deferred values, the ~13 mini-stages reconcile off the
+ * keystroke-critical path.
  */
-function VariantThumb({
+const VariantThumb = memo(function VariantThumb({
   templateId,
   variantId,
   values
@@ -146,19 +148,20 @@ function VariantThumb({
   const storeTheme = useLiveLayerStore((state) => state.theme);
   const template = templateRegistry.find((item) => item.id === templateId);
   const Renderer = templateRendererMap[templateId];
+  const mergedTheme = useMemo(() => ({ ...template?.theme, ...storeTheme }), [template, storeTheme]);
+  const thumbValues = useMemo(() => ({ ...values, variantId }), [values, variantId]);
   if (!template || !Renderer) return null;
-  const mergedTheme = { ...template.theme, ...storeTheme };
   const focus = template.category === 'Lower Third' ? 'lower-third' : 'full';
   return (
     <span className="variant-thumb" aria-hidden>
       <GraphicStage theme={mergedTheme} backdrop="neutral" focus={focus}>
         <div className="gfx-layer" data-anim="fade" data-state="in">
-          <Renderer values={{ ...values, variantId }} theme={mergedTheme} />
+          <Renderer values={thumbValues} theme={mergedTheme} />
         </div>
       </GraphicStage>
     </span>
   );
-}
+});
 
 function TemplateVariantPicker({
   templateId,
@@ -175,6 +178,9 @@ function TemplateVariantPicker({
 }) {
   const [query, setQuery] = useState('');
   const [groupId, setGroupId] = useState<VariantGroupId>('all');
+  // Thumbnails render from deferred values: typing paints the fields and main
+  // preview first, and the mini-stages catch up in a background render.
+  const thumbValues = useDeferredValue(draftValues);
   const selectedIndex = variants.findIndex((variant) => variant.id === value);
   const selectedVariant = variants[selectedIndex] ?? variants[0];
   const selectedPosition = selectedIndex >= 0 ? selectedIndex + 1 : 1;
@@ -247,7 +253,7 @@ function TemplateVariantPicker({
             onClick={() => onChange(variant.id)}
           >
             <span className="variant-choice__preview" aria-hidden>
-              <VariantThumb templateId={templateId} variantId={variant.id} values={draftValues} />
+              <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} />
             </span>
             <span className="variant-choice__name">
               <span>{variant.name}</span>

@@ -48,6 +48,57 @@ function createDraftValues(templateId: string, packId: string) {
   return { ...template.defaultValues, ...packOverridesFor(packId, templateId) };
 }
 
+const DEFAULT_DURATION_SECONDS = 6;
+
+function deepClone<T>(value: T): T {
+  return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+}
+
+/** The operator's logo choice survives draft rebuilds without an absent value
+ *  clobbering a pack's own logo default. */
+function carriedLogo(values: Record<string, string>) {
+  return {
+    ...(values.logoUrl ? { logoUrl: values.logoUrl } : {}),
+    ...(values.logoAssetId ? { logoAssetId: values.logoAssetId } : {})
+  };
+}
+
+interface DraftLike {
+  currentTemplateId: string;
+  draftValues: Record<string, string>;
+  theme: TemplateDefinition['theme'];
+  layout: LayoutSettings;
+  durationSeconds: number;
+}
+
+/**
+ * Snapshot the current draft as an immutable GraphicInstance — the single
+ * construction path shared by Take (ControlPage), saved presets, and the
+ * quick queue, so a new GraphicInstance field only has to be added here.
+ */
+export function buildInstanceFromDraft(
+  draft: DraftLike,
+  options: { idPrefix?: string; presetName?: string; valueOverrides?: Record<string, string> } = {}
+): GraphicInstance {
+  const values = { ...deepClone(draft.draftValues), ...(options.valueOverrides ?? {}) };
+  return {
+    id: `${options.idPrefix ?? ''}${Date.now()}${options.idPrefix ? `-${Math.random().toString(36).slice(2, 7)}` : ''}`,
+    templateId: draft.currentTemplateId,
+    ...(options.presetName !== undefined ? { presetName: options.presetName } : {}),
+    values,
+    theme: deepClone(draft.theme),
+    layout: deepClone(draft.layout),
+    assetRefs: {
+      ...(values.headshotAssetId ? { headshot: values.headshotAssetId } : {}),
+      ...(values.logoAssetId ? { logo: values.logoAssetId } : {})
+    },
+    personId: values.personId,
+    durationSeconds: draft.durationSeconds,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
 const initialPackId = loadActivePackId();
 
 export const useLiveLayerStore = create<LiveLayerState>()(
@@ -72,24 +123,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     quickQueue: loadQuickQueue(),
     addToQuickQueue: (label, valueOverrides) => {
       const state = get();
-      const clone = <T,>(value: T): T =>
-        typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
-      const item: GraphicInstance = {
-        id: `q-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        templateId: state.currentTemplateId,
-        presetName: label,
-        values: { ...clone(state.draftValues), ...(valueOverrides ?? {}) },
-        theme: clone(state.theme),
-        layout: clone(state.layout),
-        assetRefs: {
-          ...(state.draftValues.headshotAssetId ? { headshot: state.draftValues.headshotAssetId } : {}),
-          ...(state.draftValues.logoAssetId ? { logo: state.draftValues.logoAssetId } : {})
-        },
-        personId: state.draftValues.personId,
-        durationSeconds: state.durationSeconds,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      const item = buildInstanceFromDraft(state, { idPrefix: 'q-', presetName: label, valueOverrides });
       const next = [...state.quickQueue, item];
       saveQuickQueue(next);
       set({ quickQueue: next });
@@ -116,13 +150,12 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           // Each template keeps its own auto-hide duration: the operator's
           // last choice for it, else its declared default, else 6s.
           durationSeconds:
-            state.durationByTemplate[templateId] ?? template?.defaultDurationSeconds ?? 6,
+            state.durationByTemplate[templateId] ??
+            template?.defaultDurationSeconds ??
+            DEFAULT_DURATION_SECONDS,
           draftValues: {
             ...createDraftValues(templateId, state.activePackId),
-            // Carry the operator's logo across template switches, but never let
-            // an absent value clobber the pack's own logo default.
-            ...(state.draftValues.logoUrl ? { logoUrl: state.draftValues.logoUrl } : {}),
-            ...(state.draftValues.logoAssetId ? { logoAssetId: state.draftValues.logoAssetId } : {})
+            ...carriedLogo(state.draftValues)
           }
         };
       }),
@@ -174,8 +207,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       set((state) => ({
         draftValues: {
           ...createDraftValues(state.currentTemplateId, state.activePackId),
-          ...(state.draftValues.logoUrl ? { logoUrl: state.draftValues.logoUrl } : {}),
-          ...(state.draftValues.logoAssetId ? { logoAssetId: state.draftValues.logoAssetId } : {})
+          ...carriedLogo(state.draftValues)
         }
       })),
     resetTheme: () =>
@@ -206,24 +238,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       }),
     savePreset: (name) => {
       const state = get();
-      const clone = <T,>(value: T): T =>
-        typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
-      const item: GraphicInstance = {
-        id: `${Date.now()}`,
-        templateId: state.currentTemplateId,
-        presetName: name,
-        values: clone(state.draftValues),
-        theme: clone(state.theme),
-        layout: clone(state.layout),
-        assetRefs: {
-          ...(state.draftValues.headshotAssetId ? { headshot: state.draftValues.headshotAssetId } : {}),
-          ...(state.draftValues.logoAssetId ? { logo: state.draftValues.logoAssetId } : {})
-        },
-        personId: state.draftValues.personId,
-        durationSeconds: state.durationSeconds,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      const item = buildInstanceFromDraft(state, { presetName: name });
       const next = [...state.presets, item];
       savePresets(next);
       set({ presets: next });

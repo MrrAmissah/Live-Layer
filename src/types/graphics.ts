@@ -55,6 +55,11 @@ export interface TemplateDefinition {
    * setting.
    */
   defaultDurationSeconds?: number;
+  /**
+   * The field that most identifies a graphic of this template — quick-add
+   * writes typed names here and queue/preset labels read it first.
+   */
+  primaryField?: string;
 }
 
 export interface GraphicInstance {

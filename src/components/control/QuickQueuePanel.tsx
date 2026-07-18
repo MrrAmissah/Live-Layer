@@ -1,44 +1,48 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Panel from './Panel';
 import SectionHeader from './SectionHeader';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import type { GraphicInstance } from '../../types/graphics';
 
-/** Human label for a queue entry, derived from its most identifying field. */
-function entryLabel(item: GraphicInstance): string {
-  if (item.presetName?.trim()) return item.presetName;
-  const v = item.values;
+const templateById = new Map(templateRegistry.map((template) => [template.id, template]));
+
+function templateShortName(templateId: string): string {
+  return templateById.get(templateId)?.name ?? templateId;
+}
+
+/** The field a quick-added name lands in (and labels read first). */
+function primaryFieldFor(templateId: string): string {
+  return templateById.get(templateId)?.primaryField ?? 'name';
+}
+
+/**
+ * Human label for a set of values: the template's primary field first, then
+ * a generic identity cascade. Shared by queue entries and the draft button.
+ */
+function labelFromValues(templateId: string, values: Record<string, string>): string {
   return (
-    v.name ||
-    v.eventTitle ||
-    v.headline ||
-    v.sermonTitle ||
-    v.reference ||
-    v.quoteText?.slice(0, 32) ||
-    templateRegistry.find((t) => t.id === item.templateId)?.name ||
-    item.templateId
+    values[primaryFieldFor(templateId)] ||
+    values.name ||
+    values.eventTitle ||
+    values.headline ||
+    values.sermonTitle ||
+    values.reference ||
+    values.quoteText?.slice(0, 32) ||
+    ''
   );
 }
 
-function templateShortName(templateId: string): string {
-  return templateRegistry.find((t) => t.id === templateId)?.name ?? templateId;
+function entryLabel(item: GraphicInstance): string {
+  return (
+    item.presetName?.trim() ||
+    labelFromValues(item.templateId, item.values) ||
+    templateShortName(item.templateId)
+  );
 }
 
-/** The field a quick-added name should land in, per template. */
-const PRIMARY_NAME_FIELD: Record<string, string> = {
-  'preacher-lower-third': 'name',
-  'performer-lower-third': 'name',
-  'event-banner': 'eventTitle',
-  'announcement-banner': 'headline',
-  'sermon-title': 'speakerName',
-  'quote-card': 'sourceName',
-  'scripture-card': 'reference',
-  'fullscreen-message': 'headline'
-};
-
 /** Subtle identity hue per template, used on queue items and filter chips. */
-export const TEMPLATE_COLORS: Record<string, string> = {
+const TEMPLATE_COLORS: Record<string, string> = {
   'preacher-lower-third': '#38bdf8',
   'performer-lower-third': '#fb923c',
   'scripture-card': '#e8b93c',
@@ -49,7 +53,7 @@ export const TEMPLATE_COLORS: Record<string, string> = {
   'fullscreen-message': '#94a3b8'
 };
 
-export function templateColor(templateId: string): string {
+function templateColor(templateId: string): string {
   return TEMPLATE_COLORS[templateId] ?? '#94a3b8';
 }
 
@@ -71,17 +75,34 @@ export default function QuickQueuePanel({
   const removeFromQuickQueue = useLiveLayerStore((state) => state.removeFromQuickQueue);
   const moveInQuickQueue = useLiveLayerStore((state) => state.moveInQuickQueue);
   const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
-  const draftValues = useLiveLayerStore((state) => state.draftValues);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
+  // Derived-string selector: the panel only re-renders when the label itself
+  // changes, not on every editor keystroke in unrelated fields.
+  const draftLabel = useLiveLayerStore(
+    (state) =>
+      labelFromValues(state.currentTemplateId, state.draftValues) ||
+      templateShortName(state.currentTemplateId)
+  );
   const [lastTakenId, setLastTakenId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [templateFilter, setTemplateFilter] = useState<string | null>(null);
 
-  const presentTemplates = [...new Set(quickQueue.map((item) => item.templateId))];
+  // One pass over the queue: per-template counts (chips) + running-order index.
+  const { templateCounts, indexById } = useMemo(() => {
+    const counts = new Map<string, number>();
+    const indices = new Map<string, number>();
+    quickQueue.forEach((item, index) => {
+      counts.set(item.templateId, (counts.get(item.templateId) ?? 0) + 1);
+      indices.set(item.id, index);
+    });
+    return { templateCounts: counts, indexById: indices };
+  }, [quickQueue]);
+  const presentTemplates = [...templateCounts.keys()];
+
   // Self-healing: a filter pointing at a template with no remaining entries
   // (e.g. after deletes) falls back to "all" instead of a dead-end empty list.
   const effectiveFilter =
-    templateFilter && presentTemplates.includes(templateFilter) ? templateFilter : null;
+    templateFilter && templateCounts.has(templateFilter) ? templateFilter : null;
   const visibleQueue = effectiveFilter
     ? quickQueue.filter((item) => item.templateId === effectiveFilter)
     : quickQueue;
@@ -94,8 +115,7 @@ export default function QuickQueuePanel({
   const quickAddName = () => {
     const name = newName.trim();
     if (!name) return;
-    const field = PRIMARY_NAME_FIELD[currentTemplateId] ?? 'name';
-    addToQuickQueue(name, { [field]: name });
+    addToQuickQueue(name, { [primaryFieldFor(currentTemplateId)]: name });
     setNewName('');
   };
 
@@ -105,14 +125,6 @@ export default function QuickQueuePanel({
     // loaded entry is visibly there to tweak.
     document.querySelector('.area--editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  const draftLabel =
-    draftValues.name ||
-    draftValues.eventTitle ||
-    draftValues.headline ||
-    draftValues.sermonTitle ||
-    draftValues.reference ||
-    templateShortName(currentTemplateId);
 
   return (
     <Panel className="quick-queue-panel">
@@ -145,7 +157,7 @@ export default function QuickQueuePanel({
           className="btn btn--ghost btn--sm qq-add"
           onClick={() => addToQuickQueue(draftLabel)}
         >
-          + Add current graphic{draftLabel ? ` (“${String(draftLabel).slice(0, 22)}”)` : ''}
+          + Add current graphic{draftLabel ? ` (“${draftLabel.slice(0, 22)}”)` : ''}
         </button>
 
         {presentTemplates.length > 1 ? (
@@ -165,7 +177,7 @@ export default function QuickQueuePanel({
                 onClick={() => setTemplateFilter(effectiveFilter === templateId ? null : templateId)}
               >
                 <span className="qq-chip__dot" style={{ background: templateColor(templateId) }} />
-                {templateShortName(templateId)} · {quickQueue.filter((i) => i.templateId === templateId).length}
+                {templateShortName(templateId)} · {templateCounts.get(templateId)}
               </button>
             ))}
           </div>
@@ -179,7 +191,7 @@ export default function QuickQueuePanel({
         ) : (
           <ol className="qq-list">
             {visibleQueue.map((item) => {
-              const index = quickQueue.indexOf(item);
+              const index = indexById.get(item.id) ?? 0;
               return (
               <li
                 key={item.id}
@@ -251,9 +263,6 @@ export default function QuickQueuePanel({
             })}
           </ol>
         )}
-        {effectiveFilter !== null && visibleQueue.length === 0 ? (
-          <p className="field__hint">No queue entries for this template.</p>
-        ) : null}
       </div>
     </Panel>
   );

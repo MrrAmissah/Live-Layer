@@ -1,4 +1,6 @@
-import type { TemplateDefinition } from '../../types/graphics';
+import type { TemplateDefinition, TemplateVariant } from '../../types/graphics';
+import { DEFAULT_CHURCH_LOGO_URL as BRAND_DEFAULT_CHURCH_LOGO_URL } from '../../lib/brandAssets';
+import { PPC_PALETTE } from '../../lib/packs';
 import PreacherLowerThird from './PreacherLowerThird';
 import ScriptureCard from './ScriptureCard';
 import AnnouncementBanner from './AnnouncementBanner';
@@ -18,7 +20,108 @@ const HOUSE_BLUE = {
   ink: '#07111f'
 };
 
-const DEFAULT_CHURCH_LOGO_URL = '/default%20logo.png';
+const DEFAULT_CHURCH_LOGO_URL = BRAND_DEFAULT_CHURCH_LOGO_URL;
+
+/**
+ * Shared lower-third design catalogue. Both lower-third templates reference
+ * these objects, so names, descriptions, and signature palettes live once.
+ * `palette` is loaded into the draft when a design is selected (store
+ * setField), keeping the color controls in step with the look on screen.
+ */
+const L3_VARIANTS: Record<string, TemplateVariant> = {
+  'modern-minimal': {
+    id: 'modern-minimal',
+    name: 'Modern Minimal',
+    description: 'Slim black glass plate with a gold edge accent.',
+    palette: { colorBrand: '#1230c4', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#081052', colorSecondary: '#07106a' }
+  },
+  'angled-accent': {
+    id: 'angled-accent',
+    name: 'Angled Accent',
+    description: 'Dark broadcast bar with bold angled end caps.',
+    palette: { colorBrand: '#0d2095', colorAccent: '#E8B93C', colorSurface: '#0b1120', colorText: '#f8fafc', colorSecondary: '#131c2e' }
+  },
+  'signature-medallion': {
+    id: 'signature-medallion',
+    name: 'Logo Medallion',
+    description: 'Brand seal, angled nameplate, and strong church ID.',
+    palette: { colorBrand: '#0d2095', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#081052', colorSecondary: '#07106a' }
+  },
+  'clean-broadcast': {
+    id: 'clean-broadcast',
+    name: 'Clean Broadcast',
+    description: 'Bright network-style strip for camera-heavy scenes.',
+    palette: { colorBrand: '#1284ff', colorAccent: '#0d2095', colorSurface: '#ffffff', colorText: '#07111f', colorSecondary: '#334155' }
+  },
+  'bold-plate': {
+    id: 'bold-plate',
+    name: 'Bold Plate',
+    description: 'Heavy title plate with strong icon block energy.',
+    palette: { colorBrand: '#07111f', colorAccent: '#E8B93C', colorSurface: '#0d1626', colorText: '#f8fafc', colorSecondary: '#1f2a3d' }
+  },
+  'split-bar': {
+    id: 'split-bar',
+    name: 'Split Bar',
+    description: 'Deep bar with a premium accent slab on the right.',
+    palette: { colorBrand: '#0f766e', colorAccent: '#f7cf27', colorSurface: '#e7fdf6', colorText: '#f8fafc', colorSecondary: '#115e59' }
+  },
+  'event-style': {
+    id: 'event-style',
+    name: 'Event Style',
+    description: 'Conference-ready teal bar with a round brand mark.',
+    palette: { colorBrand: '#0d9488', colorAccent: '#E8B93C', colorSurface: '#0b3b36', colorText: '#f0fdfa', colorSecondary: '#134e4a' }
+  },
+  'subtle-elegance': {
+    id: 'subtle-elegance',
+    name: 'Subtle Elegance',
+    description: 'Quiet framed plate with refined gold detailing.',
+    palette: { colorBrand: '#111c33', colorAccent: '#d8b452', colorSurface: '#0e1526', colorText: '#f3f4f6', colorSecondary: '#1d2a44' }
+  },
+  'canva-host-bar': {
+    id: 'canva-host-bar',
+    name: 'Host Bar',
+    description: 'Canva-inspired maroon and gold hosted service lower third.',
+    palette: { colorBrand: '#6d1f2c', colorAccent: '#E8B93C', colorSurface: '#4a1017', colorText: '#fdf3e3', colorSecondary: '#8a2939' }
+  },
+  'canva-celebration': {
+    id: 'canva-celebration',
+    name: 'Celebration Strip',
+    description: 'Teal event-style strip with circular logo anchor and gold accents.',
+    palette: { colorBrand: '#0d9488', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#062f2b', colorSecondary: '#0f766e' }
+  },
+  'canva-ministry': {
+    id: 'canva-ministry',
+    name: 'Ministry Band',
+    description: 'Warm broadcast band with deep texture, gold rails, and medallion lockup.',
+    palette: { colorBrand: '#5b3209', colorAccent: '#E8B93C', colorSurface: '#2f1906', colorText: '#fdf3e3', colorSecondary: '#7c4a12' }
+  },
+  'soft-broadcast': {
+    id: 'soft-broadcast',
+    name: 'Soft Broadcast',
+    description: 'Rounded blue-glass lower third with a clean logo seal and soft modern edges.',
+    palette: { colorBrand: '#1284ff', colorAccent: '#E8B93C', colorSurface: '#0b2a6b', colorText: '#f8fafc', colorSecondary: '#123f9e' }
+  },
+  'convention-strap': {
+    id: 'convention-strap',
+    name: 'Convention Strap',
+    description: 'Full-bleed royal gradient strap with the event logo anchored at the left.',
+    palette: { ...PPC_PALETTE }
+  },
+  'performer-pill': {
+    id: 'performer-pill',
+    name: 'Stage Pill',
+    description: 'Rounded gradient pill with a logo seal and a performance chip.',
+    palette: { ...PPC_PALETTE }
+  },
+  'performer-note': {
+    id: 'performer-note',
+    name: 'Praise Tag',
+    description: 'Dark glass nameplate with a floating gold performance tag.',
+    palette: { colorBrand: '#2338dd', colorAccent: '#E8B93C', colorSurface: '#0a1130', colorText: '#ffffff', colorSecondary: '#9db1ff' }
+  }
+};
+
+const l3Variants = (...ids: string[]) => ids.map((id) => L3_VARIANTS[id]);
 
 export const templateRegistry: TemplateDefinition[] = [
   {
@@ -26,6 +129,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Preacher Lower Third',
     category: 'Lower Third',
     description: 'Broadcast lower third with speaker name, role, organization, and a brand medallion.',
+    primaryField: 'name',
     fields: [
       { id: 'name', label: 'Name', type: 'text', placeholder: 'Speaker name' },
       { id: 'title', label: 'Title', type: 'text', placeholder: 'Title or role' },
@@ -51,73 +155,21 @@ export const templateRegistry: TemplateDefinition[] = [
       surfaceColor: HOUSE_BLUE.surface,
       accent2Color: HOUSE_BLUE.gold
     },
-    variants: [
-      {
-        id: 'modern-minimal',
-        name: 'Modern Minimal',
-        description: 'Slim black glass plate with a gold edge accent.'
-      },
-      {
-        id: 'angled-accent',
-        name: 'Angled Accent',
-        description: 'Dark broadcast bar with bold angled end caps.'
-      },
-      {
-        id: 'signature-medallion',
-        name: 'Logo Medallion',
-        description: 'Brand seal, angled nameplate, and strong church ID.'
-      },
-      {
-        id: 'clean-broadcast',
-        name: 'Clean Broadcast',
-        description: 'Bright network-style strip for camera-heavy scenes.'
-      },
-      {
-        id: 'bold-plate',
-        name: 'Bold Plate',
-        description: 'Heavy title plate with strong icon block energy.'
-      },
-      {
-        id: 'split-bar',
-        name: 'Split Bar',
-        description: 'Deep bar with a premium accent slab on the right.'
-      },
-      {
-        id: 'event-style',
-        name: 'Event Style',
-        description: 'Conference-ready teal bar with a round brand mark.'
-      },
-      {
-        id: 'subtle-elegance',
-        name: 'Subtle Elegance',
-        description: 'Quiet framed plate with refined gold detailing.'
-      },
-      {
-        id: 'canva-host-bar',
-        name: 'Host Bar',
-        description: 'Canva-inspired maroon and gold hosted service lower third.'
-      },
-      {
-        id: 'canva-celebration',
-        name: 'Celebration Strip',
-        description: 'Teal event-style strip with circular logo anchor and gold accents.'
-      },
-      {
-        id: 'canva-ministry',
-        name: 'Ministry Band',
-        description: 'Warm broadcast band with deep texture, gold rails, and medallion lockup.'
-      },
-      {
-        id: 'soft-broadcast',
-        name: 'Soft Broadcast',
-        description: 'Rounded blue-glass lower third with a clean logo seal and soft modern edges.'
-      },
-      {
-        id: 'convention-strap',
-        name: 'Convention Strap',
-        description: 'Full-bleed royal gradient strap with the event logo anchored at the left.'
-      }
-    ],
+    variants: l3Variants(
+      'modern-minimal',
+      'angled-accent',
+      'signature-medallion',
+      'clean-broadcast',
+      'bold-plate',
+      'split-bar',
+      'event-style',
+      'subtle-elegance',
+      'canva-host-bar',
+      'canva-celebration',
+      'canva-ministry',
+      'soft-broadcast',
+      'convention-strap'
+    ),
     animation: { in: 'slide', out: 'slide' }
   },
   {
@@ -125,6 +177,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Performer Lower Third',
     category: 'Lower Third',
     description: 'Lower third for choirs, praise and worship teams, and special performances.',
+    primaryField: 'name',
     fields: [
       { id: 'name', label: 'Performer / group', type: 'text', placeholder: 'Choir or performer name' },
       { id: 'title', label: 'Performance', type: 'text', placeholder: 'Praise, Worship, Special Song' },
@@ -155,48 +208,16 @@ export const templateRegistry: TemplateDefinition[] = [
     // Shares the lower-third renderer but leads with its own performance
     // designs; a separate template identity keeps performer names, queue
     // entries, and presets their own collection.
-    variants: [
-      {
-        id: 'performer-pill',
-        name: 'Stage Pill',
-        description: 'Rounded gradient pill with a logo seal and a performance chip.'
-      },
-      {
-        id: 'performer-note',
-        name: 'Praise Tag',
-        description: 'Dark glass nameplate with a floating gold performance tag.'
-      },
-      {
-        id: 'convention-strap',
-        name: 'Convention Strap',
-        description: 'Full-bleed royal gradient strap with the event logo anchored at the left.'
-      },
-      {
-        id: 'split-bar',
-        name: 'Split Bar',
-        description: 'Deep bar with a premium accent slab on the right.'
-      },
-      {
-        id: 'modern-minimal',
-        name: 'Modern Minimal',
-        description: 'Slim black glass plate with a gold edge accent.'
-      },
-      {
-        id: 'soft-broadcast',
-        name: 'Soft Broadcast',
-        description: 'Rounded blue-glass lower third with a clean logo seal and soft modern edges.'
-      },
-      {
-        id: 'event-style',
-        name: 'Event Style',
-        description: 'Conference-ready teal bar with a round brand mark.'
-      },
-      {
-        id: 'canva-celebration',
-        name: 'Celebration Strip',
-        description: 'Teal event-style strip with circular logo anchor and gold accents.'
-      }
-    ],
+    variants: l3Variants(
+      'performer-pill',
+      'performer-note',
+      'convention-strap',
+      'split-bar',
+      'modern-minimal',
+      'soft-broadcast',
+      'event-style',
+      'canva-celebration'
+    ),
     animation: { in: 'slide', out: 'slide' }
   },
   {
@@ -204,6 +225,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Scripture Card',
     category: 'Card',
     description: 'A scripture card with reference, verse text, translation label, and optional theme title.',
+    primaryField: 'reference',
     fields: [
       { id: 'reference', label: 'Reference', type: 'text', placeholder: 'John 3:16' },
       { id: 'verseText', label: 'Verse text', type: 'textarea', placeholder: 'Type or paste scripture text', rows: 4 },
@@ -258,6 +280,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Announcement Banner',
     category: 'Banner',
     description: 'A bold event announcement banner with headline, body, date & time, and CTA.',
+    primaryField: 'headline',
     fields: [
       { id: 'headline', label: 'Headline', type: 'text', placeholder: 'Big announcement title' },
       { id: 'body', label: 'Body', type: 'textarea', placeholder: 'Details or supporting copy', rows: 4 },
@@ -326,6 +349,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Quote Card',
     category: 'Card',
     description: 'Editorial quote card for sermon excerpts, reflections, and teaching moments.',
+    primaryField: 'sourceName',
     fields: [
       { id: 'quoteText', label: 'Quote text', type: 'textarea', placeholder: 'Type the quote or key thought', rows: 5 },
       { id: 'sourceName', label: 'Source name', type: 'text', placeholder: 'Speaker or source', optional: true },
@@ -382,6 +406,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Event Banner',
     category: 'Banner',
     description: 'Bold event banner with title, date/time, location, CTA, and status tag.',
+    primaryField: 'eventTitle',
     fields: [
       { id: 'eventTitle', label: 'Event title', type: 'text', placeholder: 'Event or session name' },
       { id: 'dateTime', label: 'Date / Time', type: 'text', placeholder: 'Friday • 7:00 PM' },
@@ -444,6 +469,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Sermon Title',
     category: 'Fullscreen',
     description: 'Premium sermon intro card with title, series, scripture, speaker, and date.',
+    primaryField: 'speakerName',
     fields: [
       { id: 'sermonTitle', label: 'Sermon title', type: 'text', placeholder: 'Sermon title' },
       { id: 'speakerName', label: 'Speaker name', type: 'text', placeholder: 'Speaker name', optional: true },
@@ -498,6 +524,7 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Fullscreen Message',
     category: 'Fullscreen',
     description: 'Readable full-screen service message for welcome, prayer, pause, and next-step moments.',
+    primaryField: 'headline',
     fields: [
       { id: 'headline', label: 'Headline', type: 'text', placeholder: 'Welcome' },
       { id: 'body', label: 'Body', type: 'textarea', placeholder: 'Short supporting message', rows: 4, optional: true },
@@ -543,38 +570,6 @@ export const templateRegistry: TemplateDefinition[] = [
     animation: { in: 'slide', out: 'slide' }
   }
 ];
-
-/**
- * Signature palettes per lower-third design. Selecting a design loads these
- * into the draft (see store setField), so the palette editor always matches
- * the look on screen instead of freezing on whatever the pack seeded.
- */
-const LOWER_THIRD_VARIANT_PALETTES: Record<string, Record<string, string>> = {
-  'modern-minimal': { colorBrand: '#1230c4', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#081052', colorSecondary: '#07106a' },
-  'angled-accent': { colorBrand: '#0d2095', colorAccent: '#E8B93C', colorSurface: '#0b1120', colorText: '#f8fafc', colorSecondary: '#131c2e' },
-  'signature-medallion': { colorBrand: '#0d2095', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#081052', colorSecondary: '#07106a' },
-  'clean-broadcast': { colorBrand: '#1284ff', colorAccent: '#0d2095', colorSurface: '#ffffff', colorText: '#07111f', colorSecondary: '#334155' },
-  'bold-plate': { colorBrand: '#07111f', colorAccent: '#E8B93C', colorSurface: '#0d1626', colorText: '#f8fafc', colorSecondary: '#1f2a3d' },
-  'split-bar': { colorBrand: '#0f766e', colorAccent: '#f7cf27', colorSurface: '#e7fdf6', colorText: '#f8fafc', colorSecondary: '#115e59' },
-  'event-style': { colorBrand: '#0d9488', colorAccent: '#E8B93C', colorSurface: '#0b3b36', colorText: '#f0fdfa', colorSecondary: '#134e4a' },
-  'subtle-elegance': { colorBrand: '#111c33', colorAccent: '#d8b452', colorSurface: '#0e1526', colorText: '#f3f4f6', colorSecondary: '#1d2a44' },
-  'canva-host-bar': { colorBrand: '#6d1f2c', colorAccent: '#E8B93C', colorSurface: '#4a1017', colorText: '#fdf3e3', colorSecondary: '#8a2939' },
-  'canva-celebration': { colorBrand: '#0d9488', colorAccent: '#E8B93C', colorSurface: '#f8fafc', colorText: '#062f2b', colorSecondary: '#0f766e' },
-  'canva-ministry': { colorBrand: '#5b3209', colorAccent: '#E8B93C', colorSurface: '#2f1906', colorText: '#fdf3e3', colorSecondary: '#7c4a12' },
-  'soft-broadcast': { colorBrand: '#1284ff', colorAccent: '#E8B93C', colorSurface: '#0b2a6b', colorText: '#f8fafc', colorSecondary: '#123f9e' },
-  'convention-strap': { colorBrand: '#2338dd', colorAccent: '#9db1ff', colorSurface: '#101fae', colorText: '#ffffff', colorSecondary: '#b9c6ff' },
-  'performer-pill': { colorBrand: '#2338dd', colorAccent: '#9db1ff', colorSurface: '#101fae', colorText: '#ffffff', colorSecondary: '#b9c6ff' },
-  'performer-note': { colorBrand: '#2338dd', colorAccent: '#E8B93C', colorSurface: '#0a1130', colorText: '#ffffff', colorSecondary: '#9db1ff' }
-};
-
-for (const template of templateRegistry) {
-  if (template.category === 'Lower Third' && template.variants) {
-    for (const variant of template.variants) {
-      const palette = LOWER_THIRD_VARIANT_PALETTES[variant.id];
-      if (palette && !variant.palette) variant.palette = palette;
-    }
-  }
-}
 
 export const templateRendererMap: Record<string, React.ComponentType<{ values: Record<string, string>; theme: TemplateDefinition['theme'] }>> = {
   'preacher-lower-third': PreacherLowerThird,

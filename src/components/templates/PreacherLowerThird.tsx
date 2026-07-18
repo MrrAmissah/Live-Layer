@@ -5,6 +5,7 @@ import AccentStripe from '../graphics/AccentStripe';
 import Medallion from '../graphics/Medallion';
 import MaskedLine from '../graphics/MaskedLine';
 import { useAsset } from '../../hooks/useAsset';
+import { CONVENTION_LOGO_URL, DEFAULT_CHURCH_LOGO_URL } from '../../lib/brandAssets';
 import { templateColorStyle } from './colorVars';
 
 interface Props {
@@ -12,11 +13,9 @@ interface Props {
   theme: TemplateDefinition['theme'];
 }
 
-const DEFAULT_CHURCH_LOGO_URL = '/default%20logo.png';
 /* The convention strap is an event graphic — falling back to the church logo
    there puts the wrong brand on a conference frame, so it gets the event
    logo instead when the operator hasn't set one. */
-const CONVENTION_LOGO_URL = '/ppc-2026-logo.png';
 
 /**
  * Step the name size down as it gets longer so a long-but-realistic name (e.g.
