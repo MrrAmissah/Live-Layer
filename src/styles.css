@@ -7464,6 +7464,23 @@ body.gfx-transparent {
 
 .control-root .logo-summary__hint { font-size: 11.5px; line-height: 1.4; color: var(--ll-muted-2); }
 
+/* Destructive reset confirmation — deliberately visually distinct from the
+   quiet trigger so the second step cannot be clicked through by muscle memory. */
+.control-root .preset-reset__confirm {
+  display: flex; flex-direction: column; gap: 9px; margin-top: 10px; padding: 11px;
+  border-radius: var(--ll-radius-control);
+  background: rgba(244, 63, 94, 0.07); border: 1px solid rgba(244, 63, 94, 0.32);
+}
+.control-root .preset-reset__warning { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ll-text); }
+.control-root .preset-reset__actions { display: flex; gap: 8px; justify-content: flex-end; }
+.control-root .preset-reset--confirm {
+  padding: 6px 12px; border-radius: var(--ll-radius-control);
+  background: var(--ll-danger); border: 1px solid var(--ll-danger);
+  font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer;
+}
+.control-root .preset-reset--confirm:hover { filter: brightness(1.08); }
+.control-root .preset-reset--confirm:focus-visible { outline: none; box-shadow: var(--ll-focus); }
+
 /* Operator identity — deliberately not a control (no hover/pointer affordance). */
 .control-root .cmd-operator {
   display: inline-flex; align-items: center; gap: 8px;

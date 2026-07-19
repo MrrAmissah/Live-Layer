@@ -23,3 +23,19 @@ export function contentFieldExclusions(isRundownItem: boolean): string[] {
 export function canManageLogoInBrand(isRundownItem: boolean): boolean {
   return !isRundownItem;
 }
+
+/**
+ * Decode a filename for display, falling back to the raw value.
+ *
+ * `decodeURIComponent` throws a URIError on a malformed percent escape (a
+ * trailing `%`, `%zz`, a lone surrogate). Operators paste logo URLs by hand, so
+ * that input is reachable — and unguarded it would throw during render and take
+ * the whole Content tab down. A slightly ugly filename beats a blank editor.
+ */
+export function safeDecodeFilename(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}

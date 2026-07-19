@@ -69,11 +69,11 @@ export default function RailQueue({
     <div className="rail-queue">
       <div className="rail-queue__head">
         <span className="ll-kicker">Quick queue</span>
-        {quickQueue.length > 0 ? (
-          <button type="button" className="rail-queue__link" onClick={() => setExpanded(true)}>
-            View all
-          </button>
-        ) : null}
+        {/* Always reachable: the expanded panel holds the name-based quick-add,
+            so an empty queue must not be a dead end. */}
+        <button type="button" className="rail-queue__link" onClick={() => setExpanded(true)}>
+          {quickQueue.length > 0 ? 'View all' : 'Set up queue'}
+        </button>
       </div>
 
       {shown.length === 0 ? (

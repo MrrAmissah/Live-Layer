@@ -8,12 +8,12 @@ import EditTargetBanner from './EditTargetBanner';
 import TemplateFields from './TemplateFields';
 import TemplateThumb from './TemplateThumb';
 import LayoutControls from './LayoutControls';
-import { canManageLogoInBrand, contentFieldExclusions } from '../../lib/contentFields';
+import { canManageLogoInBrand, contentFieldExclusions, safeDecodeFilename } from '../../lib/contentFields';
 import DurationControl from './DurationControl';
 
 function logoName(values: Record<string, string>): string | null {
   const url = values.logoUrl?.trim();
-  if (url) return decodeURIComponent(url.split('/').pop() || url);
+  if (url) return safeDecodeFilename(url.split('/').pop() || url);
   if (values.logoAssetId?.trim()) return 'Stored asset';
   return null;
 }

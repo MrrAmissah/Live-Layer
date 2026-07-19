@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canManageLogoInBrand, contentFieldExclusions } from './contentFields';
+import { canManageLogoInBrand, contentFieldExclusions, safeDecodeFilename } from './contentFields';
 import { templateRegistry } from '../components/templates/registry';
 
 describe('Content tab field exclusions', () => {
@@ -29,5 +29,28 @@ describe('Content tab field exclusions', () => {
       const visible = template.fields.filter((f) => !excluded.includes(f.id));
       expect(visible.some((f) => f.id === 'logoUrl')).toBe(true);
     }
+  });
+});
+
+describe('safeDecodeFilename — malformed input must not crash the editor', () => {
+  it('decodes a percent-encoded filename', () => {
+    expect(safeDecodeFilename('ppc%202026%20logo.png')).toBe('ppc 2026 logo.png');
+    expect(safeDecodeFilename('gr%C3%A5fik.png')).toBe('gråfik.png');
+  });
+
+  it('returns an ordinary filename unchanged', () => {
+    expect(safeDecodeFilename('ppc-2026-logo.png')).toBe('ppc-2026-logo.png');
+  });
+
+  it('falls back to the raw value on a malformed percent escape', () => {
+    // decodeURIComponent throws URIError on each of these.
+    for (const bad of ['100%.png', 'logo%zz.png', 'trailing%', '%E0%A4%A']) {
+      expect(() => safeDecodeFilename(bad)).not.toThrow();
+      expect(safeDecodeFilename(bad)).toBe(bad);
+    }
+  });
+
+  it('handles an empty string without throwing', () => {
+    expect(safeDecodeFilename('')).toBe('');
   });
 });

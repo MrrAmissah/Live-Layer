@@ -152,14 +152,15 @@ export default function ControlPage() {
     });
 
   /**
-   * Load a queued graphic into the editor and reveal it. The Program rail (and
-   * its queue) renders on every destination, but FieldEditor only mounts under
-   * the Templates view — without the switch, Edit would load the draft into a
-   * component the operator cannot see. Read-only with respect to Program and
-   * the stored queue entry.
+   * Load any stored graphic into the editor and reveal it. FieldEditor mounts
+   * only under the Templates view, while the surfaces that offer "load into
+   * editor" actions (the Program rail's queue, the Saved graphics destination)
+   * render elsewhere — so the view switch is part of the action, not an extra
+   * step for the operator. Read-only with respect to Program, the queue and the
+   * saved preset. One handler for every such entry point.
    */
-  const onEditQueueItem = (item: GraphicInstance) => {
-    useLiveLayerStore.getState().loadGraphicInstance(item);
+  const openGraphicInEditor = (graphic: GraphicInstance) => {
+    useLiveLayerStore.getState().loadGraphicInstance(graphic);
     setView('templates');
   };
 
@@ -201,7 +202,7 @@ export default function ControlPage() {
       </div>
     ) : view === 'saved' ? (
       <DestinationPanel kicker="Saved graphics">
-        <PresetControls />
+        <PresetControls onLoadGraphic={openGraphicInEditor} />
       </DestinationPanel>
     ) : view === 'people' ? (
       <DestinationPanel kicker="People">
@@ -229,7 +230,7 @@ export default function ControlPage() {
           onTake={onTake}
           onClear={onClear}
           onTakeInstance={onTakeInstance}
-          onEditInstance={onEditQueueItem}
+          onEditInstance={openGraphicInEditor}
           sending={sending}
         />
       }
