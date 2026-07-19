@@ -117,6 +117,8 @@ interface ProgramRailProps {
   onTake: () => void;
   onClear: () => void;
   onTakeInstance: (item: GraphicInstance) => void;
+  /** A command is in flight — controls lock so a slow relay can't be double-fired. */
+  sending?: boolean;
 }
 
 /**
@@ -124,7 +126,7 @@ interface ProgramRailProps {
  * primary Take/Clear, live settings, and the quick queue — grouped by dividers,
  * not nested cards.
  */
-export default function ProgramRail({ onTake, onClear, onTakeInstance }: ProgramRailProps) {
+export default function ProgramRail({ onTake, onClear, onTakeInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
   const { takeLabel, takeDisabled, rundownActive } = useLiveTakeContext();
   const statusLabel =
@@ -144,12 +146,19 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance }: Program
         <OutputCard program={program} />
 
         <div className="program-rail__actions">
-          <button type="button" className="take-btn" onClick={onTake} disabled={takeDisabled} aria-label={takeLabel}>
+          <button
+            type="button"
+            className="take-btn"
+            onClick={onTake}
+            disabled={takeDisabled || sending}
+            aria-busy={sending || undefined}
+            aria-label={sending ? 'Sending command' : takeLabel}
+          >
             <Icon name="broadcast" size={17} />
-            {rundownActive ? takeLabel : 'Take live'}
+            {sending ? 'Sending…' : rundownActive ? takeLabel : 'Take live'}
           </button>
-          <button type="button" className="clear-btn" onClick={onClear}>
-            Clear graphic
+          <button type="button" className="clear-btn" onClick={onClear} disabled={sending} aria-busy={sending || undefined}>
+            {sending ? 'Sending…' : 'Clear graphic'}
           </button>
         </div>
       </div>

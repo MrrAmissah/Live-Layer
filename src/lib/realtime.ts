@@ -43,16 +43,35 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
   window.addEventListener('storage', storageListener);
 
   return {
-    post(message: RealtimeMessage) {
+    /**
+     * Dispatch a command and report what actually happened.
+     *
+     * Local dispatch still runs first so same-browser output stays instant, but
+     * when a relay is configured the relay's answer is the result: a
+     * BroadcastChannel/localStorage write says nothing about whether the remote
+     * machine received the command.
+     */
+    async post(message: RealtimeMessage): Promise<PublishResult> {
+      let localDelivered = false;
       if (channel) {
-        channel.postMessage(message);
+        try {
+          channel.postMessage(message);
+          localDelivered = true;
+        } catch {
+          // A closed channel is not fatal on its own — the mirror may still work.
+        }
       }
-      relay?.post(message);
       try {
         localStorage.setItem(STORAGE_MESSAGE_KEY, JSON.stringify(message));
+        localDelivered = true;
       } catch {
         // ignore quota errors
       }
+
+      if (relay) return relay.post(message);
+      return localDelivered
+        ? { ok: true, transport: 'local' }
+        : { ok: false, transport: 'none', reason: 'no-transport' };
     },
     close() {
       if (channel) {
@@ -65,24 +84,72 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
 }
 
 /**
- * Publish a command and report whether it actually went out.
+ * Publish a command and report what the transport actually did.
  *
  * Callers must not treat "no channel" as success: before the channel is created
  * (or after it is closed) nothing reaches output, so the operator-facing state
- * must stay honest. Returns false for a missing channel and for a throwing
- * transport; true only after a synchronous post completes.
+ * must stay honest. `ok: true` means an available transport accepted the
+ * command — for a relay, that it answered 2xx. It is NOT an output
+ * acknowledgement: Program confirmation stays `unconfirmed` either way.
  */
-export function publishCommand(
-  channel: { post: (message: RealtimeMessage) => void } | null | undefined,
+export async function publishCommand(
+  channel: { post: (message: RealtimeMessage) => Promise<PublishResult> } | null | undefined,
   message: RealtimeMessage
-): boolean {
-  if (!channel) return false;
+): Promise<PublishResult> {
+  if (!channel) return { ok: false, transport: 'none', reason: 'no-channel' };
   try {
-    channel.post(message);
-  } catch {
-    return false;
+    return await channel.post(message);
+  } catch (error) {
+    return { ok: false, transport: 'none', reason: 'network', detail: errorMessage(error) };
   }
-  return true;
+}
+
+/** Operator-facing reason a command did not go out. */
+export type PublishFailureReason = 'no-channel' | 'no-transport' | 'network' | 'http' | 'timeout';
+
+export type PublishResult =
+  | { ok: true; transport: 'local' | 'relay' }
+  | { ok: false; transport: 'local' | 'relay' | 'none'; reason: PublishFailureReason; detail?: string };
+
+/** A hung relay must not wedge Take; bounded so failure surfaces quickly. */
+export const RELAY_TIMEOUT_MS = 4000;
+
+/**
+ * POST a command to the relay and await its answer. Failures are surfaced, not
+ * swallowed: when control and output sit on different machines the relay is the
+ * only path, so a dropped POST means the remote output never saw the command.
+ * Exactly one request per call — no retry, so a Take cannot be duplicated.
+ *
+ * `deps` exists for tests; production uses the global fetch and timer.
+ */
+export async function postToRelay(
+  relayUrl: string,
+  message: RealtimeMessage,
+  deps: { fetchImpl?: typeof fetch; timeoutMs?: number } = {}
+): Promise<PublishResult> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const timeoutMs = deps.timeoutMs ?? RELAY_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(`${relayUrl}/message`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(message),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      return { ok: false, transport: 'relay', reason: 'http', detail: `Relay responded ${response.status}` };
+    }
+    return { ok: true, transport: 'relay' };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      return { ok: false, transport: 'relay', reason: 'timeout', detail: `No relay response in ${timeoutMs}ms` };
+    }
+    return { ok: false, transport: 'relay', reason: 'network', detail: errorMessage(error) };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function createMessage(type: RealtimeMessage['type'], payload: unknown): RealtimeMessage {
@@ -198,19 +265,15 @@ function createRelayClient(onRelayMessage: (message: RealtimeMessage) => void) {
   };
 
   return {
-    post(message: RealtimeMessage) {
-      fetch(`${relayUrl}/message`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(message)
-      }).catch(() => {
-        // The local BroadcastChannel/localStorage path still works if LAN is unavailable.
-      });
-    },
+    post: (message: RealtimeMessage) => postToRelay(relayUrl, message),
     close() {
       events.close();
     }
   };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

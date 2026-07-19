@@ -8,6 +8,7 @@ import EditTargetBanner from './EditTargetBanner';
 import TemplateFields from './TemplateFields';
 import TemplateThumb from './TemplateThumb';
 import LayoutControls from './LayoutControls';
+import { canManageLogoInBrand, contentFieldExclusions } from '../../lib/contentFields';
 import DurationControl from './DurationControl';
 
 function logoName(values: Record<string, string>): string | null {
@@ -19,7 +20,15 @@ function logoName(values: Record<string, string>): string | null {
 
 /** Compact current-logo summary. Change routes to the Brand tab where uploads
  *  live; position/scale are intentionally omitted (no renderer support). */
-function LogoSummary({ values, onManage }: { values: Record<string, string>; onManage: () => void }) {
+function LogoSummary({
+  values,
+  onManage,
+  canManage
+}: {
+  values: Record<string, string>;
+  onManage: () => void;
+  canManage: boolean;
+}) {
   const name = logoName(values);
   const src = values.logoResolvedSrc?.trim() || values.logoUrl?.trim() || '';
   return (
@@ -31,9 +40,15 @@ function LogoSummary({ values, onManage }: { values: Record<string, string>; onM
         </span>
         <span className="logo-summary__meta">
           <span className="logo-summary__name">{name ?? 'No logo set'}</span>
-          <button type="button" className="btn btn--secondary btn--sm" onClick={onManage}>
-            Change in Brand
-          </button>
+          {/* Brand cannot edit a captured rundown item, so the shortcut is
+              hidden there rather than replaced with a control that misleads. */}
+          {canManage ? (
+            <button type="button" className="btn btn--secondary btn--sm" onClick={onManage}>
+              Change in Brand
+            </button>
+          ) : (
+            <span className="logo-summary__hint">Edited with this item’s fields</span>
+          )}
         </span>
       </div>
     </div>
@@ -103,10 +118,10 @@ export default function ContentTab({ onManageLogo }: { onManageLogo: () => void 
       <div className="content-tab__grid">
         <div className="content-tab__fields">
           <EditTargetBanner />
-          <TemplateFields section="content" excludeFieldIds={['logoUrl']} />
+          <TemplateFields section="content" excludeFieldIds={contentFieldExclusions(isRundownItem)} />
         </div>
         <div className="content-tab__side">
-          <LogoSummary values={values} onManage={onManageLogo} />
+          <LogoSummary values={values} onManage={onManageLogo} canManage={canManageLogoInBrand(isRundownItem)} />
         </div>
       </div>
       <DesignVariantStrip />

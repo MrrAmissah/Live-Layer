@@ -7464,6 +7464,8 @@ body.gfx-transparent {
 .control-root .qq--studio .qq-btn--take:hover:not(:disabled) { background: rgba(54, 226, 122, 0.1); border-color: rgba(54, 226, 122, 0.42); color: var(--ll-live); }
 .control-root .qq--studio .qq-btn--remove:hover:not(:disabled) { color: var(--ll-danger); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.08); }
 
+.control-root .logo-summary__hint { font-size: 11.5px; line-height: 1.4; color: var(--ll-muted-2); }
+
 /* Operator identity — deliberately not a control (no hover/pointer affordance). */
 .control-root .cmd-operator {
   display: inline-flex; align-items: center; gap: 8px;
