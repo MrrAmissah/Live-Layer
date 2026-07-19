@@ -67,6 +67,43 @@ describe('program state — Take / Clear / Fail', () => {
     expect(p.confirmation).toBe('unconfirmed');
   });
 
+  it('failed record never inherits source metadata from a previous Take', () => {
+    // A successful quick-queue Take, then a later failed draft Take.
+    store().markProgramShowing({
+      snapshot: makeInstance('g-old'),
+      commandId: 'cmd-old',
+      source: { sourceType: 'quickQueue', sourceId: 'q-previous' }
+    });
+    store().markProgramFailed({
+      snapshot: makeInstance('g-new'),
+      commandId: 'cmd-new',
+      source: { sourceType: 'draft', sourceId: null }
+    });
+    const p = store().program;
+    expect(p.status).toBe('failed');
+    expect(p.instanceId).toBe('g-new');
+    expect(p.commandId).toBe('cmd-new');
+    // The stale quickQueue source must not survive — it would wrongly mark the
+    // old queue row as the failed command's origin.
+    expect(p.sourceType).toBe('draft');
+    expect(p.sourceId).toBeNull();
+    expect(p.takenAt).toBeNull(); // nothing went to air
+    expect(p.clearedAt).toBeNull();
+  });
+
+  it('failed record with no attempted source clears source fields deliberately', () => {
+    store().markProgramShowing({
+      snapshot: makeInstance('g-old'),
+      commandId: 'cmd-old',
+      source: { sourceType: 'rundown', sourceId: 'r-7' }
+    });
+    store().markProgramFailed();
+    const p = store().program;
+    expect(p.sourceType).toBeNull();
+    expect(p.sourceId).toBeNull();
+    expect(p.snapshot).toBeNull();
+  });
+
   it('does not mutate the Program snapshot when the source instance is mutated later', () => {
     const snap = makeInstance('g-immut', { name: 'Original' });
     store().markProgramShowing({ snapshot: snap, commandId: 'c', source: { sourceType: 'draft', sourceId: null } });

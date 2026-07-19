@@ -26,13 +26,18 @@ function templateName(templateId: string | null): string {
   return (templateId && templateById.get(templateId)?.name) || '';
 }
 
-function useTicks(active: boolean): number {
+/**
+ * Re-render clock for the elapsed/ago readouts. `intervalMs` of 0 disables it.
+ * Callers step down to a coarser interval once second-level precision stops
+ * being meaningful, so an idle rail isn't waking every second forever.
+ */
+function useTicks(intervalMs: number): number {
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (!active) return;
-    const timer = window.setInterval(() => setTick((n) => n + 1), 1000);
+    if (!intervalMs) return;
+    const timer = window.setInterval(() => setTick((n) => n + 1), intervalMs);
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [intervalMs]);
   return Date.now();
 }
 function elapsed(from: number, now: number): string {
@@ -52,8 +57,13 @@ function ago(from: number, now: number): string {
  * confident acknowledged LIVE. Flat surface, status word right-aligned.
  */
 function OutputCard({ program }: { program: ProgramState }) {
-  const active = program.status === 'showing' || program.status === 'recovering';
-  const now = useTicks(active);
+  // The cleared readout is a live counter too — it used to freeze because the
+  // clock only ran for on-air states. Both branches tick; each drops to a
+  // one-minute cadence once it is only reporting whole minutes.
+  const since = program.status === 'clear' ? program.clearedAt : program.takenAt;
+  const needsClock = program.status === 'showing' || program.status === 'recovering' || program.status === 'clear';
+  const withinFirstMinute = since !== null && Date.now() - since < 60_000;
+  const now = useTicks(needsClock && since !== null ? (withinFirstMinute ? 1000 : 60_000) : 0);
 
   const badge =
     program.status === 'showing'
@@ -87,7 +97,11 @@ function OutputCard({ program }: { program: ProgramState }) {
         ) : program.status === 'failed' && program.snapshot ? (
           <>
             <span className="program-card__identity">{graphicLabel(program.snapshot)}</span>
-            <span className="program-card__sub">The command didn’t send — nothing was put on air</span>
+            {/* Never claims output is empty: a failed publish leaves whatever
+                was already on air untouched. */}
+            <span className="program-card__sub">
+              The new command didn’t send — output may still show the previous graphic.
+            </span>
           </>
         ) : (
           <span className="program-card__sub">

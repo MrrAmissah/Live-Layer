@@ -64,6 +64,27 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
   };
 }
 
+/**
+ * Publish a command and report whether it actually went out.
+ *
+ * Callers must not treat "no channel" as success: before the channel is created
+ * (or after it is closed) nothing reaches output, so the operator-facing state
+ * must stay honest. Returns false for a missing channel and for a throwing
+ * transport; true only after a synchronous post completes.
+ */
+export function publishCommand(
+  channel: { post: (message: RealtimeMessage) => void } | null | undefined,
+  message: RealtimeMessage
+): boolean {
+  if (!channel) return false;
+  try {
+    channel.post(message);
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 export function createMessage(type: RealtimeMessage['type'], payload: unknown): RealtimeMessage {
   return {
     id: createMessageId(),

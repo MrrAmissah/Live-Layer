@@ -7464,6 +7464,16 @@ body.gfx-transparent {
 .control-root .qq--studio .qq-btn--take:hover:not(:disabled) { background: rgba(54, 226, 122, 0.1); border-color: rgba(54, 226, 122, 0.42); color: var(--ll-live); }
 .control-root .qq--studio .qq-btn--remove:hover:not(:disabled) { color: var(--ll-danger); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.08); }
 
+/* Operator identity — deliberately not a control (no hover/pointer affordance). */
+.control-root .cmd-operator {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 12px; min-height: 36px;
+  border-radius: var(--ll-radius-control);
+  border: 1px solid var(--ll-border-soft);
+  font-size: 13.5px; font-weight: 620; color: var(--ll-muted);
+}
+.control-root .cmd-operator .ll-icon { color: var(--ll-muted-2); }
+
 /* --- library category headers (collapsible) ----------------------------- */
 .control-root .tpl-lib__searchrow { display: flex; align-items: center; gap: 7px; margin: 0 2px; }
 .control-root .tpl-lib__searchrow .tpl-lib__search { flex: 1 1 auto; min-width: 0; margin: 0; }

@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
-import { getTemplateIcon } from '../../lib/templateMeta';
+import { describeTemplate } from '../../lib/templateMeta';
 import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 
 const templateById = new Map(templateRegistry.map((template) => [template.id, template]));
 
 function templateShortName(templateId: string): string {
-  return templateById.get(templateId)?.name ?? templateId;
+  return describeTemplate(templateById.get(templateId), templateId).label;
 }
 
 /** The field a quick-added name lands in (and labels read first). */
@@ -162,7 +162,7 @@ export default function QuickQueuePanel({
                 className={`qq-chip${effectiveFilter === templateId ? ' qq-chip--active' : ''}`}
                 onClick={() => setTemplateFilter(effectiveFilter === templateId ? null : templateId)}
               >
-                <Icon name={getTemplateIcon(templateById.get(templateId)!)} size={11} />
+                <Icon name={describeTemplate(templateById.get(templateId), templateId).icon} size={11} />
                 {templateShortName(templateId)} · {templateCounts.get(templateId)}
               </button>
             ))}
@@ -190,7 +190,7 @@ export default function QuickQueuePanel({
                 </span>
                 <span className="qq-item__row">
                   <span className="qq-item__template">
-                    <Icon name={getTemplateIcon(templateById.get(item.templateId)!)} size={12} />
+                    <Icon name={describeTemplate(templateById.get(item.templateId), item.templateId).icon} size={12} />
                     {templateShortName(item.templateId)}
                   </span>
                   <span className="qq-item__actions">

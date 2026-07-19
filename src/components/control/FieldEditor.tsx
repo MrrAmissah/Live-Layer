@@ -4,6 +4,7 @@ import TemplateFields from './TemplateFields';
 import ContentTab from './ContentTab';
 import BrandControls from './BrandControls';
 import { useEditTarget } from '../../hooks/useEditTarget';
+import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 
 type EditorTab = 'content' | 'design' | 'brand' | 'motion' | 'advanced';
 
@@ -26,15 +27,23 @@ const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
  */
 export default function FieldEditor() {
   const { isRundownItem, resetDraft } = useEditTarget();
+  const resetTheme = useLiveLayerStore((state) => state.resetTheme);
   const [tab, setTab] = useState<EditorTab>('content');
+
+  // Reset acts on whatever the visible tab edits, and says so. A generic
+  // "Reset" on the Brand tab used to wipe the draft instead of the brand.
+  const reset =
+    tab === 'brand'
+      ? { label: 'Reset brand', run: resetTheme, title: 'Restore the default brand colours and logo' }
+      : { label: 'Reset graphic', run: resetDraft, title: 'Restore this template’s default content and design' };
 
   return (
     <Panel className="ll-fill editor-panel">
       <div className="editor-head">
         <span className="ll-kicker">{isRundownItem ? 'Rundown item' : 'Edit graphic'}</span>
-        {!isRundownItem ? (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={resetDraft}>
-            Reset
+        {!isRundownItem || tab === 'brand' ? (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={reset.run} title={reset.title}>
+            {reset.label}
           </button>
         ) : null}
       </div>

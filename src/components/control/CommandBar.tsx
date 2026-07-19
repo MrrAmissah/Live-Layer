@@ -71,11 +71,12 @@ export default function CommandBar() {
           <Icon name="settings" size={17} />
           <span>Setup</span>
         </button>
-        <button type="button" className="btn btn--ghost btn--md cmd-action cmd-operator" onClick={() => openRoute('/control')}>
+        {/* Identity, not a menu. It previously wore a dropdown chevron but only
+            opened a duplicate /control tab — no menu exists to back it yet. */}
+        <span className="cmd-operator" title="Signed in as the operator of this control surface">
           <Icon name="user" size={17} />
           <span>Operator</span>
-          <Icon name="chevronDown" size={14} />
-        </button>
+        </span>
       </div>
     </header>
   );

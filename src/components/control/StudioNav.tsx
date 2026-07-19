@@ -1,13 +1,16 @@
 import { Icon, type IconName } from '../../lib/icons';
 import TemplateLibrary from './TemplateLibrary';
 
-export type StudioView = 'templates' | 'saved' | 'people' | 'assets' | 'rundowns';
+export type StudioView = 'templates' | 'saved' | 'people' | 'assets' | 'rundowns' | 'import';
 
 const SECONDARY: Array<{ id: StudioView; label: string; icon: IconName }> = [
   { id: 'saved', label: 'Saved graphics', icon: 'bookmark' },
   { id: 'people', label: 'People', icon: 'user' },
   { id: 'assets', label: 'Assets', icon: 'image' },
-  { id: 'rundowns', label: 'Rundowns', icon: 'queue' }
+  { id: 'rundowns', label: 'Rundowns', icon: 'queue' },
+  // Desktop path to the .livelayerpack preview/import flow. Without it the
+  // feature was only reachable by shrinking below the dock breakpoint.
+  { id: 'import', label: 'Import pack', icon: 'layers' }
 ];
 
 /**

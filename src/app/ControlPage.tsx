@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '../store/useLiveLayerStore';
-import { createRealtimeChannel, createMessage } from '../lib/realtime';
+import { createRealtimeChannel, createMessage, publishCommand } from '../lib/realtime';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import {
   getActiveRundownId,
@@ -24,6 +24,7 @@ import PresetControls from '../components/control/PresetControls';
 import PeopleLibrary from '../components/control/PeopleLibrary';
 import RundownLibrary from '../components/control/RundownLibrary';
 import AssetsView from '../components/control/AssetsView';
+import ImportPackPreview from '../components/control/ImportPackPreview';
 
 /** Wraps an existing management surface as a full-height studio destination. */
 function DestinationPanel({ kicker, children }: { kicker: string; children: React.ReactNode }) {
@@ -74,18 +75,23 @@ export default function ControlPage() {
    * a confident acknowledged live, which awaits an output ack). Publish failure
    * marks 'failed', never a confirmed live.
    */
-  const publishShow = (instance: GraphicInstance, source: ProgramSource) => {
+  const publishShow = (instance: GraphicInstance, source: ProgramSource): boolean => {
     const { markProgramShowing, markProgramFailed } = useLiveLayerStore.getState();
     const message = createMessage('SHOW_GRAPHIC', instance);
-    try {
-      channelRef.current?.post(message);
-      markProgramShowing({ snapshot: instance, commandId: message.id, source });
-    } catch {
-      markProgramFailed({ snapshot: instance, commandId: message.id });
+    if (!publishCommand(channelRef.current, message)) {
+      markProgramFailed({ snapshot: instance, commandId: message.id, source });
+      return false;
     }
+    markProgramShowing({ snapshot: instance, commandId: message.id, source });
+    // Operator-facing "taken" state only after the publish actually succeeded.
     setLastAction('taken');
     setLastTakenAt(Date.now());
+    return true;
   };
+
+  /** Publish CLEAR_ALL. Same rule: a missing channel is a failure, not a clear. */
+  const publishClear = (): boolean =>
+    publishCommand(channelRef.current, createMessage('CLEAR_ALL', {}));
 
   const onTake = () => {
     // Rundown mode: Take fires the SELECTED item via the same realtime path.
@@ -95,8 +101,10 @@ export default function ControlPage() {
     if (activeRundownId) {
       const item = getSelectedItem(getRundown(activeRundownId));
       if (item) {
-        publishShow(cloneRundownGraphic(item.graphic), { sourceType: 'rundown', sourceId: item.id });
-        setActiveItem(activeRundownId, item.id);
+        // Only advance the live cursor once the command is actually out.
+        if (publishShow(cloneRundownGraphic(item.graphic), { sourceType: 'rundown', sourceId: item.id })) {
+          setActiveItem(activeRundownId, item.id);
+        }
       }
       return;
     }
@@ -106,12 +114,14 @@ export default function ControlPage() {
     // Deep-cloned snapshot: editing fields after Take never mutates what is
     // on air — the output only changes via the next SHOW_GRAPHIC.
     const instance = buildInstanceFromDraft(state);
-    publishShow(instance, { sourceType: 'draft', sourceId: null });
-    state.addRecent(instance);
+    // Recent is a log of what went to air, so a failed publish must not enter it.
+    if (publishShow(instance, { sourceType: 'draft', sourceId: null })) {
+      state.addRecent(instance);
+    }
   };
 
   const onClear = () => {
-    channelRef.current?.post(createMessage('CLEAR_ALL', {}));
+    if (!publishClear()) return; // nothing published — Program stays as it was
     useLiveLayerStore.getState().markProgramClear();
     setLastAction('cleared');
     // In rundown mode, Clear also drops the live cursor (does not mark done).
@@ -131,8 +141,9 @@ export default function ControlPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    publishShow(instance, { sourceType: 'quickQueue', sourceId: item.id });
-    useLiveLayerStore.getState().addRecent(instance);
+    if (publishShow(instance, { sourceType: 'quickQueue', sourceId: item.id })) {
+      useLiveLayerStore.getState().addRecent(instance);
+    }
   };
 
   if (!isStudio) {
@@ -162,6 +173,10 @@ export default function ControlPage() {
       </DestinationPanel>
     ) : view === 'assets' ? (
       <AssetsView />
+    ) : view === 'import' ? (
+      <DestinationPanel kicker="Import pack">
+        <ImportPackPreview />
+      </DestinationPanel>
     ) : (
       <DestinationPanel kicker="Rundowns">
         <RundownLibrary />

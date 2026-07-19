@@ -70,6 +70,71 @@ describe('program persistence + recovery', () => {
     saveProgram({ ...CLEAR_PROGRAM_STATE, status: 'showing', snapshot: null });
     expect(loadProgram().status).toBe('clear');
   });
+
+  it('keeps a failed state failed across reload (not downgraded to recovering)', () => {
+    saveProgram({
+      ...CLEAR_PROGRAM_STATE,
+      status: 'failed',
+      instanceId: 'g1',
+      templateId: 'preacher-lower-third',
+      snapshot: makeInstance()
+    });
+    const loaded = loadProgram();
+    expect(loaded.status).toBe('failed');
+    expect(loaded.confirmation).toBe('unconfirmed');
+  });
+
+  it('resets an unknown persisted status to clear', () => {
+    localStorage.setItem(
+      'livelayer.program',
+      JSON.stringify({ status: 'live', snapshot: makeInstance(), sourceType: 'draft' })
+    );
+    const loaded = loadProgram();
+    expect(loaded.status).toBe('clear');
+    expect(loaded.snapshot).toBeNull();
+  });
+
+  it('preserves quickQueue source identity and command metadata through recovery', () => {
+    saveProgram({
+      ...CLEAR_PROGRAM_STATE,
+      status: 'showing',
+      commandId: 'cmd-9',
+      instanceId: 'g-live',
+      templateId: 'preacher-lower-third',
+      sourceType: 'quickQueue',
+      sourceId: 'q-original',
+      snapshot: makeInstance({ id: 'g-live' }),
+      takenAt: 4242
+    });
+    const loaded = loadProgram();
+    expect(loaded.status).toBe('recovering');
+    // The rail relies on these to keep highlighting the originating entry.
+    expect(loaded.sourceType).toBe('quickQueue');
+    expect(loaded.sourceId).toBe('q-original');
+    expect(loaded.commandId).toBe('cmd-9');
+    expect(loaded.instanceId).toBe('g-live');
+    expect(loaded.takenAt).toBe(4242);
+  });
+
+  it('discards malformed source metadata instead of carrying it forward', () => {
+    localStorage.setItem(
+      'livelayer.program',
+      JSON.stringify({
+        status: 'showing',
+        snapshot: makeInstance(),
+        sourceType: 'not-a-real-source',
+        sourceId: 'q-orphan',
+        commandId: 42,
+        takenAt: 'nope'
+      })
+    );
+    const loaded = loadProgram();
+    expect(loaded.status).toBe('recovering');
+    expect(loaded.sourceType).toBeNull();
+    expect(loaded.sourceId).toBeNull(); // dropped with its invalid type
+    expect(loaded.commandId).toBeNull();
+    expect(loaded.takenAt).toBeNull();
+  });
 });
 
 describe('quick-queue revision normalization', () => {

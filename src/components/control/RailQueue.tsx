@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
-import { getTemplateIcon } from '../../lib/templateMeta';
+import { describeTemplate } from '../../lib/templateMeta';
 import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 import QuickQueuePanel from './QuickQueuePanel';
@@ -16,7 +16,7 @@ function itemLabel(item: GraphicInstance): string {
   return (primary ? item.values[primary] : '') || item.values.name || t?.name || item.templateId;
 }
 function typeName(templateId: string): string {
-  return templateById.get(templateId)?.name ?? templateId;
+  return describeTemplate(templateById.get(templateId), templateId).label;
 }
 function draftLabel(state: ReturnType<typeof useLiveLayerStore.getState>): string {
   const t = templateById.get(state.currentTemplateId);
@@ -84,7 +84,7 @@ export default function RailQueue({ onTakeInstance }: { onTakeInstance: (item: G
               <span className="rail-qrow__body">
                 <span className="rail-qrow__name">{itemLabel(item)}</span>
                 <span className="rail-qrow__type">
-                  <Icon name={getTemplateIcon(templateById.get(item.templateId)!)} size={12} />
+                  <Icon name={describeTemplate(templateById.get(item.templateId), item.templateId).icon} size={12} />
                   {typeName(item.templateId)}
                 </span>
               </span>

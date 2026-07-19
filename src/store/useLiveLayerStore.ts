@@ -53,7 +53,9 @@ interface LiveLayerState {
   program: ProgramState;
   markProgramShowing: (input: { snapshot: GraphicInstance; commandId: string; source: ProgramSource }) => void;
   markProgramClear: () => void;
-  markProgramFailed: (input?: { snapshot?: GraphicInstance; commandId?: string }) => void;
+  /** Records a publish that never reached output. Source is passed explicitly so
+   *  the failed record never inherits the previous Program's source. */
+  markProgramFailed: (input?: { snapshot?: GraphicInstance; commandId?: string; source?: ProgramSource }) => void;
   activePackId: string;
   setActivePack: (packId: string) => void;
   setTemplate: (templateId: string) => void;
@@ -224,16 +226,26 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         saveProgram(next);
         return { program: next };
       }),
+    /**
+     * Record a publish that did not reach output. Built from CLEAR_PROGRAM_STATE
+     * rather than spread over the previous program, so a failed record can never
+     * inherit stale source metadata from an earlier successful Take — every
+     * field describes the ATTEMPT, or is deliberately null.
+     */
     markProgramFailed: (input) =>
-      set((state) => {
+      set(() => {
         const next: ProgramState = {
-          ...state.program,
+          ...CLEAR_PROGRAM_STATE,
           status: 'failed',
           confirmation: 'unconfirmed',
-          ...(input?.commandId ? { commandId: input.commandId } : {}),
-          ...(input?.snapshot
-            ? { snapshot: deepClone(input.snapshot), instanceId: input.snapshot.id, templateId: input.snapshot.templateId }
-            : {})
+          commandId: input?.commandId ?? null,
+          instanceId: input?.snapshot?.id ?? null,
+          templateId: input?.snapshot?.templateId ?? null,
+          sourceType: input?.source?.sourceType ?? null,
+          sourceId: input?.source?.sourceId ?? null,
+          snapshot: input?.snapshot ? deepClone(input.snapshot) : null,
+          takenAt: null,
+          clearedAt: null
         };
         saveProgram(next);
         return { program: next };

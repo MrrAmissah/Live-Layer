@@ -37,3 +37,18 @@ export function getTemplateIcon(template: TemplateDefinition): IconName {
       return 'quote';
   }
 }
+
+/**
+ * Icon + label for a possibly-unknown template id. A queued or on-air entry can
+ * outlive its template (registry edit, removed pack), and the Program rail must
+ * degrade to a readable row instead of throwing on a missing lookup.
+ */
+export function describeTemplate(
+  template: TemplateDefinition | undefined,
+  templateId: string
+): { icon: IconName; label: string; known: boolean } {
+  if (!template) {
+    return { icon: 'layers', label: templateId || 'Unknown template', known: false };
+  }
+  return { icon: getTemplateIcon(template), label: template.name, known: true };
+}
