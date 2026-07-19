@@ -1,4 +1,6 @@
-import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
+import type { GraphicInstance, QuickQueueItem, TemplateDefinition } from '../types/graphics';
+import type { ProgramState } from '../types/program';
+import { CLEAR_PROGRAM_STATE } from '../types/program';
 
 const STORAGE_KEYS = {
   presets: 'livelayer.presets',
@@ -6,6 +8,7 @@ const STORAGE_KEYS = {
   recent: 'livelayer.recent',
   quickQueue: 'livelayer.quickQueue',
   activePack: 'livelayer.activePack',
+  program: 'livelayer.program',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   lastRealtimeMessage: 'livelayer:lastMessage'
@@ -49,12 +52,51 @@ export function loadRecentGraphics() {
   return loadGraphicList(STORAGE_KEYS.recent);
 }
 
-export function loadQuickQueue() {
-  return loadGraphicList(STORAGE_KEYS.quickQueue);
+/**
+ * Quick-queue items carry a monotonic `revision`. Legacy entries stored before
+ * revisions existed normalize to 1 on load, so optimistic-concurrency checks
+ * have a stable baseline without a migration step.
+ */
+export function loadQuickQueue(): QuickQueueItem[] {
+  return loadGraphicList(STORAGE_KEYS.quickQueue).map((item) => ({
+    ...item,
+    revision: Number.isInteger(item.revision) && (item.revision as number) > 0 ? (item.revision as number) : 1
+  }));
 }
 
-export function saveQuickQueue(queue: GraphicInstance[]) {
+export function saveQuickQueue(queue: QuickQueueItem[]) {
   safeWrite(STORAGE_KEYS.quickQueue, queue);
+}
+
+/**
+ * Program recovery: a browser reload cannot confirm what output is doing, so a
+ * previously on-air state comes back as `recovering` (never a confident live),
+ * an explicit clear stays clear, and anything absent or malformed resets safely
+ * to clear.
+ */
+export function loadProgram(): ProgramState {
+  const raw = safeReadJson(STORAGE_KEYS.program);
+  if (!isRecord(raw) || typeof raw.status !== 'string') return { ...CLEAR_PROGRAM_STATE };
+  const persistedStatus = raw.status;
+  if (persistedStatus === 'clear') {
+    return { ...CLEAR_PROGRAM_STATE, clearedAt: typeof raw.clearedAt === 'number' ? raw.clearedAt : null };
+  }
+  // 'showing' | 'recovering' | (any other on-air-ish value) → recovering.
+  const snapshot = isGraphicInstance(raw.snapshot) ? (raw.snapshot as GraphicInstance) : null;
+  if (!snapshot) return { ...CLEAR_PROGRAM_STATE };
+  return {
+    ...CLEAR_PROGRAM_STATE,
+    status: 'recovering',
+    confirmation: 'unconfirmed',
+    instanceId: typeof raw.instanceId === 'string' ? raw.instanceId : snapshot.id,
+    templateId: typeof raw.templateId === 'string' ? raw.templateId : snapshot.templateId,
+    snapshot,
+    takenAt: typeof raw.takenAt === 'number' ? raw.takenAt : null
+  };
+}
+
+export function saveProgram(program: ProgramState) {
+  safeWrite(STORAGE_KEYS.program, program);
 }
 
 /* Active pack id is stored as a raw string (not JSON) for backwards

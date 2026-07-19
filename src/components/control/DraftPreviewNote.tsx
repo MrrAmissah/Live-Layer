@@ -6,7 +6,7 @@
 export default function DraftPreviewNote() {
   return (
     <p className="draft-note">
-      Editing updates the preview only — the live output changes when you press Take.
+      Editing updates preview only — changes go live when you press Take.
     </p>
   );
 }

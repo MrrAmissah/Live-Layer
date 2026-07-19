@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { buildInstanceFromDraft, useLiveLayerStore } from '../store/useLiveLayerStore';
+import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage } from '../lib/realtime';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import {
@@ -15,13 +15,27 @@ import type { LastAction } from '../components/control/StatusBadge';
 import ControlShell from '../components/control/ControlShell';
 import DockShell from '../components/control/DockShell';
 import CommandBar from '../components/control/CommandBar';
-import TemplateRail from '../components/control/TemplateRail';
+import StudioNav, { type StudioView } from '../components/control/StudioNav';
 import PreviewPanel from '../components/control/PreviewPanel';
 import FieldEditor from '../components/control/FieldEditor';
-import LiveActionsPanel from '../components/control/LiveActionsPanel';
-import QuickQueuePanel from '../components/control/QuickQueuePanel';
-import BrandPanel from '../components/control/BrandPanel';
-import LibraryPanel from '../components/control/LibraryPanel';
+import ProgramRail from '../components/control/ProgramRail';
+import Panel from '../components/control/Panel';
+import PresetControls from '../components/control/PresetControls';
+import PeopleLibrary from '../components/control/PeopleLibrary';
+import RundownLibrary from '../components/control/RundownLibrary';
+import AssetsView from '../components/control/AssetsView';
+
+/** Wraps an existing management surface as a full-height studio destination. */
+function DestinationPanel({ kicker, children }: { kicker: string; children: React.ReactNode }) {
+  return (
+    <Panel className="ll-fill">
+      <div className="editor-head">
+        <span className="ll-kicker">{kicker}</span>
+      </div>
+      <div className="ll-panel__body">{children}</div>
+    </Panel>
+  );
+}
 
 /** Deep clone so a taken graphic shares no references with editable draft state. */
 function snapshot<T>(value: T): T {
@@ -39,6 +53,7 @@ export default function ControlPage() {
   const channelRef = useRef<ReturnType<typeof createRealtimeChannel> | null>(null);
   const [lastAction, setLastAction] = useState<LastAction>('idle');
   const [lastTakenAt, setLastTakenAt] = useState<number | null>(null);
+  const [view, setView] = useState<StudioView>('templates');
   // Narrow contexts (OBS Custom Browser Dock, tablets, small windows) get the
   // guided dock; roomy desktops get the studio dashboard. Same route, same
   // store, same Take/Clear — only the layout differs.
@@ -52,6 +67,26 @@ export default function ControlPage() {
     };
   }, []);
 
+  /**
+   * Publish a SHOW command and record the operator-side Program state. The
+   * realtime message stays the authority for what was *commanded*; the Program
+   * slice only records our view of it (status 'showing' / 'unconfirmed' — never
+   * a confident acknowledged live, which awaits an output ack). Publish failure
+   * marks 'failed', never a confirmed live.
+   */
+  const publishShow = (instance: GraphicInstance, source: ProgramSource) => {
+    const { markProgramShowing, markProgramFailed } = useLiveLayerStore.getState();
+    const message = createMessage('SHOW_GRAPHIC', instance);
+    try {
+      channelRef.current?.post(message);
+      markProgramShowing({ snapshot: instance, commandId: message.id, source });
+    } catch {
+      markProgramFailed({ snapshot: instance, commandId: message.id });
+    }
+    setLastAction('taken');
+    setLastTakenAt(Date.now());
+  };
+
   const onTake = () => {
     // Rundown mode: Take fires the SELECTED item via the same realtime path.
     // Never falls through to the ad-hoc draft — active rundown + no selection
@@ -60,28 +95,24 @@ export default function ControlPage() {
     if (activeRundownId) {
       const item = getSelectedItem(getRundown(activeRundownId));
       if (item) {
-        channelRef.current?.post(createMessage('SHOW_GRAPHIC', cloneRundownGraphic(item.graphic)));
+        publishShow(cloneRundownGraphic(item.graphic), { sourceType: 'rundown', sourceId: item.id });
         setActiveItem(activeRundownId, item.id);
-        setLastAction('taken');
-        setLastTakenAt(Date.now());
       }
       return;
     }
 
     // --- ad-hoc draft Take (unchanged when no rundown is active) ---
     const state = useLiveLayerStore.getState();
-    const { addRecent } = state;
     // Deep-cloned snapshot: editing fields after Take never mutates what is
     // on air — the output only changes via the next SHOW_GRAPHIC.
     const instance = buildInstanceFromDraft(state);
-    channelRef.current?.post(createMessage('SHOW_GRAPHIC', instance));
-    addRecent(instance);
-    setLastAction('taken');
-    setLastTakenAt(Date.now());
+    publishShow(instance, { sourceType: 'draft', sourceId: null });
+    state.addRecent(instance);
   };
 
   const onClear = () => {
     channelRef.current?.post(createMessage('CLEAR_ALL', {}));
+    useLiveLayerStore.getState().markProgramClear();
     setLastAction('cleared');
     // In rundown mode, Clear also drops the live cursor (does not mark done).
     const activeRundownId = getActiveRundownId();
@@ -90,7 +121,8 @@ export default function ControlPage() {
 
   /**
    * Take a stored quick-queue graphic straight to air. A fresh id/timestamp
-   * per take so repeated takes of the same entry always re-fire the output.
+   * per take so repeated takes of the same entry always re-fire the output;
+   * the Program source keeps the ORIGINAL queue item id.
    */
   const onTakeInstance = (item: GraphicInstance) => {
     const instance: GraphicInstance = {
@@ -99,10 +131,8 @@ export default function ControlPage() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    channelRef.current?.post(createMessage('SHOW_GRAPHIC', instance));
+    publishShow(instance, { sourceType: 'quickQueue', sourceId: item.id });
     useLiveLayerStore.getState().addRecent(instance);
-    setLastAction('taken');
-    setLastTakenAt(Date.now());
   };
 
   if (!isStudio) {
@@ -116,25 +146,34 @@ export default function ControlPage() {
     );
   }
 
+  const center =
+    view === 'templates' ? (
+      <div className="studio-center">
+        <PreviewPanel />
+        <FieldEditor />
+      </div>
+    ) : view === 'saved' ? (
+      <DestinationPanel kicker="Saved graphics">
+        <PresetControls />
+      </DestinationPanel>
+    ) : view === 'people' ? (
+      <DestinationPanel kicker="People">
+        <PeopleLibrary />
+      </DestinationPanel>
+    ) : view === 'assets' ? (
+      <AssetsView />
+    ) : (
+      <DestinationPanel kicker="Rundowns">
+        <RundownLibrary />
+      </DestinationPanel>
+    );
+
   return (
     <ControlShell
       commandBar={<CommandBar />}
-      rail={<TemplateRail />}
-      preview={<PreviewPanel />}
-      editor={<FieldEditor />}
-      actions={
-        <>
-          <LiveActionsPanel
-            onTake={onTake}
-            onClear={onClear}
-            lastAction={lastAction}
-            lastTakenAt={lastTakenAt}
-          />
-          <QuickQueuePanel onTakeInstance={onTakeInstance} />
-        </>
-      }
-      brand={<BrandPanel />}
-      presets={<LibraryPanel />}
+      nav={<StudioNav view={view} onViewChange={setView} />}
+      center={center}
+      rail={<ProgramRail onTake={onTake} onClear={onClear} onTakeInstance={onTakeInstance} />}
     />
   );
 }

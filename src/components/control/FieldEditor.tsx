@@ -1,41 +1,66 @@
+import { useState } from 'react';
 import Panel from './Panel';
-import SectionHeader from './SectionHeader';
 import TemplateFields from './TemplateFields';
-import EditTargetBanner from './EditTargetBanner';
-import LayoutControls from './LayoutControls';
-import DurationControl from './DurationControl';
+import ContentTab from './ContentTab';
+import BrandControls from './BrandControls';
 import { useEditTarget } from '../../hooks/useEditTarget';
 
+type EditorTab = 'content' | 'design' | 'brand' | 'motion' | 'advanced';
+
+const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
+  { id: 'content', label: 'Content', enabled: true },
+  { id: 'design', label: 'Design', enabled: true },
+  { id: 'brand', label: 'Brand', enabled: true },
+  // Motion and Advanced are visible but accessibly disabled until their
+  // migration stages — they must never open an empty view.
+  { id: 'motion', label: 'Motion', enabled: false },
+  { id: 'advanced', label: 'Advanced', enabled: false }
+];
+
 /**
- * Content editor panel (studio mode). In rundown mode it edits the SELECTED item
- * (text + layout + duration + banner); in ad-hoc mode it's the draft (layout/
- * duration live in the action deck). Routes through the shared edit target.
+ * Contextual editor (studio). Tabs scope the controls: Content (schema-backed
+ * text fields + character guidance), Design (variant + palette), Brand (event
+ * pack + brand). Motion and Advanced are disabled until Stages 2+ implement
+ * them — never shown as clickable empty tabs. In rundown mode the Content tab
+ * also carries the item's layout/duration, preserving today's behaviour.
  */
 export default function FieldEditor() {
   const { isRundownItem, resetDraft } = useEditTarget();
+  const [tab, setTab] = useState<EditorTab>('content');
 
   return (
-    <Panel className="ll-fill">
-      <SectionHeader
-        kicker={isRundownItem ? 'Rundown item' : 'Content'}
-        title={isRundownItem ? 'Edit item' : 'Edit graphic'}
-        aside={
-          isRundownItem ? null : (
-            <button type="button" className="btn btn--ghost btn--sm" onClick={resetDraft}>
-              Reset
-            </button>
-          )
-        }
-      />
-      <div className="ll-panel__body">
-        <EditTargetBanner />
-        <TemplateFields />
-        {isRundownItem ? (
-          <div className="field-editor__layout">
-            <LayoutControls />
-            <DurationControl />
-          </div>
+    <Panel className="ll-fill editor-panel">
+      <div className="editor-head">
+        <span className="ll-kicker">{isRundownItem ? 'Rundown item' : 'Edit graphic'}</span>
+        {!isRundownItem ? (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={resetDraft}>
+            Reset
+          </button>
         ) : null}
+      </div>
+
+      <div className="editor-tabs" role="tablist" aria-label="Editor sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-disabled={!t.enabled || undefined}
+            disabled={!t.enabled}
+            title={t.enabled ? undefined : 'Available in a later stage'}
+            className={`editor-tab${tab === t.id ? ' editor-tab--active' : ''}${t.enabled ? '' : ' editor-tab--disabled'}`}
+            onClick={() => t.enabled && setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="ll-panel__body editor-body">
+        {tab === 'content' ? <ContentTab onManageLogo={() => setTab('brand')} /> : null}
+        {tab === 'design' ? <TemplateFields section="design" /> : null}
+        {tab === 'brand' ? <BrandControls /> : null}
       </div>
     </Panel>
   );

@@ -4,7 +4,11 @@
 
 :root {
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* 'Inter Variable' is the name @fontsource-variable/inter registers; plain
+     "Inter" only matches a locally-installed copy, which is why this stack used
+     to fall through to system-ui. Both are listed so either source works. */
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv05' 1, 'ss03' 1; /* single-storey l, rounded quotes */
   color: #f8fafc;
   background: #03060d;
   --bg: #03060d;
@@ -94,8 +98,63 @@ body {
   background: rgba(4, 9, 16, 0.76);
   border-top: 1px solid rgba(132, 150, 174, 0.12);
 }
-.preview-monitor .monitor-bezel--top { display: none; }
-.preview-monitor .monitor-bezel--bottom { justify-content: flex-end; border-bottom: 0; min-height: 30px; padding: 5px 10px; }
+/* Header bar: tally + PREVIEW / PVW on the left, backdrop + safe-area controls
+   on the right. Was hidden outright; the controls existed but were unreachable. */
+.preview-monitor .monitor-bezel--top {
+  display: flex; justify-content: space-between; gap: 12px;
+  min-height: 38px; padding: 6px 12px;
+  border-top: 0; border-bottom: 1px solid rgba(132, 150, 174, 0.12);
+}
+.preview-monitor .monitor-bezel__title {
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ll-muted);
+}
+.preview-monitor .monitor-bezel__tools {
+  display: inline-flex; align-items: center; gap: 6px;
+  flex: 0 1 auto; min-width: 0; justify-content: flex-end;
+}
+/* Backdrop options read as one segmented track, like the rail's controls. */
+.preview-monitor .preview-toolbar-group {
+  flex-wrap: nowrap; gap: 0;
+  border-radius: var(--ll-radius-control); overflow: hidden;
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+}
+.preview-monitor .preview-toolbar-group .preview-chip {
+  min-height: 28px; padding: 0 11px; border: 0; border-radius: 0;
+  background: transparent; white-space: nowrap;
+}
+.preview-monitor .preview-toolbar-group .preview-chip + .preview-chip { box-shadow: inset 1px 0 0 var(--ll-border-soft); }
+.preview-monitor .preview-toolbar-group .preview-chip-active,
+.preview-monitor .preview-toolbar-group .preview-chip-active + .preview-chip { box-shadow: none; }
+/* Standalone Safe-area toggle keeps its own outline. */
+.preview-monitor .monitor-bezel__tools > .preview-chip {
+  min-height: 28px; padding: 0 11px; border-radius: var(--ll-radius-control); white-space: nowrap;
+}
+.preview-monitor .preview-chip { font-size: 11.5px; font-weight: 640; cursor: pointer; }
+.preview-monitor .preview-chip-active { background: var(--ll-select); border-color: var(--ll-select-edge); color: #fff; }
+.preview-monitor .preview-chip:focus-visible { outline: none; box-shadow: var(--ll-focus); position: relative; z-index: 1; }
+/* Note left, specs right, one line. `flex-end` used to shove both to the right
+   with no sizing rules, so the note wrapped and "1920 × 1080 / PVW" broke apart. */
+.preview-monitor .monitor-bezel--bottom {
+  justify-content: space-between; border-bottom: 0; min-height: 34px; padding: 6px 12px;
+}
+.preview-monitor .monitor-bezel__note {
+  flex: 1 1 auto; min-width: 0;
+  display: inline-flex; align-items: center; gap: 7px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.preview-monitor .monitor-bezel__note > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-monitor .monitor-bezel__specs { flex: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.preview-monitor .monitor-spec { white-space: nowrap; flex: none; }
+/* `.preview-note` had no rules at all, so this inline span wrapped a block <p>
+   — that mismatch is what scattered the strip. Make it a proper flex line. */
+.preview-monitor .preview-note {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0;
+  font-size: 12px; color: #7f8da3;
+}
+.preview-monitor .preview-note .ll-icon { flex: none; color: #6f7e95; }
+.preview-monitor .preview-note .draft-note { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .preview-monitor .monitor-tally {
   flex: none;
@@ -5185,10 +5244,16 @@ body.gfx-transparent {
   --ll-live: #36e27a;
   --ll-warn: #e8b93c;
   --ll-danger: #f43f5e;
-  --ll-radius-panel: 16px;
-  --ll-radius-control: 8px;
+  /* Boxier than the old 16/8. The reference reads as broadcast panelling, not
+     web cards — squarer corners are most of that difference. */
+  --ll-radius-panel: 10px;
+  --ll-radius-control: 6px;
   --ll-shadow-panel: 0 18px 44px -28px rgba(0, 0, 0, 0.85);
   --ll-focus: 0 0 0 3px rgba(34, 211, 238, 0.16);
+  /* Restrained blue for selection surfaces/edges (distinct from live green). */
+  --ll-select: #2f6df6;
+  --ll-select-soft: rgba(47, 109, 246, 0.12);
+  --ll-select-edge: rgba(47, 109, 246, 0.55);
   position: relative;
   min-height: 100vh;
   background:
@@ -5353,28 +5418,6 @@ body.gfx-transparent {
   gap: 14px;
 }
 .control-root .area--actions > .ll-panel:first-child { flex: 0 0 auto; }
-.control-root .area--actions > .quick-queue-panel {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.control-root .quick-queue-panel .qq-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-  overflow-y: auto;
-}
-.control-root .qq-count {
-  font-size: 12px;
-  font-weight: 800;
-  color: #9fd3ff;
-  background: rgba(18, 132, 255, 0.16);
-  border: 1px solid rgba(18, 132, 255, 0.3);
-  border-radius: 999px;
-  padding: 2px 9px;
-}
 .control-root .qq-add { align-self: flex-start; }
 .control-root .qq-list {
   list-style: none;
@@ -5408,13 +5451,6 @@ body.gfx-transparent {
   color: #eaf7ff;
   background: rgba(24, 119, 242, 0.24);
   border-color: rgba(34, 151, 255, 0.45);
-}
-.control-root .qq-chip__dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  display: inline-block;
 }
 .control-root .qq-item__template { display: inline-flex; align-items: center; gap: 6px; }
 .control-root .qq-quick-add {
@@ -6955,3 +6991,609 @@ body.gfx-transparent {
 
 .control-root .import-pack__actions { display: flex; gap: 8px; align-items: center; }
 .control-root .import-pack__actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ======================================================================
+   STAGE 1 — Full-studio01 redesign (studio surface)
+   Flat structural surfaces, subtle dividers, restrained radii. Selection =
+   tinted surface + thin blue edge; live = green; no glow/nested cards.
+   ====================================================================== */
+
+.ll-icon { display: inline-block; flex: none; vertical-align: middle; }
+
+/* Studio-scoped palette sampled from Full-studio01.png so the fidelity comes
+   from the reference, not from eyeballing: the TAKE green, the muted-navy fill
+   for active segments, and the fuller navy for the active primary nav row. */
+.control-root--studio {
+  --st-bg: #060a10;
+  --st-take: #37b357;
+  --st-take-hover: #40c163;
+  --st-seg-active: #263352;
+  --st-seg-active-edge: rgba(96, 142, 240, 0.55);
+  --st-nav-active: #16233c;
+  --st-nav-active-text: #cfe0ff;
+}
+
+/* --- studio shell ------------------------------------------------------- */
+.control-root--studio .control-inner { min-height: 100vh; }
+.control-root--studio { background: var(--st-bg); }
+.control-root .studio {
+  display: grid;
+  grid-template-columns: minmax(300px, 344px) minmax(0, 1fr) minmax(360px, 404px);
+  height: calc(100vh - 64px);
+  min-height: 0;
+  background: var(--st-bg);
+}
+.control-root .studio__nav,
+.control-root .studio__center,
+.control-root .studio__rail {
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+}
+.control-root .studio__nav {
+  border-right: 1px solid var(--ll-border-soft);
+  background: var(--ll-panel-soft);
+  display: flex;
+  flex-direction: column;
+}
+.control-root .studio__center { display: flex; flex-direction: column; background: var(--st-bg); }
+.control-root .studio__rail {
+  border-left: 1px solid var(--ll-border-soft);
+  background: var(--ll-panel-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* --- header additions --------------------------------------------------- */
+.control-root--studio .cmd-bar {
+  min-height: 64px;
+  padding: 0 18px;
+  gap: 18px;
+  flex-wrap: nowrap;
+  border-radius: 0;
+  backdrop-filter: none;
+  background: var(--ll-panel-soft);
+}
+.control-root--studio .cmd-logo { width: 38px; height: 38px; border-radius: 10px; }
+.control-root--studio .cmd-logo__mark { width: 26px; height: 26px; }
+.control-root--studio .cmd-bar__brand { gap: 11px; }
+.control-root .cmd-event {
+  display: flex; flex-direction: column; gap: 2px;
+  padding-left: 18px; border-left: 1px solid var(--ll-border-soft);
+  min-width: 0;
+}
+.control-root .cmd-event__label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ll-muted-2); }
+.control-root .cmd-event__control { display: inline-flex; align-items: center; gap: 4px; color: var(--ll-text-strong); }
+.control-root .cmd-event__control .ll-icon { color: var(--ll-muted-2); pointer-events: none; }
+.control-root .cmd-event__select {
+  appearance: none; background: transparent; border: 0; padding: 0 2px 0 0;
+  font: inherit; font-size: 14px; font-weight: 750; color: var(--ll-text-strong);
+  cursor: pointer; max-width: 260px; text-overflow: ellipsis;
+}
+.control-root .cmd-event__select:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 4px; }
+
+.control-root .cmd-transport {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 4px 8px; border-radius: 8px;
+  border: 0; background: transparent;
+}
+.control-root--studio .cmd-transport { margin-left: 6px; }
+.control-root .cmd-transport__dot { width: 8px; height: 8px; border-radius: 999px; flex: none; background: var(--ll-muted-2); }
+.control-root .cmd-transport__copy { display: flex; flex-direction: column; line-height: 1.15; }
+.control-root .cmd-transport__state { font-size: 12.5px; font-weight: 700; color: var(--ll-text); }
+.control-root .cmd-transport__host { font-size: 11px; color: var(--ll-muted-2); }
+.control-root .cmd-transport--connected .cmd-transport__dot { background: var(--ll-live); }
+.control-root .cmd-transport--local .cmd-transport__dot { background: var(--ll-warn); }
+.control-root .cmd-transport--unreachable .cmd-transport__dot { background: var(--ll-danger); }
+.control-root .cmd-bar__right { margin-left: auto; gap: 6px; }
+.control-root .cmd-action { display: inline-flex; align-items: center; gap: 7px; }
+.control-root .cmd-action .ll-icon { color: var(--ll-muted); }
+
+/* --- left navigation ---------------------------------------------------- */
+.control-root .studio-nav { display: flex; flex-direction: column; min-height: 100%; }
+.control-root .studio-nav__scroll { flex: 1 1 auto; min-height: 0; padding: 12px 10px 10px; }
+.control-root .studio-nav__heading {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0 8px 10px; font-size: 10.5px; font-weight: 750;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--ll-muted-2);
+}
+.control-root .studio-nav__heading .ll-icon { color: var(--ll-muted-3); }
+.control-root .studio-nav__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.control-root .studio-nav__item {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 7px 10px; border-radius: var(--ll-radius-control);
+  background: transparent; border: 0; cursor: pointer;
+  font-size: 14px; font-weight: 620; color: var(--ll-muted); text-align: left;
+}
+.control-root .studio-nav__item .ll-icon { color: var(--ll-muted-2); }
+.control-root .studio-nav__item:hover { background: var(--ll-panel-muted); color: var(--ll-text); }
+/* Secondary destinations: restrained tinted selection. */
+.control-root .studio-nav__item--active {
+  background: var(--ll-select-soft); color: var(--ll-text-strong); font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--ll-select-edge);
+}
+.control-root .studio-nav__item--active .ll-icon { color: var(--ll-select); }
+/* Templates is the primary destination — a fuller navy fill + blue label. */
+.control-root .studio-nav__item--primary { margin-bottom: 8px; }
+.control-root .studio-nav__item--primary.studio-nav__item--active {
+  background: var(--st-nav-active); color: var(--st-nav-active-text); box-shadow: none;
+}
+.control-root .studio-nav__item--primary.studio-nav__item--active .ll-icon { color: #6f9bff; }
+.control-root .studio-nav__library { margin: 6px 0 4px; }
+.control-root .studio-nav__divider { height: 1px; background: var(--ll-border-soft); margin: 14px 8px; }
+.control-root .studio-nav__footer {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  padding: 10px 16px; border-top: 1px solid var(--ll-border-soft);
+}
+.control-root .studio-nav__foot-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  background: transparent; border: 0; color: var(--ll-muted-2);
+}
+.control-root .studio-nav__foot-btn:hover { background: var(--ll-panel-muted); color: var(--ll-text); }
+
+/* --- template library --------------------------------------------------- */
+.control-root .tpl-lib { display: flex; flex-direction: column; gap: 8px; }
+.control-root .tpl-lib__search {
+  display: flex; align-items: center; gap: 8px; margin: 0 2px;
+  padding: 0 11px; border-radius: var(--ll-radius-control);
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+}
+.control-root .tpl-lib__search .ll-icon { color: var(--ll-muted-2); }
+.control-root .tpl-lib__search-input {
+  flex: 1 1 auto; min-width: 0; background: transparent; border: 0;
+  padding: 8px 0; font: inherit; font-size: 13.5px; color: var(--ll-text);
+}
+.control-root .tpl-lib__search-input:focus-visible { outline: none; }
+.control-root .tpl-lib__group { margin-top: 2px; }
+/* .tpl-lib__cat / __cat-count are defined with the collapsible header below. */
+.control-root .tpl-row {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 5px 7px; border-radius: var(--ll-radius-control);
+  background: transparent; border: 0; cursor: pointer; text-align: left;
+  position: relative;
+}
+.control-root .tpl-row:hover { background: var(--ll-panel-muted); }
+/* Restrained selection: a soft tint AND a thin edge, neither at full strength. */
+.control-root .tpl-row--active { background: rgba(47, 109, 246, 0.08); box-shadow: inset 2px 0 0 rgba(47, 109, 246, 0.42); }
+.control-root .tpl-thumb {
+  flex: none; width: 88px; height: 31px; border-radius: 4px; overflow: hidden;
+  position: relative; background: #10151f; border: 1px solid var(--ll-border-soft);
+}
+.control-root .tpl-thumb .gfx-viewport { border-radius: 0; }
+.control-root .tpl-thumb--empty { display: inline-block; }
+.control-root .tpl-row__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.control-root .tpl-row__name { font-size: 13px; font-weight: 680; color: var(--ll-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .tpl-row--active .tpl-row__name { color: var(--ll-text-strong); }
+.control-root .tpl-row__meta { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ll-muted-2); }
+.control-root .tpl-row__meta .ll-icon { color: var(--ll-muted-3); }
+.control-root .tpl-lib__empty { margin: 12px 8px; font-size: 13px; color: var(--ll-muted-2); }
+
+/* --- centre workspace --------------------------------------------------- */
+/* Natural-height children so the COLUMN (.studio__center) scrolls, rather than
+   the editor flex-growing and clipping its own overflow. */
+.control-root .studio-center { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.control-root .studio-center .preview-console,
+.control-root .studio-center .editor-panel { flex: 0 0 auto; }
+.control-root .studio__center > .ll-panel { margin: 12px; }
+
+/* --- flatter, restrained TAKE (no large glowing container) -------------- */
+.control-root .program-rail__actions .take-btn {
+  min-height: 46px;
+  background: #24c05c;
+  border-color: rgba(36, 192, 92, 0.7);
+  box-shadow: none;
+  font-size: 15px;
+}
+.control-root .program-rail__actions .take-btn:hover:not(:disabled) { filter: brightness(1.07); box-shadow: none; }
+.control-root .program-rail__actions .take-btn:disabled { background: var(--ll-panel-muted); border-color: var(--ll-border-soft); color: var(--ll-muted-2); cursor: not-allowed; }
+.control-root .program-rail__actions .clear-btn { min-height: 38px; }
+
+/* --- editor tabs -------------------------------------------------------- */
+.control-root .editor-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px 0; }
+.control-root .editor-tabs {
+  display: flex; gap: 2px; padding: 6px 10px 0; margin-top: 6px;
+  border-bottom: 1px solid var(--ll-border-soft);
+}
+.control-root .editor-tab {
+  appearance: none; background: transparent; border: 0; cursor: pointer;
+  padding: 8px 11px; margin-bottom: -1px;
+  font: inherit; font-size: 13.5px; font-weight: 640; color: var(--ll-muted);
+  border-bottom: 2px solid transparent;
+}
+.control-root .editor-tab:hover:not(.editor-tab--disabled) { color: var(--ll-text); }
+.control-root .editor-tab--active { color: var(--ll-text-strong); font-weight: 730; border-bottom-color: var(--ll-select); }
+.control-root .editor-tab--disabled { color: var(--ll-muted-3); opacity: 0.55; cursor: not-allowed; }
+.control-root .editor-tab--disabled:hover { color: var(--ll-muted-3); border-bottom-color: transparent; }
+.control-root .editor-tab:disabled { pointer-events: auto; } /* keep not-allowed cursor visible */
+.control-root .editor-body { padding: 13px; }
+
+/* --- field character counter ------------------------------------------- */
+.control-root .field__count { font-size: 11px; font-weight: 640; color: var(--ll-muted-2); font-variant-numeric: tabular-nums; }
+.control-root .field__count--warn { color: var(--ll-warn); }
+.control-root .field__count--over { color: var(--ll-danger); }
+
+/* --- program / live rail ------------------------------------------------ */
+/* One continuous rail surface: sections are separated by hairlines, not nested
+   cards, so the column reads as a single instrument rather than a dashboard. */
+.control-root .program-rail { display: flex; flex-direction: column; }
+.control-root .program-rail__section { display: flex; flex-direction: column; gap: 10px; padding: 13px 14px; }
+.control-root .program-rail__section + .program-rail__section { border-top: 1px solid var(--ll-border-soft); }
+.control-root .program-rail__head { display: flex; align-items: center; justify-content: space-between; }
+.control-root .program-rail__status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--ll-muted-2);
+}
+.control-root .program-rail__status-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ll-muted-2); }
+.control-root .program-rail__status--showing { color: var(--ll-warn); }
+.control-root .program-rail__status--showing .program-rail__status-dot { background: var(--ll-warn); }
+.control-root .program-rail__status--recovering { color: var(--ll-warn); }
+.control-root .program-rail__status--recovering .program-rail__status-dot { background: var(--ll-warn); }
+.control-root .program-rail__status--failed { color: var(--ll-danger); }
+.control-root .program-rail__status--failed .program-rail__status-dot { background: var(--ll-danger); }
+.control-root .program-rail__status--clear .program-rail__status-dot { background: var(--ll-muted-3); }
+
+.control-root .program-card {
+  border-radius: var(--ll-radius-control); padding: 10px 12px;
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+  box-shadow: inset 3px 0 0 var(--ll-muted-3);
+}
+.control-root .program-card--showing { box-shadow: inset 3px 0 0 var(--ll-warn); }
+.control-root .program-card--recovering { box-shadow: inset 3px 0 0 var(--ll-warn); }
+.control-root .program-card--failed { box-shadow: inset 3px 0 0 var(--ll-danger); }
+.control-root .program-card__row { display: flex; align-items: center; justify-content: space-between; }
+.control-root .program-card__label { font-size: 13px; font-weight: 720; color: var(--ll-text-strong); }
+.control-root .program-card__badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 720; color: var(--ll-muted); }
+.control-root .program-card__badge-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ll-muted-3); }
+.control-root .program-card--showing .program-card__badge { color: var(--ll-warn); }
+.control-root .program-card--showing .program-card__badge-dot { background: var(--ll-warn); }
+.control-root .program-card--recovering .program-card__badge { color: var(--ll-warn); }
+.control-root .program-card--recovering .program-card__badge-dot { background: var(--ll-warn); }
+.control-root .program-card--failed .program-card__badge { color: var(--ll-danger); }
+.control-root .program-card--failed .program-card__badge-dot { background: var(--ll-danger); }
+.control-root .program-card__detail { margin-top: 7px; display: flex; flex-direction: column; gap: 2px; }
+.control-root .program-card__identity { font-size: 14px; font-weight: 700; color: var(--ll-text-strong); }
+.control-root .program-card__sub { font-size: 12px; color: var(--ll-muted-2); }
+
+.control-root .program-rail__actions { display: flex; flex-direction: column; gap: 7px; }
+.control-root .program-rail__actions .take-btn,
+.control-root .program-rail__actions .clear-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; }
+/* --- live settings ------------------------------------------------------ */
+/* Label-left / control-right rows. The label column is fixed so every control
+   starts on the same axis; the control column absorbs the rail's width change
+   between 1366px and 1680px rather than the labels reflowing. */
+.control-root .ls { display: flex; flex-direction: column; gap: 7px; }
+.control-root .ls > .ll-kicker { margin-bottom: 2px; }
+.control-root .ls-row {
+  display: grid; grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center; gap: 12px; min-height: 32px;
+}
+.control-root .ls-row__label { font-size: 12.5px; font-weight: 620; color: var(--ll-muted); }
+
+/* Size — a real select, but none of the browser chrome. */
+.control-root .ls-select { position: relative; display: flex; align-items: center; min-width: 0; }
+.control-root .ls-select select {
+  appearance: none; -webkit-appearance: none;
+  width: 100%; min-width: 0; min-height: 32px; padding: 0 30px 0 11px;
+  border-radius: var(--ll-radius-control);
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+  font: inherit; font-size: 12.5px; font-weight: 620; color: var(--ll-text);
+  cursor: pointer; text-overflow: ellipsis;
+}
+.control-root .ls-select select:hover { border-color: var(--ll-border); }
+.control-root .ls-select select:focus-visible {
+  outline: none; border-color: var(--ll-select-edge); box-shadow: var(--ll-focus);
+}
+.control-root .ls-select select:disabled { opacity: 0.45; cursor: not-allowed; }
+/* The native popup is OS-drawn — keep it legible on the dark surface. */
+.control-root .ls-select select option { background: var(--ll-panel-strong); color: var(--ll-text); }
+.control-root .ls-select .ll-icon {
+  position: absolute; right: 9px; pointer-events: none; color: var(--ll-muted-2);
+}
+
+/* Segmented controls — one joined track, hairline dividers, filled selection. */
+.control-root .ls-seg {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+  min-width: 0; border-radius: var(--ll-radius-control); overflow: hidden;
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+}
+.control-root .ls-seg__btn {
+  appearance: none; background: transparent; border: 0; cursor: pointer;
+  min-width: 0; min-height: 32px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: inherit; font-size: 12.5px; font-weight: 640; color: var(--ll-muted);
+  white-space: nowrap;
+}
+.control-root .ls-seg__btn + .ls-seg__btn { box-shadow: inset 1px 0 0 var(--ll-border-soft); }
+.control-root .ls-seg__btn:hover { background: var(--ll-panel-muted); color: var(--ll-text); }
+.control-root .ls-seg__btn--active,
+.control-root .ls-seg__btn--active:hover {
+  background: var(--ll-select); color: #fff; font-weight: 700;
+}
+/* A filled segment owns both its edges — drop the hairlines either side of it. */
+.control-root .ls-seg__btn--active,
+.control-root .ls-seg__btn--active + .ls-seg__btn { box-shadow: none; }
+.control-root .ls-seg__btn:focus-visible {
+  outline: none; box-shadow: var(--ll-focus); position: relative; z-index: 1;
+}
+.control-root .ls-seg__btn:disabled { opacity: 0.45; cursor: not-allowed; background: transparent; color: var(--ll-muted-3); }
+.control-root .ls-seg--icons .ls-seg__btn .ll-icon { color: currentColor; }
+
+/* Reset — deliberately the quietest thing in the block. */
+.control-root .ls-row--reset {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 34px; padding-top: 2px;
+}
+.control-root .ls-reset {
+  appearance: none; background: transparent; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 620; color: var(--ll-muted); text-align: left;
+}
+.control-root .ls-reset:hover { color: var(--ll-text); }
+.control-root .ls-reset:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 5px; }
+.control-root .ls-reset__icon {
+  flex: none; width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--ll-radius-control);
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+  color: var(--ll-muted-2); cursor: pointer;
+}
+.control-root .ls-reset__icon:hover { background: var(--ll-panel-muted); color: var(--ll-text); border-color: var(--ll-border); }
+.control-root .ls-reset__icon:focus-visible { outline: none; box-shadow: var(--ll-focus); border-color: var(--ll-select-edge); }
+
+/* --- quick queue (rail) ------------------------------------------------- */
+.control-root .rail-queue { display: flex; flex-direction: column; gap: 10px; }
+.control-root .rail-queue__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.control-root .rail-queue__link {
+  appearance: none; background: transparent; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 650; color: var(--ll-select);
+}
+.control-root .rail-queue__link:hover { color: #5b8cf8; text-decoration: underline; }
+.control-root .rail-queue__link:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 5px; }
+.control-root .rail-queue__empty { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ll-muted-2); }
+.control-root .rail-queue__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+/* Row: order marker · title over template metadata · take. Fixed outer columns
+   so the title is the only thing that ever gives up width. */
+.control-root .rail-qrow {
+  display: grid; grid-template-columns: 16px minmax(0, 1fr) 32px;
+  align-items: center; gap: 10px;
+  padding: 7px 6px; border-radius: var(--ll-radius-control);
+}
+.control-root .rail-qrow + .rail-qrow { box-shadow: inset 0 1px 0 var(--ll-border-soft); }
+.control-root .rail-qrow:hover { background: var(--ll-panel-muted); }
+.control-root .rail-qrow--live { background: rgba(47, 109, 246, 0.08); box-shadow: inset 2px 0 0 var(--ll-select-edge); }
+.control-root .rail-qrow--live + .rail-qrow { box-shadow: none; }
+.control-root .rail-qrow__num {
+  font-size: 12px; font-weight: 700; color: var(--ll-muted-3);
+  font-variant-numeric: tabular-nums; text-align: center;
+}
+.control-root .rail-qrow--live .rail-qrow__num { color: var(--ll-select); }
+.control-root .rail-qrow__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.control-root .rail-qrow__name {
+  font-size: 13.5px; font-weight: 660; color: var(--ll-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.control-root .rail-qrow--live .rail-qrow__name { color: var(--ll-text-strong); }
+.control-root .rail-qrow__type {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  font-size: 11.5px; color: var(--ll-muted-2); white-space: nowrap; overflow: hidden;
+}
+.control-root .rail-qrow__type .ll-icon { flex: none; color: var(--ll-muted-3); }
+.control-root .rail-qrow__take {
+  width: 32px; height: 32px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--ll-radius-control);
+  background: transparent; border: 1px solid transparent;
+  color: var(--ll-muted-2); cursor: pointer;
+}
+/* Revealed on row hover, but always reachable by keyboard. */
+.control-root .rail-qrow:hover .rail-qrow__take { background: var(--ll-panel); border-color: var(--ll-border-soft); color: var(--ll-text); }
+.control-root .rail-qrow__take:hover { color: var(--ll-live); border-color: rgba(54, 226, 122, 0.42); }
+.control-root .rail-qrow__take:focus-visible {
+  outline: none; box-shadow: var(--ll-focus);
+  background: var(--ll-panel); border-color: var(--ll-select-edge); color: var(--ll-text);
+}
+.control-root .rail-queue__add {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 38px; margin-top: 2px; padding: 0 12px;
+  border-radius: var(--ll-radius-control);
+  background: transparent; border: 1px dashed var(--ll-border);
+  font: inherit; font-size: 12.5px; font-weight: 640; color: var(--ll-muted); cursor: pointer;
+}
+.control-root .rail-queue__add:hover { background: var(--ll-panel-muted); border-style: solid; border-color: var(--ll-border-strong); color: var(--ll-text); }
+.control-root .rail-queue__add:focus-visible { outline: none; box-shadow: var(--ll-focus); border-color: var(--ll-select-edge); }
+.control-root .rail-queue__add .ll-icon { color: var(--ll-muted-2); }
+.control-root .rail-queue__add:hover .ll-icon { color: currentColor; }
+
+/* Expanded ("View all") renders QuickQueuePanel in its studio presentation:
+   flat divider-separated rows, semantic icons, restrained actions. Scoped to
+   `.qq--studio` so the dock's card rows are untouched. */
+.control-root .qq--studio .qq-body { padding: 10px 0 0; display: flex; flex-direction: column; gap: 9px; }
+.control-root .qq--studio .qq-quick-add { display: flex; gap: 6px; }
+.control-root .qq--studio .qq-quick-add__input { min-width: 0; font-size: 12.5px; }
+.control-root .qq--studio .qq-add { justify-content: center; font-size: 12.5px; }
+.control-root .qq--studio .qq-filter { display: flex; flex-wrap: wrap; gap: 5px; }
+.control-root .qq--studio .qq-chip {
+  padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 640;
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft); color: var(--ll-muted);
+  cursor: pointer;
+}
+.control-root .qq--studio .qq-chip { display: inline-flex; align-items: center; gap: 5px; }
+.control-root .qq--studio .qq-chip .ll-icon { color: var(--ll-muted-3); }
+.control-root .qq--studio .qq-chip--active { background: var(--ll-select-soft); border-color: var(--ll-select-edge); color: var(--ll-text-strong); }
+.control-root .qq--studio .qq-chip--active .ll-icon { color: var(--ll-select); }
+.control-root .qq--studio .qq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.control-root .qq--studio .qq-item {
+  display: flex; flex-direction: column; gap: 3px;
+  margin: 0; padding: 8px 6px; border-radius: var(--ll-radius-control);
+  background: transparent; border: 0;
+}
+.control-root .qq--studio .qq-item + .qq-item { box-shadow: inset 0 1px 0 var(--ll-border-soft); }
+.control-root .qq--studio .qq-item:hover { background: var(--ll-panel-muted); }
+.control-root .qq--studio .qq-item--live { background: rgba(47, 109, 246, 0.08); box-shadow: inset 2px 0 0 var(--ll-select-edge); }
+.control-root .qq--studio .qq-item--live + .qq-item { box-shadow: none; }
+.control-root .qq--studio .qq-item__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.control-root .qq--studio .qq-item__pos {
+  flex: none; width: 16px; text-align: center;
+  font-size: 12px; font-weight: 700; color: var(--ll-muted-3); font-variant-numeric: tabular-nums;
+}
+.control-root .qq--studio .qq-item--live .qq-item__pos { color: var(--ll-select); }
+.control-root .qq--studio .qq-item__label {
+  min-width: 0; font-size: 13.5px; font-weight: 660; color: var(--ll-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.control-root .qq--studio .qq-item__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-left: 26px; }
+.control-root .qq--studio .qq-item__template {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  font-size: 11.5px; color: var(--ll-muted-2); white-space: nowrap; overflow: hidden;
+}
+.control-root .qq--studio .qq-item__template .ll-icon { flex: none; color: var(--ll-muted-3); }
+.control-root .qq--studio .qq-item__actions { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+/* Restrained, uniform actions — no oversized green Take. */
+.control-root .qq--studio .qq-btn {
+  min-height: 26px; padding: 0 8px; border-radius: 4px;
+  background: transparent; border: 1px solid transparent;
+  font: inherit; font-size: 11.5px; font-weight: 640; color: var(--ll-muted-2); cursor: pointer;
+}
+.control-root .qq--studio .qq-item:hover .qq-btn { border-color: var(--ll-border-soft); color: var(--ll-text); }
+.control-root .qq--studio .qq-btn:hover:not(:disabled) { background: var(--ll-panel); border-color: var(--ll-border); color: var(--ll-text-strong); }
+.control-root .qq--studio .qq-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.control-root .qq--studio .qq-btn:focus-visible { outline: none; box-shadow: var(--ll-focus); border-color: var(--ll-select-edge); }
+.control-root .qq--studio .qq-btn--take { color: var(--ll-live); font-weight: 700; }
+.control-root .qq--studio .qq-btn--take:hover:not(:disabled) { background: rgba(54, 226, 122, 0.1); border-color: rgba(54, 226, 122, 0.42); color: var(--ll-live); }
+.control-root .qq--studio .qq-btn--remove:hover:not(:disabled) { color: var(--ll-danger); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.08); }
+
+/* --- library category headers (collapsible) ----------------------------- */
+.control-root .tpl-lib__searchrow { display: flex; align-items: center; gap: 7px; margin: 0 2px; }
+.control-root .tpl-lib__searchrow .tpl-lib__search { flex: 1 1 auto; min-width: 0; margin: 0; }
+.control-root .tpl-lib__scroll { display: flex; flex-direction: column; }
+.control-root .tpl-lib__cat {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  margin: 6px 2px 4px; padding: 3px 4px;
+  background: transparent; border: 0; cursor: pointer;
+  font: inherit; font-size: 10.5px; font-weight: 750;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ll-muted-2);
+}
+.control-root .tpl-lib__cat:hover { color: var(--ll-text); }
+.control-root .tpl-lib__cat:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 5px; }
+.control-root .tpl-lib__cat .ll-icon { flex: none; color: var(--ll-muted-3); transition: transform 140ms ease; }
+.control-root .tpl-lib__group--collapsed .tpl-lib__cat .ll-icon { transform: rotate(-90deg); }
+.control-root .tpl-lib__cat-name { flex: none; }
+.control-root .tpl-lib__cat-rule { flex: 1 1 auto; height: 1px; background: var(--ll-border-soft); }
+.control-root .tpl-lib__cat-count {
+  flex: none; min-width: 18px; padding: 1px 5px; border-radius: 4px;
+  background: var(--ll-panel-muted); color: var(--ll-muted-2);
+  font-size: 10px; text-align: center; font-variant-numeric: tabular-nums;
+}
+.control-root .tpl-lib__cat-items { display: flex; flex-direction: column; gap: 1px; }
+.control-root .tpl-lib__cat-items[hidden] { display: none; }
+
+/* Narrower rail: give the label column back to the controls so the 5-segment
+   auto-hide track keeps its hierarchy instead of wrapping or clipping. */
+@media (max-width: 1440px) {
+  .control-root .ls-row { grid-template-columns: 78px minmax(0, 1fr); gap: 10px; }
+}
+@media (max-width: 1180px) {
+  .control-root .program-rail__section { padding: 14px; }
+  .control-root .ls-row { grid-template-columns: 72px minmax(0, 1fr); gap: 9px; }
+  .control-root .ls-seg__btn { padding: 0 4px; font-size: 12px; }
+  .control-root .ls-row__label { font-size: 12px; }
+}
+
+/* --- assets destination ------------------------------------------------- */
+.control-root .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.control-root .asset-tile { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: var(--ll-radius-control); background: var(--ll-panel); border: 1px solid var(--ll-border-soft); }
+.control-root .asset-tile__thumb { aspect-ratio: 16 / 10; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #10151f; color: var(--ll-muted-3); }
+.control-root .asset-tile__thumb img { width: 100%; height: 100%; object-fit: contain; }
+.control-root .asset-tile__name { font-size: 12.5px; font-weight: 640; color: var(--ll-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .asset-tile__type { font-size: 11px; color: var(--ll-muted-2); }
+
+/* --- narrower desktop / laptop ----------------------------------------- */
+@media (max-width: 1180px) {
+  .control-root .studio { grid-template-columns: minmax(248px, 272px) minmax(0, 1fr) minmax(312px, 340px); }
+}
+@media (max-width: 1024px) {
+  .control-root--studio .studio { grid-template-columns: 1fr; height: auto; }
+  .control-root--studio .studio__nav,
+  .control-root--studio .studio__rail { border: 0; border-bottom: 1px solid var(--ll-border-soft); overflow: visible; }
+  .control-root--studio .studio__center { overflow: visible; }
+}
+
+/* --- content tab: two-column fields + logo, variant strip -------------- */
+.control-root .content-tab { display: flex; flex-direction: column; gap: 18px; }
+.control-root .content-tab__grid { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 20px; align-items: start; }
+.control-root .content-tab__fields { min-width: 0; }
+.control-root .logo-summary { display: flex; flex-direction: column; gap: 8px; }
+.control-root .logo-summary__body {
+  display: flex; align-items: center; gap: 11px; padding: 11px;
+  border-radius: var(--ll-radius-control); background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+}
+.control-root .logo-summary__thumb {
+  flex: none; width: 46px; height: 46px; border-radius: 7px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: #10151f; color: var(--ll-muted-3);
+}
+.control-root .logo-summary__thumb img { width: 100%; height: 100%; object-fit: contain; }
+.control-root .logo-summary__meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.control-root .logo-summary__name { font-size: 12.5px; font-weight: 640; color: var(--ll-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.control-root .variant-strip { display: flex; flex-direction: column; gap: 9px; }
+.control-root .variant-strip__row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.control-root .variant-strip__item {
+  flex: 0 0 auto; width: 132px; display: flex; flex-direction: column; gap: 6px;
+  padding: 6px; border-radius: var(--ll-radius-control); cursor: pointer; text-align: left;
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+}
+.control-root .variant-strip__item:hover { border-color: var(--ll-border-strong); }
+.control-root .variant-strip__item--active { border-color: var(--ll-select-edge); background: var(--ll-select-soft); }
+.control-root .variant-strip__thumb { display: block; aspect-ratio: 16 / 9; border-radius: 5px; overflow: hidden; position: relative; background: #10151f; }
+.control-root .variant-strip__thumb .tpl-thumb { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; }
+.control-root .variant-strip__name { font-size: 11.5px; font-weight: 640; color: var(--ll-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .variant-strip__item--active .variant-strip__name { color: var(--ll-text-strong); }
+
+@media (max-width: 1340px) {
+  .control-root .content-tab__grid { grid-template-columns: 1fr; }
+}
+
+/* --- studio scrollbars: narrow, dark at rest, clearer on hover --------- */
+.control-root--studio .studio__nav,
+.control-root--studio .studio__center,
+.control-root--studio .studio__rail,
+.control-root--studio .variant-strip__row,
+.control-root--studio .studio__rail .qq-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(132, 150, 174, 0.20) transparent;
+}
+.control-root--studio .studio__nav::-webkit-scrollbar,
+.control-root--studio .studio__center::-webkit-scrollbar,
+.control-root--studio .studio__rail::-webkit-scrollbar,
+.control-root--studio .variant-strip__row::-webkit-scrollbar,
+.control-root--studio .studio__rail .qq-body::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.control-root--studio .studio__nav::-webkit-scrollbar-track,
+.control-root--studio .studio__center::-webkit-scrollbar-track,
+.control-root--studio .studio__rail::-webkit-scrollbar-track,
+.control-root--studio .variant-strip__row::-webkit-scrollbar-track,
+.control-root--studio .studio__rail .qq-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.control-root--studio .studio__nav::-webkit-scrollbar-thumb,
+.control-root--studio .studio__center::-webkit-scrollbar-thumb,
+.control-root--studio .studio__rail::-webkit-scrollbar-thumb,
+.control-root--studio .variant-strip__row::-webkit-scrollbar-thumb,
+.control-root--studio .studio__rail .qq-body::-webkit-scrollbar-thumb {
+  background: rgba(132, 150, 174, 0.16);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.control-root--studio .studio__nav::-webkit-scrollbar-thumb:hover,
+.control-root--studio .studio__center::-webkit-scrollbar-thumb:hover,
+.control-root--studio .studio__rail::-webkit-scrollbar-thumb:hover,
+.control-root--studio .variant-strip__row::-webkit-scrollbar-thumb:hover,
+.control-root--studio .studio__rail .qq-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(132, 150, 174, 0.36);
+  background-clip: padding-box;
+}

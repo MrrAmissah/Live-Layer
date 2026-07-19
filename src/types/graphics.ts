@@ -9,6 +9,10 @@ export interface TemplateField {
   placeholder?: string;
   optional?: boolean;
   rows?: number;
+  /** Hard character cap — the denominator of the "17 / 60" content counter. */
+  maxLength?: number;
+  /** Soft guidance; the counter warns past this without blocking input. */
+  recommendedLength?: number;
 }
 
 export interface TemplateTheme {
@@ -39,6 +43,26 @@ export interface TemplateVariant {
   palette?: Record<string, string>;
 }
 
+/** Normalized classification for icons and UI grouping, independent of the
+ *  free-text `category` label. Inferred by getTemplateDisplayCategory until
+ *  each definition is explicitly migrated. */
+export type TemplateDisplayCategory = 'lowerThird' | 'card' | 'banner' | 'fullscreen';
+
+/**
+ * What a template's renderer *actually supports today*. Editors read this to
+ * decide which controls to expose — never to advertise behaviour the renderer
+ * doesn't have. Optional: absent means "infer from current behaviour".
+ */
+export interface TemplateCapabilities {
+  logo: boolean;
+  logoRemoval: boolean;
+  appearance: Array<'main' | 'accent' | 'text' | 'surface' | 'secondary'>;
+  positions: Array<'left' | 'center' | 'full' | 'top' | 'bottom'>;
+  sizes: Array<'small' | 'medium' | 'large'>;
+  autoHide: boolean;
+  motion: boolean;
+}
+
 export interface TemplateDefinition {
   id: string;
   name: string;
@@ -60,6 +84,12 @@ export interface TemplateDefinition {
    * writes typed names here and queue/preset labels read it first.
    */
   primaryField?: string;
+  /** Normalized class for icons/grouping; inferred when absent. */
+  displayCategory?: TemplateDisplayCategory;
+  /** Renderer-backed capability flags; populated as editors consume them. */
+  capabilities?: TemplateCapabilities;
+  /** Preview aspect ratio hint, e.g. '16 / 3' lower third, '16 / 9' card. */
+  previewAspectRatio?: string;
 }
 
 export interface GraphicInstance {
@@ -75,7 +105,21 @@ export interface GraphicInstance {
   durationSeconds: number;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Monotonic optimistic-concurrency counter. Guaranteed present on quick-queue
+   * items (see QuickQueueItem); legacy stored items normalize to 1 on load.
+   * Optional here so presets/recent stay valid without a migration.
+   */
+  revision?: number;
 }
+
+/**
+ * A quick-queue entry — a GraphicInstance with a stable `q-` id and a
+ * guaranteed monotonic `revision`. updateQuickQueueItem checks an
+ * expectedRevision and bumps it once per successful write, so a second client's
+ * change can't be silently overwritten.
+ */
+export type QuickQueueItem = GraphicInstance & { revision: number };
 
 export type RealtimeMessageType =
   | 'SHOW_GRAPHIC'

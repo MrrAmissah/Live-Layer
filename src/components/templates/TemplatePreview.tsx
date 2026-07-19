@@ -17,6 +17,12 @@ interface Props {
    * toolbar never touches the GraphicStage call below, so /output parity holds.
    */
   showControls?: boolean;
+  /**
+   * Optional note rendered in the integrated bottom strip, left of the format
+   * spec (e.g. the "editing updates preview only" reassurance). Presentation
+   * only — never affects the GraphicStage render.
+   */
+  footer?: React.ReactNode;
 }
 
 const BACKDROPS: { id: Exclude<StageBackdrop, 'transparent'>; label: string }[] = [
@@ -48,7 +54,7 @@ function UnsupportedTemplateMessage({ templateId }: { templateId: string }) {
  * so operators can inspect the graphic without changing the full-frame output.
  * Backgrounds and safe-area guides are also preview-only judging aids.
  */
-export default function TemplatePreview({ templateId, values, theme, layout, showControls = true }: Props) {
+export default function TemplatePreview({ templateId, values, theme, layout, showControls = true, footer }: Props) {
   const [backdrop, setBackdrop] = useState<Exclude<StageBackdrop, 'transparent'>>('neutral');
   const [showGuides, setShowGuides] = useState(false);
   const resolvedValues = useDynamicValues(values);
@@ -61,43 +67,36 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
 
   return (
     <div className="template-preview-shell animate-broadcast-enter">
-      {showControls ? (
-        <div className="preview-toolbar">
-          <div className="preview-toolbar-title">
-            <span className="monitor-tally" aria-hidden />
-            <span>{template?.name ?? templateId}</span>
-          </div>
-          <div className="preview-toolbar-group" role="group" aria-label="Preview background">
-            <span className="preview-toolbar-label">Background</span>
-            {BACKDROPS.map((option) => {
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setBackdrop(option.id)}
-                  className={`preview-chip ${backdrop === option.id ? 'preview-chip-active' : ''}`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowGuides((value) => !value)}
-            className={`preview-chip ${showGuides ? 'preview-chip-active' : ''}`}
-            aria-pressed={showGuides}
-          >
-            Safe Area
-          </button>
-        </div>
-      ) : null}
-
       <div className="preview-monitor panel-strong overflow-hidden">
         <div className="monitor-bezel monitor-bezel--top">
-          <span className="monitor-tally" aria-hidden />
-          <span className="monitor-bezel__label">Preview</span>
-          <span className="monitor-bezel__hint">Updates on Take</span>
+          <span className="monitor-bezel__title">
+            <span className="monitor-tally" aria-hidden />
+            <span>Preview / PVW</span>
+          </span>
+          {showControls ? (
+            <div className="monitor-bezel__tools">
+              <div className="preview-toolbar-group" role="group" aria-label="Preview background">
+                {BACKDROPS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setBackdrop(option.id)}
+                    className={`preview-chip ${backdrop === option.id ? 'preview-chip-active' : ''}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGuides((value) => !value)}
+                className={`preview-chip ${showGuides ? 'preview-chip-active' : ''}`}
+                aria-pressed={showGuides}
+              >
+                Safe area
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="monitor-screen">
           <GraphicStage theme={mergedTheme} backdrop={backdrop} focus={previewFocus} showSafeAreas={showGuides}>
@@ -120,8 +119,11 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
           </GraphicStage>
         </div>
         <div className="monitor-bezel monitor-bezel--bottom">
-          <span className="monitor-spec">1920 × 1080</span>
-          <span className="monitor-spec monitor-spec--accent">PVW</span>
+          <span className="monitor-bezel__note">{footer}</span>
+          <span className="monitor-bezel__specs">
+            <span className="monitor-spec">1920 × 1080</span>
+            <span className="monitor-spec monitor-spec--accent">PVW</span>
+          </span>
         </div>
       </div>
     </div>
