@@ -5400,7 +5400,6 @@ body.gfx-transparent {
 .control-root .area > .ll-panel { flex: 1 1 auto; min-width: 0; }
 .control-root .area--rail { grid-area: rail; }
 .control-root .area--preview { grid-area: preview; }
-.control-root .area--editor { grid-area: editor; }
 .control-root .area--actions { grid-area: actions; }
 .control-root .area--brand { grid-area: brand; }
 .control-root .area--presets { grid-area: presets; }
@@ -5538,7 +5537,6 @@ body.gfx-transparent {
 .control-root .qq-btn--take:hover { filter: brightness(1.08); }
 .control-root .qq-btn--remove:hover { color: #fecaca; border-color: rgba(248, 113, 113, 0.45); }
 .control-root .area--preview,
-.control-root .area--editor,
 .control-root .area--brand {
   background: transparent;
 }

@@ -117,6 +117,8 @@ interface ProgramRailProps {
   onTake: () => void;
   onClear: () => void;
   onTakeInstance: (item: GraphicInstance) => void;
+  /** Load a queue entry into the editor (owner also reveals the editor). */
+  onEditInstance: (item: GraphicInstance) => void;
   /** A command is in flight — controls lock so a slow relay can't be double-fired. */
   sending?: boolean;
 }
@@ -126,7 +128,7 @@ interface ProgramRailProps {
  * primary Take/Clear, live settings, and the quick queue — grouped by dividers,
  * not nested cards.
  */
-export default function ProgramRail({ onTake, onClear, onTakeInstance, sending = false }: ProgramRailProps) {
+export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
   const { takeLabel, takeDisabled, rundownActive } = useLiveTakeContext();
   const statusLabel =
@@ -174,7 +176,7 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance, sending =
       )}
 
       <div className="program-rail__section program-rail__section--queue">
-        <RailQueue onTakeInstance={onTakeInstance} />
+        <RailQueue onTakeInstance={onTakeInstance} onEditInstance={onEditInstance} />
       </div>
     </div>
   );

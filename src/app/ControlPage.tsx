@@ -152,6 +152,18 @@ export default function ControlPage() {
     });
 
   /**
+   * Load a queued graphic into the editor and reveal it. The Program rail (and
+   * its queue) renders on every destination, but FieldEditor only mounts under
+   * the Templates view — without the switch, Edit would load the draft into a
+   * component the operator cannot see. Read-only with respect to Program and
+   * the stored queue entry.
+   */
+  const onEditQueueItem = (item: GraphicInstance) => {
+    useLiveLayerStore.getState().loadGraphicInstance(item);
+    setView('templates');
+  };
+
+  /**
    * Take a stored quick-queue graphic straight to air. A fresh id/timestamp
    * per take so repeated takes of the same entry always re-fire the output;
    * the Program source keeps the ORIGINAL queue item id.
@@ -213,7 +225,13 @@ export default function ControlPage() {
       nav={<StudioNav view={view} onViewChange={setView} />}
       center={center}
       rail={
-        <ProgramRail onTake={onTake} onClear={onClear} onTakeInstance={onTakeInstance} sending={sending} />
+        <ProgramRail
+          onTake={onTake}
+          onClear={onClear}
+          onTakeInstance={onTakeInstance}
+          onEditInstance={onEditQueueItem}
+          sending={sending}
+        />
       }
     />
   );

@@ -29,7 +29,13 @@ function draftLabel(state: ReturnType<typeof useLiveLayerStore.getState>): strin
  * rows, template type, a take arrow) with "View all" expanding to the full
  * search/reorder/edit panel, so no functionality is lost.
  */
-export default function RailQueue({ onTakeInstance }: { onTakeInstance: (item: GraphicInstance) => void }) {
+export default function RailQueue({
+  onTakeInstance,
+  onEditInstance
+}: {
+  onTakeInstance: (item: GraphicInstance) => void;
+  onEditInstance: (item: GraphicInstance) => void;
+}) {
   const quickQueue = useLiveLayerStore((state) => state.quickQueue);
   const addToQuickQueue = useLiveLayerStore((state) => state.addToQuickQueue);
   const program = useLiveLayerStore((state) => state.program);
@@ -52,7 +58,7 @@ export default function RailQueue({ onTakeInstance }: { onTakeInstance: (item: G
             Show less
           </button>
         </div>
-        <QuickQueuePanel onTakeInstance={onTakeInstance} />
+        <QuickQueuePanel onTakeInstance={onTakeInstance} onEditInstance={onEditInstance} />
       </div>
     );
   }

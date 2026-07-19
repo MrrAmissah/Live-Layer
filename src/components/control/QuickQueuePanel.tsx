@@ -50,9 +50,13 @@ function entryLabel(item: GraphicInstance): string {
  * reordered, re-loaded into the editor for edits, and taken straight to air.
  */
 export default function QuickQueuePanel({
-  onTakeInstance
+  onTakeInstance,
+  onEditInstance
 }: {
   onTakeInstance: (item: GraphicInstance) => void;
+  /** Load an entry into the editor. The owner also brings the editor into view —
+   *  the queue is visible on every destination, but FieldEditor is not. */
+  onEditInstance: (item: GraphicInstance) => void;
 }) {
   const quickQueue = useLiveLayerStore((state) => state.quickQueue);
   const program = useLiveLayerStore((state) => state.program);
@@ -65,7 +69,6 @@ export default function QuickQueuePanel({
   const addToQuickQueue = useLiveLayerStore((state) => state.addToQuickQueue);
   const removeFromQuickQueue = useLiveLayerStore((state) => state.removeFromQuickQueue);
   const moveInQuickQueue = useLiveLayerStore((state) => state.moveInQuickQueue);
-  const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
   // Derived-string selector: the panel only re-renders when the label itself
   // changes, not on every editor keystroke in unrelated fields.
@@ -107,13 +110,6 @@ export default function QuickQueuePanel({
     if (!name) return;
     addToQuickQueue(name, { [primaryFieldFor(currentTemplateId)]: name });
     setNewName('');
-  };
-
-  const editEntry = (item: GraphicInstance) => {
-    loadGraphicInstance(item);
-    // The editor lives in the center column — bring it into view so the
-    // loaded entry is visibly there to tweak.
-    document.querySelector('.area--editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // No card chrome or heading of its own — RailQueue supplies both.
@@ -205,7 +201,7 @@ export default function QuickQueuePanel({
                     type="button"
                     className="qq-btn"
                     title="Load into editor"
-                    onClick={() => editEntry(item)}
+                    onClick={() => onEditInstance(item)}
                   >
                     Edit
                   </button>
