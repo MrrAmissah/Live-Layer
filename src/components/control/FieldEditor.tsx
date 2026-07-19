@@ -34,7 +34,7 @@ export default function FieldEditor() {
   // "Reset" on the Brand tab used to wipe the draft instead of the brand.
   const reset =
     tab === 'brand'
-      ? { label: 'Reset brand', run: resetTheme, title: 'Restore the default brand colours and logo' }
+      ? { label: 'Reset brand', run: resetTheme, title: 'Restore the default brand colours' }
       : { label: 'Reset graphic', run: resetDraft, title: 'Restore this template’s default content and design' };
 
   return (
