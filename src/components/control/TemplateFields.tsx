@@ -69,11 +69,22 @@ function FieldRow({
     use24Hour: false
   });
 
+  const cap = field.maxLength;
+  const overRecommended = field.recommendedLength !== undefined && value.length > field.recommendedLength;
+  const overMax = cap !== undefined && value.length > cap;
+
   return (
     <label className="field">
       <span className="field__label">
-        <span>{field.label}</span>
-        {field.optional ? <span className="field__opt">Optional</span> : null}
+        <span>
+          {field.label}
+          {field.optional ? <span className="field__opt">Optional</span> : null}
+        </span>
+        {cap !== undefined ? (
+          <span className={`field__count${overMax ? ' field__count--over' : overRecommended ? ' field__count--warn' : ''}`}>
+            {value.length} / {cap}
+          </span>
+        ) : null}
       </span>
       {field.type === 'textarea' ? (
         <textarea
@@ -81,6 +92,7 @@ function FieldRow({
           value={value}
           placeholder={field.placeholder}
           rows={field.rows ?? 4}
+          maxLength={cap}
           onChange={(event) => onChange(event.target.value)}
         />
       ) : (
@@ -89,6 +101,7 @@ function FieldRow({
           type={field.type === 'url' ? 'url' : 'text'}
           value={value}
           placeholder={field.placeholder}
+          maxLength={cap}
           onChange={(event) => onChange(event.target.value)}
         />
       )}
@@ -326,13 +339,28 @@ function TemplateColorControls({
  * first, optional fields below a divider. Shared verbatim by the studio
  * `FieldEditor` panel and the dock `EditStep`; owns its own store subscription.
  */
-export default function TemplateFields() {
+/**
+ * `section` lets the studio editor tabs render just the content fields
+ * (Content tab) or just the design controls (Design tab). The dock's single
+ * form omits the prop and renders everything ('all'), unchanged.
+ */
+export default function TemplateFields({
+  section = 'all',
+  excludeFieldIds
+}: {
+  section?: 'all' | 'content' | 'design';
+  /** Field ids rendered elsewhere (e.g. logo in the Content tab's Logo block). */
+  excludeFieldIds?: string[];
+}) {
   const { templateId: currentTemplateId, values: draftValues, setField } = useEditTarget();
   const activePackId = useLiveLayerStore((state) => state.activePackId);
+  const showDesign = section === 'all' || section === 'design';
+  const showContent = section === 'all' || section === 'content';
+  const excluded = new Set(excludeFieldIds ?? []);
 
   const template = templateRegistry.find((item) => item.id === currentTemplateId);
-  const required = template?.fields.filter((field) => !field.optional) ?? [];
-  const optional = template?.fields.filter((field) => field.optional) ?? [];
+  const required = template?.fields.filter((field) => !field.optional && !excluded.has(field.id)) ?? [];
+  const optional = template?.fields.filter((field) => field.optional && !excluded.has(field.id)) ?? [];
 
   // Packs may curate the design-sample list; the operator's current pick
   // stays offered even if it's off-list so an open draft never jumps styles.
@@ -353,7 +381,7 @@ export default function TemplateFields() {
 
   return (
     <div className="field-grid">
-      {packVariants.length && template ? (
+      {showDesign && packVariants.length && template ? (
         <TemplateVariantPicker
           templateId={template.id}
           draftValues={draftValues}
@@ -362,10 +390,10 @@ export default function TemplateFields() {
           onChange={(value) => setField('variantId', value)}
         />
       ) : null}
-      {template ? (
+      {showDesign && template ? (
         <TemplateColorControls template={template} values={draftValues} setField={setField} />
       ) : null}
-      {required.map((field) => (
+      {showContent && required.map((field) => (
         <div key={field.id} className="field-stack">
           {currentTemplateId === 'scripture-card' && field.id === 'reference' ? (
             <ScriptureReferencePicker
@@ -390,7 +418,7 @@ export default function TemplateFields() {
           )}
         </div>
       ))}
-      {optional.length > 0 ? (
+      {showContent && optional.length > 0 ? (
         <div className="field-grid__optional">
           <span className="field-grid__divider">Optional</span>
           {optional.map((field) => (

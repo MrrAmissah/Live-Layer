@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
-import Panel from './Panel';
-import SectionHeader from './SectionHeader';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
+import { describeTemplate } from '../../lib/templateMeta';
+import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 
 const templateById = new Map(templateRegistry.map((template) => [template.id, template]));
 
 function templateShortName(templateId: string): string {
-  return templateById.get(templateId)?.name ?? templateId;
+  return describeTemplate(templateById.get(templateId), templateId).label;
 }
 
 /** The field a quick-added name lands in (and labels read first). */
@@ -41,22 +41,6 @@ function entryLabel(item: GraphicInstance): string {
   );
 }
 
-/** Subtle identity hue per template, used on queue items and filter chips. */
-const TEMPLATE_COLORS: Record<string, string> = {
-  'preacher-lower-third': '#38bdf8',
-  'performer-lower-third': '#fb923c',
-  'scripture-card': '#e8b93c',
-  'quote-card': '#c084fc',
-  'announcement-banner': '#2dd4bf',
-  'event-banner': '#4ade80',
-  'sermon-title': '#fb7185',
-  'fullscreen-message': '#94a3b8'
-};
-
-function templateColor(templateId: string): string {
-  return TEMPLATE_COLORS[templateId] ?? '#94a3b8';
-}
-
 /**
  * Live quick queue (studio right column, under the on-air actions).
  *
@@ -66,15 +50,25 @@ function templateColor(templateId: string): string {
  * reordered, re-loaded into the editor for edits, and taken straight to air.
  */
 export default function QuickQueuePanel({
-  onTakeInstance
+  onTakeInstance,
+  onEditInstance
 }: {
   onTakeInstance: (item: GraphicInstance) => void;
+  /** Load an entry into the editor. The owner also brings the editor into view —
+   *  the queue is visible on every destination, but FieldEditor is not. */
+  onEditInstance: (item: GraphicInstance) => void;
 }) {
   const quickQueue = useLiveLayerStore((state) => state.quickQueue);
+  const program = useLiveLayerStore((state) => state.program);
+  // The entry Program says is on air — survives reloads, unlike a local
+  // "last taken" flag.
+  const liveSourceId =
+    program.sourceType === 'quickQueue' && (program.status === 'showing' || program.status === 'recovering')
+      ? program.sourceId
+      : null;
   const addToQuickQueue = useLiveLayerStore((state) => state.addToQuickQueue);
   const removeFromQuickQueue = useLiveLayerStore((state) => state.removeFromQuickQueue);
   const moveInQuickQueue = useLiveLayerStore((state) => state.moveInQuickQueue);
-  const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
   // Derived-string selector: the panel only re-renders when the label itself
   // changes, not on every editor keystroke in unrelated fields.
@@ -83,7 +77,6 @@ export default function QuickQueuePanel({
       labelFromValues(state.currentTemplateId, state.draftValues) ||
       templateShortName(state.currentTemplateId)
   );
-  const [lastTakenId, setLastTakenId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [templateFilter, setTemplateFilter] = useState<string | null>(null);
 
@@ -119,20 +112,9 @@ export default function QuickQueuePanel({
     setNewName('');
   };
 
-  const editEntry = (item: GraphicInstance) => {
-    loadGraphicInstance(item);
-    // The editor lives in the center column — bring it into view so the
-    // loaded entry is visibly there to tweak.
-    document.querySelector('.area--editor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
+  // No card chrome or heading of its own — RailQueue supplies both.
   return (
-    <Panel className="quick-queue-panel">
-      <SectionHeader
-        kicker="Live"
-        title="Quick queue"
-        aside={quickQueue.length ? <span className="qq-count">{quickQueue.length}</span> : undefined}
-      />
+    <div className="qq qq--studio">
       <div className="ll-panel__body qq-body">
         <div className="qq-quick-add">
           <input
@@ -176,7 +158,7 @@ export default function QuickQueuePanel({
                 className={`qq-chip${effectiveFilter === templateId ? ' qq-chip--active' : ''}`}
                 onClick={() => setTemplateFilter(effectiveFilter === templateId ? null : templateId)}
               >
-                <span className="qq-chip__dot" style={{ background: templateColor(templateId) }} />
+                <Icon name={describeTemplate(templateById.get(templateId), templateId).icon} size={11} />
                 {templateShortName(templateId)} · {templateCounts.get(templateId)}
               </button>
             ))}
@@ -195,8 +177,8 @@ export default function QuickQueuePanel({
               return (
               <li
                 key={item.id}
-                className={`qq-item${lastTakenId === item.id ? ' qq-item--live' : ''}`}
-                style={{ borderLeft: `3px solid ${templateColor(item.templateId)}` }}
+                className={`qq-item${liveSourceId === item.id ? ' qq-item--live' : ''}`}
+                aria-current={liveSourceId === item.id ? 'true' : undefined}
               >
                 <span className="qq-item__head">
                   <span className="qq-item__pos">{index + 1}</span>
@@ -204,17 +186,14 @@ export default function QuickQueuePanel({
                 </span>
                 <span className="qq-item__row">
                   <span className="qq-item__template">
-                    <span className="qq-chip__dot" style={{ background: templateColor(item.templateId) }} />
+                    <Icon name={describeTemplate(templateById.get(item.templateId), item.templateId).icon} size={12} />
                     {templateShortName(item.templateId)}
                   </span>
                   <span className="qq-item__actions">
                   <button
                     type="button"
                     className="qq-btn qq-btn--take"
-                    onClick={() => {
-                      onTakeInstance(item);
-                      setLastTakenId(item.id);
-                    }}
+                    onClick={() => onTakeInstance(item)}
                   >
                     Take
                   </button>
@@ -222,7 +201,7 @@ export default function QuickQueuePanel({
                     type="button"
                     className="qq-btn"
                     title="Load into editor"
-                    onClick={() => editEntry(item)}
+                    onClick={() => onEditInstance(item)}
                   >
                     Edit
                   </button>
@@ -264,6 +243,6 @@ export default function QuickQueuePanel({
           </ol>
         )}
       </div>
-    </Panel>
+    </div>
   );
 }

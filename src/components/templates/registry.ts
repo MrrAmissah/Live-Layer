@@ -131,9 +131,9 @@ export const templateRegistry: TemplateDefinition[] = [
     description: 'Broadcast lower third with speaker name, role, organization, and a brand medallion.',
     primaryField: 'name',
     fields: [
-      { id: 'name', label: 'Name', type: 'text', placeholder: 'Speaker name' },
-      { id: 'title', label: 'Title', type: 'text', placeholder: 'Title or role' },
-      { id: 'subtitle', label: 'Subtitle / church', type: 'text', placeholder: 'Church or organization' },
+      { id: 'name', label: 'Name', type: 'text', placeholder: 'Speaker name', maxLength: 60, recommendedLength: 32 },
+      { id: 'title', label: 'Title', type: 'text', placeholder: 'Title or role', maxLength: 60, recommendedLength: 40 },
+      { id: 'subtitle', label: 'Subtitle / church', type: 'text', placeholder: 'Church or organization', maxLength: 60, recommendedLength: 44 },
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional logo URL', optional: true }
     ],
     defaultValues: {
@@ -179,9 +179,9 @@ export const templateRegistry: TemplateDefinition[] = [
     description: 'Lower third for choirs, praise and worship teams, and special performances.',
     primaryField: 'name',
     fields: [
-      { id: 'name', label: 'Performer / group', type: 'text', placeholder: 'Choir or performer name' },
-      { id: 'title', label: 'Performance', type: 'text', placeholder: 'Praise, Worship, Special Song' },
-      { id: 'subtitle', label: 'Event / tag', type: 'text', placeholder: 'Event or ministry tag', optional: true },
+      { id: 'name', label: 'Performer / group', type: 'text', placeholder: 'Choir or performer name', maxLength: 60, recommendedLength: 34 },
+      { id: 'title', label: 'Performance', type: 'text', placeholder: 'Praise, Worship, Special Song', maxLength: 60, recommendedLength: 34 },
+      { id: 'subtitle', label: 'Event / tag', type: 'text', placeholder: 'Event or ministry tag', optional: true, maxLength: 60, recommendedLength: 28 },
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional logo URL', optional: true }
     ],
     // Performances stay up as long as the moment lasts — no auto-hide.

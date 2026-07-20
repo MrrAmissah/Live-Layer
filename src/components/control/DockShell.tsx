@@ -14,6 +14,8 @@ interface DockShellProps {
   onClear: () => void;
   lastAction: LastAction;
   lastTakenAt: number | null;
+  /** A command is in flight — passed through to the sticky action bar. */
+  sending?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface DockShellProps {
  * to the bottom. Only the active step mounts, so a beginner sees one task at a
  * time and never scrolls past the live actions.
  */
-export default function DockShell({ onTake, onClear, lastAction, lastTakenAt }: DockShellProps) {
+export default function DockShell({ onTake, onClear, lastAction, lastTakenAt, sending = false }: DockShellProps) {
   const [tab, setTab] = useState<DockTab>('templates');
 
   return (
@@ -39,7 +41,7 @@ export default function DockShell({ onTake, onClear, lastAction, lastTakenAt }: 
           {tab === 'brand' ? <BrandStep /> : null}
           {tab === 'library' ? <LibraryStep /> : null}
         </div>
-        <StickyLiveBar onTake={onTake} onClear={onClear} lastAction={lastAction} />
+        <StickyLiveBar onTake={onTake} onClear={onClear} lastAction={lastAction} sending={sending} />
       </div>
     </div>
   );

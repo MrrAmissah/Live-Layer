@@ -9,6 +9,8 @@ The control page sends messages to the output page using `BroadcastChannel`. Thi
 
 The output surface stays transparent and only renders the active graphic. When the control page sends a `Take`, the output page plays the graphic in with animation. When the control page sends `Clear`, the output removes it. A `localStorage` mirror of the last message lets `/output` restore state on refresh.
 
+Messaging is currently **one-way**: control publishes, output renders. The control client therefore knows what it *commanded*, never what output is actually showing — the Program state models this honestly (`showing` + `unconfirmed`, and `recovering` after a reload). Roadmap: a future production-hardening stage adds an output→control acknowledgement carrying the originating `commandId`, at which point confirmation can flip to `confirmed`. Emission and consumption ship together; no partial protocol surface lands before then.
+
 ## Control surface
 
 `/control` is one route with two responsive layouts, switched by a JS breakpoint at 1024px (no separate routes): a guided **dock** below 1024px and a multi-panel **studio** dashboard above it. State lives in a **Zustand** store; presets, brand overrides, and recents persist to `localStorage` and are validated with **Zod** on read. The control preview and `/output` share the same renderer, so the preview is pixel-true to air. See `CONTROL_UI_UX.md`.

@@ -5,6 +5,8 @@ interface StickyLiveBarProps {
   onTake: () => void;
   onClear: () => void;
   lastAction: LastAction;
+  /** A command is in flight — lock both actions until it settles. */
+  sending?: boolean;
 }
 
 /**
@@ -14,7 +16,7 @@ interface StickyLiveBarProps {
  * Clear when a graphic is live (via data-state) without hiding Take. The meta
  * row carries just the auto-hide value.
  */
-export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiveBarProps) {
+export default function StickyLiveBar({ onTake, onClear, lastAction, sending = false }: StickyLiveBarProps) {
   const { takeLabel, takeDisabled, durationSeconds } = useLiveTakeContext();
   const takeDisplayLabel = lastAction === 'taken' ? 'Update live' : takeLabel;
 
@@ -31,12 +33,19 @@ export default function StickyLiveBar({ onTake, onClear, lastAction }: StickyLiv
           className="take-btn dock-livebar__take"
           data-state={lastAction}
           onClick={onTake}
-          disabled={takeDisabled}
+          disabled={takeDisabled || sending}
+          aria-busy={sending || undefined}
         >
-          {takeDisplayLabel}
+          {sending ? 'Sending…' : takeDisplayLabel}
         </button>
-        <button type="button" className="clear-btn dock-livebar__clear" onClick={onClear}>
-          Clear
+        <button
+          type="button"
+          className="clear-btn dock-livebar__clear"
+          onClick={onClear}
+          disabled={sending}
+          aria-busy={sending || undefined}
+        >
+          {sending ? 'Sending…' : 'Clear'}
         </button>
       </div>
     </div>

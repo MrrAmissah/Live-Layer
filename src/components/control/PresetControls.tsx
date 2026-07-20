@@ -14,7 +14,7 @@ function templateName(templateId: string): string {
  * reset-all at the bottom. Used inside the Library panel/step; owns its own
  * store subscription.
  */
-export default function PresetControls() {
+export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (preset: GraphicInstance) => void } = {}) {
   const presets = useLiveLayerStore((state) => state.presets);
   const savePreset = useLiveLayerStore((state) => state.savePreset);
   const removePreset = useLiveLayerStore((state) => state.removePreset);
@@ -22,6 +22,7 @@ export default function PresetControls() {
   const clearLocalData = useLiveLayerStore((state) => state.clearLocalData);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
   const rd = useRundowns();
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
@@ -90,7 +91,11 @@ export default function PresetControls() {
                 <span className="preset-row__meta">{templateName(preset.templateId)}</span>
               </span>
               <span className="preset-row__actions">
-                <button type="button" className="btn btn--secondary btn--xs" onClick={() => loadGraphicInstance(preset)}>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--xs"
+                  onClick={() => (onLoadGraphic ? onLoadGraphic(preset) : loadGraphicInstance(preset))}
+                >
                   Load
                 </button>
                 <button
@@ -117,9 +122,39 @@ export default function PresetControls() {
 
       {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
 
-      <button type="button" className="preset-reset" onClick={clearLocalData}>
-        Reset all local data
-      </button>
+      {/* Two-step, and never a bare one-click: this removes presets, the quick
+          queue, recents, rundowns, people and uploaded assets irreversibly. */}
+      {confirmingReset ? (
+        <div className="preset-reset__confirm" role="alertdialog" aria-label="Confirm reset">
+          <p className="preset-reset__warning">
+            Delete presets, quick queue, recents, rundowns, people and uploaded assets? This cannot
+            be undone.
+          </p>
+          <div className="preset-reset__actions">
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setConfirmingReset(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="preset-reset preset-reset--confirm"
+              onClick={() => {
+                clearLocalData();
+                setConfirmingReset(false);
+              }}
+            >
+              Yes, erase everything
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="preset-reset" onClick={() => setConfirmingReset(true)}>
+          Reset all local data
+        </button>
+      )}
     </div>
   );
 }

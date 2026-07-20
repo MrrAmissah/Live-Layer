@@ -1,4 +1,6 @@
-import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
+import type { GraphicInstance, QuickQueueItem, TemplateDefinition } from '../types/graphics';
+import type { ProgramState } from '../types/program';
+import { CLEAR_PROGRAM_STATE } from '../types/program';
 
 const STORAGE_KEYS = {
   presets: 'livelayer.presets',
@@ -6,6 +8,7 @@ const STORAGE_KEYS = {
   recent: 'livelayer.recent',
   quickQueue: 'livelayer.quickQueue',
   activePack: 'livelayer.activePack',
+  program: 'livelayer.program',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   lastRealtimeMessage: 'livelayer:lastMessage'
@@ -49,12 +52,84 @@ export function loadRecentGraphics() {
   return loadGraphicList(STORAGE_KEYS.recent);
 }
 
-export function loadQuickQueue() {
-  return loadGraphicList(STORAGE_KEYS.quickQueue);
+/**
+ * Quick-queue items carry a monotonic `revision`. Legacy entries stored before
+ * revisions existed normalize to 1 on load, so optimistic-concurrency checks
+ * have a stable baseline without a migration step.
+ */
+export function loadQuickQueue(): QuickQueueItem[] {
+  return loadGraphicList(STORAGE_KEYS.quickQueue).map((item) => ({
+    ...item,
+    revision: Number.isInteger(item.revision) && (item.revision as number) > 0 ? (item.revision as number) : 1
+  }));
 }
 
-export function saveQuickQueue(queue: GraphicInstance[]) {
+export function saveQuickQueue(queue: QuickQueueItem[]) {
   safeWrite(STORAGE_KEYS.quickQueue, queue);
+}
+
+/**
+ * Program recovery: a browser reload cannot confirm what output is doing, so a
+ * previously on-air state comes back as `recovering` (never a confident live),
+ * an explicit clear stays clear, and anything absent or malformed resets safely
+ * to clear.
+ */
+const PROGRAM_SOURCE_TYPES = ['draft', 'quickQueue', 'rundown'] as const;
+
+/** Only accept a source type the app actually understands; anything else is
+ *  discarded rather than carried forward as unusable metadata. */
+function validSourceType(value: unknown): ProgramState['sourceType'] {
+  return typeof value === 'string' && (PROGRAM_SOURCE_TYPES as readonly string[]).includes(value)
+    ? (value as ProgramState['sourceType'])
+    : null;
+}
+const asString = (value: unknown, fallback: string | null = null) =>
+  typeof value === 'string' && value ? value : fallback;
+const asNumber = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
+
+export function loadProgram(): ProgramState {
+  const raw = safeReadJson(STORAGE_KEYS.program);
+  if (!isRecord(raw) || typeof raw.status !== 'string') return { ...CLEAR_PROGRAM_STATE };
+
+  // Explicit switch — an unrecognised status must never fall through into an
+  // on-air-looking state.
+  switch (raw.status) {
+    case 'clear':
+      return { ...CLEAR_PROGRAM_STATE, clearedAt: asNumber(raw.clearedAt) };
+    case 'showing':
+    case 'recovering':
+    case 'failed':
+      break;
+    default:
+      return { ...CLEAR_PROGRAM_STATE };
+  }
+
+  // Non-clear states are only meaningful with the graphic they refer to.
+  const snapshot = isGraphicInstance(raw.snapshot) ? (raw.snapshot as GraphicInstance) : null;
+  if (!snapshot) return { ...CLEAR_PROGRAM_STATE };
+
+  // A reload cannot confirm output, so 'showing' downgrades to 'recovering';
+  // 'failed' is already a settled fact and survives as-is. Validated identity
+  // and source metadata are preserved so the originating queue/rundown item
+  // stays identified across a refresh.
+  const sourceType = validSourceType(raw.sourceType);
+  return {
+    ...CLEAR_PROGRAM_STATE,
+    status: raw.status === 'failed' ? 'failed' : 'recovering',
+    confirmation: 'unconfirmed',
+    commandId: asString(raw.commandId),
+    instanceId: asString(raw.instanceId, snapshot.id),
+    templateId: asString(raw.templateId, snapshot.templateId),
+    sourceType,
+    // A source id without a valid type is meaningless — drop it together.
+    sourceId: sourceType ? asString(raw.sourceId) : null,
+    snapshot,
+    takenAt: asNumber(raw.takenAt)
+  };
+}
+
+export function saveProgram(program: ProgramState) {
+  safeWrite(STORAGE_KEYS.program, program);
 }
 
 /* Active pack id is stored as a raw string (not JSON) for backwards
