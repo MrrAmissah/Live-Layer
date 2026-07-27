@@ -1,4 +1,5 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { graphicPacks, getPack } from '../../lib/packs';
 import { Icon } from '../../lib/icons';
 
@@ -14,7 +15,7 @@ import { Icon } from '../../lib/icons';
  */
 export default function EventPackSummary({ onOpenBrand }: { onOpenBrand: () => void }) {
   const activePackId = useLiveLayerStore((state) => state.activePackId);
-  const setActivePack = useLiveLayerStore((state) => state.setActivePack);
+  const { requestPackChange } = usePackSwitchGuard();
   const pack = getPack(activePackId);
   const isDefault = pack.id === 'house';
   const curatesVariants = Boolean(pack.variantChoices && Object.keys(pack.variantChoices).length > 0);
@@ -34,7 +35,7 @@ export default function EventPackSummary({ onOpenBrand }: { onOpenBrand: () => v
           <select
             value={activePackId}
             aria-label="Active event pack"
-            onChange={(event) => setActivePack(event.target.value)}
+            onChange={(event) => requestPackChange(event.target.value)}
           >
             {graphicPacks.map((option) => (
               <option key={option.id} value={option.id}>

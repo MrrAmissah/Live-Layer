@@ -21,6 +21,10 @@ export interface EditTarget {
   theme: TemplateDefinition['theme'];
   durationSeconds: number;
   setField: (key: string, value: string) => void;
+  /** Merge several field values in ONE update, atomically — the target's whole
+   *  values object is written once, so batched multi-field writes (Reset
+   *  palette) don't clobber each other. Unrelated values are preserved. */
+  setFields: (patch: Record<string, string>) => void;
   setLayout: (patch: Partial<LayoutSettings>) => void;
   resetLayout: () => void;
   setDuration: (seconds: number) => void;
@@ -54,6 +58,7 @@ export function useEditTarget(): EditTarget {
   const resetLayout = useLiveLayerStore((state) => state.resetLayout);
   const setDurationSeconds = useLiveLayerStore((state) => state.setDurationSeconds);
   const resetDraft = useLiveLayerStore((state) => state.resetDraft);
+  const setFieldsDraft = useLiveLayerStore((state) => state.setFields);
   const savePreset = useLiveLayerStore((state) => state.savePreset);
   const savePresetFromInstance = useLiveLayerStore((state) => state.savePresetFromInstance);
   const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
@@ -90,6 +95,10 @@ export function useEditTarget(): EditTarget {
               ? applyVariantSelection(graphic.values, graphic.templateId, value)
               : { ...graphic.values, [key]: value }
         }),
+      // Atomic multi-field write: one updateItem over the current values, so
+      // all fields land together instead of each overwriting the last from the
+      // render-time snapshot.
+      setFields: (fieldPatch) => patch({ values: { ...graphic.values, ...fieldPatch } }),
       setLayout: (p) => patch({ layout: { ...(graphic.layout ?? {}), ...p } }),
       resetLayout: () => patch({ layout: {} }),
       setDuration: (seconds) => patch({ durationSeconds: seconds }),
@@ -119,6 +128,7 @@ export function useEditTarget(): EditTarget {
     theme: draftTheme,
     durationSeconds: draftDuration,
     setField,
+    setFields: setFieldsDraft,
     setLayout,
     resetLayout,
     setDuration: setDurationSeconds,

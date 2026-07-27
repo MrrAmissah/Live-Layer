@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { graphicPacks } from '../../lib/packs';
 import { useRelayStatus, type RelayConnection } from '../../hooks/useRelayStatus';
+import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { Icon } from '../../lib/icons';
 
 /** Opens an app route in a new tab (output source / setup dock helpers). */
@@ -23,7 +24,7 @@ const RELAY_LABEL: Record<RelayConnection, string> = {
  */
 export default function CommandBar() {
   const activePackId = useLiveLayerStore((state) => state.activePackId);
-  const setActivePack = useLiveLayerStore((state) => state.setActivePack);
+  const { requestPackChange } = usePackSwitchGuard();
   const relay = useRelayStatus();
 
   return (
@@ -41,7 +42,7 @@ export default function CommandBar() {
           <select
             className="cmd-event__select"
             value={activePackId}
-            onChange={(event) => setActivePack(event.target.value)}
+            onChange={(event) => requestPackChange(event.target.value)}
             aria-label="Active event pack"
           >
             {graphicPacks.map((option) => (

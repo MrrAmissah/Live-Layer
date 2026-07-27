@@ -449,11 +449,13 @@ function VariantBrowser({
 function TemplateColorControls({
   template,
   values,
-  setField
+  setField,
+  setFields
 }: {
   template: (typeof templateRegistry)[number];
   values: Record<string, string>;
   setField: (key: string, value: string) => void;
+  setFields: (patch: Record<string, string>) => void;
 }) {
   const defaults = template.defaultValues;
   // "Reset palette" restores the selected variant's signature palette when it
@@ -473,10 +475,9 @@ function TemplateColorControls({
             <button
               type="button"
               className="template-colors__reset"
-              onClick={() => COLOR_FIELDS.forEach((field) => {
-                const next = resetPalette[field.id];
-                if (next !== undefined) setField(field.id, next);
-              })}
+              // One atomic write — a per-field loop clobbers itself on a rundown
+              // item, where each setField starts from the same stale snapshot.
+              onClick={() => setFields(resetPalette)}
             >
               Reset palette
             </button>
@@ -523,7 +524,7 @@ export default function TemplateFields({
   /** Field ids rendered elsewhere (e.g. logo in the Content tab's Logo block). */
   excludeFieldIds?: string[];
 }) {
-  const { templateId: currentTemplateId, values: draftValues, setField } = useEditTarget();
+  const { templateId: currentTemplateId, values: draftValues, setField, setFields } = useEditTarget();
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const showDesign = section === 'all' || section === 'design';
   const showContent = section === 'all' || section === 'content';
@@ -562,7 +563,7 @@ export default function TemplateFields({
         />
       ) : null}
       {showDesign && template ? (
-        <TemplateColorControls template={template} values={draftValues} setField={setField} />
+        <TemplateColorControls template={template} values={draftValues} setField={setField} setFields={setFields} />
       ) : null}
       {showContent && required.map((field) => (
         <div key={field.id} className="field-stack">

@@ -59,8 +59,14 @@ interface LiveLayerState {
   markProgramFailed: (input?: { snapshot?: GraphicInstance; commandId?: string; source?: ProgramSource }) => void;
   activePackId: string;
   setActivePack: (packId: string) => void;
+  /** True when the ad-hoc draft differs from a fresh seed for the current
+   *  template + active pack — i.e. the operator has edits a pack switch would
+   *  discard. Uses the same seeding logic as setActivePack, so it can't drift. */
+  isDraftDirty: () => boolean;
   setTemplate: (templateId: string) => void;
   setField: (fieldId: string, value: string) => void;
+  /** Merge several draft fields in ONE update (atomic; used by Reset palette). */
+  setFields: (patch: Record<string, string>) => void;
   setTheme: (theme: Partial<TemplateDefinition['theme']>) => void;
   setLayout: (layout: Partial<LayoutSettings>) => void;
   resetLayout: () => void;
@@ -150,6 +156,16 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           draftValues: createDraftValues(state.currentTemplateId, packId)
         };
       }),
+    isDraftDirty: () => {
+      const { draftValues, currentTemplateId, activePackId } = get();
+      // Same seed setActivePack would re-create, so "clean" is defined identically.
+      const seed = createDraftValues(currentTemplateId, activePackId);
+      const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
+      for (const key of keys) {
+        if (draftValues[key] !== seed[key]) return true;
+      }
+      return false;
+    },
     theme: loadBrandOverrides(),
     layout: {},
     durationSeconds: 6,
@@ -286,6 +302,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           }
         };
       }),
+    setFields: (patch) =>
+      set((state) => ({ draftValues: { ...state.draftValues, ...patch } })),
     setTheme: (theme) =>
       set((state) => {
         const next = {

@@ -4,6 +4,7 @@ import { saveUploadedAsset } from '../../lib/assets/assetStore';
 import { validateImageFile } from '../../lib/assets/imageProcessing';
 import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
+import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { GFX_DEFAULT_ACCENT_2 } from '../graphics/stage';
 import { getPack, graphicPacks } from '../../lib/packs';
 
@@ -42,7 +43,7 @@ export default function BrandControls() {
   const theme = useLiveLayerStore((state) => state.theme);
   const setTheme = useLiveLayerStore((state) => state.setTheme);
   const activePackId = useLiveLayerStore((state) => state.activePackId);
-  const setActivePack = useLiveLayerStore((state) => state.setActivePack);
+  const { requestPackChange } = usePackSwitchGuard();
   const logoUrl = useLiveLayerStore((state) => state.draftValues.logoUrl ?? '');
   const logoAssetId = useLiveLayerStore((state) => state.draftValues.logoAssetId ?? '');
   const setField = useLiveLayerStore((state) => state.setField);
@@ -122,7 +123,7 @@ export default function BrandControls() {
               key={pack.id}
               type="button"
               className={`layout-seg__btn${pack.id === activePackId ? ' layout-seg__btn--active' : ''}`}
-              onClick={() => setActivePack(pack.id)}
+              onClick={() => requestPackChange(pack.id)}
             >
               {pack.name}
             </button>

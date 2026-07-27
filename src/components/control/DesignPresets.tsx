@@ -13,6 +13,13 @@ function presetLabel(preset: GraphicInstance): string {
   return preset.presetName?.trim() || describeTemplate(templateById.get(preset.templateId), preset.templateId).label;
 }
 
+/** The compact list: the newest `count` presets, newest first. Presets are
+ *  appended to the persisted array, so a just-saved one is last — reverse a
+ *  copy so it shows at the top for one-click recall. Never mutates the input. */
+export function newestPresetsFirst(presets: GraphicInstance[], count: number): GraphicInstance[] {
+  return presets.slice(-count).reverse();
+}
+
 /**
  * Compact presets companion for the Design tab. Uses the real preset slice and
  * edit-target-aware save/apply — it is NOT the full PresetControls surface (no
@@ -43,7 +50,7 @@ export default function DesignPresets({
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
 
-  const shown = presets.slice(0, COMPACT_COUNT);
+  const shown = newestPresetsFirst(presets, COMPACT_COUNT);
   const saveLabel = isRundownItem ? 'Save item as preset' : 'Save current as preset';
   const loadLabel = isRundownItem ? 'Apply to item' : 'Load';
   const defaultName = isRundownItem
