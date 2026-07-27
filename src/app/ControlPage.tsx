@@ -198,7 +198,7 @@ export default function ControlPage() {
     view === 'templates' ? (
       <div className="studio-center">
         <PreviewPanel />
-        <FieldEditor />
+        <FieldEditor onNavigate={setView} onLoadGraphic={openGraphicInEditor} />
       </div>
     ) : view === 'saved' ? (
       <DestinationPanel kicker="Saved graphics">

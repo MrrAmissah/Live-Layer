@@ -5,8 +5,10 @@ import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
 import { packVariantIdsFor } from '../../lib/packs';
-import { memo, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
+import { Icon } from '../../lib/icons';
+import { resolveResetPalette } from '../../lib/variantPalette';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
@@ -176,6 +178,14 @@ const VariantThumb = memo(function VariantThumb({
   );
 });
 
+/**
+ * Design-variant carousel: a horizontal, scrollable strip of real
+ * TemplateThumb renders with prev/next paging and roving-tabindex keyboard
+ * navigation. `variants` is already pack-curated by the caller, which also
+ * appends the current selection if it is off-list — so an off-list variant
+ * always has a card and a valid position. The full search + group-filter grid
+ * is preserved behind the "Browse all variants" disclosure.
+ */
 function TemplateVariantPicker({
   templateId,
   draftValues,
@@ -189,14 +199,180 @@ function TemplateVariantPicker({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const [query, setQuery] = useState('');
-  const [groupId, setGroupId] = useState<VariantGroupId>('all');
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  // Set only when selection moves via keyboard, so the effect below moves DOM
+  // focus to the new card. Never set on click/preset-load/template-switch — an
+  // unconditional focus move would steal focus whenever the variant changes for
+  // an unrelated reason.
+  const focusSelectedRef = useRef(false);
   // Thumbnails render from deferred values: typing paints the fields and main
   // preview first, and the mini-stages catch up in a background render.
   const thumbValues = useDeferredValue(draftValues);
-  const selectedIndex = variants.findIndex((variant) => variant.id === value);
+
+  const selectedIndex = Math.max(0, variants.findIndex((variant) => variant.id === value));
   const selectedVariant = variants[selectedIndex] ?? variants[0];
-  const selectedPosition = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+
+  // Paging is bounded: clamp to [0, length-1] so prev/next can never step off
+  // either end.
+  const goTo = (index: number, viaKeyboard = false) => {
+    const clamped = Math.min(variants.length - 1, Math.max(0, index));
+    const next = variants[clamped];
+    if (next && next.id !== value) {
+      if (viaKeyboard) focusSelectedRef.current = true;
+      onChange(next.id);
+    }
+  };
+
+  // Keep the selected card in view as selection moves (click, keyboard, paging);
+  // move focus with it only when the change came from the keyboard, so roving
+  // tabindex and the focus ring track the selection during arrow navigation.
+  useEffect(() => {
+    const card = trackRef.current?.querySelector<HTMLElement>(`[data-variant="${value}"]`);
+    card?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    if (focusSelectedRef.current) {
+      card?.focus();
+      focusSelectedRef.current = false;
+    }
+  }, [value]);
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        event.preventDefault();
+        goTo(selectedIndex - 1, true);
+        break;
+      case 'ArrowRight':
+      case 'ArrowDown':
+        event.preventDefault();
+        goTo(selectedIndex + 1, true);
+        break;
+      case 'Home':
+        event.preventDefault();
+        goTo(0, true);
+        break;
+      case 'End':
+        event.preventDefault();
+        goTo(variants.length - 1, true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const atStart = selectedIndex <= 0;
+  const atEnd = selectedIndex >= variants.length - 1;
+
+  return (
+    <div className="variant-carousel">
+      <div className="variant-carousel__head">
+        <span className="ll-kicker">Design variant</span>
+        <span className="variant-carousel__pos" aria-live="polite">
+          {selectedVariant.name} · {selectedIndex + 1} of {variants.length}
+        </span>
+      </div>
+
+      <div className="variant-carousel__viewport">
+        <button
+          type="button"
+          className="variant-carousel__nav variant-carousel__nav--prev"
+          aria-label="Previous design variant"
+          disabled={atStart}
+          onClick={() => goTo(selectedIndex - 1)}
+        >
+          <Icon name="chevronLeft" size={18} />
+        </button>
+
+        <div
+          ref={trackRef}
+          className="variant-carousel__track"
+          role="radiogroup"
+          aria-label="Design variant"
+          onKeyDown={onKeyDown}
+        >
+          {variants.map((variant) => {
+            const active = value === variant.id;
+            return (
+              <button
+                key={variant.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
+                data-variant={variant.id}
+                className={`variant-card${active ? ' variant-card--active' : ''}`}
+                onClick={() => onChange(variant.id)}
+              >
+                <span className="variant-card__preview" aria-hidden>
+                  <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} />
+                  {active ? (
+                    <span className="variant-card__check" aria-hidden>
+                      <Icon name="check" size={13} />
+                    </span>
+                  ) : null}
+                </span>
+                <span className="variant-card__name">{variant.name}</span>
+                <span className="variant-card__desc">{variant.description}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          className="variant-carousel__nav variant-carousel__nav--next"
+          aria-label="Next design variant"
+          disabled={atEnd}
+          onClick={() => goTo(selectedIndex + 1)}
+        >
+          <Icon name="chevronRight" size={18} />
+        </button>
+      </div>
+
+      <button
+        type="button"
+        className="variant-carousel__browse"
+        aria-expanded={browseOpen}
+        onClick={() => setBrowseOpen((open) => !open)}
+      >
+        <Icon name={browseOpen ? 'chevronDown' : 'chevronRight'} size={14} />
+        Browse all variants
+      </button>
+
+      {browseOpen ? (
+        <VariantBrowser
+          templateId={templateId}
+          thumbValues={thumbValues}
+          variants={variants}
+          value={value}
+          onChange={onChange}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The full searchable, group-filtered variant grid — unchanged behaviour, now
+ * living behind the carousel's "Browse all variants" disclosure so it is never
+ * lost, just not the first-glance surface.
+ */
+function VariantBrowser({
+  templateId,
+  thumbValues,
+  variants,
+  value,
+  onChange
+}: {
+  templateId: string;
+  thumbValues: Record<string, string>;
+  variants: TemplateVariant[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [groupId, setGroupId] = useState<VariantGroupId>('all');
   const enabledGroups = useMemo(() => {
     const groups = new Set<VariantGroupId>(['all']);
     variants.forEach((variant) => groups.add(variantGroupFor(variant)));
@@ -204,56 +380,43 @@ function TemplateVariantPicker({
   }, [variants]);
   const filteredVariants = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-
     return variants.filter((variant) => {
       const matchesGroup = groupId === 'all' || variantGroupFor(variant) === groupId;
       const matchesQuery =
         !normalizedQuery ||
         variant.name.toLowerCase().includes(normalizedQuery) ||
         variant.description.toLowerCase().includes(normalizedQuery);
-
       return matchesGroup && matchesQuery;
     });
   }, [groupId, query, variants]);
-  const showNavigation = variants.length > 5;
 
   return (
-    <div className="variant-picker">
-      <span className="field__label">
-        <span>Design sample</span>
-        <span className="field__meta">
-          {selectedVariant.name} · {selectedPosition} of {variants.length}
-        </span>
-      </span>
-      {showNavigation ? (
-        <>
-          <input
-            className="field__input"
-            type="search"
-            value={query}
-            placeholder="Search design samples"
-            aria-label="Search design samples"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {enabledGroups.length > 2 ? (
-            <div className="dynamic-insert" aria-label="Filter design samples">
-              {enabledGroups.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  className="dynamic-insert__btn"
-                  aria-pressed={groupId === group.id}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setGroupId(group.id);
-                  }}
-                >
-                  {group.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </>
+    <div className="variant-browser">
+      <input
+        className="field__input"
+        type="search"
+        value={query}
+        placeholder="Search design samples"
+        aria-label="Search design samples"
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      {enabledGroups.length > 2 ? (
+        <div className="dynamic-insert" aria-label="Filter design samples">
+          {enabledGroups.map((group) => (
+            <button
+              key={group.id}
+              type="button"
+              className="dynamic-insert__btn"
+              aria-pressed={groupId === group.id}
+              onClick={(event) => {
+                event.preventDefault();
+                setGroupId(group.id);
+              }}
+            >
+              {group.label}
+            </button>
+          ))}
+        </div>
       ) : null}
       <div className="variant-picker__grid">
         {filteredVariants.map((variant) => (
@@ -293,21 +456,29 @@ function TemplateColorControls({
   setField: (key: string, value: string) => void;
 }) {
   const defaults = template.defaultValues;
-  const hasOverrides = COLOR_FIELDS.some((field) => colorValue(values[field.id], defaults[field.id]) !== defaults[field.id]);
+  // "Reset palette" restores the selected variant's signature palette when it
+  // has one, else the template's palette defaults — the shared rule.
+  const resetPalette = resolveResetPalette(template.id, values.variantId);
+  const canReset = COLOR_FIELDS.some(
+    (field) => resetPalette[field.id] !== undefined && colorValue(values[field.id], defaults[field.id]) !== resetPalette[field.id]
+  );
 
   return (
     <div className="template-colors">
       <span className="field__label">
-        <span>Template colours</span>
+        <span>Appearance / palette</span>
         <span className="template-colors__aside">
           <span className="field__meta">{COLOR_FIELDS.length} swatches</span>
-          {hasOverrides ? (
+          {canReset ? (
             <button
               type="button"
               className="template-colors__reset"
-              onClick={() => COLOR_FIELDS.forEach((field) => setField(field.id, defaults[field.id]))}
+              onClick={() => COLOR_FIELDS.forEach((field) => {
+                const next = resetPalette[field.id];
+                if (next !== undefined) setField(field.id, next);
+              })}
             >
-              Reset
+              Reset palette
             </button>
           ) : null}
         </span>

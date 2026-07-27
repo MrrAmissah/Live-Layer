@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
 import { getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
+import { applyVariantSelection } from '../lib/variantPalette';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 
@@ -68,7 +69,17 @@ export function useEditTarget(): EditTarget {
       layout: graphic.layout ?? {},
       theme: graphic.theme as TemplateDefinition['theme'],
       durationSeconds: graphic.durationSeconds ?? 0,
-      setField: (key, value) => patch({ values: { ...graphic.values, [key]: value } }),
+      // Selecting a design variant must merge its signature palette here too —
+      // the same rule as the draft path — or a rundown item would switch look
+      // while keeping the previous variant's colours. Non-variant fields are a
+      // plain patch.
+      setField: (key, value) =>
+        patch({
+          values:
+            key === 'variantId'
+              ? applyVariantSelection(graphic.values, graphic.templateId, value)
+              : { ...graphic.values, [key]: value }
+        }),
       setLayout: (p) => patch({ layout: { ...(graphic.layout ?? {}), ...p } }),
       resetLayout: () => patch({ layout: {} }),
       setDuration: (seconds) => patch({ durationSeconds: seconds }),

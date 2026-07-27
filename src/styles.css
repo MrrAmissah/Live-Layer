@@ -6078,6 +6078,162 @@ body.gfx-transparent {
   transition: none !important;
 }
 
+/* --- Stage 2: Design tab ------------------------------------------------- */
+/* Two-column on wide desktops: design controls + presets companion. Collapses
+   to a single stacked column at constrained widths (the companion flows
+   beneath) and at the 1024 studio floor. */
+.control-root .design-tab { display: grid; grid-template-columns: minmax(0, 1fr) 244px; gap: 16px; align-items: start; }
+.control-root .design-tab__main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.control-root .design-tab__aside { min-width: 0; }
+@media (max-width: 1240px) {
+  .control-root .design-tab { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Design-variant carousel */
+.control-root .variant-carousel {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; border-radius: var(--ll-radius-panel);
+  background: rgba(255, 255, 255, 0.018); border: 1px solid var(--ll-border-soft);
+}
+.control-root .variant-carousel__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.control-root .variant-carousel__pos {
+  font-size: 11.5px; font-weight: 640; color: var(--ll-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.control-root .variant-carousel__viewport { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.control-root .variant-carousel__nav {
+  flex: none; width: 30px; align-self: stretch;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--ll-radius-control);
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+  color: var(--ll-muted-2); cursor: pointer;
+}
+.control-root .variant-carousel__nav:hover:not(:disabled) { background: var(--ll-panel-muted); color: var(--ll-text); border-color: var(--ll-border); }
+.control-root .variant-carousel__nav:focus-visible { outline: none; box-shadow: var(--ll-focus); border-color: var(--ll-select-edge); }
+.control-root .variant-carousel__nav:disabled { opacity: 0.35; cursor: not-allowed; }
+.control-root .variant-carousel__track {
+  display: flex; gap: 8px; min-width: 0; flex: 1 1 auto;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  padding: 2px; scrollbar-width: thin;
+}
+.control-root .variant-carousel__track:focus-visible { outline: none; }
+.control-root .variant-card {
+  flex: 0 0 156px; scroll-snap-align: center;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; border-radius: 9px; text-align: left; cursor: pointer;
+  color: var(--ll-muted); background: rgba(4, 8, 15, 0.46);
+  border: 1px solid rgba(132, 150, 174, 0.12);
+}
+.control-root .variant-card:hover { color: var(--ll-text); border-color: rgba(148, 163, 184, 0.26); background: rgba(7, 13, 24, 0.66); }
+.control-root .variant-card--active { color: var(--ll-text-strong); background: rgba(34, 151, 255, 0.12); border-color: var(--ll-select-edge); box-shadow: inset 3px 0 0 var(--ll-select); }
+.control-root .variant-card:focus-visible { outline: none; box-shadow: var(--ll-focus); }
+.control-root .variant-card__preview {
+  position: relative; display: block; aspect-ratio: 16 / 9;
+  border-radius: 6px; overflow: hidden; background: #080d15; border: 1px solid rgba(148, 163, 184, 0.12);
+}
+.control-root .variant-card__check {
+  position: absolute; top: 5px; right: 5px; width: 18px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--ll-select); color: #fff;
+}
+.control-root .variant-card__name { font-size: 12px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .variant-card__desc {
+  font-size: 10.5px; line-height: 1.3; color: var(--ll-muted-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.control-root .variant-card--active .variant-card__desc { color: var(--ll-muted); }
+.control-root .variant-carousel__browse {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 0; padding: 2px; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 640; color: var(--ll-muted);
+}
+.control-root .variant-carousel__browse:hover { color: var(--ll-text); }
+.control-root .variant-carousel__browse:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 5px; }
+.control-root .variant-carousel__browse .ll-icon { color: var(--ll-muted-3); }
+.control-root .variant-browser { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+
+/* Event-pack summary */
+.control-root .pack-summary {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 12px; border-radius: var(--ll-radius-panel);
+  background: rgba(255, 255, 255, 0.018); border: 1px solid var(--ll-border-soft);
+}
+.control-root .pack-summary__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.control-root .pack-summary__brand-link {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 650; color: var(--ll-select);
+}
+.control-root .pack-summary__brand-link:hover { color: #5b8cf8; text-decoration: underline; }
+.control-root .pack-summary__brand-link:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 5px; }
+.control-root .pack-summary__row { display: flex; align-items: center; gap: 10px; }
+.control-root .pack-summary__select { position: relative; display: flex; align-items: center; flex: 1 1 auto; min-width: 0; }
+.control-root .pack-summary__select select {
+  appearance: none; -webkit-appearance: none;
+  width: 100%; min-width: 0; min-height: 34px; padding: 0 30px 0 11px;
+  border-radius: var(--ll-radius-control);
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+  font: inherit; font-size: 12.5px; font-weight: 620; color: var(--ll-text); cursor: pointer;
+}
+.control-root .pack-summary__select select:hover { border-color: var(--ll-border); }
+.control-root .pack-summary__select select:focus-visible { outline: none; border-color: var(--ll-select-edge); box-shadow: var(--ll-focus); }
+.control-root .pack-summary__select select option { background: var(--ll-panel-strong); color: var(--ll-text); }
+.control-root .pack-summary__select .ll-icon { position: absolute; right: 9px; pointer-events: none; color: var(--ll-muted-2); }
+.control-root .pack-summary__state {
+  flex: none; padding: 3px 9px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ll-live); background: rgba(54, 226, 122, 0.12); border: 1px solid rgba(54, 226, 122, 0.32);
+}
+.control-root .pack-summary__state--default { color: var(--ll-muted); background: var(--ll-panel-muted); border-color: var(--ll-border-soft); }
+.control-root .pack-summary__note { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--ll-muted-2); }
+
+/* Design presets companion */
+.control-root .design-presets {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 12px; border-radius: var(--ll-radius-panel);
+  background: rgba(255, 255, 255, 0.018); border: 1px solid var(--ll-border-soft);
+}
+.control-root .design-presets__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.control-root .design-presets__count {
+  min-width: 18px; padding: 1px 6px; border-radius: 999px; text-align: center;
+  font-size: 10.5px; font-weight: 750; color: var(--ll-muted);
+  background: var(--ll-panel-muted); border: 1px solid var(--ll-border-soft);
+}
+.control-root .design-presets__empty { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ll-muted-2); }
+.control-root .design-presets__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.control-root .design-presets__row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 4px; border-radius: var(--ll-radius-control);
+}
+.control-root .design-presets__row + .design-presets__row { box-shadow: inset 0 1px 0 var(--ll-border-soft); }
+.control-root .design-presets__row:hover { background: var(--ll-panel-muted); }
+.control-root .design-presets__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.control-root .design-presets__name { font-size: 12.5px; font-weight: 640; color: var(--ll-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .design-presets__type { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--ll-muted-2); white-space: nowrap; overflow: hidden; }
+.control-root .design-presets__type .ll-icon { flex: none; color: var(--ll-muted-3); }
+.control-root .design-presets__load {
+  flex: none; min-height: 26px; padding: 0 10px; border-radius: 5px; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 700; color: var(--ll-select);
+  background: transparent; border: 1px solid transparent;
+}
+.control-root .design-presets__row:hover .design-presets__load { border-color: var(--ll-border-soft); }
+.control-root .design-presets__load:hover { background: var(--ll-select-soft); border-color: var(--ll-select-edge); color: var(--ll-text-strong); }
+.control-root .design-presets__load:focus-visible { outline: none; box-shadow: var(--ll-focus); border-color: var(--ll-select-edge); }
+.control-root .design-presets__save { display: flex; gap: 6px; }
+.control-root .design-presets__save .field__input { min-width: 0; font-size: 12.5px; }
+.control-root .design-presets__action {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 34px; padding: 0 12px; border-radius: var(--ll-radius-control); cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 640; color: var(--ll-muted);
+  background: transparent; border: 1px dashed var(--ll-border);
+}
+.control-root .design-presets__action:hover { background: var(--ll-panel-muted); border-style: solid; border-color: var(--ll-border-strong); color: var(--ll-text); }
+.control-root .design-presets__action:focus-visible { outline: none; box-shadow: var(--ll-focus); border-color: var(--ll-select-edge); }
+.control-root .design-presets__action .ll-icon { color: var(--ll-muted-2); }
+.control-root .design-presets__links { display: flex; gap: 14px; padding-top: 2px; }
+.control-root .design-presets__link { background: transparent; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 620; color: var(--ll-muted); }
+.control-root .design-presets__link:hover { color: var(--ll-select); text-decoration: underline; }
+.control-root .design-presets__link:focus-visible { outline: none; box-shadow: var(--ll-focus); border-radius: 5px; }
+
 .control-root .template-colors {
   display: grid;
   gap: 10px;

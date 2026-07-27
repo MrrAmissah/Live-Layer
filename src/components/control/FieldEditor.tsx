@@ -1,12 +1,21 @@
 import { useState } from 'react';
 import Panel from './Panel';
-import TemplateFields from './TemplateFields';
 import ContentTab from './ContentTab';
+import DesignTab from './DesignTab';
 import BrandControls from './BrandControls';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import type { StudioView } from './StudioNav';
+import type { GraphicInstance } from '../../types/graphics';
 
 type EditorTab = 'content' | 'design' | 'brand' | 'motion' | 'advanced';
+
+export interface FieldEditorProps {
+  /** Switch the studio destination (Design → Saved graphics / Assets). */
+  onNavigate?: (view: StudioView) => void;
+  /** Load a stored graphic into this editor (Design presets → Load). */
+  onLoadGraphic?: (graphic: GraphicInstance) => void;
+}
 
 const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
   { id: 'content', label: 'Content', enabled: true },
@@ -25,7 +34,7 @@ const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
  * them — never shown as clickable empty tabs. In rundown mode the Content tab
  * also carries the item's layout/duration, preserving today's behaviour.
  */
-export default function FieldEditor() {
+export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorProps = {}) {
   const { isRundownItem, resetDraft } = useEditTarget();
   const resetTheme = useLiveLayerStore((state) => state.resetTheme);
   const [tab, setTab] = useState<EditorTab>('content');
@@ -68,7 +77,14 @@ export default function FieldEditor() {
 
       <div className="ll-panel__body editor-body">
         {tab === 'content' ? <ContentTab onManageLogo={() => setTab('brand')} /> : null}
-        {tab === 'design' ? <TemplateFields section="design" /> : null}
+        {tab === 'design' ? (
+          <DesignTab
+            onOpenBrand={() => setTab('brand')}
+            onLoadPreset={(preset) => onLoadGraphic?.(preset)}
+            onBrowseSaved={() => onNavigate?.('saved')}
+            onBrowseAssets={() => onNavigate?.('assets')}
+          />
+        ) : null}
         {tab === 'brand' ? <BrandControls /> : null}
       </div>
     </Panel>
