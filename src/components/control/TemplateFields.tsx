@@ -23,6 +23,20 @@ const COLOR_FIELDS = [
 type TemplateVariant = NonNullable<(typeof templateRegistry)[number]['variants']>[number];
 type VariantGroupId = 'all' | 'classic' | 'broadcast' | 'event' | 'compact';
 
+/**
+ * The variant id the carousel should actually treat as selected: the requested
+ * one when it exists, else the first available variant, else '' when there are
+ * none. A persisted graphic can carry a `variantId` that no longer exists in the
+ * registry (legacy/imported presets), and graphic validation accepts arbitrary
+ * strings — so every selection concern (index, active card, aria-checked,
+ * tabindex, paging, browser) must key off this normalized value, not the raw
+ * request, or no card ends up selected or tabbable.
+ */
+export function resolveEffectiveVariantId(variants: Pick<TemplateVariant, 'id'>[], requestedId: string): string {
+  if (variants.some((variant) => variant.id === requestedId)) return requestedId;
+  return variants[0]?.id ?? '';
+}
+
 const VARIANT_GROUPS: Array<{ id: VariantGroupId; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'classic', label: 'Classic' },
@@ -210,15 +224,31 @@ function TemplateVariantPicker({
   // preview first, and the mini-stages catch up in a background render.
   const thumbValues = useDeferredValue(draftValues);
 
-  const selectedIndex = Math.max(0, variants.findIndex((variant) => variant.id === value));
-  const selectedVariant = variants[selectedIndex] ?? variants[0];
+  // One effective id drives every selection concern below. When the requested
+  // id is unknown it resolves to the first variant, so a card is always active
+  // and tabbable even for a stale/imported variantId.
+  const effectiveValue = resolveEffectiveVariantId(variants, value);
+
+  // Persist the normalization once when the requested id was invalid, so the
+  // stored graphic stops carrying a dead variantId. Deliberately does NOT set
+  // focusSelectedRef — this is an automatic correction, not a user navigation,
+  // so it must not steal focus.
+  useEffect(() => {
+    if (variants.length > 0 && effectiveValue && effectiveValue !== value) {
+      onChange(effectiveValue);
+    }
+  }, [variants, effectiveValue, value, onChange]);
+
+  const selectedIndex = Math.max(0, variants.findIndex((variant) => variant.id === effectiveValue));
+  const selectedVariant = variants[selectedIndex];
 
   // Paging is bounded: clamp to [0, length-1] so prev/next can never step off
-  // either end.
+  // either end. Compares against the effective id so paging is correct even
+  // before an invalid request has been normalized away.
   const goTo = (index: number, viaKeyboard = false) => {
     const clamped = Math.min(variants.length - 1, Math.max(0, index));
     const next = variants[clamped];
-    if (next && next.id !== value) {
+    if (next && next.id !== effectiveValue) {
       if (viaKeyboard) focusSelectedRef.current = true;
       onChange(next.id);
     }
@@ -228,13 +258,16 @@ function TemplateVariantPicker({
   // move focus with it only when the change came from the keyboard, so roving
   // tabindex and the focus ring track the selection during arrow navigation.
   useEffect(() => {
-    const card = trackRef.current?.querySelector<HTMLElement>(`[data-variant="${value}"]`);
+    const card = trackRef.current?.querySelector<HTMLElement>(`[data-variant="${effectiveValue}"]`);
     card?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     if (focusSelectedRef.current) {
       card?.focus();
       focusSelectedRef.current = false;
     }
-  }, [value]);
+  }, [effectiveValue]);
+
+  // No variants: nothing to select or render (parent normally guards this).
+  if (variants.length === 0 || !selectedVariant) return null;
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     switch (event.key) {
@@ -292,7 +325,7 @@ function TemplateVariantPicker({
           onKeyDown={onKeyDown}
         >
           {variants.map((variant) => {
-            const active = value === variant.id;
+            const active = effectiveValue === variant.id;
             return (
               <button
                 key={variant.id}
@@ -345,7 +378,7 @@ function TemplateVariantPicker({
           templateId={templateId}
           thumbValues={thumbValues}
           variants={variants}
-          value={value}
+          value={effectiveValue}
           onChange={onChange}
         />
       ) : null}
