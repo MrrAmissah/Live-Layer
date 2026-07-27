@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { getPack } from '../lib/packs';
 
@@ -61,31 +62,40 @@ export function PackSwitchGuardProvider({ children }: { children: ReactNode }) {
 
   const pendingPack = pendingPackId ? getPack(pendingPackId) : null;
 
+  // The dialog and its styles are scoped under .control-root (where the --ll-*
+  // tokens and .btn base styles live), but this provider renders as a sibling
+  // of ControlShell/DockShell. Portal the overlay INTO the live .control-root
+  // so the scoped rules and tokens resolve; it stays a fixed viewport overlay.
+  const dialog =
+    pendingPack != null ? (
+      <div className="pack-confirm" role="alertdialog" aria-modal="true" aria-labelledby="pack-confirm-title">
+        <div className="pack-confirm__scrim" onClick={cancel} aria-hidden />
+        <div className="pack-confirm__card">
+          <h2 id="pack-confirm-title" className="pack-confirm__title">
+            Switch to “{pendingPack.name}”?
+          </h2>
+          <p className="pack-confirm__body">
+            This resets the current draft to the pack’s defaults, discarding your unsaved edits. Saved
+            presets, rundowns, and live output are unaffected.
+          </p>
+          <div className="pack-confirm__actions">
+            <button type="button" className="btn btn--ghost btn--sm" onClick={cancel}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn--secondary btn--sm pack-confirm__go" autoFocus onClick={confirm}>
+              Switch &amp; reset draft
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const portalTarget = typeof document !== 'undefined' ? document.querySelector('.control-root') : null;
+
   return (
     <PackSwitchGuardContext.Provider value={{ requestPackChange }}>
       {children}
-      {pendingPack ? (
-        <div className="pack-confirm" role="alertdialog" aria-modal="true" aria-labelledby="pack-confirm-title">
-          <div className="pack-confirm__scrim" onClick={cancel} aria-hidden />
-          <div className="pack-confirm__card">
-            <h2 id="pack-confirm-title" className="pack-confirm__title">
-              Switch to “{pendingPack.name}”?
-            </h2>
-            <p className="pack-confirm__body">
-              This resets the current draft to the pack’s defaults, discarding your unsaved edits. Saved
-              presets, rundowns, and live output are unaffected.
-            </p>
-            <div className="pack-confirm__actions">
-              <button type="button" className="btn btn--ghost btn--sm" onClick={cancel}>
-                Cancel
-              </button>
-              <button type="button" className="btn btn--secondary btn--sm pack-confirm__go" autoFocus onClick={confirm}>
-                Switch &amp; reset draft
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {dialog ? createPortal(dialog, portalTarget ?? document.body) : null}
     </PackSwitchGuardContext.Provider>
   );
 }
