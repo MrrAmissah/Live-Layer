@@ -1,7 +1,8 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
-import { getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
+import { cloneRundownGraphic, getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
 import { applyVariantSelection } from '../lib/variantPalette';
+import type { GraphicInstance } from '../types/graphics';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 
@@ -24,6 +25,12 @@ export interface EditTarget {
   resetLayout: () => void;
   setDuration: (seconds: number) => void;
   resetDraft: () => void;
+  /** Save the CURRENT target (draft or the selected rundown item) as a preset. */
+  saveAsPreset: (name: string) => void;
+  /** Copy a stored graphic's payload into the CURRENT target. Draft loads into
+   *  the ad-hoc draft; a rundown item receives the payload while keeping its
+   *  own item id, ordering, and rundown membership. Never publishes. */
+  applyPreset: (graphic: GraphicInstance) => void;
 }
 
 /**
@@ -47,6 +54,9 @@ export function useEditTarget(): EditTarget {
   const resetLayout = useLiveLayerStore((state) => state.resetLayout);
   const setDurationSeconds = useLiveLayerStore((state) => state.setDurationSeconds);
   const resetDraft = useLiveLayerStore((state) => state.resetDraft);
+  const savePreset = useLiveLayerStore((state) => state.savePreset);
+  const savePresetFromInstance = useLiveLayerStore((state) => state.savePresetFromInstance);
+  const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
 
   const rundown = rd.activeRundown;
   const item = getSelectedItem(rundown);
@@ -85,7 +95,16 @@ export function useEditTarget(): EditTarget {
       setDuration: (seconds) => patch({ durationSeconds: seconds }),
       resetDraft: () => {
         /* No destructive reset of a rundown item in R4. */
-      }
+      },
+      // Save the VISIBLE item, not the hidden ad-hoc draft.
+      saveAsPreset: (name) => savePresetFromInstance(graphic, name),
+      // Copy the preset payload onto this item, keeping the item's own graphic
+      // id so item identity/ordering/membership and the rundown cursor are
+      // untouched. Nothing is published — output only changes on the next Take.
+      applyPreset: (preset) =>
+        updateItem(rundownId, item.id, {
+          graphic: { ...cloneRundownGraphic(preset), id: graphic.id }
+        })
     };
   }
 
@@ -103,6 +122,8 @@ export function useEditTarget(): EditTarget {
     setLayout,
     resetLayout,
     setDuration: setDurationSeconds,
-    resetDraft
+    resetDraft,
+    saveAsPreset: (name) => savePreset(name),
+    applyPreset: (preset) => loadGraphicInstance(preset)
   };
 }

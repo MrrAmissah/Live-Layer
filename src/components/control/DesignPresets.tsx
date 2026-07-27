@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useEditTarget } from '../../hooks/useEditTarget';
 import { templateRegistry } from '../templates/registry';
 import { describeTemplate } from '../../lib/templateMeta';
 import { Icon } from '../../lib/icons';
@@ -14,10 +15,14 @@ function presetLabel(preset: GraphicInstance): string {
 
 /**
  * Compact presets companion for the Design tab. Uses the real preset slice and
- * actions — it is NOT the full PresetControls surface (no rename, remove,
- * add-to-rundown, or the destructive reset). Load routes through the shared
- * openGraphicInEditor owner callback; "Browse all" and "Browse assets" switch
- * to the existing Saved graphics / Assets destinations.
+ * edit-target-aware save/apply — it is NOT the full PresetControls surface (no
+ * rename, remove, add-to-rundown, or destructive reset).
+ *
+ * The actions follow the visible edit target. In draft mode they save/load the
+ * ad-hoc draft (Load via the owner's openGraphicInEditor). When a rundown item
+ * is selected — the item the editor and preview are showing — Save serializes
+ * that item and "Apply to item" copies a preset's payload onto it, never the
+ * hidden draft, and never publishes.
  */
 export default function DesignPresets({
   onLoad,
@@ -26,6 +31,7 @@ export default function DesignPresets({
   onBrowseSaved,
   onBrowseAssets
 }: {
+  /** Draft-mode load: routes through the owner (loads draft + reveals editor). */
   onLoad: (preset: GraphicInstance) => void;
   onSaved?: () => void;
   onSaveMessage?: (text: string) => void;
@@ -33,21 +39,29 @@ export default function DesignPresets({
   onBrowseAssets: () => void;
 }) {
   const presets = useLiveLayerStore((state) => state.presets);
-  const savePreset = useLiveLayerStore((state) => state.savePreset);
-  const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
+  const { isRundownItem, sourceLabel, templateId, saveAsPreset, applyPreset } = useEditTarget();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
 
   const shown = presets.slice(0, COMPACT_COUNT);
+  const saveLabel = isRundownItem ? 'Save item as preset' : 'Save current as preset';
+  const loadLabel = isRundownItem ? 'Apply to item' : 'Load';
+  const defaultName = isRundownItem
+    ? sourceLabel || describeTemplate(templateById.get(templateId), templateId).label
+    : describeTemplate(templateById.get(templateId), templateId).label;
 
   const commitSave = () => {
-    const label = name.trim() || describeTemplate(templateById.get(currentTemplateId), currentTemplateId).label;
-    savePreset(label);
+    const label = name.trim() || defaultName;
+    saveAsPreset(label); // draft → ad-hoc draft; rundown → the selected item
     setName('');
     setSaving(false);
     onSaveMessage?.(`Saved “${label}”`);
     onSaved?.();
   };
+
+  // Draft keeps the existing owner-routed load; a rundown item receives the
+  // payload in place (no view change, no publish).
+  const loadPreset = (preset: GraphicInstance) => (isRundownItem ? applyPreset(preset) : onLoad(preset));
 
   return (
     <section className="design-presets" aria-label="Presets">
@@ -55,6 +69,12 @@ export default function DesignPresets({
         <span className="ll-kicker">Presets</span>
         {presets.length > 0 ? <span className="design-presets__count">{presets.length}</span> : null}
       </div>
+
+      {isRundownItem ? (
+        <p className="design-presets__note">
+          Preset actions apply to the selected rundown item. Live output doesn’t change until you Take.
+        </p>
+      ) : null}
 
       {shown.length === 0 ? (
         <p className="design-presets__empty">Save a look here to recall it in one click.</p>
@@ -72,10 +92,10 @@ export default function DesignPresets({
               <button
                 type="button"
                 className="design-presets__load"
-                aria-label={`Load ${presetLabel(preset)}`}
-                onClick={() => onLoad(preset)}
+                aria-label={`${loadLabel}: ${presetLabel(preset)}`}
+                onClick={() => loadPreset(preset)}
               >
-                Load
+                {loadLabel}
               </button>
             </li>
           ))}
@@ -103,7 +123,7 @@ export default function DesignPresets({
       ) : (
         <button type="button" className="design-presets__action" onClick={() => setSaving(true)}>
           <Icon name="plus" size={14} />
-          Save current as preset
+          {saveLabel}
         </button>
       )}
 

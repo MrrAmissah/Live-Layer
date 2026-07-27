@@ -69,6 +69,9 @@ interface LiveLayerState {
   resetTheme: () => void;
   clearLocalData: () => void;
   savePreset: (name: string) => void;
+  /** Create a preset from any source graphic (draft or rundown item) using the
+   *  same rules as savePreset. */
+  savePresetFromInstance: (source: GraphicInstance, name: string) => void;
   loadGraphicInstance: (graphic: GraphicInstance) => void;
   applyPersonToLowerThird: (person: PersonProfile) => void;
   removePreset: (id: string) => void;
@@ -340,11 +343,26 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         };
       }),
     savePreset: (name) => {
-      const state = get();
-      const item = buildInstanceFromDraft(state, { presetName: name });
-      const next = [...state.presets, item];
-      savePresets(next);
-      set({ presets: next });
+      // Draft save routes through the same creation rules as a rundown-item
+      // save, so both produce identical preset shapes.
+      get().savePresetFromInstance(buildInstanceFromDraft(get()), name);
+    },
+    savePresetFromInstance: (source, name) => {
+      set((state) => {
+        // A preset is a fresh, independent copy of some source graphic: new id,
+        // the given name, fresh timestamps, deep-cloned payload so later edits
+        // to the source (draft or rundown item) never mutate the stored preset.
+        const preset: GraphicInstance = {
+          ...deepClone(source),
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          presetName: name,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        const next = [...state.presets, preset];
+        savePresets(next);
+        return { presets: next };
+      });
     },
     loadGraphicInstance: (graphic) => {
       set(() => ({
