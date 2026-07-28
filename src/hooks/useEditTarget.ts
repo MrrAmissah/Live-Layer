@@ -1,6 +1,8 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
-import { getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
+import { cloneRundownGraphic, getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
+import { applyVariantSelection } from '../lib/variantPalette';
+import type { GraphicInstance } from '../types/graphics';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 
@@ -19,10 +21,20 @@ export interface EditTarget {
   theme: TemplateDefinition['theme'];
   durationSeconds: number;
   setField: (key: string, value: string) => void;
+  /** Merge several field values in ONE update, atomically — the target's whole
+   *  values object is written once, so batched multi-field writes (Reset
+   *  palette) don't clobber each other. Unrelated values are preserved. */
+  setFields: (patch: Record<string, string>) => void;
   setLayout: (patch: Partial<LayoutSettings>) => void;
   resetLayout: () => void;
   setDuration: (seconds: number) => void;
   resetDraft: () => void;
+  /** Save the CURRENT target (draft or the selected rundown item) as a preset. */
+  saveAsPreset: (name: string) => void;
+  /** Copy a stored graphic's payload into the CURRENT target. Draft loads into
+   *  the ad-hoc draft; a rundown item receives the payload while keeping its
+   *  own item id, ordering, and rundown membership. Never publishes. */
+  applyPreset: (graphic: GraphicInstance) => void;
 }
 
 /**
@@ -46,6 +58,10 @@ export function useEditTarget(): EditTarget {
   const resetLayout = useLiveLayerStore((state) => state.resetLayout);
   const setDurationSeconds = useLiveLayerStore((state) => state.setDurationSeconds);
   const resetDraft = useLiveLayerStore((state) => state.resetDraft);
+  const setFieldsDraft = useLiveLayerStore((state) => state.setFields);
+  const savePreset = useLiveLayerStore((state) => state.savePreset);
+  const savePresetFromInstance = useLiveLayerStore((state) => state.savePresetFromInstance);
+  const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
 
   const rundown = rd.activeRundown;
   const item = getSelectedItem(rundown);
@@ -68,13 +84,36 @@ export function useEditTarget(): EditTarget {
       layout: graphic.layout ?? {},
       theme: graphic.theme as TemplateDefinition['theme'],
       durationSeconds: graphic.durationSeconds ?? 0,
-      setField: (key, value) => patch({ values: { ...graphic.values, [key]: value } }),
+      // Selecting a design variant must merge its signature palette here too —
+      // the same rule as the draft path — or a rundown item would switch look
+      // while keeping the previous variant's colours. Non-variant fields are a
+      // plain patch.
+      setField: (key, value) =>
+        patch({
+          values:
+            key === 'variantId'
+              ? applyVariantSelection(graphic.values, graphic.templateId, value)
+              : { ...graphic.values, [key]: value }
+        }),
+      // Atomic multi-field write: one updateItem over the current values, so
+      // all fields land together instead of each overwriting the last from the
+      // render-time snapshot.
+      setFields: (fieldPatch) => patch({ values: { ...graphic.values, ...fieldPatch } }),
       setLayout: (p) => patch({ layout: { ...(graphic.layout ?? {}), ...p } }),
       resetLayout: () => patch({ layout: {} }),
       setDuration: (seconds) => patch({ durationSeconds: seconds }),
       resetDraft: () => {
         /* No destructive reset of a rundown item in R4. */
-      }
+      },
+      // Save the VISIBLE item, not the hidden ad-hoc draft.
+      saveAsPreset: (name) => savePresetFromInstance(graphic, name),
+      // Copy the preset payload onto this item, keeping the item's own graphic
+      // id so item identity/ordering/membership and the rundown cursor are
+      // untouched. Nothing is published — output only changes on the next Take.
+      applyPreset: (preset) =>
+        updateItem(rundownId, item.id, {
+          graphic: { ...cloneRundownGraphic(preset), id: graphic.id }
+        })
     };
   }
 
@@ -89,9 +128,12 @@ export function useEditTarget(): EditTarget {
     theme: draftTheme,
     durationSeconds: draftDuration,
     setField,
+    setFields: setFieldsDraft,
     setLayout,
     resetLayout,
     setDuration: setDurationSeconds,
-    resetDraft
+    resetDraft,
+    saveAsPreset: (name) => savePreset(name),
+    applyPreset: (preset) => loadGraphicInstance(preset)
   };
 }

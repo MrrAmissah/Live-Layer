@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useLiveLayerStore } from './useLiveLayerStore';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 import type { GraphicInstance, QuickQueueItem } from '../types/graphics';
+import { templateRegistry } from '../components/templates/registry';
 
 function makeInstance(id: string, values: Record<string, string> = {}): GraphicInstance {
   return {
@@ -118,6 +119,22 @@ describe('preview-only invariant', () => {
     const before = store().program;
     store().setField('name', 'Typed while live');
     expect(store().program).toBe(before); // untouched reference
+  });
+});
+
+describe('draft variant selection (Design tab)', () => {
+  it('merges the selected variant palette into the draft and keeps other fields', () => {
+    const template = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
+    const variant = template.variants!.find((v) => v.palette && Object.keys(v.palette).length > 0)!;
+    store().setTemplate('preacher-lower-third');
+    store().setField('name', 'Rev. Draft');
+    store().setField('variantId', variant.id);
+    const draft = store().draftValues;
+    expect(draft.variantId).toBe(variant.id);
+    for (const [k, v] of Object.entries(variant.palette!)) {
+      expect(draft[k]).toBe(v);
+    }
+    expect(draft.name).toBe('Rev. Draft'); // content preserved through the palette merge
   });
 });
 

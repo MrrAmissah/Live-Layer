@@ -11,6 +11,7 @@ import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
 import { loadActivePackId, packOverridesFor, saveActivePackId } from '../lib/packs';
+import { applyVariantSelection } from '../lib/variantPalette';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
 export interface QuickQueueUpdate {
@@ -58,8 +59,14 @@ interface LiveLayerState {
   markProgramFailed: (input?: { snapshot?: GraphicInstance; commandId?: string; source?: ProgramSource }) => void;
   activePackId: string;
   setActivePack: (packId: string) => void;
+  /** True when the ad-hoc draft differs from a fresh seed for the current
+   *  template + active pack — i.e. the operator has edits a pack switch would
+   *  discard. Uses the same seeding logic as setActivePack, so it can't drift. */
+  isDraftDirty: () => boolean;
   setTemplate: (templateId: string) => void;
   setField: (fieldId: string, value: string) => void;
+  /** Merge several draft fields in ONE update (atomic; used by Reset palette). */
+  setFields: (patch: Record<string, string>) => void;
   setTheme: (theme: Partial<TemplateDefinition['theme']>) => void;
   setLayout: (layout: Partial<LayoutSettings>) => void;
   resetLayout: () => void;
@@ -68,6 +75,9 @@ interface LiveLayerState {
   resetTheme: () => void;
   clearLocalData: () => void;
   savePreset: (name: string) => void;
+  /** Create a preset from any source graphic (draft or rundown item) using the
+   *  same rules as savePreset. */
+  savePresetFromInstance: (source: GraphicInstance, name: string) => void;
   loadGraphicInstance: (graphic: GraphicInstance) => void;
   applyPersonToLowerThird: (person: PersonProfile) => void;
   removePreset: (id: string) => void;
@@ -146,6 +156,16 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           draftValues: createDraftValues(state.currentTemplateId, packId)
         };
       }),
+    isDraftDirty: () => {
+      const { draftValues, currentTemplateId, activePackId } = get();
+      // Same seed setActivePack would re-create, so "clean" is defined identically.
+      const seed = createDraftValues(currentTemplateId, activePackId);
+      const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
+      for (const key of keys) {
+        if (draftValues[key] !== seed[key]) return true;
+      }
+      return false;
+    },
     theme: loadBrandOverrides(),
     layout: {},
     durationSeconds: 6,
@@ -270,17 +290,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     setField: (fieldId, value) =>
       set((state) => {
         // Choosing a design sample also loads its signature palette so the
-        // color controls correspond to the selected look.
+        // color controls correspond to the selected look — one shared rule with
+        // the rundown-item path (see useEditTarget / applyVariantSelection).
         if (fieldId === 'variantId') {
-          const template = templateRegistry.find((item) => item.id === state.currentTemplateId);
-          const variant = template?.variants?.find((item) => item.id === value);
-          return {
-            draftValues: {
-              ...state.draftValues,
-              variantId: value,
-              ...(variant?.palette ?? {})
-            }
-          };
+          return { draftValues: applyVariantSelection(state.draftValues, state.currentTemplateId, value) };
         }
         return {
           draftValues: {
@@ -289,6 +302,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           }
         };
       }),
+    setFields: (patch) =>
+      set((state) => ({ draftValues: { ...state.draftValues, ...patch } })),
     setTheme: (theme) =>
       set((state) => {
         const next = {
@@ -346,11 +361,26 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         };
       }),
     savePreset: (name) => {
-      const state = get();
-      const item = buildInstanceFromDraft(state, { presetName: name });
-      const next = [...state.presets, item];
-      savePresets(next);
-      set({ presets: next });
+      // Draft save routes through the same creation rules as a rundown-item
+      // save, so both produce identical preset shapes.
+      get().savePresetFromInstance(buildInstanceFromDraft(get()), name);
+    },
+    savePresetFromInstance: (source, name) => {
+      set((state) => {
+        // A preset is a fresh, independent copy of some source graphic: new id,
+        // the given name, fresh timestamps, deep-cloned payload so later edits
+        // to the source (draft or rundown item) never mutate the stored preset.
+        const preset: GraphicInstance = {
+          ...deepClone(source),
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          presetName: name,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        const next = [...state.presets, preset];
+        savePresets(next);
+        return { presets: next };
+      });
     },
     loadGraphicInstance: (graphic) => {
       set(() => ({

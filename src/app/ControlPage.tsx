@@ -25,6 +25,7 @@ import PeopleLibrary from '../components/control/PeopleLibrary';
 import RundownLibrary from '../components/control/RundownLibrary';
 import AssetsView from '../components/control/AssetsView';
 import ImportPackPreview from '../components/control/ImportPackPreview';
+import { PackSwitchGuardProvider } from '../hooks/usePackSwitchGuard';
 
 /** Wraps an existing management surface as a full-height studio destination. */
 function DestinationPanel({ kicker, children }: { kicker: string; children: React.ReactNode }) {
@@ -184,13 +185,15 @@ export default function ControlPage() {
 
   if (!isStudio) {
     return (
-      <DockShell
-        onTake={onTake}
-        onClear={onClear}
-        lastAction={lastAction}
-        lastTakenAt={lastTakenAt}
-        sending={sending}
-      />
+      <PackSwitchGuardProvider>
+        <DockShell
+          onTake={onTake}
+          onClear={onClear}
+          lastAction={lastAction}
+          lastTakenAt={lastTakenAt}
+          sending={sending}
+        />
+      </PackSwitchGuardProvider>
     );
   }
 
@@ -198,7 +201,7 @@ export default function ControlPage() {
     view === 'templates' ? (
       <div className="studio-center">
         <PreviewPanel />
-        <FieldEditor />
+        <FieldEditor onNavigate={setView} onLoadGraphic={openGraphicInEditor} />
       </div>
     ) : view === 'saved' ? (
       <DestinationPanel kicker="Saved graphics">
@@ -221,19 +224,21 @@ export default function ControlPage() {
     );
 
   return (
-    <ControlShell
-      commandBar={<CommandBar />}
-      nav={<StudioNav view={view} onViewChange={setView} />}
-      center={center}
-      rail={
-        <ProgramRail
-          onTake={onTake}
-          onClear={onClear}
-          onTakeInstance={onTakeInstance}
-          onEditInstance={openGraphicInEditor}
-          sending={sending}
-        />
-      }
-    />
+    <PackSwitchGuardProvider>
+      <ControlShell
+        commandBar={<CommandBar />}
+        nav={<StudioNav view={view} onViewChange={setView} />}
+        center={center}
+        rail={
+          <ProgramRail
+            onTake={onTake}
+            onClear={onClear}
+            onTakeInstance={onTakeInstance}
+            onEditInstance={openGraphicInEditor}
+            sending={sending}
+          />
+        }
+      />
+    </PackSwitchGuardProvider>
   );
 }
