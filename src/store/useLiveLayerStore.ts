@@ -39,10 +39,16 @@ export interface ProgramSource {
 interface LiveLayerState {
   currentTemplateId: string;
   draftValues: Record<string, string>;
+  /** Theme of the CURRENT ad-hoc graphic. Travels with it into Take, presets
+   *  and the quick queue, and is replaced wholesale by loadGraphicInstance. */
   theme: TemplateDefinition['theme'];
-  /** Which brand swatches the operator has actually chosen. Drives draft
-   *  seeding; tracked rather than inferred so a choice that equals the built-in
-   *  default still seeds (see loadExplicitBrandKeys). */
+  /** The persisted brand default that seeds FUTURE graphics. Deliberately
+   *  separate from `theme`: loading a preset or queue item must not redefine
+   *  what the next new graphic looks like. */
+  brandTheme: TemplateDefinition['theme'];
+  /** Which brand swatches the operator has actually chosen. Paired with
+   *  brandTheme to drive seeding; tracked rather than inferred so a choice that
+   *  equals the built-in default still seeds (see loadExplicitBrandKeys). */
   explicitBrandKeys: ExplicitBrandKey[];
   layout: LayoutSettings;
   durationSeconds: number;
@@ -155,21 +161,25 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         saveActivePackId(packId);
         return {
           activePackId: packId,
-          draftValues: createDraftValues(state.currentTemplateId, packId, state.theme, state.explicitBrandKeys)
+          // A pack switch re-seeds a fresh ad-hoc graphic, so it wears the
+          // brand default — never a theme carried in by a loaded snapshot.
+          theme: { ...state.brandTheme },
+          draftValues: createDraftValues(state.currentTemplateId, packId, state.brandTheme, state.explicitBrandKeys)
         };
       }),
     isDraftDirty: () => {
-      const { draftValues, currentTemplateId, activePackId, theme, explicitBrandKeys } = get();
+      const { draftValues, currentTemplateId, activePackId, brandTheme, explicitBrandKeys } = get();
       // Same seed setActivePack would re-create, from the same inputs, so
       // "clean" is defined identically and the pack guard cannot drift.
-      const seed = createDraftValues(currentTemplateId, activePackId, theme, explicitBrandKeys);
+      const seed = createDraftValues(currentTemplateId, activePackId, brandTheme, explicitBrandKeys);
       const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
       for (const key of keys) {
         if (draftValues[key] !== seed[key]) return true;
       }
       return false;
     },
-    theme: initialTheme,
+    theme: { ...initialTheme },
+    brandTheme: { ...initialTheme },
     explicitBrandKeys: initialExplicitBrandKeys,
     layout: {},
     durationSeconds: 6,
@@ -285,8 +295,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
             state.durationByTemplate[templateId] ??
             template?.defaultDurationSeconds ??
             DEFAULT_DURATION_SECONDS,
+          // Selecting a template starts a new graphic: it wears the brand
+          // default, so a previously loaded snapshot's theme cannot leak in.
+          theme: { ...state.brandTheme },
           draftValues: {
-            ...createDraftValues(templateId, state.activePackId, state.theme, state.explicitBrandKeys),
+            ...createDraftValues(templateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
             ...carriedLogo(state.draftValues)
           }
         };
@@ -327,9 +340,13 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           if (theme[themeKey] !== undefined) explicit.add(themeKey);
         }
         const explicitBrandKeys = [...explicit];
-        saveBrandOverrides(next);
+        // The draft IS the next new graphic, so a swatch moves the current
+        // graphic and the persisted default together. Only this path writes
+        // brand storage.
+        const brandTheme = { ...state.brandTheme, ...theme };
+        saveBrandOverrides(brandTheme);
         saveExplicitBrandKeys(explicitBrandKeys);
-        return { theme: next, explicitBrandKeys };
+        return { theme: next, brandTheme, explicitBrandKeys };
       }),
     setLayout: (layout) =>
       set((state) => ({
@@ -346,8 +363,9 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       })),
     resetDraft: () =>
       set((state) => ({
+        theme: { ...state.brandTheme },
         draftValues: {
-          ...createDraftValues(state.currentTemplateId, state.activePackId, state.theme, state.explicitBrandKeys),
+          ...createDraftValues(state.currentTemplateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
           ...carriedLogo(state.draftValues)
         }
       })),
@@ -357,7 +375,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         const defaults = defaultBrandTheme();
         saveBrandOverrides(defaults);
         saveExplicitBrandKeys([]);
-        return { theme: defaults, explicitBrandKeys: [] };
+        return { theme: { ...defaults }, brandTheme: { ...defaults }, explicitBrandKeys: [] };
       }),
     clearLocalData: () =>
       set(() => {
@@ -373,7 +391,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           currentTemplateId: templateRegistry[0].id,
           draftValues: createDraftValues(templateRegistry[0].id, 'house', clearedTheme, []),
           activePackId: 'house',
-          theme: clearedTheme,
+          theme: { ...clearedTheme },
+          brandTheme: { ...clearedTheme },
           explicitBrandKeys: [],
           layout: {},
           durationSeconds: 6,
@@ -407,6 +426,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       });
     },
     loadGraphicInstance: (graphic) => {
+      // Loading a stored graphic is not a brand decision. Only the CURRENT
+      // graphic's theme is replaced; brandTheme, the explicit markers and both
+      // brand storage keys are untouched, so the next new graphic still wears
+      // the operator's saved default rather than this snapshot's colours.
       set(() => ({
         currentTemplateId: graphic.templateId,
         draftValues: { ...graphic.values },
@@ -424,7 +447,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         return {
           currentTemplateId: 'preacher-lower-third',
           draftValues: {
-            ...createDraftValues('preacher-lower-third', state.activePackId, state.theme, state.explicitBrandKeys),
+            ...createDraftValues('preacher-lower-third', state.activePackId, state.brandTheme, state.explicitBrandKeys),
             ...state.draftValues,
             personId: person.id,
             name: person.displayName,

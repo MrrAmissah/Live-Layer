@@ -1,11 +1,11 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useLiveLayerStore } from '../store/useLiveLayerStore';
+import { buildInstanceFromDraft, useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useEditTarget, type EditTarget } from './useEditTarget';
 import { useBrandReset } from './useBrandReset';
 import { planBrandColorWrite, planBrandResetValues, planLogoWrite } from '../lib/brandWrites';
-import { defaultBrandTheme, loadExplicitBrandKeys } from '../lib/storage';
+import { defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys } from '../lib/storage';
 import { createDraftValues } from '../lib/draftSeed';
 import { templateRegistry } from '../components/templates/registry';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
@@ -635,5 +635,167 @@ describe('isDraftDirty uses the same seed inputs as seeding', () => {
     });
     useLiveLayerStore.getState().setField('name', 'Someone Else');
     expect(useLiveLayerStore.getState().isDraftDirty()).toBe(true);
+  });
+});
+
+/* --- theme vs brandTheme ------------------------------------------------- *
+ * `theme` belongs to the CURRENT graphic and travels with it. `brandTheme` is
+ * the persisted default that seeds FUTURE graphics. Loading a stored graphic
+ * must move the first and never the second.
+ * ------------------------------------------------------------------------ */
+
+const brandTheme = () => useLiveLayerStore.getState().brandTheme;
+const currentTheme = () => useLiveLayerStore.getState().theme;
+
+function storedGraphic(overrides: Partial<GraphicInstance> = {}): GraphicInstance {
+  return {
+    id: 'preset-1',
+    templateId: 'quote-card',
+    presetName: 'Loaded look',
+    values: { quote: 'Stored quote', colorBrand: '#654321', colorAccent: '#123456' },
+    theme: { primaryColor: '#111111', accentColor: '#654321', backgroundColor: 'transparent', accent2Color: '#123456' },
+    layout: {},
+    durationSeconds: 9,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-01T00:00:00.000Z',
+    ...overrides
+  };
+}
+
+describe('Loading a stored graphic never redefines the brand default', () => {
+  beforeEach(() => {
+    useLiveLayerStore.setState({
+      theme: defaultBrandTheme(),
+      brandTheme: defaultBrandTheme(),
+      explicitBrandKeys: []
+    });
+    // An explicit House Style choice the operator expects to keep.
+    applySwatch(readEditTarget(), 'accent', DEFAULT_ACCENT2);
+  });
+
+  it('leaves brandTheme untouched', () => {
+    const before = brandTheme();
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    expect(brandTheme()).toBe(before);
+    expect(brandTheme().accent2Color).toBe(DEFAULT_ACCENT2);
+  });
+
+  it('leaves the explicit markers untouched', () => {
+    const before = markers();
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    expect(markers()).toBe(before);
+    expect(markers()).toEqual(['accent2Color']);
+  });
+
+  it('writes neither brand storage key', () => {
+    const brandRaw = localStorage.getItem('livelayer.brand');
+    const markerRaw = localStorage.getItem('livelayer.brandExplicit');
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    expect(localStorage.getItem('livelayer.brand')).toBe(brandRaw);
+    expect(localStorage.getItem('livelayer.brandExplicit')).toBe(markerRaw);
+  });
+
+  it('gives the loaded graphic its own theme, so preview/save/Take stay faithful', () => {
+    const graphic = storedGraphic();
+    useLiveLayerStore.getState().loadGraphicInstance(graphic);
+    expect(currentTheme().accentColor).toBe('#654321');
+    expect(currentTheme().accent2Color).toBe('#123456');
+    expect(draft().quote).toBe('Stored quote');
+    // What a Take or a save would serialize is the loaded snapshot's theme.
+    const instance = buildInstanceFromDraft(useLiveLayerStore.getState());
+    expect(instance.theme.accentColor).toBe('#654321');
+  });
+
+  it('seeds the NEXT template from the brand default, not the loaded snapshot', () => {
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    useLiveLayerStore.getState().setTemplate('preacher-lower-third');
+
+    expect(draft().colorAccent).toBe(DEFAULT_ACCENT2);
+    expect(draft().colorAccent).not.toBe('#123456');
+    // The new graphic wears the brand, not the snapshot's theme.
+    expect(currentTheme().accent2Color).toBe(DEFAULT_ACCENT2);
+    expect(currentTheme().accentColor).not.toBe('#654321');
+  });
+
+  it('produces the same future seed before and after a reload', () => {
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    useLiveLayerStore.getState().setTemplate('preacher-lower-third');
+    const beforeReload = draft().colorAccent;
+
+    // A reload rebuilds state from storage alone.
+    const reloaded = createDraftValues(
+      'preacher-lower-third',
+      'house',
+      loadBrandOverrides(),
+      loadExplicitBrandKeys()
+    );
+    expect(reloaded.colorAccent).toBe(beforeReload);
+  });
+
+  it('still lets a pack switch re-clothe the draft in the brand', () => {
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    useLiveLayerStore.getState().setActivePack('house');
+    expect(currentTheme().accent2Color).toBe(DEFAULT_ACCENT2);
+  });
+});
+
+describe('theme and brandTheme move together only for a draft swatch', () => {
+  beforeEach(() => {
+    useLiveLayerStore.setState({
+      theme: defaultBrandTheme(),
+      brandTheme: defaultBrandTheme(),
+      explicitBrandKeys: []
+    });
+  });
+
+  it('a draft swatch updates both', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(currentTheme().accentColor).toBe('#ff0000');
+    expect(brandTheme().accentColor).toBe('#ff0000');
+    expect(loadBrandOverrides().accentColor).toBe('#ff0000');
+  });
+
+  it('a rundown-item swatch updates neither', () => {
+    seedRundown();
+    const themeBefore = currentTheme();
+    const brandBefore = brandTheme();
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(currentTheme()).toBe(themeBefore);
+    expect(brandTheme()).toBe(brandBefore);
+  });
+
+  it('a draft reset restores both and clears the markers', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    readBrandReset()();
+    expect(currentTheme().accentColor).toBe(defaultBrandTheme().accentColor);
+    expect(brandTheme().accentColor).toBe(defaultBrandTheme().accentColor);
+    expect(markers()).toEqual([]);
+  });
+
+  it('a rundown-item reset leaves both alone', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    const themeBefore = currentTheme();
+    const brandBefore = brandTheme();
+    seedRundown();
+    readBrandReset()();
+    expect(currentTheme()).toBe(themeBefore);
+    expect(brandTheme()).toBe(brandBefore);
+  });
+
+  it('an ordinary field edit does not touch either', () => {
+    const themeBefore = currentTheme();
+    const brandBefore = brandTheme();
+    useLiveLayerStore.getState().setField('name', 'Someone Else');
+    expect(currentTheme()).toBe(themeBefore);
+    expect(brandTheme()).toBe(brandBefore);
+  });
+
+  it('leaves Program unchanged across every path', () => {
+    const before = useLiveLayerStore.getState().program;
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    useLiveLayerStore.getState().setTemplate('preacher-lower-third');
+    readBrandReset()();
+    expect(useLiveLayerStore.getState().program).toBe(before);
   });
 });
