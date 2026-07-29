@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildInstanceFromDraft, useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useEditTarget, type EditTarget } from './useEditTarget';
 import { useBrandReset } from './useBrandReset';
+import { useBrandSwatch } from './useBrandSwatch';
 import { planBrandColorWrite, planBrandResetValues, planLogoWrite } from '../lib/brandWrites';
 import { defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys } from '../lib/storage';
 import { createDraftValues } from '../lib/draftSeed';
@@ -37,7 +38,9 @@ beforeEach(() => {
     currentTemplateId: 'preacher-lower-third',
     draftValues: { name: 'Draft name', colorBrand: '#0d2095', colorAccent: '#E8B93C', logoUrl: 'https://draft.test/l.png' },
     theme: { primaryColor: '#f8fafc', accentColor: '#0d2095', backgroundColor: 'transparent', accent2Color: '#1284ff' },
+    brandTheme: { primaryColor: '#f8fafc', accentColor: '#0d2095', backgroundColor: 'transparent', accent2Color: '#1284ff' },
     explicitBrandKeys: [],
+    activePackId: 'house',
     presets: [],
     program: { ...CLEAR_PROGRAM_STATE }
   });
@@ -128,7 +131,7 @@ describe('Brand colour writes — draft mode', () => {
     const before = useLiveLayerStore.getState().program;
     const target = readEditTarget();
     target.setFields(planBrandColorWrite('main', '#ff0000').values);
-    expect(useLiveLayerStore.getState().program).toEqual(before);
+    expect(useLiveLayerStore.getState().program).toBe(before);
   });
 });
 
@@ -184,7 +187,7 @@ describe('Brand colour writes — selected rundown item', () => {
     seedRundown();
     const before = useLiveLayerStore.getState().program;
     readEditTarget().setFields(planBrandColorWrite('main', '#ff0000').values);
-    expect(useLiveLayerStore.getState().program).toEqual(before);
+    expect(useLiveLayerStore.getState().program).toBe(before);
   });
 });
 
@@ -263,7 +266,7 @@ describe('Preset save targeting', () => {
   it('never publishes — Program is unchanged by a save', () => {
     const before = useLiveLayerStore.getState().program;
     readEditTarget().saveAsPreset('Anything');
-    expect(useLiveLayerStore.getState().program).toEqual(before);
+    expect(useLiveLayerStore.getState().program).toBe(before);
   });
 });
 
@@ -313,11 +316,21 @@ describe('Logo URL supersedes an upload on every surface', () => {
 const houseDefaults = () =>
   templateRegistry.find((template) => template.id === 'preacher-lower-third')!.defaultValues;
 
-/** Apply a swatch exactly as BrandControls does. */
-function applySwatch(target: EditTarget, swatch: 'main' | 'accent', value: string) {
-  const write = planBrandColorWrite(swatch, value, target.isRundownItem);
-  if (Object.keys(write.theme).length > 0) useLiveLayerStore.getState().setTheme(write.theme);
-  target.setFields(write.values);
+/**
+ * The swatch write the Brand controls actually perform. Captured from the real
+ * hook rather than re-implemented here: a test that rebuilds the component's
+ * branching cannot fail when the component stops branching correctly.
+ */
+function applySwatch(_target: EditTarget, swatch: 'main' | 'accent', value: string) {
+  const captured: Array<(s: 'main' | 'accent', v: string) => void> = [];
+  function Probe() {
+    captured.push(useBrandSwatch());
+    return null;
+  }
+  renderToStaticMarkup(createElement(Probe));
+  const apply = captured[0];
+  if (!apply) throw new Error('brand swatch was not captured');
+  apply(swatch, value);
 }
 
 describe('Swatch write — draft mode moves the brand default with it', () => {
@@ -929,5 +942,141 @@ describe('Rundown logo writes keep assetRefs and the legacy theme pointer in ste
     useLiveLayerStore.setState({ draftValues: { name: 'Draft name' } });
     readEditTarget().setFields(planLogoWrite({ type: 'asset', assetId: 'asset-draft' }));
     expect(buildInstanceFromDraft(useLiveLayerStore.getState()).assetRefs).toEqual({ logo: 'asset-draft' });
+  });
+});
+
+/* --- Reset brand is scoped to the two brand slots ------------------------ *
+ * "Reset brand" restores the brand default. It must not restyle the graphic
+ * in front of the operator: primaryColor / surfaceColor / backgroundColor
+ * describe that graphic, and on a legacy snapshot without matching colour
+ * VALUES they are what the renderer actually paints.
+ * ------------------------------------------------------------------------ */
+describe('Brand reset preserves non-brand theme slots', () => {
+  const loadedTheme = {
+    primaryColor: '#111111',
+    accentColor: '#654321',
+    backgroundColor: 'transparent',
+    surfaceColor: '#abcdef',
+    accent2Color: '#123456'
+  };
+
+  beforeEach(() => {
+    useLiveLayerStore.setState({
+      theme: { ...loadedTheme },
+      brandTheme: defaultBrandTheme(),
+      explicitBrandKeys: []
+    });
+  });
+
+  it('restores only the two brand slots on the current graphic', () => {
+    readBrandReset()();
+    const theme = currentTheme();
+    expect(theme.accentColor).toBe(defaultBrandTheme().accentColor);
+    expect(theme.accent2Color).toBe(defaultBrandTheme().accent2Color);
+    // Everything else belongs to the graphic, and to Design's Reset palette.
+    expect(theme.primaryColor).toBe('#111111');
+    expect(theme.surfaceColor).toBe('#abcdef');
+  });
+
+  it('still returns the persisted default whole', () => {
+    readBrandReset()();
+    expect(brandTheme()).toEqual(defaultBrandTheme());
+    expect(markers()).toEqual([]);
+  });
+
+  it('does not restyle what the next Take or save would carry', () => {
+    readBrandReset()();
+    const instance = buildInstanceFromDraft(useLiveLayerStore.getState());
+    expect(instance.theme.primaryColor).toBe('#111111');
+    expect(instance.theme.surfaceColor).toBe('#abcdef');
+    expect(instance.theme.accentColor).toBe(defaultBrandTheme().accentColor);
+  });
+
+  it('leaves a freshly seeded template on the full brand default', () => {
+    // A new graphic is not the loaded one, so it wears brandTheme entirely.
+    readBrandReset()();
+    useLiveLayerStore.getState().setTemplate('quote-card');
+    expect(currentTheme()).toEqual(defaultBrandTheme());
+  });
+
+  it('leaves Program unchanged', () => {
+    const before = useLiveLayerStore.getState().program;
+    readBrandReset()();
+    expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+describe('Repairing a dead variant id must not repaint the graphic', () => {
+  it('setFields writes the id alone, while setField merges the variant palette', () => {
+    const { rundownId, first } = seedRundown();
+    const before = itemGraphic(rundownId, first.id).values;
+
+    // What the Design tab's normalization effect now does.
+    readEditTarget().setFields({ variantId: 'split-bar' });
+    const normalized = itemGraphic(rundownId, first.id).values;
+    expect(normalized.variantId).toBe('split-bar');
+    expect(normalized.colorBrand).toBe(before.colorBrand);
+    expect(normalized.colorAccent).toBe(before.colorAccent);
+
+    // What an operator CHOOSING a variant does — palette comes with it.
+    readEditTarget().setField('variantId', 'signature-medallion');
+    const chosen = itemGraphic(rundownId, first.id).values;
+    expect(chosen.variantId).toBe('signature-medallion');
+    expect(chosen.colorBrand).not.toBe(before.colorBrand);
+  });
+});
+
+describe('Applying a person starts a new graphic on the brand', () => {
+  it('re-clothes the draft in brandTheme rather than a loaded snapshot theme', () => {
+    useLiveLayerStore.setState({
+      brandTheme: { ...defaultBrandTheme(), accentColor: '#00ff00' },
+      explicitBrandKeys: ['accentColor']
+    });
+    // A loaded preset installs its own theme on the current graphic...
+    useLiveLayerStore.getState().loadGraphicInstance(storedGraphic());
+    expect(currentTheme().accentColor).toBe('#654321');
+
+    useLiveLayerStore.getState().applyPersonToLowerThird({
+      id: 'person-1', displayName: 'Rev. Someone', title: 'Guest', churchName: 'Elsewhere'
+    } as never);
+
+    // ...but switching template starts a new graphic, so it wears the brand.
+    expect(useLiveLayerStore.getState().currentTemplateId).toBe('preacher-lower-third');
+    expect(currentTheme().accentColor).toBe('#00ff00');
+    expect(brandTheme().accentColor).toBe('#00ff00');
+  });
+
+  it('leaves Program unchanged', () => {
+    const before = useLiveLayerStore.getState().program;
+    useLiveLayerStore.getState().applyPersonToLowerThird({ id: 'p', displayName: 'X' } as never);
+    expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+describe('isDraftDirty ignores a hex-case-only difference', () => {
+  it('re-picking the colour already in use is not an edit', () => {
+    useLiveLayerStore.setState({
+      currentTemplateId: 'preacher-lower-third',
+      theme: defaultBrandTheme(),
+      brandTheme: defaultBrandTheme(),
+      explicitBrandKeys: [],
+      draftValues: createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), [])
+    });
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(false);
+
+    // The registry declares #E8B93C; a colour input always emits lowercase.
+    const gold = houseDefaults().colorAccent;
+    expect(gold).not.toBe(gold.toLowerCase());
+    useLiveLayerStore.getState().setField('colorAccent', gold.toLowerCase());
+
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(false);
+  });
+
+  it('still reports a genuine colour change as dirty', () => {
+    useLiveLayerStore.setState({
+      draftValues: createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), [])
+    });
+    useLiveLayerStore.getState().setField('colorAccent', '#ff0000');
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(true);
   });
 });

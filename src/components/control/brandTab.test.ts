@@ -184,7 +184,7 @@ describe('Graphic overrides disclosure', () => {
     expect(brandTab()).toContain('No visual overrides');
   });
 
-  it('lists friendly field names when the panel is open', () => {
+  it('ships friendly field names in the collapsed markup', () => {
     selectItem({ ...HOUSE_SEED(), colorAccent: '#00ff00' });
     const html = brandTab();
     // Rendered (hidden) so the labels ship with the collapsed markup.
@@ -204,8 +204,10 @@ describe('Graphic overrides disclosure', () => {
   it('survives a target carrying no values at all', () => {
     selectItem({});
     // Every seeded visual field is absent, which IS a difference — the point is
-    // that it renders a count instead of throwing.
-    expect(brandTab()).toContain('visual override');
+    // that it renders a real count instead of throwing. Note 'No visual
+    // overrides' contains the substring 'visual override', so this must match
+    // a number or it cannot fail.
+    expect(brandTab()).toMatch(/\d+ visual overrides?/);
   });
 });
 
@@ -289,6 +291,9 @@ describe('Brand swatch fallbacks follow the visible target', () => {
     const found = swatches(brandTab());
     expect(found.accent).toBe(PREACHER.theme.accent2Color);
     expect(found.accent).not.toBe(DRAFT_THEME.accent2Color);
+    // Discriminates the template-theme fallback from the stage default, which
+    // the accent alone cannot (GFX_DEFAULT_ACCENT_2 === PREACHER gold).
+    expect(found.main).toBe(PREACHER.theme.accentColor);
   });
 
   it('still prefers the item’s own colour values when it has them', () => {
@@ -324,7 +329,10 @@ const MAGENTA = {
 
 /** Stage-level --gfx-brand values of every variant-strip thumbnail. */
 function stripBrandVars(html: string): string[] {
-  const strip = /<div class="variant-strip">([\s\S]*?)<\/div><\/div>/.exec(html)?.[1] ?? html;
+  // Scoped by counting thumbs, not by a non-greedy </div></div> terminator —
+  // that cut point lands inside the first renderer's own nesting and varies by
+  // variant, so it silently inspected a single thumbnail.
+  const strip = html.slice(html.indexOf('<div class="variant-strip">'));
   return [...strip.matchAll(/class="gfx-stage" style="[^"]*?--gfx-brand:\s*([^;"]+)/g)].map((m) => m[1].trim());
 }
 
@@ -373,5 +381,44 @@ describe('Variant strip renders the visible target’s theme', () => {
     selectItemWithTheme({ name: 'Legacy speaker' }, MAGENTA);
     contentTab();
     expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+/* --- a logo reference that cannot be resolved ---------------------------- *
+ * An asset id may not resolve (evicted, or imported without its blob). The UI
+ * must still admit the reference exists, say so honestly, and let the operator
+ * clear it — export counts it either way.
+ * ------------------------------------------------------------------------ */
+describe('Unresolvable logo reference', () => {
+  const MISSING = 'asset-that-cannot-resolve';
+
+  it('reports a logo is set and offers removal, gated on presence not resolution', () => {
+    selectItemWithTheme({ name: 'Legacy speaker', logoAssetId: MISSING, logoUrl: '' }, {} as GraphicInstance['theme']);
+    const html = brandTab();
+    expect(html).toContain('Replace image');
+    expect(html).not.toContain('Choose image');
+    expect(html).toContain('Remove image');
+  });
+
+  it('never fabricates a preview for an image it cannot load', () => {
+    // The "unavailable" copy itself needs useAsset's effect, which does not run
+    // under renderToStaticMarkup; describeLogoRef covers that decision directly
+    // in brandWrites.test.ts, and the browser pass covers the rendered hint.
+    selectItemWithTheme({ name: 'Legacy speaker', logoAssetId: MISSING, logoUrl: '' }, {} as GraphicInstance['theme']);
+    expect(brandTab()).not.toContain('brand-preview__img');
+  });
+
+  it('offers no removal when the graphic genuinely has no logo', () => {
+    selectItemWithTheme({ name: 'Legacy speaker', logoAssetId: '', logoUrl: '' }, {} as GraphicInstance['theme']);
+    const html = brandTab();
+    expect(html).toContain('Choose image');
+    expect(html).not.toContain('Remove image');
+  });
+
+  it('does not claim unavailability for a plain URL logo', () => {
+    selectItemWithTheme({ name: 'Legacy speaker', logoUrl: 'https://x.test/l.png' }, {} as GraphicInstance['theme']);
+    const html = brandTab();
+    expect(html).toContain('Replace image');
+    expect(html).toContain('Remove image');
   });
 });

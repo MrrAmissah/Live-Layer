@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   BRAND_SWATCHES,
   applyLogoUrl,
+  describeLogoRef,
   planBrandColorWrite,
   planBrandResetValues,
   planLogoWrite
@@ -158,5 +159,63 @@ describe('planBrandColorWrite — target semantics', () => {
     for (const isItem of [false, true]) {
       expect(planBrandColorWrite('main', '#123456', isItem).values).toEqual({ colorBrand: '#123456' });
     }
+  });
+});
+
+describe('planLogoWrite — the URL box agrees with the schema field', () => {
+  it('a real URL supersedes an upload', () => {
+    expect(planLogoWrite({ type: 'url', url: 'https://x.test/l.png' })).toEqual({
+      logoUrl: 'https://x.test/l.png',
+      logoAssetId: ''
+    });
+  });
+
+  it('emptying the box is not a request to delete an upload', () => {
+    // Deleting is what "Remove image" (type: 'clear') is for. Previously the
+    // Brand box wiped the upload while the Content field preserved it, so the
+    // same value behaved differently depending on which editor was used.
+    expect(planLogoWrite({ type: 'url', url: '' })).toEqual({ logoUrl: '' });
+    expect(planLogoWrite({ type: 'url', url: '   ' })).toEqual({ logoUrl: '   ' });
+  });
+
+  it('matches applyLogoUrl for the same input', () => {
+    for (const url of ['https://x.test/l.png', '', '   ']) {
+      const viaPlan = planLogoWrite({ type: 'url', url });
+      const viaApply = applyLogoUrl({ name: 'Keep', logoAssetId: 'asset-1' }, url);
+      for (const key of Object.keys(viaPlan)) {
+        expect(viaApply[key]).toBe(viaPlan[key]);
+      }
+      // applyLogoUrl preserves what the patch does not name.
+      if (!url.trim()) expect(viaApply.logoAssetId).toBe('asset-1');
+    }
+  });
+
+  it('still clears both on an explicit removal', () => {
+    expect(planLogoWrite({ type: 'clear' })).toEqual({ logoAssetId: '', logoUrl: '' });
+  });
+});
+
+describe('describeLogoRef — presence, not resolution', () => {
+  it('reports a reference for a named upload even when it cannot resolve', () => {
+    expect(describeLogoRef('asset-1', '', 'missing')).toEqual({ hasRef: true, missing: true });
+  });
+
+  it('reports a reference for a resolved upload', () => {
+    expect(describeLogoRef('asset-1', '', 'ready')).toEqual({ hasRef: true, missing: false });
+  });
+
+  it('treats a still-loading upload as present but not yet missing', () => {
+    expect(describeLogoRef('asset-1', '', 'loading')).toEqual({ hasRef: true, missing: false });
+    expect(describeLogoRef('asset-1', '', 'idle')).toEqual({ hasRef: true, missing: false });
+  });
+
+  it('never calls a plain URL logo unavailable', () => {
+    expect(describeLogoRef('', 'https://x.test/l.png', 'missing')).toEqual({ hasRef: true, missing: false });
+  });
+
+  it('reports no reference when the graphic names no logo', () => {
+    expect(describeLogoRef('', '', 'idle')).toEqual({ hasRef: false, missing: false });
+    expect(describeLogoRef(undefined, undefined, 'missing')).toEqual({ hasRef: false, missing: false });
+    expect(describeLogoRef('   ', '  ', 'missing')).toEqual({ hasRef: false, missing: false });
   });
 });

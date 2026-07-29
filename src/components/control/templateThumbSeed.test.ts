@@ -129,12 +129,6 @@ describe('composeThumbValues — thumbnail/selection parity', () => {
     expect(values.colorAccent).toBe('#00ff00');
   });
 
-  it('takes no input from the current graphic’s theme', () => {
-    // Only brandTheme is an argument; a loaded snapshot cannot reach a thumbnail.
-    const a = composeThumbValues(PREACHER.id, 'house', brandWith({ accent2Color: '#00ff00' }), ['accent2Color']);
-    const b = composeThumbValues(PREACHER.id, 'house', brandWith({ accent2Color: '#00ff00' }), ['accent2Color']);
-    expect(a).toEqual(b);
-  });
 });
 
 describe('TemplateThumb renders the composed values', () => {
@@ -216,9 +210,12 @@ describe('TemplateThumb theme by context', () => {
   }
 
   it('a library thumbnail (no themeOverride) uses the brand default', () => {
-    // The store is at its module-init defaults here, so brandTheme is the
-    // default brand — and the stage must reflect it, not a magenta snapshot.
-    expect(stageVars({ template: PREACHER })['--gfx-brand']).toBe(defaultBrandTheme().accentColor);
+    const vars = stageVars({ template: PREACHER });
+    // --gfx-brand is #0d2095 in BOTH the brand default and the template theme,
+    // so only the accent discriminates: brand #1284ff vs template #E8B93C.
+    expect(defaultBrandTheme().accent2Color).not.toBe(PREACHER.theme.accent2Color);
+    expect(vars['--gfx-accent-2']).toBe(defaultBrandTheme().accent2Color);
+    expect(vars['--gfx-brand']).toBe(defaultBrandTheme().accentColor);
   });
 
   it('a current-target thumbnail uses the supplied theme', () => {
@@ -266,5 +263,40 @@ describe('TemplateThumb theme by context', () => {
       })
     );
     expect(html).toContain('data-variant="split-bar"');
+  });
+});
+
+describe('composeThumbValues — a target thumbnail is not re-seeded', () => {
+  it('renders a sparse target verbatim, exactly as the preview does', () => {
+    // A legacy/imported graphic may carry no colour values at all. Filling them
+    // from the current brand and pack painted the strip in colours the preview
+    // and Take never used.
+    const sparse = { name: 'Legacy speaker', title: 'Guest' };
+    const brand = brandWith({ accentColor: '#ff0000', accent2Color: '#00ff00' });
+    const values = composeThumbValues(PREACHER.id, 'ppc-2026', brand, ['accentColor', 'accent2Color'], sparse);
+    expect(values).toEqual(sparse);
+    expect(values.colorBrand).toBeUndefined();
+    expect(values.colorAccent).toBeUndefined();
+  });
+
+  it('still layers an explicit variantId over a sparse target', () => {
+    const values = composeThumbValues(
+      PREACHER.id, 'house', defaultBrandTheme(), NONE, { name: 'Legacy speaker' }, 'split-bar'
+    );
+    expect(values).toEqual({ name: 'Legacy speaker', variantId: 'split-bar' });
+  });
+
+  it('keeps the library seed when no target values are supplied', () => {
+    const brand = brandWith({ accentColor: '#ff0000' });
+    expect(composeThumbValues(PREACHER.id, 'house', brand, ['accentColor'])).toEqual(
+      createDraftValues(PREACHER.id, 'house', brand, ['accentColor'])
+    );
+  });
+
+  it('does not let the active pack repaint a target that predates it', () => {
+    const sparse = { name: 'Legacy speaker' };
+    const underPack = composeThumbValues(PREACHER.id, 'ppc-2026', defaultBrandTheme(), NONE, sparse);
+    const underHouse = composeThumbValues(PREACHER.id, 'house', defaultBrandTheme(), NONE, sparse);
+    expect(underPack).toEqual(underHouse);
   });
 });
