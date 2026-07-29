@@ -151,8 +151,7 @@ describe('findVisualOverrides — sparse graphics are compared as they render', 
   it('still reports a cleared colour when clearing it changes what is painted', () => {
     // Cleared, `colorSurface` falls back to the theme's surfaceColor.
     const found = find({ ...seedValues, colorSurface: '' }, { ...brandTheme, surfaceColor: '#101010' });
-    expect(found.map((entry) => entry.id)).toContain('colorSurface');
-    expect(found.find((entry) => entry.id === 'colorSurface')!.value).toBe('#101010');
+    expect(found).toEqual([{ id: 'colorSurface', label: 'Surface colour', value: '#101010' }]);
   });
 });
 
