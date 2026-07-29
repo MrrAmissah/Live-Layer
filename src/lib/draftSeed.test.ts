@@ -2,12 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDraftValues, NO_EXPLICIT_BRAND, themeSeedValues } from './draftSeed';
 import {
   defaultBrandTheme,
+  loadBrandOverrides,
   loadExplicitBrandKeys,
   saveBrandOverrides,
   saveExplicitBrandKeys
 } from './storage';
 import { PPC_PALETTE } from './packs';
 import { templateRegistry } from '../components/templates/registry';
+
+const MARKER_KEY = 'livelayer.brandExplicit';
 
 class MemStorage {
   private m = new Map<string, string>();
@@ -143,9 +146,14 @@ describe('explicit brand markers — persistence', () => {
     expect(loadExplicitBrandKeys()).toEqual(['accentColor', 'accent2Color']);
   });
 
-  it('rejects a malformed stored value instead of trusting it', () => {
-    localStorage.setItem('livelayer.brandExplicit', JSON.stringify(['nonsense', 42, null]));
-    expect(loadExplicitBrandKeys()).toEqual([]);
+  it('filters unsupported entries out of a stored array', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify(['accentColor', 'primaryColor', 'surfaceColor']));
+    expect(loadExplicitBrandKeys()).toEqual(['accentColor']);
+  });
+
+  it('de-duplicates repeated entries in a stored array', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify(['accent2Color', 'accent2Color', 'accent2Color']));
+    expect(loadExplicitBrandKeys()).toEqual(['accent2Color']);
   });
 
   it('treats an explicitly emptied set as empty, not as a legacy record', () => {
@@ -155,10 +163,94 @@ describe('explicit brand markers — persistence', () => {
   });
 });
 
-describe('explicit brand markers — legacy records', () => {
+/*
+ * A PRESENT-but-broken marker record is not a legacy record. Falling through to
+ * inference would let a corrupted file quietly resume seeding whatever colours
+ * happen to sit in `livelayer.brand`. Every case below therefore pairs the bad
+ * marker data with a CUSTOM brand, so inference would be visible if it ran.
+ */
+describe('explicit brand markers — a present but broken record reads as empty', () => {
+  beforeEach(() => {
+    saveBrandOverrides({ ...defaultBrandTheme(), accentColor: '#ff0000', accent2Color: '#00ff00' });
+  });
+
+  it('malformed JSON', () => {
+    localStorage.setItem(MARKER_KEY, '{not json');
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('an empty string', () => {
+    localStorage.setItem(MARKER_KEY, '');
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('a JSON object', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify({ accentColor: true }));
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('a JSON string', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify('accentColor'));
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('a JSON number', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify(42));
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('a JSON boolean', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify(true));
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('JSON null', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify(null));
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('and a broken record never seeds the custom brand into a new draft', () => {
+    localStorage.setItem(MARKER_KEY, JSON.stringify({ accentColor: true }));
+    const seeded = createDraftValues(
+      'preacher-lower-third',
+      'house',
+      loadBrandOverrides(),
+      loadExplicitBrandKeys()
+    );
+    expect(seeded.colorBrand).toBe(registryDefaults('preacher-lower-third').colorBrand);
+    expect(seeded.colorAccent).toBe(registryDefaults('preacher-lower-third').colorAccent);
+    expect(seeded.colorBrand).not.toBe('#ff0000');
+  });
+});
+
+describe('explicit brand markers — unreadable storage', () => {
+  it('returns empty rather than inferring, because absence was never established', () => {
+    saveBrandOverrides({ ...defaultBrandTheme(), accentColor: '#ff0000' });
+    const working = globalThis.localStorage;
+    (globalThis as unknown as { localStorage: unknown }).localStorage = {
+      getItem(key: string) {
+        if (key === MARKER_KEY) throw new Error('storage unavailable');
+        return working.getItem(key);
+      },
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      length: 0
+    };
+    try {
+      expect(loadExplicitBrandKeys()).toEqual([]);
+    } finally {
+      (globalThis as unknown as { localStorage: unknown }).localStorage = working;
+    }
+  });
+});
+
+describe('explicit brand markers — legacy records (marker key genuinely absent)', () => {
   it('infers a marker where a stored colour differs from the default', () => {
     // Written before markers existed: no marker key at all.
     saveBrandOverrides({ ...defaultBrandTheme(), accentColor: '#ff0000' });
+    expect(localStorage.getItem(MARKER_KEY)).toBeNull();
     expect(loadExplicitBrandKeys()).toEqual(['accentColor']);
   });
 
@@ -175,5 +267,16 @@ describe('explicit brand markers — legacy records', () => {
   it('ignores non-brand differences', () => {
     saveBrandOverrides({ ...defaultBrandTheme(), surfaceColor: '#123456' });
     expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('an inferred legacy marker does seed the stored colour', () => {
+    saveBrandOverrides({ ...defaultBrandTheme(), accentColor: '#ff0000' });
+    const seeded = createDraftValues(
+      'preacher-lower-third',
+      'house',
+      loadBrandOverrides(),
+      loadExplicitBrandKeys()
+    );
+    expect(seeded.colorBrand).toBe('#ff0000');
   });
 });

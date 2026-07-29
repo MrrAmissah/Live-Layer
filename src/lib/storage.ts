@@ -31,6 +31,28 @@ const THEME_KEYS = ['primaryColor', 'accentColor', 'backgroundColor', 'surfaceCo
 export type ExplicitBrandKey = 'accentColor' | 'accent2Color';
 export const EXPLICIT_BRAND_KEYS: readonly ExplicitBrandKey[] = ['accentColor', 'accent2Color'];
 
+/**
+ * A stored entry with its PRESENCE preserved.
+ *
+ * `safeReadJson` collapses "no such key", "malformed", "empty" and "storage
+ * threw" into one undefined, which is fine for records that simply fall back to
+ * a default — but not for anything that has to tell a legacy record (migrate)
+ * from a corrupted one (discard).
+ */
+type StoredEntry =
+  | { status: 'absent' }
+  | { status: 'present'; raw: string }
+  | { status: 'unavailable' };
+
+function readStoredEntry(key: string): StoredEntry {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? { status: 'absent' } : { status: 'present', raw };
+  } catch {
+    return { status: 'unavailable' };
+  }
+}
+
 function safeReadJson(key: string): unknown {
   try {
     const raw = localStorage.getItem(key);
@@ -195,18 +217,33 @@ function sameColor(a: string | undefined, b: string | undefined): boolean {
  * carries editor metadata.
  */
 export function loadExplicitBrandKeys(): ExplicitBrandKey[] {
-  const raw = safeReadJson(STORAGE_KEYS.brandExplicit);
+  const entry = readStoredEntry(STORAGE_KEYS.brandExplicit);
 
-  if (Array.isArray(raw)) {
-    // Validate and de-duplicate: never trust the shape on disk.
-    return EXPLICIT_BRAND_KEYS.filter((key) => raw.includes(key));
+  // Storage could not be read at all, so absence was never established.
+  // Inferring here would resurrect colours from a record we cannot see.
+  if (entry.status === 'unavailable') return [];
+
+  if (entry.status === 'present') {
+    // Present means a decision was already recorded. Whatever shape it is in
+    // now, it is NOT a legacy record — a corrupted marker file must read as
+    // "nothing chosen", never fall through to inference and quietly resume
+    // seeding custom colours.
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(entry.raw);
+    } catch {
+      return [];
+    }
+    if (!Array.isArray(parsed)) return [];
+    // Filtering the allowlist both validates and de-duplicates.
+    return EXPLICIT_BRAND_KEYS.filter((key) => parsed.includes(key));
   }
 
-  // Legacy record written before markers existed. The only evidence available
-  // is the stored brand, so infer a choice exactly where it differs from the
-  // default — a default-equal legacy value is indistinguishable from untouched
-  // and stays unmarked. Nothing is written here; the next real swatch write
-  // persists exact markers.
+  // Genuinely absent: a record written before markers existed. The only
+  // evidence available is the stored brand, so infer a choice exactly where it
+  // differs from the default — a default-equal legacy value is
+  // indistinguishable from untouched and stays unmarked. Nothing is written
+  // here; the next real swatch write persists exact markers.
   const stored = loadBrandOverrides();
   const defaults = defaultBrandTheme();
   return EXPLICIT_BRAND_KEYS.filter((key) => !sameColor(stored[key], defaults[key]));
