@@ -13,12 +13,20 @@ import { composeThumbTheme } from './TemplateThumb';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
+/**
+ * The palette fields, each paired with the theme slot the RENDERER falls back to
+ * when the graphic carries no value for it (`templateColorStyle` →
+ * `themeToVars`). A chip that fell back to `template.defaultValues` instead
+ * reported a colour neither the preview nor Take used for legacy and imported
+ * graphics — the same defect already fixed on the Brand swatches.
+ * `colorSecondary` has no theme slot; the template default is its only fallback.
+ */
 const COLOR_FIELDS = [
-  { id: 'colorBrand', label: 'Main' },
-  { id: 'colorAccent', label: 'Accent' },
-  { id: 'colorSurface', label: 'Surface' },
-  { id: 'colorText', label: 'Text' },
-  { id: 'colorSecondary', label: 'Second' }
+  { id: 'colorBrand', label: 'Main', themeKey: 'accentColor' },
+  { id: 'colorAccent', label: 'Accent', themeKey: 'accent2Color' },
+  { id: 'colorSurface', label: 'Surface', themeKey: 'surfaceColor' },
+  { id: 'colorText', label: 'Text', themeKey: 'primaryColor' },
+  { id: 'colorSecondary', label: 'Second', themeKey: undefined }
 ] as const;
 
 type TemplateVariant = NonNullable<(typeof templateRegistry)[number]['variants']>[number];
@@ -211,7 +219,8 @@ function TemplateVariantPicker({
   targetTheme,
   variants,
   value,
-  onChange
+  onChange,
+  onNormalize
 }: {
   templateId: string;
   draftValues: Record<string, string>;
@@ -220,6 +229,8 @@ function TemplateVariantPicker({
   variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
+  /** Write ONLY the variant id, with no palette merge — see the effect below. */
+  onNormalize: (value: string) => void;
 }) {
   const [browseOpen, setBrowseOpen] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -241,11 +252,17 @@ function TemplateVariantPicker({
   // stored graphic stops carrying a dead variantId. Deliberately does NOT set
   // focusSelectedRef — this is an automatic correction, not a user navigation,
   // so it must not steal focus.
+  //
+  // It writes the id ALONE. Routing this through the normal selection path
+  // would merge the substitute variant's signature palette, so merely opening
+  // the Design tab on an imported or pack-curated graphic silently repainted
+  // its five colours and persisted that. Choosing a variant is a decision;
+  // repairing a dead id is not.
   useEffect(() => {
     if (variants.length > 0 && effectiveValue && effectiveValue !== value) {
-      onChange(effectiveValue);
+      onNormalize(effectiveValue);
     }
-  }, [variants, effectiveValue, value, onChange]);
+  }, [variants, effectiveValue, value, onNormalize]);
 
   const selectedIndex = Math.max(0, variants.findIndex((variant) => variant.id === effectiveValue));
   const selectedVariant = variants[selectedIndex];
@@ -494,15 +511,20 @@ function VariantBrowser({
 function TemplateColorControls({
   template,
   values,
+  targetTheme,
   setField,
   setFields
 }: {
   template: (typeof templateRegistry)[number];
   values: Record<string, string>;
+  /** The visible target's theme — the renderer's fallback for absent values. */
+  targetTheme: Partial<TemplateDefinition['theme']>;
   setField: (key: string, value: string) => void;
   setFields: (patch: Record<string, string>) => void;
 }) {
   const defaults = template.defaultValues;
+  // Same merge TemplatePreview performs, so chip and preview agree.
+  const effectiveTheme = { ...template.theme, ...targetTheme };
   // "Reset palette" restores the selected variant's signature palette when it
   // has one, else the template's palette defaults — the shared rule.
   const resetPalette = resolveResetPalette(template.id, values.variantId);
@@ -531,7 +553,8 @@ function TemplateColorControls({
       </span>
       <div className="template-colors__grid" aria-label="Template colour controls">
         {COLOR_FIELDS.map((field) => {
-          const value = colorValue(values[field.id], defaults[field.id]);
+          const themed = field.themeKey ? effectiveTheme[field.themeKey] : undefined;
+          const value = colorValue(values[field.id], colorValue(themed, defaults[field.id]));
           return (
             <label key={field.id} className="template-color">
               <input
@@ -606,10 +629,17 @@ export default function TemplateFields({
           variants={packVariants}
           value={draftValues.variantId ?? template.defaultValues.variantId ?? packVariants[0].id}
           onChange={(value) => setField('variantId', value)}
+          onNormalize={(value) => setFields({ variantId: value })}
         />
       ) : null}
       {showDesign && template ? (
-        <TemplateColorControls template={template} values={draftValues} setField={setField} setFields={setFields} />
+        <TemplateColorControls
+          template={template}
+          values={draftValues}
+          targetTheme={targetTheme ?? {}}
+          setField={setField}
+          setFields={setFields}
+        />
       ) : null}
       {showContent && required.map((field) => (
         <div key={field.id} className="field-stack">
@@ -617,11 +647,17 @@ export default function TemplateFields({
             <ScriptureReferencePicker
               reference={draftValues.reference ?? ''}
               onReferenceChange={(reference) => setField('reference', reference)}
-              onApply={(values) => {
-                setField('reference', values.reference);
-                setField('verseText', values.verseText);
-                setField('translationLabel', values.translationLabel);
-              }}
+              onApply={(values) =>
+                // ONE write. Three sequential setFields each start from the
+                // same render-time snapshot on a rundown item, so the verse
+                // text and reference were silently dropped and only the
+                // translation label survived.
+                setFields({
+                  reference: values.reference,
+                  verseText: values.verseText,
+                  translationLabel: values.translationLabel
+                })
+              }
             />
           ) : (
             <FieldRow

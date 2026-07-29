@@ -89,6 +89,29 @@ export function applyLogoUrl(values: Record<string, string>, url: string): Recor
   return { ...values, logoUrl: url, ...(url.trim() ? { logoAssetId: '' } : {}) };
 }
 
+/**
+ * How the Brand logo block should describe the graphic's logo reference.
+ *
+ * `hasRef` is deliberately presence-based: a graphic that NAMES an image has a
+ * logo reference whether or not the image still resolves. Gating on a resolved
+ * source made the UI offer "Choose image" over a live `logoAssetId` the
+ * operator could neither see nor clear, while export still counted it.
+ *
+ * `missing` is only true for a named upload the asset store could not produce,
+ * so a plain URL logo is never described as unavailable.
+ */
+export function describeLogoRef(
+  logoAssetId: string | undefined,
+  logoUrl: string | undefined,
+  assetStatus: string
+): { hasRef: boolean; missing: boolean } {
+  const hasAsset = Boolean(logoAssetId?.trim());
+  return {
+    hasRef: hasAsset || Boolean(logoUrl?.trim()),
+    missing: hasAsset && assetStatus === 'missing'
+  };
+}
+
 export type LogoAction =
   | { type: 'asset'; assetId: string }
   | { type: 'url'; url: string }
@@ -99,13 +122,18 @@ export type LogoAction =
  * — an upload must clear any URL and vice versa — so writing them as two
  * sequential field updates leaves an intermediate state where both are live.
  * Callers pass this straight to a single `setFields`.
+ *
+ * The URL case delegates the supersession rule to `applyLogoUrl`, so the Brand
+ * tab's URL box and the generic schema field agree: a real URL replaces an
+ * upload, and emptying the box is not a request to delete one. Deleting is what
+ * `clear` (the Remove button) is for.
  */
 export function planLogoWrite(action: LogoAction): Record<string, string> {
   switch (action.type) {
     case 'asset':
       return { logoAssetId: action.assetId, logoUrl: '' };
     case 'url':
-      return { logoUrl: action.url, logoAssetId: '' };
+      return { logoUrl: action.url, ...(action.url.trim() ? { logoAssetId: '' } : {}) };
     default:
       return { logoAssetId: '', logoUrl: '' };
   }

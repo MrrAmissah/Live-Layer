@@ -101,7 +101,7 @@ function DesignVariantStrip() {
                 template={template}
                 variantId={variant.id}
                 valuesOverride={values}
-                themeOverride={targetTheme}
+                themeOverride={targetTheme ?? {}}
               />
             </span>
             <span className="variant-strip__name">{variant.name}</span>

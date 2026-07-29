@@ -98,6 +98,20 @@ interface LiveLayerState {
 
 const DEFAULT_DURATION_SECONDS = 6;
 
+/**
+ * Field equality for the dirty check. Colour fields are compared
+ * case-insensitively for the same reason visualOverrides does it: registry and
+ * pack literals are mixed case (`#E8B93C`) while `<input type="color">` always
+ * emits lowercase, so re-picking the colour already in use read as an edit and
+ * raised the destructive pack-switch confirmation over a no-op.
+ */
+function sameFieldValue(key: string, a: string | undefined, b: string | undefined): boolean {
+  if (key.startsWith('color')) {
+    return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+  }
+  return a === b;
+}
+
 function deepClone<T>(value: T): T {
   return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
@@ -174,7 +188,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       const seed = createDraftValues(currentTemplateId, activePackId, brandTheme, explicitBrandKeys);
       const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
       for (const key of keys) {
-        if (draftValues[key] !== seed[key]) return true;
+        if (!sameFieldValue(key, draftValues[key], seed[key])) return true;
       }
       return false;
     },
@@ -370,12 +384,26 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         }
       })),
     resetTheme: () =>
-      set(() => {
+      set((state) => {
         // Back to "nothing chosen": templates seed their own accents again.
         const defaults = defaultBrandTheme();
         saveBrandOverrides(defaults);
         saveExplicitBrandKeys([]);
-        return { theme: { ...defaults }, brandTheme: { ...defaults }, explicitBrandKeys: [] };
+        return {
+          // Brand owns exactly two slots. The CURRENT graphic keeps the rest of
+          // its theme — primaryColor / surfaceColor / backgroundColor describe
+          // that graphic, not the brand, and on a legacy graphic without
+          // matching colour values they are what the renderer paints. Replacing
+          // the whole theme here silently restyled a loaded preset.
+          theme: {
+            ...state.theme,
+            accentColor: defaults.accentColor,
+            ...(defaults.accent2Color !== undefined ? { accent2Color: defaults.accent2Color } : {})
+          },
+          // The persisted default is not a graphic, so it does go back whole.
+          brandTheme: { ...defaults },
+          explicitBrandKeys: []
+        };
       }),
     clearLocalData: () =>
       set(() => {
@@ -446,6 +474,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         const subtitle = person.churchName || person.subtitle || '';
         return {
           currentTemplateId: 'preacher-lower-third',
+          // Switching template starts a new graphic, so it wears the brand —
+          // the same rule setTemplate/setActivePack/resetDraft follow. Without
+          // this, a theme installed by loadGraphicInstance survived into it.
+          theme: { ...state.brandTheme },
           draftValues: {
             ...createDraftValues('preacher-lower-third', state.activePackId, state.brandTheme, state.explicitBrandKeys),
             ...state.draftValues,

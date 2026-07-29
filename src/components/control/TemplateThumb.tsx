@@ -13,11 +13,13 @@ import { getTemplateDisplayCategory } from '../../lib/templateMeta';
  * than a mock. Entrance animations are killed via CSS so it rests at its final
  * frame.
  *
- * The base values come from the SAME seed the store uses when that template is
- * selected (`createDraftValues`), so a thumbnail and the graphic you get by
- * clicking it can never disagree. Renderers redeclare their colours from
- * `values`, so seeding from `template.defaultValues` alone made the library
- * show the stock palette while the real graphic wore the operator's brand.
+ * A LIBRARY row's values come from the same seed the store uses when that
+ * template is selected (`createDraftValues`), so the row and the graphic you
+ * get by clicking it agree on everything the seed covers. (`setTemplate` also
+ * carries the operator's logo across, which the seed does not model, so a
+ * carried logo is the one thing a row can still differ on.) Renderers redeclare
+ * their colours from `values`, so seeding from `template.defaultValues` alone
+ * made the library show the stock palette while the real graphic wore the brand.
  *
  * `themeOverride` picks the other context: a thumbnail representing the visible
  * edit target renders with that target's theme rather than the brand default.
@@ -64,11 +66,12 @@ export function composeThumbValues(
   valuesOverride?: Record<string, string>,
   variantId?: string
 ): Record<string, string> {
-  return {
-    ...createDraftValues(templateId, activePackId, brandTheme, explicitBrandKeys),
-    ...(valuesOverride ?? {}),
-    ...(variantId ? { variantId } : {})
-  };
+  // A target thumbnail renders the graphic's OWN values, exactly as the main
+  // preview does. Layering them over a fresh seed filled any key the target
+  // happened to lack from the current brand and pack, so a sparse legacy or
+  // imported graphic was painted in colours the preview and Take never used.
+  const base = valuesOverride ?? createDraftValues(templateId, activePackId, brandTheme, explicitBrandKeys);
+  return { ...base, ...(variantId ? { variantId } : {}) };
 }
 
 const TemplateThumb = memo(function TemplateThumb({

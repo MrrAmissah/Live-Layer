@@ -10,9 +10,10 @@
  * queue-driven operator works down the Content tab, and a captured URL is worth
  * one direct text field rather than a tab switch. Nothing is excluded there.
  *
- * The two editors cannot disagree: writing `logoUrl` anywhere clears
- * `logoAssetId` (see `applyLogoUrl`), because renderers prefer a ready asset
- * and would otherwise ignore the URL just typed.
+ * The two editors cannot disagree: writing a NON-EMPTY `logoUrl` anywhere
+ * clears `logoAssetId` (see `applyLogoUrl`), because renderers prefer a ready
+ * asset and would otherwise ignore the URL just typed. Emptying the field is
+ * not a request to delete an upload — Brand's "Remove image" is.
  */
 export function contentFieldExclusions(isRundownItem: boolean): string[] {
   return isRundownItem ? [] : ['logoUrl'];

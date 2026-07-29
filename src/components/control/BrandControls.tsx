@@ -7,7 +7,8 @@ import { useEditTarget } from '../../hooks/useEditTarget';
 import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { GFX_DEFAULT_ACCENT_2, GFX_DEFAULT_BRAND } from '../graphics/stage';
 import { templateRegistry } from '../templates/registry';
-import { BRAND_SWATCHES, planBrandColorWrite, planLogoWrite, type BrandSwatch } from '../../lib/brandWrites';
+import { BRAND_SWATCHES, describeLogoRef, planLogoWrite, type BrandSwatch } from '../../lib/brandWrites';
+import { useBrandSwatch } from '../../hooks/useBrandSwatch';
 import { getPack, graphicPacks } from '../../lib/packs';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
@@ -60,7 +61,6 @@ export interface BrandControlsProps {
  * subscription.
  */
 export default function BrandControls({ showEventPack = true }: BrandControlsProps = {}) {
-  const setTheme = useLiveLayerStore((state) => state.setTheme);
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const { requestPackChange } = usePackSwitchGuard();
   // The VISIBLE target's theme. A selected rundown item falls back to its own
@@ -78,6 +78,13 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
 
   const assetResult = useAsset(logoAssetId);
   const assetSrc = assetResult.status === 'ready' ? assetResult.src : undefined;
+  // Presence, not resolution, decides whether a logo reference exists — see
+  // describeLogoRef. Same rule PersonForm already uses for headshots.
+  const { hasRef: hasLogoRef, missing: logoMissing } = describeLogoRef(
+    logoAssetId,
+    logoUrl,
+    assetResult.status
+  );
 
   const previewSource = assetSrc ?? (logoUrl.trim() || undefined);
   const previewLabel = assetSrc ? 'Image saved locally' : 'URL preview';
@@ -150,24 +157,9 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
     return themed && HEX_COLOR.test(themed) ? themed : fallback;
   };
 
-  /**
-   * A swatch always writes the visible target's own colour field — that is what
-   * the renderers read. Whether it ALSO redefines the global brand depends on
-   * what is visible:
-   *
-   * - Draft mode: the draft is the next new graphic, so the brand default moves
-   *   with it and seeds the ones after that.
-   * - Selected rundown item: a captured graphic. Recolouring one item in a
-   *   queue must not silently redefine what every future graphic looks like, so
-   *   the brand default is left alone.
-   *
-   * Program is untouched either way — output only changes on the next Take.
-   */
-  const onSwatchChange = (swatch: BrandSwatch) => (value: string) => {
-    const write = planBrandColorWrite(swatch, value, isRundownItem);
-    if (Object.keys(write.theme).length > 0) setTheme(write.theme);
-    setFields(write.values);
-  };
+  // The target decision lives in useBrandSwatch so it is testable — see there.
+  const applySwatch = useBrandSwatch();
+  const onSwatchChange = (swatch: BrandSwatch) => (value: string) => applySwatch(swatch, value);
 
   return (
     <div className="brand-grid">
@@ -182,20 +174,33 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
           <span className="field__label">
             <span>Event pack</span>
           </span>
-          <div className="layout-seg pack-seg">
-            {graphicPacks.map((pack) => (
-              <button
-                key={pack.id}
-                type="button"
-                className={`layout-seg__btn${pack.id === activePackId ? ' layout-seg__btn--active' : ''}`}
-                onClick={() => requestPackChange(pack.id)}
-              >
-                {pack.name}
-              </button>
-            ))}
-          </div>
+          {/* Read-only with an item selected, for the same reason the studio's
+              section B is: switching re-seeds the hidden ad-hoc draft while the
+              visible item is untouched — the mismatch this surface exists to
+              avoid. The pack stays switchable where the draft is the subject. */}
+          {isRundownItem ? (
+            <div className="brand-pack__readonly">
+              <span className="brand-pack__name">{getPack(activePackId).name}</span>
+              <span className="brand-pack__state">Active</span>
+            </div>
+          ) : (
+            <div className="layout-seg pack-seg">
+              {graphicPacks.map((pack) => (
+                <button
+                  key={pack.id}
+                  type="button"
+                  className={`layout-seg__btn${pack.id === activePackId ? ' layout-seg__btn--active' : ''}`}
+                  onClick={() => requestPackChange(pack.id)}
+                >
+                  {pack.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="field__hint">
-            {getPack(activePackId).description} Applies to new graphics; switching re-seeds the current draft.
+            {isRundownItem
+              ? `Event packs seed new graphics. Changing the pack does not alter the selected rundown item.`
+              : `${getPack(activePackId).description} Applies to new graphics; switching re-seeds the current draft.`}
           </div>
         </div>
       ) : null}
@@ -218,7 +223,7 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
         </span>
         <div className="brand-upload-group">
           <label className="btn btn--secondary btn--sm" htmlFor="brand-logo-upload">
-            {assetSrc || logoUrl ? 'Replace image' : 'Choose image'}
+            {hasLogoRef ? 'Replace image' : 'Choose image'}
           </label>
           <input
             id="brand-logo-upload"
@@ -234,7 +239,7 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
           >
             {showUrlInput ? 'Hide URL' : 'Use URL instead'}
           </button>
-          {assetSrc || logoUrl ? (
+          {hasLogoRef ? (
             <button type="button" className="btn btn--ghost btn--sm" onClick={handleRemove}>
               Remove image
             </button>
@@ -255,6 +260,14 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
           <div className="brand-preview">
             <img src={previewSource} alt="Logo preview" className="brand-preview__img" onError={() => setPreviewFailed(true)} />
             <div className="brand-preview__meta">{previewLabel}</div>
+          </div>
+        ) : null}
+
+        {logoMissing ? (
+          <div className="field__hint field__hint--error" role="status">
+            This graphic references a saved image that isn’t available — it may have been removed, or
+            not included when the pack was imported. Remove it or choose a new one; the graphic falls
+            back to the monogram until you do.
           </div>
         ) : null}
 
