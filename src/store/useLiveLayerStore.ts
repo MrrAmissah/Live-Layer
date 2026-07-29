@@ -10,7 +10,8 @@ import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
-import { loadActivePackId, packOverridesFor, saveActivePackId } from '../lib/packs';
+import { loadActivePackId, saveActivePackId } from '../lib/packs';
+import { createDraftValues } from '../lib/draftSeed';
 import { applyVariantSelection } from '../lib/variantPalette';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
@@ -84,12 +85,6 @@ interface LiveLayerState {
   addRecent: (item: GraphicInstance) => void;
 }
 
-function createDraftValues(templateId: string, packId: string) {
-  const template = templateRegistry.find((item) => item.id === templateId);
-  if (!template) return {};
-  return { ...template.defaultValues, ...packOverridesFor(packId, templateId) };
-}
-
 const DEFAULT_DURATION_SECONDS = 6;
 
 function deepClone<T>(value: T): T {
@@ -142,31 +137,32 @@ export function buildInstanceFromDraft(
 }
 
 const initialPackId = loadActivePackId();
+const initialTheme = loadBrandOverrides();
 
 export const useLiveLayerStore = create<LiveLayerState>()(
   devtools((set, get) => ({
     currentTemplateId: templateRegistry[0].id,
-    draftValues: createDraftValues(templateRegistry[0].id, initialPackId),
+    draftValues: createDraftValues(templateRegistry[0].id, initialPackId, initialTheme),
     activePackId: initialPackId,
     setActivePack: (packId) =>
       set((state) => {
         saveActivePackId(packId);
         return {
           activePackId: packId,
-          draftValues: createDraftValues(state.currentTemplateId, packId)
+          draftValues: createDraftValues(state.currentTemplateId, packId, state.theme)
         };
       }),
     isDraftDirty: () => {
-      const { draftValues, currentTemplateId, activePackId } = get();
+      const { draftValues, currentTemplateId, activePackId, theme } = get();
       // Same seed setActivePack would re-create, so "clean" is defined identically.
-      const seed = createDraftValues(currentTemplateId, activePackId);
+      const seed = createDraftValues(currentTemplateId, activePackId, theme);
       const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
       for (const key of keys) {
         if (draftValues[key] !== seed[key]) return true;
       }
       return false;
     },
-    theme: loadBrandOverrides(),
+    theme: initialTheme,
     layout: {},
     durationSeconds: 6,
     durationByTemplate: {},
@@ -282,7 +278,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
             template?.defaultDurationSeconds ??
             DEFAULT_DURATION_SECONDS,
           draftValues: {
-            ...createDraftValues(templateId, state.activePackId),
+            ...createDraftValues(templateId, state.activePackId, state.theme),
             ...carriedLogo(state.draftValues)
           }
         };
@@ -329,7 +325,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     resetDraft: () =>
       set((state) => ({
         draftValues: {
-          ...createDraftValues(state.currentTemplateId, state.activePackId),
+          ...createDraftValues(state.currentTemplateId, state.activePackId, state.theme),
           ...carriedLogo(state.draftValues)
         }
       })),
@@ -346,11 +342,14 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         clearAllAssets().catch(() => undefined);
         clearPeople().catch(() => undefined);
         saveActivePackId('house');
+        // Storage has just been wiped, so the brand IS the default now. Seeding
+        // from the pre-clear theme would re-apply a colour the reset erased.
+        const clearedTheme = defaultBrandTheme();
         return {
           currentTemplateId: templateRegistry[0].id,
-          draftValues: createDraftValues(templateRegistry[0].id, 'house'),
+          draftValues: createDraftValues(templateRegistry[0].id, 'house', clearedTheme),
           activePackId: 'house',
-          theme: loadBrandOverrides(),
+          theme: clearedTheme,
           layout: {},
           durationSeconds: 6,
           durationByTemplate: {},
@@ -400,7 +399,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         return {
           currentTemplateId: 'preacher-lower-third',
           draftValues: {
-            ...createDraftValues('preacher-lower-third', state.activePackId),
+            ...createDraftValues('preacher-lower-third', state.activePackId, state.theme),
             ...state.draftValues,
             personId: person.id,
             name: person.displayName,

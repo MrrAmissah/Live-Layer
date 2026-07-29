@@ -3,6 +3,7 @@ import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { templateRegistry } from '../templates/registry';
 import { describeTemplate } from '../../lib/templateMeta';
+import { defaultPresetName, resolvePresetName } from '../../lib/presetNaming';
 import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 
@@ -53,12 +54,10 @@ export default function DesignPresets({
   const shown = newestPresetsFirst(presets, COMPACT_COUNT);
   const saveLabel = isRundownItem ? 'Save item as preset' : 'Save current as preset';
   const loadLabel = isRundownItem ? 'Apply to item' : 'Load';
-  const defaultName = isRundownItem
-    ? sourceLabel || describeTemplate(templateById.get(templateId), templateId).label
-    : describeTemplate(templateById.get(templateId), templateId).label;
-
+  // One shared fallback rule, so a save from here, from the Brand tab and from
+  // Saved graphics all produce the same name for the same target.
   const commitSave = () => {
-    const label = name.trim() || defaultName;
+    const label = resolvePresetName(name, isRundownItem, sourceLabel, templateId);
     saveAsPreset(label); // draft → ad-hoc draft; rundown → the selected item
     setName('');
     setSaving(false);
@@ -115,7 +114,7 @@ export default function DesignPresets({
             className="field__input"
             autoFocus
             value={name}
-            placeholder="Preset name…"
+            placeholder={defaultPresetName(isRundownItem, sourceLabel, templateId)}
             aria-label="Preset name"
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {

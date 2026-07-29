@@ -1,0 +1,250 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useLiveLayerStore } from '../store/useLiveLayerStore';
+import { useEditTarget, type EditTarget } from './useEditTarget';
+import { planBrandColorWrite, planLogoWrite } from '../lib/brandWrites';
+import { CLEAR_PROGRAM_STATE } from '../types/program';
+import {
+  addItem,
+  clearAllRundowns,
+  createRundown,
+  getRundown,
+  setActiveRundown,
+  setSelectedItem
+} from '../lib/rundown/rundownStore';
+import type { GraphicInstance } from '../types/graphics';
+
+class MemStorage {
+  private m = new Map<string, string>();
+  getItem(k: string) { return this.m.has(k) ? this.m.get(k)! : null; }
+  setItem(k: string, v: string) { this.m.set(k, String(v)); }
+  removeItem(k: string) { this.m.delete(k); }
+  clear() { this.m.clear(); }
+  key(i: number) { return [...this.m.keys()][i] ?? null; }
+  get length() { return this.m.size; }
+}
+
+beforeEach(() => {
+  (globalThis as unknown as { localStorage: MemStorage }).localStorage = new MemStorage();
+  clearAllRundowns();
+  useLiveLayerStore.setState({
+    currentTemplateId: 'preacher-lower-third',
+    draftValues: { name: 'Draft name', colorBrand: '#0d2095', colorAccent: '#E8B93C', logoUrl: 'https://draft.test/l.png' },
+    theme: { primaryColor: '#f8fafc', accentColor: '#0d2095', backgroundColor: 'transparent', accent2Color: '#1284ff' },
+    presets: [],
+    program: { ...CLEAR_PROGRAM_STATE }
+  });
+});
+
+/**
+ * Capture the live EditTarget the Brand controls receive. Rendering is enough:
+ * the hook is evaluated during render, and the returned setters close over the
+ * same state the real component writes through.
+ */
+function readEditTarget(): EditTarget {
+  let captured: EditTarget | null = null;
+  function Probe() {
+    captured = useEditTarget();
+    return null;
+  }
+  renderToStaticMarkup(createElement(Probe));
+  if (!captured) throw new Error('edit target was not captured');
+  return captured;
+}
+
+function makeGraphic(overrides: Partial<GraphicInstance> = {}): GraphicInstance {
+  return {
+    id: 'graphic-1',
+    templateId: 'preacher-lower-third',
+    values: {
+      name: 'Item name',
+      title: 'Item title',
+      colorBrand: '#111111',
+      colorAccent: '#222222',
+      logoUrl: 'https://item.test/l.png'
+    },
+    theme: {},
+    layout: {},
+    durationSeconds: 6,
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-01T00:00:00.000Z',
+    ...overrides
+  };
+}
+
+/** An ACTIVE rundown with two items, the FIRST selected. */
+function seedRundown() {
+  const rundown = createRundown('Service')!;
+  const first = addItem(rundown.id, { graphic: makeGraphic({ id: 'graphic-1' }), title: 'First' })!;
+  const second = addItem(rundown.id, { graphic: makeGraphic({ id: 'graphic-2' }), title: 'Second' })!;
+  setActiveRundown(rundown.id);
+  setSelectedItem(rundown.id, first.id);
+  return { rundownId: rundown.id, first, second };
+}
+
+const draft = () => useLiveLayerStore.getState().draftValues;
+
+describe('Brand colour writes — draft mode', () => {
+  it('updates the global brand default and the visible draft colour together', () => {
+    const target = readEditTarget();
+    const write = planBrandColorWrite('main', '#ff0000');
+    useLiveLayerStore.getState().setTheme(write.theme);
+    target.setFields(write.values);
+
+    expect(useLiveLayerStore.getState().theme.accentColor).toBe('#ff0000');
+    expect(draft().colorBrand).toBe('#ff0000');
+  });
+
+  it('preserves unrelated draft values', () => {
+    const target = readEditTarget();
+    target.setFields(planBrandColorWrite('accent', '#00ff00').values);
+
+    expect(draft().colorAccent).toBe('#00ff00');
+    expect(draft().name).toBe('Draft name');
+    expect(draft().colorBrand).toBe('#0d2095');
+    expect(draft().logoUrl).toBe('https://draft.test/l.png');
+  });
+
+  it('leaves Program untouched', () => {
+    const before = useLiveLayerStore.getState().program;
+    const target = readEditTarget();
+    target.setFields(planBrandColorWrite('main', '#ff0000').values);
+    expect(useLiveLayerStore.getState().program).toEqual(before);
+  });
+});
+
+describe('Brand colour writes — selected rundown item', () => {
+  it('updates the selected item, not the hidden draft', () => {
+    const { rundownId, first } = seedRundown();
+    const target = readEditTarget();
+    expect(target.mode).toBe('rundown-item');
+
+    const write = planBrandColorWrite('main', '#ff0000');
+    useLiveLayerStore.getState().setTheme(write.theme);
+    target.setFields(write.values);
+
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.colorBrand).toBe('#ff0000');
+    // The global default still moves — it seeds FUTURE graphics — but the
+    // invisible draft's own colour must not.
+    expect(useLiveLayerStore.getState().theme.accentColor).toBe('#ff0000');
+    expect(draft().colorBrand).toBe('#0d2095');
+  });
+
+  it('preserves the item’s unrelated values and its siblings', () => {
+    const { rundownId, first, second } = seedRundown();
+    readEditTarget().setFields(planBrandColorWrite('accent', '#00ff00').values);
+
+    const rundown = getRundown(rundownId)!;
+    const edited = rundown.items.find((entry) => entry.id === first.id)!;
+    const untouched = rundown.items.find((entry) => entry.id === second.id)!;
+
+    expect(edited.graphic.values.colorAccent).toBe('#00ff00');
+    expect(edited.graphic.values.name).toBe('Item name');
+    expect(edited.graphic.values.title).toBe('Item title');
+    expect(untouched.graphic.values.colorAccent).toBe('#222222');
+  });
+
+  it('preserves item id, graphic id, ordering and the active selection', () => {
+    const { rundownId, first, second } = seedRundown();
+    const before = getRundown(rundownId)!;
+    const orderBefore = before.items.map((entry) => entry.id);
+
+    readEditTarget().setFields(planBrandColorWrite('main', '#ff0000').values);
+
+    const after = getRundown(rundownId)!;
+    expect(after.items.map((entry) => entry.id)).toEqual(orderBefore);
+    expect(after.items[0].id).toBe(first.id);
+    expect(after.items[1].id).toBe(second.id);
+    expect(after.items[0].graphic.id).toBe('graphic-1');
+    expect(after.selectedItemId).toBe(first.id);
+    expect(after.id).toBe(rundownId);
+  });
+
+  it('leaves Program untouched', () => {
+    seedRundown();
+    const before = useLiveLayerStore.getState().program;
+    readEditTarget().setFields(planBrandColorWrite('main', '#ff0000').values);
+    expect(useLiveLayerStore.getState().program).toEqual(before);
+  });
+});
+
+describe('Brand logo writes', () => {
+  it('writes an upload to the draft as one atomic pair', () => {
+    const target = readEditTarget();
+    target.setFields(planLogoWrite({ type: 'asset', assetId: 'asset-9' }));
+    expect(draft().logoAssetId).toBe('asset-9');
+    expect(draft().logoUrl).toBe('');
+    expect(draft().name).toBe('Draft name');
+  });
+
+  it('writes a URL to the draft and clears any upload', () => {
+    useLiveLayerStore.setState({
+      draftValues: { ...draft(), logoAssetId: 'asset-old' }
+    });
+    readEditTarget().setFields(planLogoWrite({ type: 'url', url: 'https://new.test/l.png' }));
+    expect(draft().logoUrl).toBe('https://new.test/l.png');
+    expect(draft().logoAssetId).toBe('');
+  });
+
+  it('removes both from the draft', () => {
+    readEditTarget().setFields(planLogoWrite({ type: 'clear' }));
+    expect(draft().logoUrl).toBe('');
+    expect(draft().logoAssetId).toBe('');
+  });
+
+  it('writes the upload to the SELECTED ITEM, never the hidden draft', () => {
+    const { rundownId, first } = seedRundown();
+    readEditTarget().setFields(planLogoWrite({ type: 'asset', assetId: 'asset-9' }));
+
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.logoAssetId).toBe('asset-9');
+    expect(item.graphic.values.logoUrl).toBe('');
+    expect(item.graphic.id).toBe('graphic-1');
+    // The draft's own logo is exactly as it was.
+    expect(draft().logoUrl).toBe('https://draft.test/l.png');
+    expect(draft().logoAssetId).toBeUndefined();
+  });
+
+  it('removes the item’s logo without disturbing its content', () => {
+    const { rundownId, first } = seedRundown();
+    readEditTarget().setFields(planLogoWrite({ type: 'clear' }));
+
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.logoUrl).toBe('');
+    expect(item.graphic.values.logoAssetId).toBe('');
+    expect(item.graphic.values.name).toBe('Item name');
+  });
+});
+
+describe('Preset save targeting', () => {
+  it('saves the ad-hoc draft in draft mode', () => {
+    readEditTarget().saveAsPreset('From draft');
+    const presets = useLiveLayerStore.getState().presets;
+    expect(presets).toHaveLength(1);
+    expect(presets[0].presetName).toBe('From draft');
+    expect(presets[0].values.name).toBe('Draft name');
+  });
+
+  it('saves the selected rundown item when one is selected', () => {
+    const { rundownId, first } = seedRundown();
+    readEditTarget().saveAsPreset('From item');
+
+    const presets = useLiveLayerStore.getState().presets;
+    expect(presets).toHaveLength(1);
+    expect(presets[0].presetName).toBe('From item');
+    expect(presets[0].values.name).toBe('Item name');
+    // A preset is an independent copy: new id, item untouched.
+    expect(presets[0].id).not.toBe('graphic-1');
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.id).toBe('graphic-1');
+    expect(getRundown(rundownId)!.selectedItemId).toBe(first.id);
+  });
+
+  it('never publishes — Program is unchanged by a save', () => {
+    const before = useLiveLayerStore.getState().program;
+    readEditTarget().saveAsPreset('Anything');
+    expect(useLiveLayerStore.getState().program).toEqual(before);
+  });
+});

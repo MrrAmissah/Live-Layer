@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Panel from './Panel';
 import ContentTab from './ContentTab';
 import DesignTab from './DesignTab';
-import BrandControls from './BrandControls';
+import BrandTab from './BrandTab';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { StudioView } from './StudioNav';
@@ -29,8 +29,8 @@ const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
 
 /**
  * Contextual editor (studio). Tabs scope the controls: Content (schema-backed
- * text fields + character guidance), Design (variant + palette), Brand (event
- * pack + brand). Motion and Advanced are disabled until Stages 2+ implement
+ * text fields + character guidance), Design (variant + palette), Brand (save,
+ * event pack + brand, overrides). Motion and Advanced are disabled until later stages implement
  * them — never shown as clickable empty tabs. In rundown mode the Content tab
  * also carries the item's layout/duration, preserving today's behaviour.
  */
@@ -43,7 +43,14 @@ export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorPr
   // "Reset" on the Brand tab used to wipe the draft instead of the brand.
   const reset =
     tab === 'brand'
-      ? { label: 'Reset brand', run: resetTheme, title: 'Restore the default brand colours' }
+      ? {
+          label: 'Reset brand',
+          run: resetTheme,
+          // Scoped wording: this restores the brand that SEEDS new graphics. The
+          // colours on the graphic in front of you live in its own values and
+          // are reset from the Design tab's "Reset palette".
+          title: 'Restore the default brand colours used to seed new graphics'
+        }
       : { label: 'Reset graphic', run: resetDraft, title: 'Restore this template’s default content and design' };
 
   return (
@@ -85,7 +92,7 @@ export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorPr
             onBrowseAssets={() => onNavigate?.('assets')}
           />
         ) : null}
-        {tab === 'brand' ? <BrandControls /> : null}
+        {tab === 'brand' ? <BrandTab /> : null}
       </div>
     </Panel>
   );

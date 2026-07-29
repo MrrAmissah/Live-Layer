@@ -1,26 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { templateRegistry } from '../templates/registry';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useEditTarget } from '../../hooks/useEditTarget';
 import { useRundowns } from '../../hooks/useRundowns';
 import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
+import { defaultPresetName, resolvePresetName, templateDisplayName } from '../../lib/presetNaming';
 import type { GraphicInstance } from '../../types/graphics';
-
-function templateName(templateId: string): string {
-  return templateRegistry.find((item) => item.id === templateId)?.name ?? templateId;
-}
 
 /**
  * Save / list / apply / remove presets, with a clear empty state and a small
  * reset-all at the bottom. Used inside the Library panel/step; owns its own
  * store subscription.
+ *
+ * Save follows the VISIBLE edit target, like every other save surface: the
+ * ad-hoc draft normally, the selected rundown item when there is one. It used
+ * to save the draft unconditionally, so "Save" here and "Save" in the editor
+ * could serialize two different graphics.
  */
 export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (preset: GraphicInstance) => void } = {}) {
   const presets = useLiveLayerStore((state) => state.presets);
-  const savePreset = useLiveLayerStore((state) => state.savePreset);
   const removePreset = useLiveLayerStore((state) => state.removePreset);
   const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
   const clearLocalData = useLiveLayerStore((state) => state.clearLocalData);
-  const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
+  const { isRundownItem, sourceLabel, templateId, saveAsPreset } = useEditTarget();
   const rd = useRundowns();
   const [confirmingReset, setConfirmingReset] = useState(false);
 
@@ -29,8 +30,7 @@ export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (pre
   const flashTimerRef = useRef<number | undefined>(undefined);
 
   const onSave = () => {
-    const finalName = name.trim() || templateName(currentTemplateId);
-    savePreset(finalName);
+    saveAsPreset(resolvePresetName(name, isRundownItem, sourceLabel, templateId));
     setName('');
   };
 
@@ -66,7 +66,8 @@ export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (pre
         <input
           className="field__input"
           value={name}
-          placeholder={`Save “${templateName(currentTemplateId)}” as…`}
+          placeholder={`Save “${defaultPresetName(isRundownItem, sourceLabel, templateId)}” as…`}
+          aria-label="Preset name"
           onChange={(event) => setName(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') onSave();
@@ -87,8 +88,8 @@ export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (pre
           {presets.map((preset) => (
             <li key={preset.id} className="preset-row">
               <span className="preset-row__main">
-                <span className="preset-row__name">{preset.presetName || templateName(preset.templateId)}</span>
-                <span className="preset-row__meta">{templateName(preset.templateId)}</span>
+                <span className="preset-row__name">{preset.presetName || templateDisplayName(preset.templateId)}</span>
+                <span className="preset-row__meta">{templateDisplayName(preset.templateId)}</span>
               </span>
               <span className="preset-row__actions">
                 <button
@@ -110,7 +111,7 @@ export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (pre
                   type="button"
                   className="btn btn--ghost btn--xs"
                   onClick={() => removePreset(preset.id)}
-                  aria-label={`Remove ${preset.presetName || templateName(preset.templateId)}`}
+                  aria-label={`Remove ${preset.presetName || templateDisplayName(preset.templateId)}`}
                 >
                   ✕
                 </button>

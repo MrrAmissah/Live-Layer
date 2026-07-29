@@ -6,7 +6,10 @@ import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { GFX_DEFAULT_ACCENT_2 } from '../graphics/stage';
+import { BRAND_SWATCHES, planBrandColorWrite, planLogoWrite, type BrandSwatch } from '../../lib/brandWrites';
 import { getPack, graphicPacks } from '../../lib/packs';
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 function Swatch({
   label,
@@ -34,19 +37,36 @@ function Swatch({
   );
 }
 
+export interface BrandControlsProps {
+  /**
+   * Render the event-pack switcher. The dock's Brand step keeps it (default);
+   * the studio Brand tab turns it off because its own section B owns the pack,
+   * including the read-only treatment for a selected rundown item.
+   */
+  showEventPack?: boolean;
+}
+
 /**
- * Brand colour chips + shared logo URL. Compact swatches with a hex readout
- * instead of stretched colour bars. Shared by the studio BrandPanel and the
- * dock BrandStep; owns its own store subscription.
+ * Brand colour chips + logo for the VISIBLE graphic.
+ *
+ * Both controls write through `useEditTarget`, so with a rundown item selected
+ * they edit that item and never the hidden ad-hoc draft. A colour additionally
+ * persists as the global brand default (which seeds future graphics) — the two
+ * writes are planned together in `brandWrites` so the studio tab and the dock
+ * step provably do the same thing.
+ *
+ * Shared by the studio BrandTab and the dock BrandStep; owns its own store
+ * subscription.
  */
-export default function BrandControls() {
+export default function BrandControls({ showEventPack = true }: BrandControlsProps = {}) {
   const theme = useLiveLayerStore((state) => state.theme);
   const setTheme = useLiveLayerStore((state) => state.setTheme);
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const { requestPackChange } = usePackSwitchGuard();
-  const logoUrl = useLiveLayerStore((state) => state.draftValues.logoUrl ?? '');
-  const logoAssetId = useLiveLayerStore((state) => state.draftValues.logoAssetId ?? '');
-  const setField = useLiveLayerStore((state) => state.setField);
+  const { isRundownItem, values, setFields } = useEditTarget();
+
+  const logoUrl = values.logoUrl ?? '';
+  const logoAssetId = values.logoAssetId ?? '';
 
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -88,8 +108,9 @@ export default function BrandControls() {
     setIsUploading(true);
     try {
       const asset = await saveUploadedAsset(file, 'logo');
-      setField('logoAssetId', asset.id);
-      setField('logoUrl', '');
+      // One atomic write: an upload and a URL are alternatives, so they must
+      // never both be live between two sequential field updates.
+      setFields(planLogoWrite({ type: 'asset', assetId: asset.id }));
       setShowUrlInput(false);
     } catch (err) {
       setError(errorMessage(err));
@@ -100,42 +121,72 @@ export default function BrandControls() {
   };
 
   const handleRemove = () => {
-    setField('logoAssetId', '');
-    setField('logoUrl', '');
+    setFields(planLogoWrite({ type: 'clear' }));
     setShowUrlInput(false);
     setError(null);
   };
 
-  const { isRundownItem } = useEditTarget();
+  /**
+   * The chip shows the colour the graphic is actually painted with — the
+   * target's own `values` colour — falling back to the brand default when the
+   * graphic carries none. Showing `theme` alone was the bug: it reported a
+   * colour the renderer never used.
+   */
+  const swatchValue = (swatch: BrandSwatch, fallback: string): string => {
+    const { field } = BRAND_SWATCHES[swatch];
+    const own = values[field]?.trim();
+    return own && HEX_COLOR.test(own) ? own : fallback;
+  };
+
+  const onSwatchChange = (swatch: BrandSwatch) => (value: string) => {
+    const write = planBrandColorWrite(swatch, value);
+    // Global default first (seeds future graphics), then the visible target's
+    // own colour field (what the renderers read). Program is untouched — the
+    // output only changes on the next Take.
+    setTheme(write.theme);
+    setFields(write.values);
+  };
 
   return (
     <div className="brand-grid">
       {isRundownItem ? (
-        <p className="field__hint">Brand changes apply to new graphics, not the selected rundown item (its colours/logo were captured when it was added).</p>
+        <p className="field__hint">
+          Colours and logo apply to the selected rundown item. Live output doesn’t change until you Take.
+        </p>
       ) : null}
-      <div className="field">
-        <span className="field__label">
-          <span>Event pack</span>
-        </span>
-        <div className="layout-seg pack-seg">
-          {graphicPacks.map((pack) => (
-            <button
-              key={pack.id}
-              type="button"
-              className={`layout-seg__btn${pack.id === activePackId ? ' layout-seg__btn--active' : ''}`}
-              onClick={() => requestPackChange(pack.id)}
-            >
-              {pack.name}
-            </button>
-          ))}
+      {showEventPack ? (
+        <div className="field">
+          <span className="field__label">
+            <span>Event pack</span>
+          </span>
+          <div className="layout-seg pack-seg">
+            {graphicPacks.map((pack) => (
+              <button
+                key={pack.id}
+                type="button"
+                className={`layout-seg__btn${pack.id === activePackId ? ' layout-seg__btn--active' : ''}`}
+                onClick={() => requestPackChange(pack.id)}
+              >
+                {pack.name}
+              </button>
+            ))}
+          </div>
+          <div className="field__hint">
+            {getPack(activePackId).description} Applies to new graphics; switching re-seeds the current draft.
+          </div>
         </div>
-        <div className="field__hint">
-          {getPack(activePackId).description} Applies to new graphics; switching re-seeds the current draft.
-        </div>
-      </div>
+      ) : null}
       <div className="brand-grid__swatches">
-        <Swatch label="Main colour" value={theme.accentColor} onChange={(value) => setTheme({ accentColor: value })} />
-        <Swatch label="Accent" value={theme.accent2Color ?? GFX_DEFAULT_ACCENT_2} onChange={(value) => setTheme({ accent2Color: value })} />
+        <Swatch
+          label={BRAND_SWATCHES.main.label}
+          value={swatchValue('main', theme.accentColor)}
+          onChange={onSwatchChange('main')}
+        />
+        <Swatch
+          label={BRAND_SWATCHES.accent.label}
+          value={swatchValue('accent', theme.accent2Color ?? GFX_DEFAULT_ACCENT_2)}
+          onChange={onSwatchChange('accent')}
+        />
       </div>
       <div className="field">
         <span className="field__label">
@@ -173,10 +224,7 @@ export default function BrandControls() {
             type="url"
             value={logoUrl}
             placeholder="https://…/logo.png"
-            onChange={(event) => {
-              setField('logoUrl', event.target.value);
-              setField('logoAssetId', '');
-            }}
+            onChange={(event) => setFields(planLogoWrite({ type: 'url', url: event.target.value }))}
           />
         ) : null}
 
