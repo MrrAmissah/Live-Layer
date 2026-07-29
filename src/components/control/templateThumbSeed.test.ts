@@ -5,7 +5,7 @@ import { createDraftValues } from '../../lib/draftSeed';
 import { defaultBrandTheme, type ExplicitBrandKey } from '../../lib/storage';
 import { PPC_PALETTE } from '../../lib/packs';
 import { templateRegistry } from '../templates/registry';
-import TemplateThumb, { composeThumbValues } from './TemplateThumb';
+import TemplateThumb, { composeThumbTheme, composeThumbValues } from './TemplateThumb';
 
 class MemStorage {
   private m = new Map<string, string>();
@@ -149,6 +149,121 @@ describe('TemplateThumb renders the composed values', () => {
   it('renders the requested variant', () => {
     const html = renderToStaticMarkup(
       createElement(TemplateThumb, { template: PREACHER, variantId: 'split-bar' })
+    );
+    expect(html).toContain('data-variant="split-bar"');
+  });
+});
+
+/* --- thumbnail THEME by context ------------------------------------------ *
+ * A library row represents a graphic that does not exist yet, so it wears the
+ * brand default. A thumbnail standing in for the visible edit target wears that
+ * target's captured theme, or it disagrees with the preview and with Take
+ * whenever the target carries no per-value colours.
+ * ------------------------------------------------------------------------ */
+
+const MAGENTA_THEME = {
+  primaryColor: '#ffffff',
+  accentColor: '#ff00ff',
+  backgroundColor: 'transparent',
+  accent2Color: '#ff00ff'
+} as const;
+
+describe('composeThumbTheme — context decides the theme', () => {
+  it('uses the brand default for a library thumbnail', () => {
+    const brand = brandWith({ accentColor: '#00ff00', accent2Color: '#00ff00' });
+    const theme = composeThumbTheme(PREACHER.theme, brand);
+    expect(theme.accentColor).toBe('#00ff00');
+    expect(theme.accent2Color).toBe('#00ff00');
+  });
+
+  it('uses the target’s theme for a current-target thumbnail', () => {
+    const theme = composeThumbTheme(PREACHER.theme, MAGENTA_THEME);
+    expect(theme.accentColor).toBe('#ff00ff');
+    expect(theme.accent2Color).toBe('#ff00ff');
+  });
+
+  it('falls back through the template theme for a partial target theme', () => {
+    const theme = composeThumbTheme(PREACHER.theme, { accentColor: '#ff00ff' });
+    expect(theme.accentColor).toBe('#ff00ff');
+    // Untouched slots still resolve from the template.
+    expect(theme.accent2Color).toBe(PREACHER.theme.accent2Color);
+    expect(theme.primaryColor).toBe(PREACHER.theme.primaryColor);
+  });
+
+  it('falls back entirely for an empty target theme', () => {
+    expect(composeThumbTheme(PREACHER.theme, {})).toEqual(PREACHER.theme);
+  });
+
+  it('never lets an explicit undefined clobber a resolved slot', () => {
+    const theme = composeThumbTheme(PREACHER.theme, { accentColor: undefined, accent2Color: '#ff00ff' });
+    expect(theme.accentColor).toBe(PREACHER.theme.accentColor);
+    expect(theme.accent2Color).toBe('#ff00ff');
+  });
+
+  it('survives a template with no declared theme', () => {
+    expect(composeThumbTheme(undefined, MAGENTA_THEME).accentColor).toBe('#ff00ff');
+  });
+});
+
+describe('TemplateThumb theme by context', () => {
+  /** The stage-level --gfx-* vars, which is where the merged theme lands. */
+  function stageVars(props: Parameters<typeof TemplateThumb>[0]): Record<string, string> {
+    const html = renderToStaticMarkup(createElement(TemplateThumb, props));
+    const style = /class="gfx-stage" style="([^"]*)"/.exec(html)?.[1] ?? '';
+    const found: Record<string, string> = {};
+    for (const [, prop, value] of style.matchAll(/(--gfx-[\w-]+):\s*([^;"]+)/g)) found[prop] = value.trim();
+    return found;
+  }
+
+  it('a library thumbnail (no themeOverride) uses the brand default', () => {
+    // The store is at its module-init defaults here, so brandTheme is the
+    // default brand — and the stage must reflect it, not a magenta snapshot.
+    expect(stageVars({ template: PREACHER })['--gfx-brand']).toBe(defaultBrandTheme().accentColor);
+  });
+
+  it('a current-target thumbnail uses the supplied theme', () => {
+    const vars = stageVars({ template: PREACHER, themeOverride: MAGENTA_THEME });
+    expect(vars['--gfx-brand']).toBe('#ff00ff');
+    expect(vars['--gfx-accent-2']).toBe('#ff00ff');
+  });
+
+  it('a legacy target with no colour values renders its captured theme', () => {
+    // No colorBrand/colorAccent in valuesOverride: the theme is all there is.
+    const vars = stageVars({
+      template: PREACHER,
+      valuesOverride: { name: 'Legacy speaker' },
+      themeOverride: MAGENTA_THEME
+    });
+    expect(vars['--gfx-brand']).toBe('#ff00ff');
+    expect(vars['--gfx-brand']).not.toBe(defaultBrandTheme().accentColor);
+  });
+
+  it('a target theme does not leak into library thumbnails', () => {
+    const library = stageVars({ template: PREACHER });
+    stageVars({ template: PREACHER, themeOverride: MAGENTA_THEME });
+    expect(stageVars({ template: PREACHER })).toEqual(library);
+  });
+
+  it('per-value colours still win over the target theme', () => {
+    // Renderers redeclare --gfx-* from values on their own root.
+    const html = renderToStaticMarkup(
+      createElement(TemplateThumb, {
+        template: PREACHER,
+        valuesOverride: { ...PREACHER.defaultValues, colorBrand: '#abcdef' },
+        themeOverride: MAGENTA_THEME
+      })
+    );
+    expect(html).toContain('--gfx-template-brand:#abcdef');
+  });
+
+  it('keeps variantId precedence with a theme override in play', () => {
+    const html = renderToStaticMarkup(
+      createElement(TemplateThumb, {
+        template: PREACHER,
+        variantId: 'split-bar',
+        valuesOverride: { variantId: 'from-override' },
+        themeOverride: MAGENTA_THEME
+      })
     );
     expect(html).toContain('data-variant="split-bar"');
   });

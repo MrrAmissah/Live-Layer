@@ -7,6 +7,7 @@ import { createDraftValues } from '../../lib/draftSeed';
 import { defaultBrandTheme } from '../../lib/storage';
 import { templateRegistry } from '../templates/registry';
 import { CLEAR_PROGRAM_STATE } from '../../types/program';
+import { getRundown } from '../../lib/rundown/rundownStore';
 import {
   addItem,
   clearAllRundowns,
@@ -15,6 +16,7 @@ import {
   setSelectedItem
 } from '../../lib/rundown/rundownStore';
 import BrandTab from './BrandTab';
+import ContentTab from './ContentTab';
 import BrandStep from './steps/BrandStep';
 import type { GraphicInstance } from '../../types/graphics';
 
@@ -304,5 +306,72 @@ describe('Brand swatch fallbacks follow the visible target', () => {
     const seed = HOUSE_SEED();
     expect(found.main).toBe(seed.colorBrand);
     expect(found.accent).toBe(seed.colorAccent);
+  });
+});
+
+/* --- variant thumbnails follow the visible target ------------------------ *
+ * The Content tab's variant strip stands in for the graphic on screen, so it
+ * must render with that graphic's theme — not the brand default and not the
+ * hidden draft's theme.
+ * ------------------------------------------------------------------------ */
+
+const MAGENTA = {
+  primaryColor: '#ffffff',
+  accentColor: '#ff00ff',
+  backgroundColor: 'transparent',
+  accent2Color: '#ff00ff'
+} as const;
+
+/** Stage-level --gfx-brand values of every variant-strip thumbnail. */
+function stripBrandVars(html: string): string[] {
+  const strip = /<div class="variant-strip">([\s\S]*?)<\/div><\/div>/.exec(html)?.[1] ?? html;
+  return [...strip.matchAll(/class="gfx-stage" style="[^"]*?--gfx-brand:\s*([^;"]+)/g)].map((m) => m[1].trim());
+}
+
+const contentTab = () => render(createElement(ContentTab, { onManageLogo: () => undefined }));
+
+describe('Variant strip renders the visible target’s theme', () => {
+  it('uses a selected rundown item’s captured theme, not the hidden draft’s', () => {
+    // A legacy item: a distinct theme and no per-value colours at all.
+    selectItemWithTheme({ name: 'Legacy speaker' }, MAGENTA);
+    const vars = stripBrandVars(contentTab());
+
+    expect(vars.length).toBeGreaterThan(0);
+    for (const value of vars) expect(value).toBe('#ff00ff');
+    // The hidden draft's theme is the default brand — demonstrably not used.
+    expect(vars).not.toContain(defaultBrandTheme().accentColor);
+  });
+
+  it('matches what the preview and Take would use for that item', () => {
+    const { rundownId, itemId } = selectItemWithTheme({ name: 'Legacy speaker' }, MAGENTA);
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === itemId)!;
+
+    // Preview (useLiveTakeContext) and Take (cloneRundownGraphic) both read the
+    // item's own theme, so the strip agreeing with it is the invariant.
+    expect(item.graphic.theme.accentColor).toBe('#ff00ff');
+    for (const value of stripBrandVars(contentTab())) {
+      expect(value).toBe(item.graphic.theme.accentColor);
+    }
+  });
+
+  it('falls back through the template theme for an item with an empty theme', () => {
+    selectItemWithTheme({ name: 'Legacy speaker' }, {} as GraphicInstance['theme']);
+    for (const value of stripBrandVars(contentTab())) {
+      expect(value).toBe(PREACHER.theme.accentColor);
+    }
+  });
+
+  it('uses the draft’s own theme in draft mode', () => {
+    // No rundown selected: the module-init draft theme is the default brand.
+    const vars = stripBrandVars(contentTab());
+    expect(vars.length).toBeGreaterThan(0);
+    for (const value of vars) expect(value).toBe(defaultBrandTheme().accentColor);
+  });
+
+  it('leaves Program unchanged', () => {
+    const before = useLiveLayerStore.getState().program;
+    selectItemWithTheme({ name: 'Legacy speaker' }, MAGENTA);
+    contentTab();
+    expect(useLiveLayerStore.getState().program).toBe(before);
   });
 });

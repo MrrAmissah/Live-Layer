@@ -58,7 +58,10 @@ function LogoSummary({
 /** Compact design-variant strip — quick switching without leaving Content
  *  (the full picker + palette live in the Design tab). */
 function DesignVariantStrip() {
-  const { templateId, values, setField } = useEditTarget();
+  // The strip stands in for the VISIBLE graphic, so it renders with that
+  // target's theme — the draft's, a loaded preset's, or the selected rundown
+  // item's — not the brand default.
+  const { templateId, values, theme: targetTheme, setField } = useEditTarget();
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const template = templateRegistry.find((t) => t.id === templateId);
 
@@ -94,7 +97,12 @@ function DesignVariantStrip() {
             title={variant.name}
           >
             <span className="variant-strip__thumb">
-              <TemplateThumb template={template} variantId={variant.id} valuesOverride={values} />
+              <TemplateThumb
+                template={template}
+                variantId={variant.id}
+                valuesOverride={values}
+                themeOverride={targetTheme}
+              />
             </span>
             <span className="variant-strip__name">{variant.name}</span>
           </button>

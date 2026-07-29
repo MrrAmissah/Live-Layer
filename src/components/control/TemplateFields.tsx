@@ -2,13 +2,14 @@ import { templateRegistry, templateRendererMap } from '../templates/registry';
 import GraphicStage from '../graphics/GraphicStage';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
-import type { TemplateField } from '../../types/graphics';
+import type { TemplateDefinition, TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
 import { packVariantIdsFor } from '../../lib/packs';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 import { Icon } from '../../lib/icons';
 import { resolveResetPalette } from '../../lib/variantPalette';
+import { composeThumbTheme } from './TemplateThumb';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
@@ -159,7 +160,7 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
 
 /**
  * Real miniature render of a variant: the actual template renderer inside a
- * scaled GraphicStage, using the operator's current draft values and palette,
+ * scaled GraphicStage, using the visible target's values and palette,
  * so the picker shows exactly what each design produces. Entrance animations
  * are killed via CSS so thumbs rest at their final frame. Memoized — with the
  * picker feeding it deferred values, the ~13 mini-stages reconcile off the
@@ -168,16 +169,20 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
 const VariantThumb = memo(function VariantThumb({
   templateId,
   variantId,
-  values
+  values,
+  theme
 }: {
   templateId: string;
   variantId: string;
   values: Record<string, string>;
+  /** The VISIBLE target's theme, routed from the owner. Reading the store theme
+   *  here showed the hidden draft's colours whenever a rundown item was
+   *  selected, so the picker disagreed with the preview and with Take. */
+  theme: Partial<TemplateDefinition['theme']>;
 }) {
-  const storeTheme = useLiveLayerStore((state) => state.theme);
   const template = templateRegistry.find((item) => item.id === templateId);
   const Renderer = templateRendererMap[templateId];
-  const mergedTheme = useMemo(() => ({ ...template?.theme, ...storeTheme }), [template, storeTheme]);
+  const mergedTheme = useMemo(() => composeThumbTheme(template?.theme, theme), [template, theme]);
   const thumbValues = useMemo(() => ({ ...values, variantId }), [values, variantId]);
   if (!template || !Renderer) return null;
   const focus = template.category === 'Lower Third' ? 'lower-third' : 'full';
@@ -203,12 +208,15 @@ const VariantThumb = memo(function VariantThumb({
 function TemplateVariantPicker({
   templateId,
   draftValues,
+  targetTheme,
   variants,
   value,
   onChange
 }: {
   templateId: string;
   draftValues: Record<string, string>;
+  /** The visible target's theme — see VariantThumb. */
+  targetTheme: Partial<TemplateDefinition['theme']>;
   variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
@@ -338,7 +346,7 @@ function TemplateVariantPicker({
                 onClick={() => onChange(variant.id)}
               >
                 <span className="variant-card__preview" aria-hidden>
-                  <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} />
+                  <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} theme={targetTheme} />
                   {active ? (
                     <span className="variant-card__check" aria-hidden>
                       <Icon name="check" size={13} />
@@ -377,6 +385,7 @@ function TemplateVariantPicker({
         <VariantBrowser
           templateId={templateId}
           thumbValues={thumbValues}
+          targetTheme={targetTheme}
           variants={variants}
           value={effectiveValue}
           onChange={onChange}
@@ -394,12 +403,15 @@ function TemplateVariantPicker({
 function VariantBrowser({
   templateId,
   thumbValues,
+  targetTheme,
   variants,
   value,
   onChange
 }: {
   templateId: string;
   thumbValues: Record<string, string>;
+  /** The visible target's theme — see VariantThumb. */
+  targetTheme: Partial<TemplateDefinition['theme']>;
   variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
@@ -462,7 +474,7 @@ function VariantBrowser({
             onClick={() => onChange(variant.id)}
           >
             <span className="variant-choice__preview" aria-hidden>
-              <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} />
+              <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} theme={targetTheme} />
             </span>
             <span className="variant-choice__name">
               <span>{variant.name}</span>
@@ -557,7 +569,7 @@ export default function TemplateFields({
   /** Field ids rendered elsewhere (e.g. logo in the Content tab's Logo block). */
   excludeFieldIds?: string[];
 }) {
-  const { templateId: currentTemplateId, values: draftValues, setField, setFields } = useEditTarget();
+  const { templateId: currentTemplateId, values: draftValues, theme: targetTheme, setField, setFields } = useEditTarget();
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const showDesign = section === 'all' || section === 'design';
   const showContent = section === 'all' || section === 'content';
@@ -590,6 +602,7 @@ export default function TemplateFields({
         <TemplateVariantPicker
           templateId={template.id}
           draftValues={draftValues}
+          targetTheme={targetTheme}
           variants={packVariants}
           value={draftValues.variantId ?? template.defaultValues.variantId ?? packVariants[0].id}
           onChange={(value) => setField('variantId', value)}
