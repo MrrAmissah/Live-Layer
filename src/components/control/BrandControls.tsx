@@ -6,12 +6,11 @@ import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { GFX_DEFAULT_ACCENT_2, GFX_DEFAULT_BRAND } from '../graphics/stage';
-import { templateRegistry } from '../templates/registry';
 import { BRAND_SWATCHES, describeLogoRef, planLogoWrite, type BrandSwatch } from '../../lib/brandWrites';
 import { useBrandSwatch } from '../../hooks/useBrandSwatch';
 import { getPack, graphicPacks } from '../../lib/packs';
+import { resolvePaletteColors } from '../../lib/variantPalette';
 
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 function Swatch({
   label,
@@ -137,25 +136,21 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
   };
 
   /**
-   * The chip must report the colour the graphic is actually painted with.
+   * The chip must report the colour the graphic is actually painted with, so it
+   * resolves through the SAME function as the Design chips and the overrides
+   * comparison: the target's own `values` colour (renderers redeclare `--gfx-*`
+   * from those), then the target's theme over its template's, then the template
+   * default. Reading the store theme here reported a colour neither the preview
+   * nor Take used whenever a legacy or imported item carried no colour values of
+   * its own; keeping a second copy of the fallback rule is how that chip and its
+   * own Reset button then disagreed about shorthand hex.
    *
-   * Same resolution order the preview uses: the target's own `values` colour
-   * first (renderers redeclare `--gfx-*` from those), then the TARGET's theme
-   * over its template's declared theme — the merge TemplatePreview performs —
-   * then the stage default. Reading the store theme here reported a colour
-   * neither the preview nor Take used whenever a legacy or imported item
-   * carried no colour values of its own.
+   * The stage default is the last resort, for a template this build doesn't have.
    */
-  const templateTheme = templateRegistry.find((entry) => entry.id === templateId)?.theme;
-  const effectiveTheme = { ...(templateTheme ?? {}), ...targetTheme };
+  const resolvedPalette = resolvePaletteColors(templateId, values, targetTheme);
 
-  const swatchValue = (swatch: BrandSwatch, fallback: string): string => {
-    const { field, themeKey } = BRAND_SWATCHES[swatch];
-    const own = values[field]?.trim();
-    if (own && HEX_COLOR.test(own)) return own;
-    const themed = effectiveTheme[themeKey]?.trim();
-    return themed && HEX_COLOR.test(themed) ? themed : fallback;
-  };
+  const swatchValue = (swatch: BrandSwatch, fallback: string): string =>
+    resolvedPalette[BRAND_SWATCHES[swatch].field] || fallback;
 
   // The target decision lives in useBrandSwatch so it is testable — see there.
   const applySwatch = useBrandSwatch();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyVariantSelection, resolveResetPalette, PALETTE_FIELD_IDS } from './variantPalette';
+import { applyVariantSelection, resolveResetPalette, resolvePaletteColors, PALETTE_FIELD_IDS } from './variantPalette';
 import { templateRegistry } from '../components/templates/registry';
 
 const preacher = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
@@ -66,5 +66,48 @@ describe('resolveResetPalette — Reset palette target', () => {
     const reset = resolveResetPalette(preacher.id, 'variant-that-does-not-exist');
     expect(Object.keys(reset).length).toBeGreaterThan(0);
     expect(Object.keys(reset).every((k) => (PALETTE_FIELD_IDS as readonly string[]).includes(k))).toBe(true);
+  });
+});
+
+/* --- Theme slots are gated as the renderer gates them -------------------- *
+ * `themeToVars` copies a theme colour straight into `--gfx-*`, so CSS resolves
+ * shorthand hex and Program really does paint `#fff`. A chip that rejected it
+ * showed a colour the graphic was not painted with. Per-graphic VALUES keep the
+ * stricter rule, because `templateColorStyle` drops anything but six digits.
+ * ------------------------------------------------------------------------ */
+describe('resolvePaletteColors — theme shorthand vs value strictness', () => {
+  const TEMPLATE_ID = 'preacher-lower-third';
+  const template = templateRegistry.find((entry) => entry.id === TEMPLATE_ID)!;
+
+  it('expands a shorthand THEME colour to what the picker can show', () => {
+    const resolved = resolvePaletteColors(TEMPLATE_ID, {}, { accentColor: '#fff' });
+    expect(resolved.colorBrand).toBe('#ffffff');
+  });
+
+  it('expands shorthand in every theme-backed slot', () => {
+    const resolved = resolvePaletteColors(
+      TEMPLATE_ID,
+      {},
+      { accentColor: '#abc', accent2Color: '#0F0', surfaceColor: '#123', primaryColor: '#DEF' }
+    );
+    expect(resolved.colorBrand).toBe('#aabbcc');
+    expect(resolved.colorAccent).toBe('#00ff00');
+    expect(resolved.colorSurface).toBe('#112233');
+    expect(resolved.colorText).toBe('#ddeeff');
+  });
+
+  it('ignores a shorthand VALUE, which templateColorStyle would drop too', () => {
+    const resolved = resolvePaletteColors(TEMPLATE_ID, { colorBrand: '#fff' }, {});
+    expect(resolved.colorBrand).toBe(template.defaultValues.colorBrand);
+  });
+
+  it('falls back for a theme colour no colour input can show', () => {
+    const resolved = resolvePaletteColors(TEMPLATE_ID, {}, { accentColor: 'rebeccapurple' });
+    expect(resolved.colorBrand).toBe(template.defaultValues.colorBrand);
+  });
+
+  it('a six-digit value still wins over the theme', () => {
+    const resolved = resolvePaletteColors(TEMPLATE_ID, { colorBrand: '#123456' }, { accentColor: '#fff' });
+    expect(resolved.colorBrand).toBe('#123456');
   });
 });

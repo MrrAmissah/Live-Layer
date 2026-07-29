@@ -50,6 +50,12 @@ export interface VisualSide {
   /** The graphic's OWN theme — the target's captured one, or the brand default
    *  a graphic seeded right now would carry. */
   theme?: Partial<TemplateTheme>;
+  /**
+   * False only when this side names an upload the asset store could not produce.
+   * Absent means "not known to be missing", which is also the loading state —
+   * a row must not blink out and back while IndexedDB is read.
+   */
+  logoAssetAvailable?: boolean;
 }
 
 /**
@@ -67,9 +73,13 @@ function resolveVisualValues(templateId: string, side: VisualSide): Record<strin
   return {
     ...resolvePaletteColors(templateId, side.values, side.theme),
     variantId: resolveRenderedVariantId(templateId, side.values.variantId),
-    // No fallback chain: the renderers read these two straight from `values`.
+    // The renderers read the logo straight from `values` — no theme chain — but
+    // they DO fall through an upload that cannot be produced to `logoUrl`
+    // (`resolveLogoSrc`). An unavailable id paints nothing, so counting it as a
+    // difference contradicted the Brand panel, which stopped calling that same
+    // graphic's logo unavailable once a URL covered it.
     logoUrl: side.values.logoUrl ?? '',
-    logoAssetId: side.values.logoAssetId ?? ''
+    logoAssetId: side.logoAssetAvailable === false ? '' : side.values.logoAssetId ?? ''
   };
 }
 

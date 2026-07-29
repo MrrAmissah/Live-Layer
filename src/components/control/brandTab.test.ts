@@ -263,6 +263,18 @@ function selectItemWithTheme(values: Record<string, string>, theme: GraphicInsta
 }
 
 describe('Brand swatch fallbacks follow the visible target', () => {
+  it('shows shorthand theme hex as the colour Program paints', () => {
+    // themeToVars copies the theme colour into --gfx-* unvalidated, so CSS
+    // paints #fff; a six-digit-only chip showed the template default instead.
+    selectItemWithTheme(
+      { name: 'Legacy speaker' },
+      { primaryColor: '#fff', accentColor: '#fff', backgroundColor: 'transparent', accent2Color: '#0F0' }
+    );
+    const found = swatches(brandTab());
+    expect(found.main).toBe('#ffffff');
+    expect(found.accent).toBe('#00ff00');
+  });
+
   it('uses the item’s own theme when it carries no colour values', () => {
     selectItemWithTheme(
       { name: 'Legacy speaker' },

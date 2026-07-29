@@ -77,6 +77,51 @@ describe('findVisualOverrides', () => {
     expect(found[0]).toMatchObject({ id: 'logoUrl', value: '' });
   });
 
+  it('does not count an unavailable upload that the URL fallback covers', () => {
+    // resolveLogoSrc falls through an upload it cannot produce to logoUrl, so
+    // this graphic paints the seed's logo — the same judgement describeLogoRef
+    // makes in the Brand panel.
+    expect(
+      findVisualOverrides(
+        TEMPLATE_ID,
+        { values: { ...seedValues, logoAssetId: 'asset-gone' }, theme: brandTheme, logoAssetAvailable: false },
+        seed
+      )
+    ).toEqual([]);
+  });
+
+  it('counts an upload that resolves, because that is what paints', () => {
+    const found = findVisualOverrides(
+      TEMPLATE_ID,
+      { values: { ...seedValues, logoAssetId: 'asset-1' }, theme: brandTheme, logoAssetAvailable: true },
+      seed
+    );
+    expect(found).toEqual([{ id: 'logoAssetId', label: 'Uploaded logo', value: 'asset-1' }]);
+  });
+
+  it('still reports an unavailable upload when the URL beneath it differs', () => {
+    const found = findVisualOverrides(
+      TEMPLATE_ID,
+      {
+        values: { ...seedValues, logoAssetId: 'asset-gone', logoUrl: 'https://other.test/l.png' },
+        theme: brandTheme,
+        logoAssetAvailable: false
+      },
+      seed
+    );
+    // The upload paints nothing, so the difference on screen is the URL.
+    expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: 'https://other.test/l.png' }]);
+  });
+
+  it('treats a not-yet-resolved upload as present, so no row blinks out and back', () => {
+    const loading = findVisualOverrides(
+      TEMPLATE_ID,
+      { values: { ...seedValues, logoAssetId: 'asset-1' }, theme: brandTheme },
+      seed
+    );
+    expect(loading.map((entry) => entry.id)).toEqual(['logoAssetId']);
+  });
+
   it('detects a logo that was added where the seed has none', () => {
     const found = find({ ...seedValues, logoAssetId: 'asset-1' });
     expect(found).toHaveLength(1);

@@ -29,9 +29,37 @@ export const PALETTE_FIELD_IDS: ReadonlyArray<(typeof PALETTE_FIELDS)[number]['i
 /** Any theme record: a template's, a graphic's captured one, or the brand default. */
 type ThemeLike = Partial<TemplateTheme>;
 
+/**
+ * A per-graphic VALUE colour, gated exactly as `templateColorStyle` gates it:
+ * six-digit hex or nothing. A three-digit value never reaches `--gfx-*`, so a
+ * chip must not display one either.
+ */
 function colorValue(value: string | undefined, fallback: string): string {
   const next = value?.trim();
   return next && HEX_COLOR.test(next) ? next : fallback;
+}
+
+const SHORT_HEX = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i;
+
+/**
+ * A THEME slot, gated as `themeToVars` gates it — which is to say hardly at all:
+ * it copies the string into `--gfx-*`, and CSS resolves `#fff` happily, so a
+ * legacy or imported theme carrying shorthand really is what Program paints.
+ * Expanded to six digits because that is all `<input type="color">` accepts.
+ *
+ * A theme colour that is neither three- nor six-digit hex (a named CSS colour,
+ * say) still cannot be shown in a colour input, so the chip falls back — the
+ * honest limit of a picker, and unreachable through the UI's own writes.
+ */
+function themeColorValue(value: string | undefined, fallback: string): string {
+  const next = value?.trim();
+  if (!next) return fallback;
+  const short = SHORT_HEX.exec(next);
+  // Lowercase, which is what `<input type="color">` emits — so a chip that
+  // started at an expanded shorthand doesn't change case the moment it is
+  // re-picked. Six-digit values pass through as authored.
+  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase();
+  return HEX_COLOR.test(next) ? next : fallback;
 }
 
 /**
@@ -59,7 +87,7 @@ export function resolvePaletteColors(
   for (const { id, themeKey } of PALETTE_FIELDS) {
     resolved[id] = colorValue(
       values[id],
-      colorValue(themeKey ? effectiveTheme[themeKey] : undefined, defaults[id] ?? '')
+      themeColorValue(themeKey ? effectiveTheme[themeKey] : undefined, defaults[id] ?? '')
     );
   }
   return resolved;

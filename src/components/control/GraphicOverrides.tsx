@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { templateRegistry } from '../templates/registry';
 import { createDraftValues } from '../../lib/draftSeed';
@@ -27,13 +28,22 @@ export default function GraphicOverrides() {
   const explicitBrandKeys = useLiveLayerStore((state) => state.explicitBrandKeys);
   const { templateId, values, theme } = useEditTarget();
 
+  // A stored upload only counts as a visual difference if it can actually be
+  // produced; otherwise the renderer falls through it to `logoUrl`, and the
+  // Brand panel above already declines to call such a logo unavailable.
+  const logoAsset = useAsset(values.logoAssetId);
+
   const known = templateRegistry.some((template) => template.id === templateId);
   // Same inputs the store seeds with, so the count can never disagree with
   // what a fresh graphic would actually look like — including the theme it
   // would carry, which is what fills in whatever its values omit.
   const seed = createDraftValues(templateId, activePackId, brandTheme, explicitBrandKeys);
   const overrides = known
-    ? findVisualOverrides(templateId, { values, theme }, { values: seed, theme: brandTheme })
+    ? findVisualOverrides(
+        templateId,
+        { values, theme, logoAssetAvailable: logoAsset.status !== 'missing' },
+        { values: seed, theme: brandTheme }
+      )
     : [];
   const summary = known ? describeOverrideCount(overrides.length) : 'Comparison unavailable';
 
