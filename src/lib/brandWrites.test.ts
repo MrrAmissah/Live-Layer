@@ -213,6 +213,19 @@ describe('describeLogoRef — presence, not resolution', () => {
     expect(describeLogoRef('', 'https://x.test/l.png', 'missing')).toEqual({ hasRef: true, missing: false });
   });
 
+  it('is not unavailable when a URL covers an unresolved upload', () => {
+    // resolveLogoSrc drops through the unresolved asset to logoUrl, so the
+    // graphic still renders the URL — the monogram warning would be false.
+    expect(describeLogoRef('asset-1', 'https://x.test/l.png', 'missing')).toEqual({
+      hasRef: true,
+      missing: false
+    });
+  });
+
+  it('is unavailable when the only URL is whitespace, which resolveLogoSrc cannot use', () => {
+    expect(describeLogoRef('asset-1', '   ', 'missing')).toEqual({ hasRef: true, missing: true });
+  });
+
   it('reports no reference when the graphic names no logo', () => {
     expect(describeLogoRef('', '', 'idle')).toEqual({ hasRef: false, missing: false });
     expect(describeLogoRef(undefined, undefined, 'missing')).toEqual({ hasRef: false, missing: false });

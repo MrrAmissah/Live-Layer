@@ -273,7 +273,7 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] **Brand follows the target:** with an item selected, the Brand area says colours and logo apply to that item only and that brand defaults are unchanged; changing a swatch recolours **the selected item** and leaves `livelayer.brand` / `livelayer.brandExplicit` untouched
 - [ ] **Event pack is read-only with an item selected** (switching it would re-seed the hidden draft, not the item)
 - [ ] **Reset brand** with an item selected restores that item's colours only; the persisted default and the hidden draft are unchanged
-- [ ] A graphic whose stored logo no longer resolves still reports a logo is set, explains it is unavailable, and offers **Remove image**
+- [ ] A graphic whose stored logo no longer resolves still reports a logo is set, explains it is unavailable, and offers **Remove image** — but only when no logo URL covers it: with a working URL alongside the dead upload the graphic renders that URL, so the preview shows it and no "unavailable" message appears
 - [ ] **No rundown active** → editors edit the draft exactly as before (Take draft works)
 
 ## 9H. Rundown — studio queue panel (R5, desktop ≥1024px)

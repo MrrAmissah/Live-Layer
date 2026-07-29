@@ -97,8 +97,15 @@ export function applyLogoUrl(values: Record<string, string>, url: string): Recor
  * source made the UI offer "Choose image" over a live `logoAssetId` the
  * operator could neither see nor clear, while export still counted it.
  *
- * `missing` is only true for a named upload the asset store could not produce,
- * so a plain URL logo is never described as unavailable.
+ * `missing` means the graphic really does fall back to the monogram: a named
+ * upload the asset store could not produce AND no URL to fall back on. A
+ * graphic carrying both — legacy or imported records can — still renders,
+ * because `resolveLogoSrc` drops through the unresolved asset to `logoUrl`.
+ * Calling that unavailable contradicted the URL preview shown right above the
+ * message and invited "Remove image", which would clear the working URL too.
+ *
+ * `hasUrlFallback` is the same test `resolveLogoSrc` makes, so the two agree by
+ * construction rather than by two expressions that have to be kept in step.
  */
 export function describeLogoRef(
   logoAssetId: string | undefined,
@@ -106,9 +113,10 @@ export function describeLogoRef(
   assetStatus: string
 ): { hasRef: boolean; missing: boolean } {
   const hasAsset = Boolean(logoAssetId?.trim());
+  const hasUrlFallback = Boolean(logoUrl?.trim());
   return {
-    hasRef: hasAsset || Boolean(logoUrl?.trim()),
-    missing: hasAsset && assetStatus === 'missing'
+    hasRef: hasAsset || hasUrlFallback,
+    missing: hasAsset && assetStatus === 'missing' && !hasUrlFallback
   };
 }
 
