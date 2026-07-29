@@ -1,4 +1,6 @@
 import type { TemplateDefinition } from '../types/graphics';
+import { createDraftValues, THEME_SEEDED_FIELDS } from './draftSeed';
+import { defaultBrandTheme } from './storage';
 
 /**
  * What a Brand control has to write, expressed as data so the branching is
@@ -33,6 +35,41 @@ export interface BrandColorWrite {
 export function planBrandColorWrite(swatch: BrandSwatch, value: string): BrandColorWrite {
   const { themeKey, field } = BRAND_SWATCHES[swatch];
   return { theme: { [themeKey]: value }, values: { [field]: value } };
+}
+
+/**
+ * The visible target's side of "reset brand": put the brand-seeded colours back
+ * to what this template under this pack seeds with the DEFAULT brand.
+ *
+ * Without this the reset is a lie — it would restore the global default while
+ * leaving the graphic painted in the operator's last brand colour, because the
+ * renderers read the per-graphic `values`, not `theme`. Returns only the two
+ * fields Brand owns; the rest of the palette belongs to Design's "Reset
+ * palette". An unknown template yields nothing rather than a guess.
+ */
+export function planBrandResetValues(templateId: string, packId: string): Record<string, string> {
+  const seed = createDraftValues(templateId, packId, defaultBrandTheme());
+  const values: Record<string, string> = {};
+  for (const { field } of THEME_SEEDED_FIELDS) {
+    if (typeof seed[field] === 'string') values[field] = seed[field];
+  }
+  return values;
+}
+
+/**
+ * Writing a logo URL also clears any uploaded asset.
+ *
+ * `logoAssetId` and `logoUrl` are alternatives, and every renderer prefers a
+ * ready asset (`asset.status === 'ready' ? asset.src : logoUrl`). Leaving both
+ * set means a typed URL saves but changes nothing on screen — so the rule lives
+ * on the write path, where it covers the studio Content tab, the dock Edit step
+ * and anything else that edits the field generically.
+ *
+ * Clearing the URL is NOT a request to delete an upload, so an empty value
+ * leaves `logoAssetId` alone.
+ */
+export function applyLogoUrl(values: Record<string, string>, url: string): Record<string, string> {
+  return { ...values, logoUrl: url, ...(url.trim() ? { logoAssetId: '' } : {}) };
 }
 
 export type LogoAction =

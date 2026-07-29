@@ -4,7 +4,7 @@ import ContentTab from './ContentTab';
 import DesignTab from './DesignTab';
 import BrandTab from './BrandTab';
 import { useEditTarget } from '../../hooks/useEditTarget';
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useBrandReset } from '../../hooks/useBrandReset';
 import type { StudioView } from './StudioNav';
 import type { GraphicInstance } from '../../types/graphics';
 
@@ -36,7 +36,7 @@ const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
  */
 export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorProps = {}) {
   const { isRundownItem, resetDraft } = useEditTarget();
-  const resetTheme = useLiveLayerStore((state) => state.resetTheme);
+  const resetBrand = useBrandReset();
   const [tab, setTab] = useState<EditorTab>('content');
 
   // Reset acts on whatever the visible tab edits, and says so. A generic
@@ -45,11 +45,8 @@ export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorPr
     tab === 'brand'
       ? {
           label: 'Reset brand',
-          run: resetTheme,
-          // Scoped wording: this restores the brand that SEEDS new graphics. The
-          // colours on the graphic in front of you live in its own values and
-          // are reset from the Design tab's "Reset palette".
-          title: 'Restore the default brand colours used to seed new graphics'
+          run: resetBrand,
+          title: 'Restore the default brand colours on this graphic and for new graphics'
         }
       : { label: 'Reset graphic', run: resetDraft, title: 'Restore this template’s default content and design' };
 

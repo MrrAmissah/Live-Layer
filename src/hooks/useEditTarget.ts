@@ -2,6 +2,7 @@ import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
 import { cloneRundownGraphic, getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
 import { applyVariantSelection } from '../lib/variantPalette';
+import { applyLogoUrl } from '../lib/brandWrites';
 import type { GraphicInstance } from '../types/graphics';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
@@ -88,12 +89,17 @@ export function useEditTarget(): EditTarget {
       // the same rule as the draft path — or a rundown item would switch look
       // while keeping the previous variant's colours. Non-variant fields are a
       // plain patch.
+      // A typed logo URL supersedes an upload here too — same rule as the draft
+      // path, so a URL entered against an item that carries a stored asset
+      // cannot save while changing nothing on screen.
       setField: (key, value) =>
         patch({
           values:
             key === 'variantId'
               ? applyVariantSelection(graphic.values, graphic.templateId, value)
-              : { ...graphic.values, [key]: value }
+              : key === 'logoUrl'
+                ? applyLogoUrl(graphic.values, value)
+                : { ...graphic.values, [key]: value }
         }),
       // Atomic multi-field write: one updateItem over the current values, so
       // all fields land together instead of each overwriting the last from the

@@ -3,7 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useEditTarget, type EditTarget } from './useEditTarget';
-import { planBrandColorWrite, planLogoWrite } from '../lib/brandWrites';
+import { planBrandColorWrite, planBrandResetValues, planLogoWrite } from '../lib/brandWrites';
+import { defaultBrandTheme } from '../lib/storage';
+import { templateRegistry } from '../components/templates/registry';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 import {
   addItem,
@@ -245,6 +247,88 @@ describe('Preset save targeting', () => {
   it('never publishes — Program is unchanged by a save', () => {
     const before = useLiveLayerStore.getState().program;
     readEditTarget().saveAsPreset('Anything');
+    expect(useLiveLayerStore.getState().program).toEqual(before);
+  });
+});
+
+describe('Logo URL supersedes an upload on every surface', () => {
+  it('clears the draft’s stored asset when a URL is typed generically', () => {
+    useLiveLayerStore.setState({ draftValues: { ...draft(), logoAssetId: 'asset-1', logoUrl: '' } });
+    // The generic field write — what the Content tab and the dock Edit step do.
+    useLiveLayerStore.getState().setField('logoUrl', 'https://typed.test/l.png');
+    expect(draft().logoUrl).toBe('https://typed.test/l.png');
+    expect(draft().logoAssetId).toBe('');
+    expect(draft().name).toBe('Draft name');
+  });
+
+  it('keeps the draft’s stored asset when the URL box is merely emptied', () => {
+    useLiveLayerStore.setState({ draftValues: { ...draft(), logoAssetId: 'asset-1' } });
+    useLiveLayerStore.getState().setField('logoUrl', '');
+    expect(draft().logoAssetId).toBe('asset-1');
+  });
+
+  it('clears the SELECTED ITEM’s stored asset when a URL is typed', () => {
+    const { rundownId, first } = seedRundown();
+    // Give the item an upload the way the Brand tab now can.
+    readEditTarget().setFields(planLogoWrite({ type: 'asset', assetId: 'asset-1' }));
+    // Then type a URL through the generic field path.
+    readEditTarget().setField('logoUrl', 'https://typed.test/l.png');
+
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.logoUrl).toBe('https://typed.test/l.png');
+    expect(item.graphic.values.logoAssetId).toBe('');
+    expect(item.graphic.values.name).toBe('Item name');
+    expect(item.graphic.id).toBe('graphic-1');
+  });
+
+  it('leaves other fields’ generic writes untouched by the rule', () => {
+    readEditTarget().setField('name', 'Renamed');
+    expect(draft().name).toBe('Renamed');
+    expect(draft().logoUrl).toBe('https://draft.test/l.png');
+  });
+});
+
+describe('Brand reset restores the visible target as well as the default', () => {
+  const houseDefaults = () =>
+    templateRegistry.find((template) => template.id === 'preacher-lower-third')!.defaultValues;
+
+  it('puts the draft’s brand colours back and clears the global override', () => {
+    // Change both halves the way a swatch does.
+    const write = planBrandColorWrite('main', '#ff0000');
+    useLiveLayerStore.getState().setTheme(write.theme);
+    readEditTarget().setFields(write.values);
+    expect(draft().colorBrand).toBe('#ff0000');
+
+    useLiveLayerStore.getState().resetTheme();
+    readEditTarget().setFields(planBrandResetValues('preacher-lower-third', 'house'));
+
+    expect(draft().colorBrand).toBe(houseDefaults().colorBrand);
+    expect(draft().colorAccent).toBe(houseDefaults().colorAccent);
+    expect(useLiveLayerStore.getState().theme.accentColor).toBe(defaultBrandTheme().accentColor);
+    // Content is not part of a brand reset.
+    expect(draft().name).toBe('Draft name');
+  });
+
+  it('puts the SELECTED ITEM’s brand colours back, preserving identity', () => {
+    const { rundownId, first, second } = seedRundown();
+    readEditTarget().setFields(planBrandColorWrite('main', '#ff0000').values);
+
+    useLiveLayerStore.getState().resetTheme();
+    readEditTarget().setFields(planBrandResetValues('preacher-lower-third', 'house'));
+
+    const rundown = getRundown(rundownId)!;
+    const item = rundown.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.colorBrand).toBe(houseDefaults().colorBrand);
+    expect(item.graphic.values.name).toBe('Item name');
+    expect(item.graphic.id).toBe('graphic-1');
+    expect(rundown.items.map((entry) => entry.id)).toEqual([first.id, second.id]);
+    expect(rundown.selectedItemId).toBe(first.id);
+  });
+
+  it('never publishes', () => {
+    const before = useLiveLayerStore.getState().program;
+    useLiveLayerStore.getState().resetTheme();
+    readEditTarget().setFields(planBrandResetValues('preacher-lower-third', 'house'));
     expect(useLiveLayerStore.getState().program).toEqual(before);
   });
 });

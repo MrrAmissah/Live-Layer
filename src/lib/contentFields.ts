@@ -9,6 +9,10 @@
  * edits the visible target, so the item's logo IS reachable from Brand — but a
  * queue-driven operator works down the Content tab, and a captured URL is worth
  * one direct text field rather than a tab switch. Nothing is excluded there.
+ *
+ * The two editors cannot disagree: writing `logoUrl` anywhere clears
+ * `logoAssetId` (see `applyLogoUrl`), because renderers prefer a ready asset
+ * and would otherwise ignore the URL just typed.
  */
 export function contentFieldExclusions(isRundownItem: boolean): string[] {
   return isRundownItem ? [] : ['logoUrl'];

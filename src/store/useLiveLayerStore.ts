@@ -13,6 +13,7 @@ import { templateRegistry } from '../components/templates/registry';
 import { loadActivePackId, saveActivePackId } from '../lib/packs';
 import { createDraftValues } from '../lib/draftSeed';
 import { applyVariantSelection } from '../lib/variantPalette';
+import { applyLogoUrl } from '../lib/brandWrites';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
 export interface QuickQueueUpdate {
@@ -290,6 +291,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         // the rundown-item path (see useEditTarget / applyVariantSelection).
         if (fieldId === 'variantId') {
           return { draftValues: applyVariantSelection(state.draftValues, state.currentTemplateId, value) };
+        }
+        // A typed logo URL supersedes an upload — renderers prefer a ready
+        // asset, so leaving both would make the URL silently do nothing.
+        if (fieldId === 'logoUrl') {
+          return { draftValues: applyLogoUrl(state.draftValues, value) };
         }
         return {
           draftValues: {

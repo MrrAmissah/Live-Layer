@@ -1,5 +1,27 @@
-import { describe, expect, it } from 'vitest';
-import { BRAND_SWATCHES, planBrandColorWrite, planLogoWrite } from './brandWrites';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  BRAND_SWATCHES,
+  applyLogoUrl,
+  planBrandColorWrite,
+  planBrandResetValues,
+  planLogoWrite
+} from './brandWrites';
+import { PPC_PALETTE } from './packs';
+import { templateRegistry } from '../components/templates/registry';
+
+class MemStorage {
+  private m = new Map<string, string>();
+  getItem(k: string) { return this.m.has(k) ? this.m.get(k)! : null; }
+  setItem(k: string, v: string) { this.m.set(k, String(v)); }
+  removeItem(k: string) { this.m.delete(k); }
+  clear() { this.m.clear(); }
+  key(i: number) { return [...this.m.keys()][i] ?? null; }
+  get length() { return this.m.size; }
+}
+
+beforeEach(() => {
+  (globalThis as unknown as { localStorage: MemStorage }).localStorage = new MemStorage();
+});
 
 describe('planBrandColorWrite', () => {
   it('writes the global default and the graphic colour together', () => {
@@ -54,5 +76,61 @@ describe('planLogoWrite', () => {
     for (const action of actions) {
       expect(Object.keys(planLogoWrite(action)).sort()).toEqual(['logoAssetId', 'logoUrl']);
     }
+  });
+});
+
+describe('planBrandResetValues', () => {
+  it('restores the template’s own brand colours', () => {
+    const defaults = templateRegistry.find((t) => t.id === 'preacher-lower-third')!.defaultValues;
+    expect(planBrandResetValues('preacher-lower-third', 'house')).toEqual({
+      colorBrand: defaults.colorBrand,
+      colorAccent: defaults.colorAccent
+    });
+  });
+
+  it('restores the active pack’s palette rather than the house one', () => {
+    expect(planBrandResetValues('preacher-lower-third', 'ppc-2026')).toEqual({
+      colorBrand: PPC_PALETTE.colorBrand,
+      colorAccent: PPC_PALETTE.colorAccent
+    });
+  });
+
+  it('only ever touches the two fields Brand owns', () => {
+    const keys = Object.keys(planBrandResetValues('scripture-card', 'house')).sort();
+    expect(keys).toEqual(['colorAccent', 'colorBrand']);
+  });
+
+  it('yields nothing for an unknown template instead of guessing', () => {
+    expect(planBrandResetValues('retired-template', 'house')).toEqual({});
+  });
+});
+
+describe('applyLogoUrl', () => {
+  it('clears an uploaded asset when a URL is typed', () => {
+    const next = applyLogoUrl({ logoAssetId: 'asset-1', name: 'Keep me' }, 'https://x.test/l.png');
+    expect(next).toEqual({ logoAssetId: '', logoUrl: 'https://x.test/l.png', name: 'Keep me' });
+  });
+
+  it('leaves an upload alone when the URL is merely cleared', () => {
+    // Emptying the URL box is not a request to delete a stored image.
+    const next = applyLogoUrl({ logoAssetId: 'asset-1', logoUrl: 'https://x.test/l.png' }, '');
+    expect(next.logoAssetId).toBe('asset-1');
+    expect(next.logoUrl).toBe('');
+  });
+
+  it('treats whitespace as empty', () => {
+    expect(applyLogoUrl({ logoAssetId: 'asset-1' }, '   ').logoAssetId).toBe('asset-1');
+  });
+
+  it('preserves every unrelated value', () => {
+    const next = applyLogoUrl({ name: 'Speaker', colorBrand: '#123456' }, 'https://x.test/l.png');
+    expect(next.name).toBe('Speaker');
+    expect(next.colorBrand).toBe('#123456');
+  });
+
+  it('never mutates its input', () => {
+    const values = { logoAssetId: 'asset-1' };
+    applyLogoUrl(values, 'https://x.test/l.png');
+    expect(values).toEqual({ logoAssetId: 'asset-1' });
   });
 });
