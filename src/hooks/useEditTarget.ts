@@ -1,6 +1,6 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
-import { cloneRundownGraphic, getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
+import { cloneRundownGraphic, getRundown, getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
 import { reconcileGraphicAssets } from '../lib/rundown/rundownReferences';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
@@ -70,11 +70,35 @@ export function useEditTarget(): EditTarget {
 
   if (rundown && item) {
     const rundownId = rundown.id;
+    const itemId = item.id;
     const graphic = item.graphic;
-    // Re-created each render over the freshly-read `graphic`, so successive edits
-    // build on the latest committed snapshot (no stale closure).
-    const patch = (changes: Partial<typeof graphic>) =>
-      updateItem(rundownId, item.id, { graphic: { ...graphic, ...changes } });
+
+    /**
+     * The item's graphic AS IT IS NOW, resolved when a writer runs rather than
+     * when this render closed over it.
+     *
+     * A logo upload awaits image processing and an IndexedDB write, so the
+     * callback that finally writes can be several hundred milliseconds — and
+     * any number of content edits — older than the snapshot it captured.
+     * Spreading that snapshot back over the item silently undid whatever was
+     * typed while the image was saving. The draft path has never had this
+     * problem (the store's own `set(state => …)` is latest-based), so reading
+     * fresh here makes the two targets behave the same way.
+     *
+     * When the item is gone — deleted mid-write — this falls back to the
+     * captured snapshot and `updateItem` matches no item, so the write is
+     * dropped instead of resurrecting a deleted item.
+     */
+    const latest = (): GraphicInstance =>
+      getRundown(rundownId)?.items.find((entry) => entry.id === itemId)?.graphic ?? graphic;
+
+    // `changes` is a function of the CURRENT graphic so that patches derived
+    // from the old snapshot (layout merges, values merges) can't sneak a stale
+    // read past the fresh one.
+    const patch = (changes: (current: GraphicInstance) => Partial<GraphicInstance>) => {
+      const current = latest();
+      updateItem(rundownId, itemId, { graphic: { ...current, ...changes(current) } });
+    };
 
     /**
      * Every values write goes through here so a stored graphic's asset
@@ -83,8 +107,10 @@ export function useEditTarget(): EditTarget {
      * two can never be momentarily inconsistent — and an export can never
      * bundle an image the operator removed.
      */
-    const patchValues = (nextValues: Record<string, string>, patchKeys: readonly string[]) =>
-      patch(reconcileGraphicAssets(graphic, nextValues, patchKeys));
+    const patchValues = (
+      nextValues: (current: GraphicInstance) => Record<string, string>,
+      patchKeys: readonly string[]
+    ) => patch((current) => reconcileGraphicAssets(current, nextValues(current), patchKeys));
 
     return {
       mode: 'rundown-item',
@@ -105,32 +131,34 @@ export function useEditTarget(): EditTarget {
       // cannot save while changing nothing on screen.
       setField: (key, value) =>
         patchValues(
-          key === 'variantId'
-            ? applyVariantSelection(graphic.values, graphic.templateId, value)
-            : key === 'logoUrl'
-              ? applyLogoUrl(graphic.values, value)
-              : { ...graphic.values, [key]: value },
+          (current) =>
+            key === 'variantId'
+              ? applyVariantSelection(current.values, current.templateId, value)
+              : key === 'logoUrl'
+                ? applyLogoUrl(current.values, value)
+                : { ...current.values, [key]: value },
           [key]
         ),
       // Atomic multi-field write: one updateItem over the current values, so
       // all fields land together instead of each overwriting the last from the
       // render-time snapshot.
       setFields: (fieldPatch) =>
-        patchValues({ ...graphic.values, ...fieldPatch }, Object.keys(fieldPatch)),
-      setLayout: (p) => patch({ layout: { ...(graphic.layout ?? {}), ...p } }),
-      resetLayout: () => patch({ layout: {} }),
-      setDuration: (seconds) => patch({ durationSeconds: seconds }),
+        patchValues((current) => ({ ...current.values, ...fieldPatch }), Object.keys(fieldPatch)),
+      setLayout: (p) => patch((current) => ({ layout: { ...(current.layout ?? {}), ...p } })),
+      resetLayout: () => patch(() => ({ layout: {} })),
+      setDuration: (seconds) => patch(() => ({ durationSeconds: seconds })),
       resetDraft: () => {
         /* No destructive reset of a rundown item in R4. */
       },
-      // Save the VISIBLE item, not the hidden ad-hoc draft.
-      saveAsPreset: (name) => savePresetFromInstance(graphic, name),
+      // Save the VISIBLE item, not the hidden ad-hoc draft — and what it holds
+      // at click time, not at the render the button was drawn in.
+      saveAsPreset: (name) => savePresetFromInstance(latest(), name),
       // Copy the preset payload onto this item, keeping the item's own graphic
       // id so item identity/ordering/membership and the rundown cursor are
       // untouched. Nothing is published — output only changes on the next Take.
       applyPreset: (preset) =>
-        updateItem(rundownId, item.id, {
-          graphic: { ...cloneRundownGraphic(preset), id: graphic.id }
+        updateItem(rundownId, itemId, {
+          graphic: { ...cloneRundownGraphic(preset), id: latest().id }
         })
     };
   }

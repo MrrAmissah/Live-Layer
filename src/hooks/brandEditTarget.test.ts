@@ -15,9 +15,11 @@ import {
   addItem,
   clearAllRundowns,
   createRundown,
+  deleteItem,
   getRundown,
   setActiveRundown,
-  setSelectedItem
+  setSelectedItem,
+  updateItem
 } from '../lib/rundown/rundownStore';
 import type { GraphicInstance } from '../types/graphics';
 
@@ -942,6 +944,103 @@ describe('Rundown logo writes keep assetRefs and the legacy theme pointer in ste
     useLiveLayerStore.setState({ draftValues: { name: 'Draft name' } });
     readEditTarget().setFields(planLogoWrite({ type: 'asset', assetId: 'asset-draft' }));
     expect(buildInstanceFromDraft(useLiveLayerStore.getState()).assetRefs).toEqual({ logo: 'asset-draft' });
+  });
+});
+
+/* --- A writer captured before an await must not undo later edits --------- *
+ * `saveUploadedAsset` decodes the image and writes IndexedDB, so the callback
+ * that finally stores the logo runs long after the render that created it.
+ * Every test here deliberately captures the EditTarget FIRST, edits the item
+ * behind its back, and only then writes through the captured setter — calling
+ * readEditTarget() again after the edit would pass with or without the fix.
+ * ------------------------------------------------------------------------ */
+describe('Item writers resolve the item when they run, not when they rendered', () => {
+  /** Edit the item directly, the way another surface would while an upload runs. */
+  const editBehindItsBack = (rundownId: string, itemId: string, values: Record<string, string>) => {
+    const current = itemGraphic(rundownId, itemId);
+    updateItem(rundownId, itemId, { graphic: { ...current, values: { ...current.values, ...values } } });
+  };
+
+  it('an upload that lands after a content edit merges instead of reverting it', () => {
+    const { rundownId, first } = seedRundownWithLogo({ values: { name: 'Item name' }, assetRefs: {} });
+    const captured = readEditTarget(); // the render that started the upload
+
+    editBehindItsBack(rundownId, first.id, { name: 'Typed while saving' });
+    captured.setFields(planLogoWrite({ type: 'asset', assetId: 'asset-new' }));
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.name).toBe('Typed while saving');
+    expect(g.values.logoAssetId).toBe('asset-new');
+    expect(g.assetRefs).toEqual({ logo: 'asset-new' });
+  });
+
+  it('the single-field path is latest-based too', () => {
+    const { rundownId, first } = seedRundownWithLogo({ values: { name: 'Item name' } });
+    const captured = readEditTarget();
+
+    editBehindItsBack(rundownId, first.id, { colorBrand: '#123456' });
+    captured.setField('name', 'Renamed');
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.colorBrand).toBe('#123456');
+    expect(g.values.name).toBe('Renamed');
+  });
+
+  it('a stale logo write reconciles against the item’s CURRENT theme', () => {
+    const { rundownId, first } = seedRundownWithLogo({ values: { name: 'Item name' } });
+    const captured = readEditTarget();
+
+    // A legacy pointer and an unrelated theme edit both arrive after the
+    // capture. Dropping the pointer is not enough on its own — reverting the
+    // whole theme would do that too — so the surviving slot is what proves the
+    // reconciliation read the current theme rather than replacing it.
+    const current = itemGraphic(rundownId, first.id);
+    updateItem(rundownId, first.id, {
+      graphic: { ...current, theme: { ...current.theme, logoAssetId: 'asset-legacy', surfaceColor: '#abcdef' } }
+    });
+    captured.setFields(planLogoWrite({ type: 'asset', assetId: 'asset-new' }));
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.theme.logoAssetId).toBeUndefined();
+    expect(g.theme.surfaceColor).toBe('#abcdef');
+    expect(collectGraphicAssetIds(g)).toEqual(['asset-new']);
+  });
+
+  it('a captured layout write merges over the latest layout', () => {
+    const { rundownId, first } = seedRundownWithLogo();
+    const captured = readEditTarget();
+
+    const current = itemGraphic(rundownId, first.id);
+    updateItem(rundownId, first.id, { graphic: { ...current, layout: { ...current.layout, size: 'large' } } });
+    captured.setLayout({ position: 'center' });
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.layout).toMatchObject({ size: 'large', position: 'center' });
+  });
+
+  it('saves the item as it is at click time, not as it rendered', () => {
+    const { rundownId, first } = seedRundownWithLogo({ values: { name: 'Item name' } });
+    const captured = readEditTarget();
+
+    editBehindItsBack(rundownId, first.id, { name: 'Final name' });
+    captured.saveAsPreset('Saved');
+
+    const { presets } = useLiveLayerStore.getState();
+    const preset = presets[presets.length - 1];
+    expect(preset.values.name).toBe('Final name');
+  });
+
+  // Guards the fallback in `latest()` rather than the fresh read itself:
+  // updateItem already matches nothing for a deleted id, and this must stay
+  // true now that a captured snapshot can be handed to it.
+  it('a write for an item deleted mid-upload is dropped, not resurrected', () => {
+    const { rundownId, first, second } = seedRundownWithLogo();
+    const captured = readEditTarget();
+
+    deleteItem(rundownId, first.id);
+    captured.setFields(planLogoWrite({ type: 'asset', assetId: 'asset-new' }));
+
+    expect(getRundown(rundownId)!.items.map((entry) => entry.id)).toEqual([second.id]);
   });
 });
 
