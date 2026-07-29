@@ -27,7 +27,7 @@ class MemStorage {
   get length() { return this.m.size; }
 }
 
-const HOUSE_SEED = () => createDraftValues('preacher-lower-third', 'house', defaultBrandTheme());
+const HOUSE_SEED = () => createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), []);
 
 beforeEach(() => {
   (globalThis as unknown as { localStorage: MemStorage }).localStorage = new MemStorage();

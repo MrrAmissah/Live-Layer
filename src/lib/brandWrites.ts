@@ -1,5 +1,5 @@
 import type { TemplateDefinition } from '../types/graphics';
-import { createDraftValues, THEME_SEEDED_FIELDS } from './draftSeed';
+import { createDraftValues, NO_EXPLICIT_BRAND, THEME_SEEDED_FIELDS } from './draftSeed';
 import { defaultBrandTheme } from './storage';
 
 /**
@@ -63,7 +63,9 @@ export function planBrandColorWrite(
  * palette". An unknown template yields nothing rather than a guess.
  */
 export function planBrandResetValues(templateId: string, packId: string): Record<string, string> {
-  const seed = createDraftValues(templateId, packId, defaultBrandTheme());
+  // Template + pack only: "reset" means the colours this template ships under
+  // this pack, not whatever brand happens to be selected.
+  const seed = createDraftValues(templateId, packId, defaultBrandTheme(), NO_EXPLICIT_BRAND);
   const values: Record<string, string> = {};
   for (const { field } of THEME_SEEDED_FIELDS) {
     if (typeof seed[field] === 'string') values[field] = seed[field];

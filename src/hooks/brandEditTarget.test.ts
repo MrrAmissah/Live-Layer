@@ -5,7 +5,8 @@ import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useEditTarget, type EditTarget } from './useEditTarget';
 import { useBrandReset } from './useBrandReset';
 import { planBrandColorWrite, planBrandResetValues, planLogoWrite } from '../lib/brandWrites';
-import { defaultBrandTheme } from '../lib/storage';
+import { defaultBrandTheme, loadExplicitBrandKeys } from '../lib/storage';
+import { createDraftValues } from '../lib/draftSeed';
 import { templateRegistry } from '../components/templates/registry';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 import {
@@ -35,6 +36,7 @@ beforeEach(() => {
     currentTemplateId: 'preacher-lower-third',
     draftValues: { name: 'Draft name', colorBrand: '#0d2095', colorAccent: '#E8B93C', logoUrl: 'https://draft.test/l.png' },
     theme: { primaryColor: '#f8fafc', accentColor: '#0d2095', backgroundColor: 'transparent', accent2Color: '#1284ff' },
+    explicitBrandKeys: [],
     presets: [],
     program: { ...CLEAR_PROGRAM_STATE }
   });
@@ -358,7 +360,9 @@ describe('Swatch write — a selected rundown item leaves the brand alone', () =
   });
 
   it('does not change isDraftDirty', () => {
-    useLiveLayerStore.setState({ draftValues: { ...houseDefaults() } });
+    useLiveLayerStore.setState({
+      draftValues: createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), [])
+    });
     const dirtyBefore = useLiveLayerStore.getState().isDraftDirty();
     seedRundown();
     applySwatch(readEditTarget(), 'main', '#ff0000');
@@ -430,7 +434,9 @@ describe('Brand reset — selected rundown item', () => {
   });
 
   it('leaves the global brand, the hidden draft and isDraftDirty untouched', () => {
-    useLiveLayerStore.setState({ draftValues: { ...houseDefaults() } });
+    useLiveLayerStore.setState({
+      draftValues: createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), [])
+    });
     seedRundown();
     const themeBefore = useLiveLayerStore.getState().theme;
     const draftBefore = draft();
@@ -483,5 +489,151 @@ describe('Brand reset — unresolvable template', () => {
     expect(useLiveLayerStore.getState().theme).toBe(themeBefore);
     expect(useLiveLayerStore.getState().theme.accentColor).toBe('#ff0000');
     expect(getRundown(rundown.id)!.items[0].graphic.values).toEqual(valuesBefore);
+  });
+});
+
+/* --- Explicit brand markers ---------------------------------------------- *
+ * Which swatches the operator actually chose is tracked, not inferred from
+ * value equality — otherwise deliberately picking the built-in default is
+ * silently discarded on the next template switch or reload.
+ * ------------------------------------------------------------------------ */
+
+const DEFAULT_ACCENT2 = defaultBrandTheme().accent2Color!;
+const markers = () => useLiveLayerStore.getState().explicitBrandKeys;
+
+describe('Explicit brand markers — draft swatches', () => {
+  beforeEach(() => {
+    useLiveLayerStore.setState({ theme: defaultBrandTheme(), explicitBrandKeys: [] });
+  });
+
+  it('marks the swatch a draft write touched, and only that one', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(markers()).toEqual(['accentColor']);
+    applySwatch(readEditTarget(), 'accent', '#00ff00');
+    expect(markers()).toEqual(['accentColor', 'accent2Color']);
+  });
+
+  it('marks a choice that equals the built-in default', () => {
+    applySwatch(readEditTarget(), 'accent', DEFAULT_ACCENT2);
+    expect(markers()).toEqual(['accent2Color']);
+    expect(useLiveLayerStore.getState().theme.accent2Color).toBe(DEFAULT_ACCENT2);
+  });
+
+  it('persists the marker so a reload restores the choice', () => {
+    applySwatch(readEditTarget(), 'accent', DEFAULT_ACCENT2);
+    expect(loadExplicitBrandKeys()).toEqual(['accent2Color']);
+  });
+
+  it('carries a default-equal choice through a template switch', () => {
+    // Preacher ships gold; the operator picks the built-in electric blue.
+    applySwatch(readEditTarget(), 'accent', DEFAULT_ACCENT2);
+    useLiveLayerStore.getState().setTemplate('quote-card');
+    expect(draft().colorAccent).toBe(DEFAULT_ACCENT2);
+    useLiveLayerStore.getState().setTemplate('preacher-lower-third');
+    expect(draft().colorAccent).toBe(DEFAULT_ACCENT2);
+  });
+
+  it('does not mark anything for a non-brand theme write', () => {
+    useLiveLayerStore.getState().setTheme({ surfaceColor: '#123456' });
+    expect(markers()).toEqual([]);
+  });
+
+  it('never marks twice for the same swatch', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    applySwatch(readEditTarget(), 'main', '#00ff00');
+    expect(markers()).toEqual(['accentColor']);
+  });
+});
+
+describe('Explicit brand markers — reset and clear', () => {
+  it('draft reset clears the markers and restores template-specific colours', () => {
+    applySwatch(readEditTarget(), 'accent', DEFAULT_ACCENT2);
+    readBrandReset()();
+
+    expect(markers()).toEqual([]);
+    expect(loadExplicitBrandKeys()).toEqual([]);
+    expect(draft().colorAccent).toBe(houseDefaults().colorAccent);
+    // A later template still gets its OWN accent, not the discarded choice.
+    useLiveLayerStore.getState().setTemplate('quote-card');
+    const quote = templateRegistry.find((t) => t.id === 'quote-card')!.defaultValues;
+    expect(draft().colorAccent).toBe(quote.colorAccent);
+  });
+
+  it('clearLocalData clears marker state and its persistence', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(loadExplicitBrandKeys()).toEqual(['accentColor']);
+
+    useLiveLayerStore.getState().clearLocalData();
+
+    expect(markers()).toEqual([]);
+    expect(localStorage.getItem('livelayer.brandExplicit')).toBeNull();
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+});
+
+describe('Explicit brand markers — a rundown item never touches them', () => {
+  it('an item swatch leaves the markers byte-identical', () => {
+    useLiveLayerStore.setState({ theme: defaultBrandTheme(), explicitBrandKeys: [] });
+    seedRundown();
+    const before = markers();
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(markers()).toBe(before);
+    expect(loadExplicitBrandKeys()).toEqual([]);
+  });
+
+  it('an item swatch leaves an existing marker set untouched', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000'); // draft choice first
+    const before = markers();
+    seedRundown();
+    applySwatch(readEditTarget(), 'accent', '#00ff00');
+    expect(markers()).toBe(before);
+    expect(markers()).toEqual(['accentColor']);
+  });
+
+  it('an item reset leaves the markers and the theme untouched', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    const themeBefore = useLiveLayerStore.getState().theme;
+    const markersBefore = markers();
+
+    seedRundown();
+    readBrandReset()();
+
+    expect(markers()).toBe(markersBefore);
+    expect(useLiveLayerStore.getState().theme).toBe(themeBefore);
+    expect(loadExplicitBrandKeys()).toEqual(['accentColor']);
+  });
+
+  it('leaves Program unchanged', () => {
+    seedRundown();
+    const before = useLiveLayerStore.getState().program;
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    readBrandReset()();
+    expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+describe('isDraftDirty uses the same seed inputs as seeding', () => {
+  it('a draft brand choice does not make the draft dirty', () => {
+    useLiveLayerStore.setState({
+      theme: defaultBrandTheme(),
+      explicitBrandKeys: [],
+      currentTemplateId: 'preacher-lower-third',
+      draftValues: createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), [])
+    });
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(false);
+
+    applySwatch(readEditTarget(), 'accent', DEFAULT_ACCENT2);
+
+    // The seed moved with the choice, so the draft is still "clean" and the
+    // pack-switch guard cannot warn about edits nobody made.
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(false);
+  });
+
+  it('still reports a real content edit as dirty', () => {
+    useLiveLayerStore.setState({
+      draftValues: createDraftValues('preacher-lower-third', 'house', defaultBrandTheme(), [])
+    });
+    useLiveLayerStore.getState().setField('name', 'Someone Else');
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(true);
   });
 });

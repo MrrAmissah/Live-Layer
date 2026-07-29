@@ -5,13 +5,13 @@ import type { ProgramSourceType, ProgramState } from '../types/program';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 import type { PersonProfile } from '../types/people';
 import type { LayoutSettings } from '../types/layout';
-import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, savePresets, saveProgram, saveQuickQueue, saveRecentGraphics } from '../lib/storage';
+import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, saveExplicitBrandKeys, savePresets, saveProgram, saveQuickQueue, saveRecentGraphics, type ExplicitBrandKey } from '../lib/storage';
 import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
 import { loadActivePackId, saveActivePackId } from '../lib/packs';
-import { createDraftValues } from '../lib/draftSeed';
+import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
 
@@ -40,6 +40,10 @@ interface LiveLayerState {
   currentTemplateId: string;
   draftValues: Record<string, string>;
   theme: TemplateDefinition['theme'];
+  /** Which brand swatches the operator has actually chosen. Drives draft
+   *  seeding; tracked rather than inferred so a choice that equals the built-in
+   *  default still seeds (see loadExplicitBrandKeys). */
+  explicitBrandKeys: ExplicitBrandKey[];
   layout: LayoutSettings;
   durationSeconds: number;
   presets: GraphicInstance[];
@@ -139,24 +143,26 @@ export function buildInstanceFromDraft(
 
 const initialPackId = loadActivePackId();
 const initialTheme = loadBrandOverrides();
+const initialExplicitBrandKeys = loadExplicitBrandKeys();
 
 export const useLiveLayerStore = create<LiveLayerState>()(
   devtools((set, get) => ({
     currentTemplateId: templateRegistry[0].id,
-    draftValues: createDraftValues(templateRegistry[0].id, initialPackId, initialTheme),
+    draftValues: createDraftValues(templateRegistry[0].id, initialPackId, initialTheme, initialExplicitBrandKeys),
     activePackId: initialPackId,
     setActivePack: (packId) =>
       set((state) => {
         saveActivePackId(packId);
         return {
           activePackId: packId,
-          draftValues: createDraftValues(state.currentTemplateId, packId, state.theme)
+          draftValues: createDraftValues(state.currentTemplateId, packId, state.theme, state.explicitBrandKeys)
         };
       }),
     isDraftDirty: () => {
-      const { draftValues, currentTemplateId, activePackId, theme } = get();
-      // Same seed setActivePack would re-create, so "clean" is defined identically.
-      const seed = createDraftValues(currentTemplateId, activePackId, theme);
+      const { draftValues, currentTemplateId, activePackId, theme, explicitBrandKeys } = get();
+      // Same seed setActivePack would re-create, from the same inputs, so
+      // "clean" is defined identically and the pack guard cannot drift.
+      const seed = createDraftValues(currentTemplateId, activePackId, theme, explicitBrandKeys);
       const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
       for (const key of keys) {
         if (draftValues[key] !== seed[key]) return true;
@@ -164,6 +170,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       return false;
     },
     theme: initialTheme,
+    explicitBrandKeys: initialExplicitBrandKeys,
     layout: {},
     durationSeconds: 6,
     durationByTemplate: {},
@@ -279,7 +286,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
             template?.defaultDurationSeconds ??
             DEFAULT_DURATION_SECONDS,
           draftValues: {
-            ...createDraftValues(templateId, state.activePackId, state.theme),
+            ...createDraftValues(templateId, state.activePackId, state.theme, state.explicitBrandKeys),
             ...carriedLogo(state.draftValues)
           }
         };
@@ -312,8 +319,17 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           ...state.theme,
           ...theme
         };
+        // Every setTheme is a draft-mode swatch choice (a selected rundown item
+        // never reaches here), so any brand key present in the patch is now an
+        // explicit selection — including one that happens to equal the default.
+        const explicit = new Set(state.explicitBrandKeys);
+        for (const { themeKey } of THEME_SEEDED_FIELDS) {
+          if (theme[themeKey] !== undefined) explicit.add(themeKey);
+        }
+        const explicitBrandKeys = [...explicit];
         saveBrandOverrides(next);
-        return { theme: next };
+        saveExplicitBrandKeys(explicitBrandKeys);
+        return { theme: next, explicitBrandKeys };
       }),
     setLayout: (layout) =>
       set((state) => ({
@@ -331,15 +347,17 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     resetDraft: () =>
       set((state) => ({
         draftValues: {
-          ...createDraftValues(state.currentTemplateId, state.activePackId, state.theme),
+          ...createDraftValues(state.currentTemplateId, state.activePackId, state.theme, state.explicitBrandKeys),
           ...carriedLogo(state.draftValues)
         }
       })),
     resetTheme: () =>
       set(() => {
+        // Back to "nothing chosen": templates seed their own accents again.
         const defaults = defaultBrandTheme();
         saveBrandOverrides(defaults);
-        return { theme: defaults };
+        saveExplicitBrandKeys([]);
+        return { theme: defaults, explicitBrandKeys: [] };
       }),
     clearLocalData: () =>
       set(() => {
@@ -353,9 +371,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         const clearedTheme = defaultBrandTheme();
         return {
           currentTemplateId: templateRegistry[0].id,
-          draftValues: createDraftValues(templateRegistry[0].id, 'house', clearedTheme),
+          draftValues: createDraftValues(templateRegistry[0].id, 'house', clearedTheme, []),
           activePackId: 'house',
           theme: clearedTheme,
+          explicitBrandKeys: [],
           layout: {},
           durationSeconds: 6,
           durationByTemplate: {},
@@ -405,7 +424,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         return {
           currentTemplateId: 'preacher-lower-third',
           draftValues: {
-            ...createDraftValues('preacher-lower-third', state.activePackId, state.theme),
+            ...createDraftValues('preacher-lower-third', state.activePackId, state.theme, state.explicitBrandKeys),
             ...state.draftValues,
             personId: person.id,
             name: person.displayName,

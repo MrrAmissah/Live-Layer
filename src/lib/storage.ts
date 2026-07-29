@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   recent: 'livelayer.recent',
   quickQueue: 'livelayer.quickQueue',
   activePack: 'livelayer.activePack',
+  brandExplicit: 'livelayer.brandExplicit',
   program: 'livelayer.program',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
@@ -22,6 +23,13 @@ const DEFAULT_THEME: TemplateDefinition['theme'] = {
   accent2Color: '#1284ff'
 };
 const THEME_KEYS = ['primaryColor', 'accentColor', 'backgroundColor', 'surfaceColor', 'accent2Color', 'logoAssetId'] as const;
+
+/**
+ * The brand colours an operator can pick, and which therefore seed new
+ * graphics. Only these two are ever marked explicit.
+ */
+export type ExplicitBrandKey = 'accentColor' | 'accent2Color';
+export const EXPLICIT_BRAND_KEYS: readonly ExplicitBrandKey[] = ['accentColor', 'accent2Color'];
 
 function safeReadJson(key: string): unknown {
   try {
@@ -168,6 +176,49 @@ export function defaultBrandTheme(): TemplateDefinition['theme'] {
 
 export function saveBrandOverrides(theme: TemplateDefinition['theme']) {
   safeWrite(STORAGE_KEYS.brand, theme);
+}
+
+function sameColor(a: string | undefined, b: string | undefined): boolean {
+  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+}
+
+/**
+ * Which brand swatches the operator has actually chosen.
+ *
+ * This has to be tracked, not inferred: an operator may deliberately pick the
+ * very colour that happens to be the built-in default (#1284ff as the accent,
+ * say), and that choice must still seed new graphics. Comparing values would
+ * read it as "untouched" and quietly restore each template's own accent on the
+ * next template switch or reload.
+ *
+ * Stored apart from the theme itself so no graphic, schema or renderer payload
+ * carries editor metadata.
+ */
+export function loadExplicitBrandKeys(): ExplicitBrandKey[] {
+  const raw = safeReadJson(STORAGE_KEYS.brandExplicit);
+
+  if (Array.isArray(raw)) {
+    // Validate and de-duplicate: never trust the shape on disk.
+    return EXPLICIT_BRAND_KEYS.filter((key) => raw.includes(key));
+  }
+
+  // Legacy record written before markers existed. The only evidence available
+  // is the stored brand, so infer a choice exactly where it differs from the
+  // default — a default-equal legacy value is indistinguishable from untouched
+  // and stays unmarked. Nothing is written here; the next real swatch write
+  // persists exact markers.
+  const stored = loadBrandOverrides();
+  const defaults = defaultBrandTheme();
+  return EXPLICIT_BRAND_KEYS.filter((key) => !sameColor(stored[key], defaults[key]));
+}
+
+/** Persist the marker set, filtered to the two allowed keys and de-duplicated. */
+export function saveExplicitBrandKeys(keys: Iterable<ExplicitBrandKey>) {
+  const chosen = new Set(keys);
+  safeWrite(
+    STORAGE_KEYS.brandExplicit,
+    EXPLICIT_BRAND_KEYS.filter((key) => chosen.has(key))
+  );
 }
 
 export function clearAllData() {

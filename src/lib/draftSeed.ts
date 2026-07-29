@@ -1,6 +1,6 @@
 import { templateRegistry } from '../components/templates/registry';
 import { packOverridesFor } from './packs';
-import { defaultBrandTheme } from './storage';
+import type { ExplicitBrandKey } from './storage';
 import type { TemplateDefinition } from '../types/graphics';
 
 type BrandTheme = TemplateDefinition['theme'];
@@ -15,54 +15,59 @@ export const THEME_SEEDED_FIELDS = [
   { field: 'colorAccent', themeKey: 'accent2Color' }
 ] as const;
 
-function sameColor(a: string | undefined, b: string | undefined): boolean {
-  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
-}
+/** "The operator has chosen no brand colour" — the seed-from-template case. */
+export const NO_EXPLICIT_BRAND: readonly ExplicitBrandKey[] = [];
 
 /**
  * The colour fields a saved brand contributes to a fresh draft.
  *
- * Only values the operator has actually CHANGED are contributed. Templates
- * declare their own accents (electric / yellow / gold), so unconditionally
- * seeding from the brand default would flatten every template to one accent.
- * An untouched brand therefore seeds nothing and the registry defaults stand,
- * exactly as before this behaviour existed.
+ * Contribution is driven by the EXPLICIT-selection markers, never by comparing
+ * a value with the built-in default. An operator may deliberately pick the
+ * colour that happens to be the default, and that choice has to survive a
+ * template switch and a reload like any other.
+ *
+ * Templates declare their own accents (electric / yellow / gold), so an
+ * unmarked swatch contributes nothing and the registry defaults stand — the
+ * behaviour before any brand colour had been chosen.
  */
-export function themeSeedValues(theme: BrandTheme | undefined): Record<string, string> {
-  const defaults = defaultBrandTheme();
+export function themeSeedValues(
+  theme: BrandTheme | undefined,
+  explicitKeys: Iterable<ExplicitBrandKey> = NO_EXPLICIT_BRAND
+): Record<string, string> {
+  const explicit = new Set(explicitKeys);
   const seed: Record<string, string> = {};
   for (const { field, themeKey } of THEME_SEEDED_FIELDS) {
+    if (!explicit.has(themeKey)) continue;
     const value = theme?.[themeKey];
-    if (typeof value === 'string' && value.trim() && !sameColor(value, defaults[themeKey])) {
-      seed[field] = value;
-    }
+    if (typeof value === 'string' && value.trim()) seed[field] = value;
   }
   return seed;
 }
 
 /**
- * Seed values for a new graphic: registry defaults, then the operator's saved
- * brand colours, then the active event pack.
+ * Seed values for a new graphic: registry defaults, then the brand colours the
+ * operator explicitly chose, then the active event pack.
  *
  * The pack is applied LAST on purpose — an event pack states an explicit
  * palette for the look it ships (see PPC_PALETTE), and that must keep winning
- * over the house brand default.
+ * over the operator's house brand.
  *
- * `theme` is required rather than optional so every call site is forced to pass
- * the same brand the store holds; a site that silently skipped it would seed a
- * different draft than `isDraftDirty` compares against, and the drift would
- * only surface as a wrong pack-switch prompt.
+ * `theme` and `explicitKeys` are required rather than optional so every call
+ * site is forced to pass the same inputs the store holds; a site that silently
+ * skipped one would seed a different draft than `isDraftDirty` compares
+ * against, and the drift would only surface as a wrong pack-switch prompt.
  */
 export function createDraftValues(
   templateId: string,
   packId: string,
-  theme: BrandTheme
+  theme: BrandTheme,
+  explicitKeys: Iterable<ExplicitBrandKey>
 ): Record<string, string> {
   const template = templateRegistry.find((item) => item.id === templateId);
   if (!template) return {};
   return {
     ...template.defaultValues,
-    ...themeSeedValues(theme),
+    ...themeSeedValues(theme, explicitKeys),
     ...packOverridesFor(packId, templateId)
   };
 }
