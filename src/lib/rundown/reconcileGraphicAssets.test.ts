@@ -148,3 +148,44 @@ describe('collectGraphicAssetIds after a removal', () => {
     expect(collectGraphicAssetIds(reconciled)).toEqual(['asset-face']);
   });
 });
+
+describe('reconcileGraphicAssets — replacing a logo also clears the legacy pointer', () => {
+  const legacyWithUpload = () =>
+    graphic({
+      values: { name: 'Speaker', logoAssetId: 'asset-old', logoUrl: '' },
+      assetRefs: { logo: 'asset-old' },
+      theme: { primaryColor: '#fff', accentColor: '#0d2095', backgroundColor: 'transparent', logoAssetId: 'asset-legacy' }
+    });
+
+  it('drops the legacy theme pointer when a NEW upload replaces the old one', () => {
+    // Replacing is as much a logo decision as removing: the old pointer is
+    // stale either way, and export unions all three locations.
+    const next = reconcileGraphicAssets(
+      legacyWithUpload(),
+      { name: 'Speaker', logoAssetId: 'asset-new', logoUrl: '' },
+      ['logoAssetId', 'logoUrl']
+    );
+    expect(next.assetRefs).toEqual({ logo: 'asset-new' });
+    expect(next.theme?.logoAssetId).toBeUndefined();
+    expect(collectGraphicAssetIds({ ...legacyWithUpload(), ...next })).toEqual(['asset-new']);
+  });
+
+  it('does not export both the replacement and the image it replaced', () => {
+    const before = legacyWithUpload();
+    expect(collectGraphicAssetIds(before)).toEqual(['asset-old', 'asset-legacy']);
+    const next = reconcileGraphicAssets(before, { ...before.values, logoAssetId: 'asset-new' }, ['logoAssetId']);
+    const after = { ...before, ...next };
+    expect(collectGraphicAssetIds(after)).not.toContain('asset-legacy');
+    expect(collectGraphicAssetIds(after)).not.toContain('asset-old');
+  });
+
+  it('still leaves the legacy pointer alone for an unrelated edit', () => {
+    const next = reconcileGraphicAssets(legacyWithUpload(), { name: 'Renamed', logoAssetId: 'asset-old' }, ['name']);
+    expect(next.theme?.logoAssetId).toBe('asset-legacy');
+  });
+
+  it('still leaves it alone when only an empty URL box is cleared', () => {
+    const next = reconcileGraphicAssets(legacyWithUpload(), { ...legacyWithUpload().values, logoUrl: '' }, ['logoUrl']);
+    expect(next.theme?.logoAssetId).toBe('asset-legacy');
+  });
+});

@@ -528,8 +528,16 @@ function TemplateColorControls({
   // "Reset palette" restores the selected variant's signature palette when it
   // has one, else the template's palette defaults — the shared rule.
   const resetPalette = resolveResetPalette(template.id, values.variantId);
+  /**
+   * What each chip currently DISPLAYS — the renderer's own fallback chain, not
+   * the registry default. Comparing the raw value against `defaults` hid
+   * "Reset palette" on a sparse graphic whose captured theme differs from the
+   * template, even though applying the reset would visibly change it.
+   */
+  const displayedColor = (field: (typeof COLOR_FIELDS)[number]) =>
+    colorValue(values[field.id], colorValue(field.themeKey ? effectiveTheme[field.themeKey] : undefined, defaults[field.id]));
   const canReset = COLOR_FIELDS.some(
-    (field) => resetPalette[field.id] !== undefined && colorValue(values[field.id], defaults[field.id]) !== resetPalette[field.id]
+    (field) => resetPalette[field.id] !== undefined && displayedColor(field) !== resetPalette[field.id]
   );
 
   return (
@@ -553,8 +561,7 @@ function TemplateColorControls({
       </span>
       <div className="template-colors__grid" aria-label="Template colour controls">
         {COLOR_FIELDS.map((field) => {
-          const themed = field.themeKey ? effectiveTheme[field.themeKey] : undefined;
-          const value = colorValue(values[field.id], colorValue(themed, defaults[field.id]));
+          const value = displayedColor(field);
           return (
             <label key={field.id} className="template-color">
               <input

@@ -80,11 +80,13 @@ export function reconcileGraphicAssets(
     else delete refs[refKey];
   }
 
-  // A logo is superseded when the write explicitly empties the upload, or when
-  // it sets a real URL. Clearing an empty URL box is neither, so an existing
-  // upload survives it.
+  // A logo is superseded by any write that decides the upload — replacing it
+  // as well as clearing it — or by one that sets a real URL. The legacy theme
+  // pointer is only a fallback for a graphic whose values name no logo, so once
+  // a write names one it is stale either way. Clearing an empty URL box decides
+  // nothing, so an existing upload survives that.
   const supersedesLogo =
-    (patchKeys.includes('logoAssetId') && !isSet(nextValues.logoAssetId)) ||
+    patchKeys.includes('logoAssetId') ||
     (patchKeys.includes('logoUrl') && isSet(nextValues.logoUrl));
 
   let theme = graphic.theme;
