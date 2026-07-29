@@ -1,3 +1,6 @@
+import { resolvePaletteColors, resolveRenderedVariantId } from './variantPalette';
+import type { TemplateTheme } from '../types/graphics';
+
 /**
  * "Graphic overrides" — how the VISIBLE graphic differs from what its template
  * plus the active event pack would produce today.
@@ -38,14 +41,49 @@ function normalize(fieldId: string, value: string | undefined): string {
   return fieldId.startsWith('color') ? next.toLowerCase() : next;
 }
 
-/** The allowlisted fields where the target differs from its seed. */
+/**
+ * One graphic's side of the comparison: what it stores, plus the theme the
+ * renderer falls back to for whatever it doesn't.
+ */
+export interface VisualSide {
+  values: Record<string, string>;
+  /** The graphic's OWN theme — the target's captured one, or the brand default
+   *  a graphic seeded right now would carry. */
+  theme?: Partial<TemplateTheme>;
+}
+
+/**
+ * What this side actually paints, not what it happens to store.
+ *
+ * A legacy or imported graphic can omit palette and variant fields entirely;
+ * the renderer resolves those through the theme and the template, so comparing
+ * raw records reported "Main colour —" against a graphic that renders exactly
+ * the seed colour. Both sides go through the SAME resolvers the chips and the
+ * renderers use, so a reported override is always a visible one — and a
+ * difference carried only by the theme is now visible to the comparison
+ * instead of invisible to it.
+ */
+function resolveVisualValues(templateId: string, side: VisualSide): Record<string, string> {
+  return {
+    ...resolvePaletteColors(templateId, side.values, side.theme),
+    variantId: resolveRenderedVariantId(templateId, side.values.variantId),
+    // No fallback chain: the renderers read these two straight from `values`.
+    logoUrl: side.values.logoUrl ?? '',
+    logoAssetId: side.values.logoAssetId ?? ''
+  };
+}
+
+/** The allowlisted fields where the target renders differently from its seed. */
 export function findVisualOverrides(
-  values: Record<string, string>,
-  seed: Record<string, string>
+  templateId: string,
+  target: VisualSide,
+  seed: VisualSide
 ): VisualOverride[] {
+  const targetValues = resolveVisualValues(templateId, target);
+  const seedValues = resolveVisualValues(templateId, seed);
   return VISUAL_OVERRIDE_FIELDS.filter(
-    (field) => normalize(field.id, values[field.id]) !== normalize(field.id, seed[field.id])
-  ).map((field) => ({ id: field.id, label: field.label, value: (values[field.id] ?? '').trim() }));
+    (field) => normalize(field.id, targetValues[field.id]) !== normalize(field.id, seedValues[field.id])
+  ).map((field) => ({ id: field.id, label: field.label, value: targetValues[field.id].trim() }));
 }
 
 /** Summary line for the disclosure header. */

@@ -25,13 +25,16 @@ export default function GraphicOverrides() {
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const brandTheme = useLiveLayerStore((state) => state.brandTheme);
   const explicitBrandKeys = useLiveLayerStore((state) => state.explicitBrandKeys);
-  const { templateId, values } = useEditTarget();
+  const { templateId, values, theme } = useEditTarget();
 
   const known = templateRegistry.some((template) => template.id === templateId);
   // Same inputs the store seeds with, so the count can never disagree with
-  // what a fresh graphic would actually look like.
+  // what a fresh graphic would actually look like — including the theme it
+  // would carry, which is what fills in whatever its values omit.
   const seed = createDraftValues(templateId, activePackId, brandTheme, explicitBrandKeys);
-  const overrides = known ? findVisualOverrides(values, seed) : [];
+  const overrides = known
+    ? findVisualOverrides(templateId, { values, theme }, { values: seed, theme: brandTheme })
+    : [];
   const summary = known ? describeOverrideCount(overrides.length) : 'Comparison unavailable';
 
   return (

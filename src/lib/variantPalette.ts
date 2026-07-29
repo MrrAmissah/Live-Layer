@@ -1,13 +1,104 @@
 import { templateRegistry } from '../components/templates/registry';
+import type { TemplateTheme } from '../types/graphics';
 
 const templateById = new Map(templateRegistry.map((t) => [t.id, t]));
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
 /**
- * The five per-graphic colour fields the Design palette edits. They live in
- * `values` (not `theme`) so a preset or rundown item keeps its own palette;
- * `templateColorStyle` maps them to `--gfx-*` for the renderers.
+ * The five per-graphic colour fields the Design palette edits, each paired with
+ * the theme slot the RENDERER falls back to when a graphic carries no value for
+ * it (`templateColorStyle` → `themeToVars`). They live in `values` (not
+ * `theme`) so a preset or rundown item keeps its own palette.
+ *
+ * `colorSecondary` has no theme slot; the template default is its only fallback.
  */
-export const PALETTE_FIELD_IDS = ['colorBrand', 'colorAccent', 'colorSurface', 'colorText', 'colorSecondary'] as const;
+export const PALETTE_FIELDS = [
+  { id: 'colorBrand', themeKey: 'accentColor' },
+  { id: 'colorAccent', themeKey: 'accent2Color' },
+  { id: 'colorSurface', themeKey: 'surfaceColor' },
+  { id: 'colorText', themeKey: 'primaryColor' },
+  { id: 'colorSecondary', themeKey: undefined }
+] as const;
+
+/** Derived, not re-typed: one list of palette fields, in one order. */
+export const PALETTE_FIELD_IDS: ReadonlyArray<(typeof PALETTE_FIELDS)[number]['id']> = PALETTE_FIELDS.map(
+  (field) => field.id
+);
+
+/** Any theme record: a template's, a graphic's captured one, or the brand default. */
+type ThemeLike = Partial<TemplateTheme>;
+
+function colorValue(value: string | undefined, fallback: string): string {
+  const next = value?.trim();
+  return next && HEX_COLOR.test(next) ? next : fallback;
+}
+
+/**
+ * What each palette field currently RESOLVES to for a graphic — the renderer's
+ * own chain: the graphic's own value, then the theme slot it falls back to,
+ * then the template default.
+ *
+ * One home on purpose. The Design chips, "Reset palette" and the Graphic
+ * overrides panel all read this, so a sparse legacy or imported graphic cannot
+ * be described one way by the chip beside it and another by the panel above it
+ * — the drift that made both report colours the preview never painted.
+ *
+ * `theme` is the graphic's OWN theme; the template's is merged underneath here,
+ * the same merge `TemplatePreview` performs.
+ */
+export function resolvePaletteColors(
+  templateId: string,
+  values: Record<string, string>,
+  theme: ThemeLike | undefined
+): Record<string, string> {
+  const template = templateById.get(templateId);
+  const defaults: Record<string, string> = template?.defaultValues ?? {};
+  const effectiveTheme: ThemeLike = { ...(template?.theme ?? {}), ...(theme ?? {}) };
+  const resolved: Record<string, string> = {};
+  for (const { id, themeKey } of PALETTE_FIELDS) {
+    resolved[id] = colorValue(
+      values[id],
+      colorValue(themeKey ? effectiveTheme[themeKey] : undefined, defaults[id] ?? '')
+    );
+  }
+  return resolved;
+}
+
+/**
+ * The variant id that should actually be treated as selected: the requested one
+ * when it exists, else the first available variant, else '' when there are
+ * none. A persisted graphic can carry a `variantId` that no longer exists in
+ * the registry (legacy/imported presets), and graphic validation accepts
+ * arbitrary strings — so every selection concern (index, active card,
+ * aria-checked, tabindex, paging, browser) must key off this normalized value,
+ * not the raw request, or no card ends up selected or tabbable.
+ */
+export function resolveEffectiveVariantId(
+  variants: ReadonlyArray<{ id: string }>,
+  requestedId: string
+): string {
+  if (variants.some((variant) => variant.id === requestedId)) return requestedId;
+  return variants[0]?.id ?? '';
+}
+
+/**
+ * The variant a graphic RENDERS: its own id when it names one, else the
+ * template's default. This is a different question from the carousel's — every
+ * renderer resolves `values.variantId?.trim() || '<its template default>'`, so
+ * an unknown legacy id is rendered (and reported) as itself rather than
+ * silently reading as the first card.
+ *
+ * One known gap, pre-existing and out of reach from here: `performer-lower-third`
+ * shares the lower-third renderer, whose constant is the *preacher* default, so
+ * a performer graphic that stores no variant at all renders `signature-medallion`
+ * while this returns `performer-pill`.
+ */
+export function resolveRenderedVariantId(templateId: string, requestedId: string | undefined): string {
+  const stored = requestedId?.trim();
+  if (stored) return stored;
+  return templateById.get(templateId)?.defaultValues.variantId ?? '';
+}
 
 function findVariant(templateId: string, variantId: string | undefined) {
   if (!variantId) return undefined;

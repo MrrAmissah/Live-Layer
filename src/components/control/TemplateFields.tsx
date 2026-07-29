@@ -8,43 +8,30 @@ import { packVariantIdsFor } from '../../lib/packs';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 import { Icon } from '../../lib/icons';
-import { resolveResetPalette } from '../../lib/variantPalette';
+import {
+  PALETTE_FIELD_IDS,
+  resolveEffectiveVariantId,
+  resolvePaletteColors,
+  resolveResetPalette
+} from '../../lib/variantPalette';
 import { composeThumbTheme } from './TemplateThumb';
 
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-
 /**
- * The palette fields, each paired with the theme slot the RENDERER falls back to
- * when the graphic carries no value for it (`templateColorStyle` →
- * `themeToVars`). A chip that fell back to `template.defaultValues` instead
- * reported a colour neither the preview nor Take used for legacy and imported
- * graphics — the same defect already fixed on the Brand swatches.
- * `colorSecondary` has no theme slot; the template default is its only fallback.
+ * Chip labels only. The field list, the theme slot each falls back to, and the
+ * resolution itself live in `variantPalette` — the Graphic overrides panel
+ * reads the same resolver, so the chip and the panel cannot describe the same
+ * sparse graphic differently.
  */
-const COLOR_FIELDS = [
-  { id: 'colorBrand', label: 'Main', themeKey: 'accentColor' },
-  { id: 'colorAccent', label: 'Accent', themeKey: 'accent2Color' },
-  { id: 'colorSurface', label: 'Surface', themeKey: 'surfaceColor' },
-  { id: 'colorText', label: 'Text', themeKey: 'primaryColor' },
-  { id: 'colorSecondary', label: 'Second', themeKey: undefined }
-] as const;
+const COLOR_LABELS: Record<string, string> = {
+  colorBrand: 'Main',
+  colorAccent: 'Accent',
+  colorSurface: 'Surface',
+  colorText: 'Text',
+  colorSecondary: 'Second'
+};
 
 type TemplateVariant = NonNullable<(typeof templateRegistry)[number]['variants']>[number];
 type VariantGroupId = 'all' | 'classic' | 'broadcast' | 'event' | 'compact';
-
-/**
- * The variant id the carousel should actually treat as selected: the requested
- * one when it exists, else the first available variant, else '' when there are
- * none. A persisted graphic can carry a `variantId` that no longer exists in the
- * registry (legacy/imported presets), and graphic validation accepts arbitrary
- * strings — so every selection concern (index, active card, aria-checked,
- * tabindex, paging, browser) must key off this normalized value, not the raw
- * request, or no card ends up selected or tabbable.
- */
-export function resolveEffectiveVariantId(variants: Pick<TemplateVariant, 'id'>[], requestedId: string): string {
-  if (variants.some((variant) => variant.id === requestedId)) return requestedId;
-  return variants[0]?.id ?? '';
-}
 
 const VARIANT_GROUPS: Array<{ id: VariantGroupId; label: string }> = [
   { id: 'all', label: 'All' },
@@ -53,11 +40,6 @@ const VARIANT_GROUPS: Array<{ id: VariantGroupId; label: string }> = [
   { id: 'event', label: 'Event' },
   { id: 'compact', label: 'Compact' }
 ];
-
-function colorValue(value: string | undefined, fallback: string): string {
-  const next = value?.trim();
-  return next && HEX_COLOR.test(next) ? next : fallback;
-}
 
 function variantGroupFor(variant: TemplateVariant): Exclude<VariantGroupId, 'all'> {
   const text = `${variant.name} ${variant.description}`.toLowerCase();
@@ -522,22 +504,18 @@ function TemplateColorControls({
   setField: (key: string, value: string) => void;
   setFields: (patch: Record<string, string>) => void;
 }) {
-  const defaults = template.defaultValues;
-  // Same merge TemplatePreview performs, so chip and preview agree.
-  const effectiveTheme = { ...template.theme, ...targetTheme };
   // "Reset palette" restores the selected variant's signature palette when it
   // has one, else the template's palette defaults — the shared rule.
   const resetPalette = resolveResetPalette(template.id, values.variantId);
   /**
    * What each chip currently DISPLAYS — the renderer's own fallback chain, not
-   * the registry default. Comparing the raw value against `defaults` hid
+   * the registry default. Comparing the raw value against the defaults hid
    * "Reset palette" on a sparse graphic whose captured theme differs from the
    * template, even though applying the reset would visibly change it.
    */
-  const displayedColor = (field: (typeof COLOR_FIELDS)[number]) =>
-    colorValue(values[field.id], colorValue(field.themeKey ? effectiveTheme[field.themeKey] : undefined, defaults[field.id]));
-  const canReset = COLOR_FIELDS.some(
-    (field) => resetPalette[field.id] !== undefined && displayedColor(field) !== resetPalette[field.id]
+  const displayed = resolvePaletteColors(template.id, values, targetTheme);
+  const canReset = PALETTE_FIELD_IDS.some(
+    (id) => resetPalette[id] !== undefined && displayed[id] !== resetPalette[id]
   );
 
   return (
@@ -545,7 +523,7 @@ function TemplateColorControls({
       <span className="field__label">
         <span>Appearance / palette</span>
         <span className="template-colors__aside">
-          <span className="field__meta">{COLOR_FIELDS.length} swatches</span>
+          <span className="field__meta">{PALETTE_FIELD_IDS.length} swatches</span>
           {canReset ? (
             <button
               type="button"
@@ -560,18 +538,19 @@ function TemplateColorControls({
         </span>
       </span>
       <div className="template-colors__grid" aria-label="Template colour controls">
-        {COLOR_FIELDS.map((field) => {
-          const value = displayedColor(field);
+        {PALETTE_FIELD_IDS.map((id) => {
+          const value = displayed[id];
+          const label = COLOR_LABELS[id];
           return (
-            <label key={field.id} className="template-color">
+            <label key={id} className="template-color">
               <input
                 type="color"
                 className="template-color__input"
                 value={value}
-                onChange={(event) => setField(field.id, event.target.value)}
-                aria-label={`${field.label} colour`}
+                onChange={(event) => setField(id, event.target.value)}
+                aria-label={`${label} colour`}
               />
-              <span className="template-color__label">{field.label}</span>
+              <span className="template-color__label">{label}</span>
               <span className="template-color__hex">{value.toUpperCase()}</span>
             </label>
           );
