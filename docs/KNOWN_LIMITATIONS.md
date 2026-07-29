@@ -46,8 +46,9 @@ deliberately narrow. These are honest constraints, not bugs.
   auto-advance, and drag-and-drop reorder (Up/Down only for now). Two notes: with a
   rundown active, the Take button takes the
   **selected item** on every tab (deselect the rundown to air a fresh draft); and
-  **Brand colours/logo stay global** — editing them does not change a selected
-  item's captured theme (per-item theme/logo editing is deferred). Soft caps apply
+  **Brand colours/logo follow the visible target** — with an item selected they edit
+  that item and leave the persisted brand default untouched, so recolouring one
+  queued graphic never redefines the ones made afterwards. Soft caps apply
   (50 rundowns, 100 items each) with a friendly message at the limit.
 - **No full asset browser yet** — logos/headshots upload locally, but there is no
   general-purpose asset management grid.

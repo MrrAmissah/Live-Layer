@@ -88,8 +88,11 @@ default). With an **active rundown and a selected item**, the editors target tha
 **item's snapshot** instead — an "Editing rundown item" banner makes this explicit,
 the ad-hoc draft is preserved, and (in rundown mode) the Edit surface gains the
 layout/duration controls so it's the full item editor. Editing a *live* item updates
-the preview only; **Take selected** re-fires it. Brand colours/logo stay global (they
-don't alter a selected item's captured theme).
+the preview only; **Take selected** re-fires it. Brand colours and the logo follow the
+same target: with an item selected they edit **that item**, and the persisted brand
+default (which seeds future graphics) is left alone. The event pack is read-only there,
+because switching it would re-seed the hidden ad-hoc draft rather than the item on
+screen.
 
 ### Plain language
 
