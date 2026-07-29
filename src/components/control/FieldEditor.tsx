@@ -28,6 +28,18 @@ const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
 ];
 
 /**
+ * What "Reset brand" promises, per target. `useBrandReset` follows the same rule
+ * the swatches do — with an item selected it restores that item and leaves the
+ * persisted default alone — so the draft copy is the only one that may promise
+ * anything about new graphics. Exported because the tab that shows it can't be
+ * reached in static markup, and the claim is worth a test.
+ */
+export const BRAND_RESET_TITLE = {
+  draft: 'Restore the default brand colours on this graphic and for new graphics',
+  item: 'Restore the default brand colours on the selected rundown item; brand defaults for new graphics are unchanged'
+} as const;
+
+/**
  * Contextual editor (studio). Tabs scope the controls: Content (schema-backed
  * text fields + character guidance), Design (variant + palette), Brand (save,
  * event pack + brand, overrides). Motion and Advanced are disabled until later stages implement
@@ -46,7 +58,7 @@ export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorPr
       ? {
           label: 'Reset brand',
           run: resetBrand,
-          title: 'Restore the default brand colours on this graphic and for new graphics'
+          title: isRundownItem ? BRAND_RESET_TITLE.item : BRAND_RESET_TITLE.draft
         }
       : { label: 'Reset graphic', run: resetDraft, title: 'Restore this template’s default content and design' };
 

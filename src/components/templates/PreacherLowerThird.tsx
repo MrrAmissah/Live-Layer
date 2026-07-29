@@ -8,6 +8,14 @@ import { useAsset } from '../../hooks/useAsset';
 import { CONVENTION_LOGO_URL, DEFAULT_CHURCH_LOGO_URL } from '../../lib/brandAssets';
 import { templateColorStyle } from './colorVars';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template: BOTH lower thirds render
+ * through here, so a performer graphic that stores no variant falls back to this
+ * preacher default rather than to its own `defaultValues.variantId`.
+ */
+export const DEFAULT_VARIANT_ID = 'signature-medallion';
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -53,7 +61,7 @@ function roleFit(title: string, subtitle: string): string | undefined {
  */
 export default function PreacherLowerThird({ values }: Props) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
-  const variantId = values.variantId?.trim() || 'signature-medallion';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const name = values.name?.trim() || 'Speaker Name';
   const title = values.title?.trim() || '';
   const subtitle = values.subtitle?.trim() || '';

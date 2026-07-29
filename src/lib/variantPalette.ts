@@ -1,4 +1,4 @@
-import { templateRegistry } from '../components/templates/registry';
+import { templateFallbackVariant, templateRegistry } from '../components/templates/registry';
 import type { TemplateTheme } from '../types/graphics';
 
 const templateById = new Map(templateRegistry.map((t) => [t.id, t]));
@@ -83,21 +83,21 @@ export function resolveEffectiveVariantId(
 }
 
 /**
- * The variant a graphic RENDERS: its own id when it names one, else the
- * template's default. This is a different question from the carousel's — every
- * renderer resolves `values.variantId?.trim() || '<its template default>'`, so
- * an unknown legacy id is rendered (and reported) as itself rather than
- * silently reading as the first card.
+ * The variant a graphic RENDERS: its own id when it names one, else the fallback
+ * its renderer paints. A different question from the carousel's — an unknown
+ * legacy id is rendered (and so reported) as itself rather than silently reading
+ * as the first card.
  *
- * One known gap, pre-existing and out of reach from here: `performer-lower-third`
- * shares the lower-third renderer, whose constant is the *preacher* default, so
- * a performer graphic that stores no variant at all renders `signature-medallion`
- * while this returns `performer-pill`.
+ * The fallback comes from `templateFallbackVariant`, which the renderers export,
+ * NOT from `defaultValues.variantId`: `performer-lower-third` shares the
+ * lower-third renderer, so a performer graphic that stores no variant paints
+ * `signature-medallion` while its registry default says `performer-pill`. The
+ * registry default is the last resort, for a template with no renderer entry.
  */
 export function resolveRenderedVariantId(templateId: string, requestedId: string | undefined): string {
   const stored = requestedId?.trim();
   if (stored) return stored;
-  return templateById.get(templateId)?.defaultValues.variantId ?? '';
+  return templateFallbackVariant[templateId] ?? templateById.get(templateId)?.defaultValues.variantId ?? '';
 }
 
 function findVariant(templateId: string, variantId: string | undefined) {

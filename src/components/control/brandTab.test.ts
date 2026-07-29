@@ -16,6 +16,7 @@ import {
   setSelectedItem
 } from '../../lib/rundown/rundownStore';
 import BrandTab from './BrandTab';
+import { BRAND_RESET_TITLE } from './FieldEditor';
 import ContentTab from './ContentTab';
 import BrandStep from './steps/BrandStep';
 import type { GraphicInstance } from '../../types/graphics';
@@ -420,5 +421,24 @@ describe('Unresolvable logo reference', () => {
     const html = brandTab();
     expect(html).toContain('Replace image');
     expect(html).toContain('Remove image');
+  });
+});
+
+/* --- Reset brand says what it will do, per target ------------------------ *
+ * `useBrandReset` restores the persisted default only in draft mode. The tab
+ * that shows this button starts on Content and cannot be switched under
+ * `renderToStaticMarkup`, so the copy is asserted directly.
+ * ------------------------------------------------------------------------ */
+describe('Reset brand tooltip follows the target', () => {
+  it('promises new graphics only where new graphics are actually affected', () => {
+    expect(BRAND_RESET_TITLE.draft).toContain('and for new graphics');
+  });
+
+  it('with an item selected, scopes the promise to that item and disclaims the default', () => {
+    expect(BRAND_RESET_TITLE.item).toContain('selected rundown item');
+    expect(BRAND_RESET_TITLE.item).toContain('unchanged');
+    // The contradiction this closes: the item copy must not read as a promise
+    // that the brand default was reset too.
+    expect(BRAND_RESET_TITLE.item).not.toMatch(/and for new graphics(?!\s*are unchanged)/);
   });
 });

@@ -142,6 +142,22 @@ describe('findVisualOverrides — sparse graphics are compared as they render', 
     expect(find({ ...seedValues, variantId: '' })).toEqual([]);
   });
 
+  it('reports the variant a shared renderer actually paints, not the registry default', () => {
+    // performer-lower-third renders through the lower-third renderer, so an item
+    // storing no variant paints `signature-medallion` while a fresh performer
+    // graphic is `performer-pill`. Those look different, so it is an override.
+    const performer = templateRegistry.find((entry) => entry.id === 'performer-lower-third')!;
+    const performerSeed = { values: { ...performer.defaultValues }, theme: { ...performer.theme } };
+    const found = findVisualOverrides(
+      'performer-lower-third',
+      { values: { name: 'Mass Choir', logoUrl: performer.defaultValues.logoUrl }, theme: { ...performer.theme } },
+      performerSeed
+    );
+    expect(found.filter((entry) => entry.id === 'variantId')).toEqual([
+      { id: 'variantId', label: 'Design variant', value: 'signature-medallion' }
+    ]);
+  });
+
   it('reports a legacy variant id that no longer exists, because it is not the seed’s look', () => {
     const found = find({ ...seedValues, variantId: 'variant-that-was-removed' });
     expect(found).toHaveLength(1);

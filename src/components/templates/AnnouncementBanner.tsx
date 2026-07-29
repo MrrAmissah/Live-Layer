@@ -5,6 +5,14 @@ import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
 import { CONVENTION_LOGO_URL, resolveLogoSrc } from '../../lib/brandAssets';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template, and anything describing what
+ * a graphic looks like reads that rather than `defaultValues.variantId` — the two
+ * differ wherever a renderer is shared by more than one template.
+ */
+export const DEFAULT_VARIANT_ID = 'info-ribbon';
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -28,7 +36,7 @@ function headlineSizeClass(text: string): string {
  * theme variables (theme prop is applied at the stage root, not here).
  */
 export default function AnnouncementBanner({ values }: Props) {
-  const variantId = values.variantId?.trim() || 'info-ribbon';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const headline = values.headline?.trim() || 'Announcement';
   const body = values.body?.trim() || '';
   const dateTime = values.dateTime?.trim() || '';

@@ -3,6 +3,14 @@ import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template, and anything describing what
+ * a graphic looks like reads that rather than `defaultValues.variantId` — the two
+ * differ wherever a renderer is shared by more than one template.
+ */
+export const DEFAULT_VARIANT_ID = 'welcome-field';
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -15,7 +23,7 @@ function headlineSizeClass(text: string): string {
 }
 
 export default function FullscreenMessage({ values }: Props) {
-  const variantId = values.variantId?.trim() || 'welcome-field';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const headline = values.headline?.trim() || 'Welcome';
   const body = values.body?.trim() || '';
   const footerNote = values.footerNote?.trim() || '';
