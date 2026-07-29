@@ -134,3 +134,29 @@ describe('applyLogoUrl', () => {
     expect(values).toEqual({ logoAssetId: 'asset-1' });
   });
 });
+
+describe('planBrandColorWrite — target semantics', () => {
+  it('moves the global default in draft mode', () => {
+    expect(planBrandColorWrite('main', '#ff0000', false)).toEqual({
+      theme: { accentColor: '#ff0000' },
+      values: { colorBrand: '#ff0000' }
+    });
+  });
+
+  it('leaves the global default alone for a selected rundown item', () => {
+    expect(planBrandColorWrite('main', '#ff0000', true)).toEqual({
+      theme: {},
+      values: { colorBrand: '#ff0000' }
+    });
+    expect(planBrandColorWrite('accent', '#00ff00', true)).toEqual({
+      theme: {},
+      values: { colorAccent: '#00ff00' }
+    });
+  });
+
+  it('writes the visible graphic in both modes', () => {
+    for (const isItem of [false, true]) {
+      expect(planBrandColorWrite('main', '#123456', isItem).values).toEqual({ colorBrand: '#123456' });
+    }
+  });
+});

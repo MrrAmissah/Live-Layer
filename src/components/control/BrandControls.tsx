@@ -138,12 +138,22 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
     return own && HEX_COLOR.test(own) ? own : fallback;
   };
 
+  /**
+   * A swatch always writes the visible target's own colour field — that is what
+   * the renderers read. Whether it ALSO redefines the global brand depends on
+   * what is visible:
+   *
+   * - Draft mode: the draft is the next new graphic, so the brand default moves
+   *   with it and seeds the ones after that.
+   * - Selected rundown item: a captured graphic. Recolouring one item in a
+   *   queue must not silently redefine what every future graphic looks like, so
+   *   the brand default is left alone.
+   *
+   * Program is untouched either way — output only changes on the next Take.
+   */
   const onSwatchChange = (swatch: BrandSwatch) => (value: string) => {
-    const write = planBrandColorWrite(swatch, value);
-    // Global default first (seeds future graphics), then the visible target's
-    // own colour field (what the renderers read). Program is untouched — the
-    // output only changes on the next Take.
-    setTheme(write.theme);
+    const write = planBrandColorWrite(swatch, value, isRundownItem);
+    if (Object.keys(write.theme).length > 0) setTheme(write.theme);
     setFields(write.values);
   };
 
@@ -151,7 +161,8 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
     <div className="brand-grid">
       {isRundownItem ? (
         <p className="field__hint">
-          Colours and logo apply to the selected rundown item. Live output doesn’t change until you Take.
+          Colours and logo apply to the selected rundown item only. Brand defaults are unchanged. Live
+          output doesn’t change until Take.
         </p>
       ) : null}
       {showEventPack ? (

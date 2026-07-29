@@ -25,16 +25,31 @@ export const BRAND_SWATCHES: Record<BrandSwatch, { themeKey: keyof BrandTheme; f
 };
 
 export interface BrandColorWrite {
-  /** Patch for the persisted global brand. */
+  /** Patch for the persisted global brand. Empty when the default must not move. */
   theme: Partial<BrandTheme>;
   /** Patch for the VISIBLE edit target's values (draft or rundown item). */
   values: Record<string, string>;
 }
 
-/** Plan a swatch change. Never touches any field but its own. */
-export function planBrandColorWrite(swatch: BrandSwatch, value: string): BrandColorWrite {
+/**
+ * Plan a swatch change. Never touches any field but its own.
+ *
+ * The target decides whether the global brand default moves with it. The draft
+ * is the next new graphic, so its colour IS the new default. A selected rundown
+ * item is a captured graphic — recolouring one item in a queue must not
+ * silently redefine every graphic made afterwards, so the default is left
+ * alone and only the item is written.
+ */
+export function planBrandColorWrite(
+  swatch: BrandSwatch,
+  value: string,
+  isRundownItem = false
+): BrandColorWrite {
   const { themeKey, field } = BRAND_SWATCHES[swatch];
-  return { theme: { [themeKey]: value }, values: { [field]: value } };
+  return {
+    theme: isRundownItem ? {} : { [themeKey]: value },
+    values: { [field]: value }
+  };
 }
 
 /**

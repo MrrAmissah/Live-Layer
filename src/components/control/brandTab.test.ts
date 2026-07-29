@@ -110,7 +110,8 @@ describe('Brand tab structure', () => {
     selectItem(HOUSE_SEED());
     const html = brandTab();
     expect(html).toContain('Saves the selected rundown item');
-    expect(html).toContain('Colours and logo apply to the selected rundown item');
+    expect(html).toContain('Colours and logo apply to the selected rundown item only');
+    expect(html).toContain('Brand defaults are unchanged');
   });
 
   it('shows no unbacked pack metadata', () => {
@@ -222,6 +223,7 @@ describe('Dock is unaffected', () => {
   it('still edits the selected rundown item from the dock', () => {
     selectItem(HOUSE_SEED());
     const html = render(createElement(BrandStep));
-    expect(html).toContain('Colours and logo apply to the selected rundown item');
+    expect(html).toContain('Colours and logo apply to the selected rundown item only');
+    expect(html).toContain('Brand defaults are unchanged');
   });
 });

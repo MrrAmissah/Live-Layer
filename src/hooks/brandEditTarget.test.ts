@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useEditTarget, type EditTarget } from './useEditTarget';
+import { useBrandReset } from './useBrandReset';
 import { planBrandColorWrite, planBrandResetValues, planLogoWrite } from '../lib/brandWrites';
 import { defaultBrandTheme } from '../lib/storage';
 import { templateRegistry } from '../components/templates/registry';
@@ -52,6 +53,18 @@ function readEditTarget(): EditTarget {
   }
   renderToStaticMarkup(createElement(Probe));
   if (!captured) throw new Error('edit target was not captured');
+  return captured;
+}
+
+/** Capture the live "Reset brand" action the Brand surfaces are wired to. */
+function readBrandReset(): () => void {
+  let captured: (() => void) | null = null;
+  function Probe() {
+    captured = useBrandReset();
+    return null;
+  }
+  renderToStaticMarkup(createElement(Probe));
+  if (!captured) throw new Error('brand reset was not captured');
   return captured;
 }
 
@@ -288,47 +301,187 @@ describe('Logo URL supersedes an upload on every surface', () => {
   });
 });
 
-describe('Brand reset restores the visible target as well as the default', () => {
-  const houseDefaults = () =>
-    templateRegistry.find((template) => template.id === 'preacher-lower-third')!.defaultValues;
+/* --- Brand TARGET semantics --------------------------------------------- *
+ * A swatch always writes the visible graphic. Whether it also redefines the
+ * global brand default depends on what is visible: the draft is the next new
+ * graphic, a rundown item is a captured one.
+ * ------------------------------------------------------------------------ */
 
-  it('puts the draft’s brand colours back and clears the global override', () => {
-    // Change both halves the way a swatch does.
-    const write = planBrandColorWrite('main', '#ff0000');
-    useLiveLayerStore.getState().setTheme(write.theme);
-    readEditTarget().setFields(write.values);
+const houseDefaults = () =>
+  templateRegistry.find((template) => template.id === 'preacher-lower-third')!.defaultValues;
+
+/** Apply a swatch exactly as BrandControls does. */
+function applySwatch(target: EditTarget, swatch: 'main' | 'accent', value: string) {
+  const write = planBrandColorWrite(swatch, value, target.isRundownItem);
+  if (Object.keys(write.theme).length > 0) useLiveLayerStore.getState().setTheme(write.theme);
+  target.setFields(write.values);
+}
+
+describe('Swatch write — draft mode moves the brand default with it', () => {
+  it('changes both the global default and the draft', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(useLiveLayerStore.getState().theme.accentColor).toBe('#ff0000');
     expect(draft().colorBrand).toBe('#ff0000');
+  });
 
-    useLiveLayerStore.getState().resetTheme();
-    readEditTarget().setFields(planBrandResetValues('preacher-lower-third', 'house'));
+  it('preserves every unrelated draft value', () => {
+    applySwatch(readEditTarget(), 'accent', '#00ff00');
+    expect(draft().colorAccent).toBe('#00ff00');
+    expect(draft().colorBrand).toBe('#0d2095');
+    expect(draft().name).toBe('Draft name');
+    expect(draft().logoUrl).toBe('https://draft.test/l.png');
+  });
+});
+
+describe('Swatch write — a selected rundown item leaves the brand alone', () => {
+  it('changes the item only', () => {
+    const { rundownId, first } = seedRundown();
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.colorBrand).toBe('#ff0000');
+  });
+
+  it('leaves the global brand byte-identical', () => {
+    seedRundown();
+    const themeBefore = useLiveLayerStore.getState().theme;
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    // Same object reference: setTheme was never called.
+    expect(useLiveLayerStore.getState().theme).toBe(themeBefore);
+    expect(useLiveLayerStore.getState().theme.accentColor).toBe('#0d2095');
+  });
+
+  it('leaves the hidden draft byte-identical', () => {
+    seedRundown();
+    const draftBefore = draft();
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(draft()).toBe(draftBefore);
+  });
+
+  it('does not change isDraftDirty', () => {
+    useLiveLayerStore.setState({ draftValues: { ...houseDefaults() } });
+    const dirtyBefore = useLiveLayerStore.getState().isDraftDirty();
+    seedRundown();
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(dirtyBefore);
+    expect(dirtyBefore).toBe(false);
+  });
+
+  it('preserves item id, graphic id, ordering, selection and active rundown', () => {
+    const { rundownId, first, second } = seedRundown();
+    applySwatch(readEditTarget(), 'accent', '#00ff00');
+    const rundown = getRundown(rundownId)!;
+    expect(rundown.items.map((entry) => entry.id)).toEqual([first.id, second.id]);
+    expect(rundown.items[0].graphic.id).toBe('graphic-1');
+    expect(rundown.items[1].graphic.values.colorAccent).toBe('#222222');
+    expect(rundown.selectedItemId).toBe(first.id);
+    expect(rundown.id).toBe(rundownId);
+  });
+
+  it('leaves Program unchanged', () => {
+    seedRundown();
+    const before = useLiveLayerStore.getState().program;
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+describe('Brand reset — draft mode', () => {
+  it('restores the global default and the draft colours', () => {
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+    applySwatch(readEditTarget(), 'accent', '#00ff00');
+
+    readBrandReset()();
 
     expect(draft().colorBrand).toBe(houseDefaults().colorBrand);
     expect(draft().colorAccent).toBe(houseDefaults().colorAccent);
     expect(useLiveLayerStore.getState().theme.accentColor).toBe(defaultBrandTheme().accentColor);
-    // Content is not part of a brand reset.
+    expect(useLiveLayerStore.getState().theme.accent2Color).toBe(defaultBrandTheme().accent2Color);
+  });
+
+  it('leaves content and the rest of the palette to other actions', () => {
+    useLiveLayerStore.setState({
+      draftValues: { ...draft(), colorSurface: '#123456', colorText: '#654321', colorSecondary: '#abcdef' }
+    });
+    readBrandReset()();
     expect(draft().name).toBe('Draft name');
+    expect(draft().colorSurface).toBe('#123456');
+    expect(draft().colorText).toBe('#654321');
+    expect(draft().colorSecondary).toBe('#abcdef');
   });
 
-  it('puts the SELECTED ITEM’s brand colours back, preserving identity', () => {
-    const { rundownId, first, second } = seedRundown();
-    readEditTarget().setFields(planBrandColorWrite('main', '#ff0000').values);
-
-    useLiveLayerStore.getState().resetTheme();
-    readEditTarget().setFields(planBrandResetValues('preacher-lower-third', 'house'));
-
-    const rundown = getRundown(rundownId)!;
-    const item = rundown.items.find((entry) => entry.id === first.id)!;
-    expect(item.graphic.values.colorBrand).toBe(houseDefaults().colorBrand);
-    expect(item.graphic.values.name).toBe('Item name');
-    expect(item.graphic.id).toBe('graphic-1');
-    expect(rundown.items.map((entry) => entry.id)).toEqual([first.id, second.id]);
-    expect(rundown.selectedItemId).toBe(first.id);
-  });
-
-  it('never publishes', () => {
+  it('leaves Program unchanged', () => {
     const before = useLiveLayerStore.getState().program;
-    useLiveLayerStore.getState().resetTheme();
-    readEditTarget().setFields(planBrandResetValues('preacher-lower-third', 'house'));
-    expect(useLiveLayerStore.getState().program).toEqual(before);
+    readBrandReset()();
+    expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+describe('Brand reset — selected rundown item', () => {
+  it('restores the item’s colours only', () => {
+    const { rundownId, first } = seedRundown();
+    applySwatch(readEditTarget(), 'main', '#ff0000');
+
+    readBrandReset()();
+
+    const item = getRundown(rundownId)!.items.find((entry) => entry.id === first.id)!;
+    expect(item.graphic.values.colorBrand).toBe(houseDefaults().colorBrand);
+    expect(item.graphic.values.colorAccent).toBe(houseDefaults().colorAccent);
+    expect(item.graphic.values.name).toBe('Item name');
+  });
+
+  it('leaves the global brand, the hidden draft and isDraftDirty untouched', () => {
+    useLiveLayerStore.setState({ draftValues: { ...houseDefaults() } });
+    seedRundown();
+    const themeBefore = useLiveLayerStore.getState().theme;
+    const draftBefore = draft();
+    const dirtyBefore = useLiveLayerStore.getState().isDraftDirty();
+
+    readBrandReset()();
+
+    expect(useLiveLayerStore.getState().theme).toBe(themeBefore);
+    expect(draft()).toBe(draftBefore);
+    expect(useLiveLayerStore.getState().isDraftDirty()).toBe(dirtyBefore);
+  });
+
+  it('preserves item identity, ordering and selection', () => {
+    const { rundownId, first, second } = seedRundown();
+    readBrandReset()();
+    const rundown = getRundown(rundownId)!;
+    expect(rundown.items.map((entry) => entry.id)).toEqual([first.id, second.id]);
+    expect(rundown.items[0].graphic.id).toBe('graphic-1');
+    expect(rundown.selectedItemId).toBe(first.id);
+    expect(rundown.id).toBe(rundownId);
+  });
+
+  it('leaves Program unchanged', () => {
+    seedRundown();
+    const before = useLiveLayerStore.getState().program;
+    readBrandReset()();
+    expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+/* The draft-mode twin of this case cannot be exercised here: useEditTarget
+   reads currentTemplateId from zustand, which renderToStaticMarkup pins to the
+   module-init snapshot. The all-or-nothing guard itself is template-agnostic
+   and is covered directly by planBrandResetValues in brandWrites.test.ts. */
+describe('Brand reset — unresolvable template', () => {
+  it('performs no partial reset: the brand is not wiped while the graphic keeps its colours', () => {
+    const rundown = createRundown('Service')!;
+    const graphic = { ...makeGraphic({ id: 'graphic-x' }), templateId: 'retired-template' };
+    const item = addItem(rundown.id, { graphic, title: 'Legacy' })!;
+    setActiveRundown(rundown.id);
+    setSelectedItem(rundown.id, item.id);
+
+    // Move the brand away from its default first, so a stray reset would show.
+    useLiveLayerStore.getState().setTheme({ accentColor: '#ff0000' });
+    const themeBefore = useLiveLayerStore.getState().theme;
+    const valuesBefore = getRundown(rundown.id)!.items[0].graphic.values;
+
+    readBrandReset()();
+
+    expect(useLiveLayerStore.getState().theme).toBe(themeBefore);
+    expect(useLiveLayerStore.getState().theme.accentColor).toBe('#ff0000');
+    expect(getRundown(rundown.id)!.items[0].graphic.values).toEqual(valuesBefore);
   });
 });
