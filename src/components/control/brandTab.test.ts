@@ -5,6 +5,7 @@ import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { PackSwitchGuardProvider } from '../../hooks/usePackSwitchGuard';
 import { createDraftValues } from '../../lib/draftSeed';
 import { defaultBrandTheme } from '../../lib/storage';
+import { templateRegistry } from '../templates/registry';
 import { CLEAR_PROGRAM_STATE } from '../../types/program';
 import {
   addItem,
@@ -225,5 +226,83 @@ describe('Dock is unaffected', () => {
     const html = render(createElement(BrandStep));
     expect(html).toContain('Colours and logo apply to the selected rundown item only');
     expect(html).toContain('Brand defaults are unchanged');
+  });
+});
+
+/* --- swatch fallbacks for legacy / imported graphics --------------------- *
+ * A stored graphic need not carry colour values. The picker must then fall
+ * back the way the RENDERER does — the target's own theme over its template's
+ * declared theme — not to the hidden ad-hoc draft's theme.
+ * ------------------------------------------------------------------------ */
+
+const PREACHER = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
+/** The module-init draft theme these tests must never see reported. */
+const DRAFT_THEME = defaultBrandTheme();
+
+function swatches(html: string): { main?: string; accent?: string } {
+  const read = (label: string) =>
+    new RegExp(`<input[^>]*aria-label="${label}"[^>]*value="([^"]*)"`).exec(html)?.[1] ??
+    new RegExp(`<input[^>]*value="([^"]*)"[^>]*aria-label="${label}"`).exec(html)?.[1];
+  return { main: read('Main colour'), accent: read('Accent') };
+}
+
+function selectItemWithTheme(values: Record<string, string>, theme: GraphicInstance['theme']) {
+  const rundown = createRundown('Service')!;
+  const item = addItem(rundown.id, {
+    graphic: { ...makeGraphic(values), theme },
+    title: 'Legacy item'
+  })!;
+  setActiveRundown(rundown.id);
+  setSelectedItem(rundown.id, item.id);
+  return { rundownId: rundown.id, itemId: item.id };
+}
+
+describe('Brand swatch fallbacks follow the visible target', () => {
+  it('uses the item’s own theme when it carries no colour values', () => {
+    selectItemWithTheme(
+      { name: 'Legacy speaker' },
+      { primaryColor: '#ffffff', accentColor: '#654321', backgroundColor: 'transparent', accent2Color: '#123456' }
+    );
+    const found = swatches(brandTab());
+    expect(found.main).toBe('#654321');
+    expect(found.accent).toBe('#123456');
+    // ...and demonstrably not the hidden draft's theme.
+    expect(found.main).not.toBe(DRAFT_THEME.accentColor);
+    expect(found.accent).not.toBe(DRAFT_THEME.accent2Color);
+  });
+
+  it('ignores an invalid stored colour value and falls back to the item theme', () => {
+    selectItemWithTheme(
+      { colorBrand: 'not-a-colour', colorAccent: '' },
+      { primaryColor: '#ffffff', accentColor: '#654321', backgroundColor: 'transparent', accent2Color: '#123456' }
+    );
+    const found = swatches(brandTab());
+    expect(found.main).toBe('#654321');
+    expect(found.accent).toBe('#123456');
+  });
+
+  it('falls back to the template’s declared theme when the item has neither', () => {
+    // Exactly what TemplatePreview merges, so picker and preview agree.
+    selectItemWithTheme({ name: 'Legacy speaker' }, {} as GraphicInstance['theme']);
+    const found = swatches(brandTab());
+    expect(found.accent).toBe(PREACHER.theme.accent2Color);
+    expect(found.accent).not.toBe(DRAFT_THEME.accent2Color);
+  });
+
+  it('still prefers the item’s own colour values when it has them', () => {
+    selectItemWithTheme(
+      { colorBrand: '#abcdef', colorAccent: '#fedcba' },
+      { primaryColor: '#ffffff', accentColor: '#654321', backgroundColor: 'transparent', accent2Color: '#123456' }
+    );
+    const found = swatches(brandTab());
+    expect(found.main).toBe('#abcdef');
+    expect(found.accent).toBe('#fedcba');
+  });
+
+  it('is unchanged in draft mode', () => {
+    const found = swatches(brandTab());
+    const seed = HOUSE_SEED();
+    expect(found.main).toBe(seed.colorBrand);
+    expect(found.accent).toBe(seed.colorAccent);
   });
 });

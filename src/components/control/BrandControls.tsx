@@ -5,7 +5,8 @@ import { validateImageFile } from '../../lib/assets/imageProcessing';
 import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
-import { GFX_DEFAULT_ACCENT_2 } from '../graphics/stage';
+import { GFX_DEFAULT_ACCENT_2, GFX_DEFAULT_BRAND } from '../graphics/stage';
+import { templateRegistry } from '../templates/registry';
 import { BRAND_SWATCHES, planBrandColorWrite, planLogoWrite, type BrandSwatch } from '../../lib/brandWrites';
 import { getPack, graphicPacks } from '../../lib/packs';
 
@@ -59,11 +60,13 @@ export interface BrandControlsProps {
  * subscription.
  */
 export default function BrandControls({ showEventPack = true }: BrandControlsProps = {}) {
-  const theme = useLiveLayerStore((state) => state.theme);
   const setTheme = useLiveLayerStore((state) => state.setTheme);
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const { requestPackChange } = usePackSwitchGuard();
-  const { isRundownItem, values, setFields } = useEditTarget();
+  // The VISIBLE target's theme. A selected rundown item falls back to its own
+  // captured theme — the hidden draft's would report a colour the preview and
+  // Take never use.
+  const { isRundownItem, values, theme: targetTheme, templateId, setFields } = useEditTarget();
 
   const logoUrl = values.logoUrl ?? '';
   const logoAssetId = values.logoAssetId ?? '';
@@ -127,15 +130,24 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
   };
 
   /**
-   * The chip shows the colour the graphic is actually painted with — the
-   * target's own `values` colour — falling back to the brand default when the
-   * graphic carries none. Showing `theme` alone was the bug: it reported a
-   * colour the renderer never used.
+   * The chip must report the colour the graphic is actually painted with.
+   *
+   * Same resolution order the preview uses: the target's own `values` colour
+   * first (renderers redeclare `--gfx-*` from those), then the TARGET's theme
+   * over its template's declared theme — the merge TemplatePreview performs —
+   * then the stage default. Reading the store theme here reported a colour
+   * neither the preview nor Take used whenever a legacy or imported item
+   * carried no colour values of its own.
    */
+  const templateTheme = templateRegistry.find((entry) => entry.id === templateId)?.theme;
+  const effectiveTheme = { ...(templateTheme ?? {}), ...targetTheme };
+
   const swatchValue = (swatch: BrandSwatch, fallback: string): string => {
-    const { field } = BRAND_SWATCHES[swatch];
+    const { field, themeKey } = BRAND_SWATCHES[swatch];
     const own = values[field]?.trim();
-    return own && HEX_COLOR.test(own) ? own : fallback;
+    if (own && HEX_COLOR.test(own)) return own;
+    const themed = effectiveTheme[themeKey]?.trim();
+    return themed && HEX_COLOR.test(themed) ? themed : fallback;
   };
 
   /**
@@ -190,12 +202,12 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
       <div className="brand-grid__swatches">
         <Swatch
           label={BRAND_SWATCHES.main.label}
-          value={swatchValue('main', theme.accentColor)}
+          value={swatchValue('main', GFX_DEFAULT_BRAND)}
           onChange={onSwatchChange('main')}
         />
         <Swatch
           label={BRAND_SWATCHES.accent.label}
-          value={swatchValue('accent', theme.accent2Color ?? GFX_DEFAULT_ACCENT_2)}
+          value={swatchValue('accent', GFX_DEFAULT_ACCENT_2)}
           onChange={onSwatchChange('accent')}
         />
       </div>

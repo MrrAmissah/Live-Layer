@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
 import { cloneRundownGraphic, getSelectedItem, updateItem } from '../lib/rundown/rundownStore';
+import { reconcileGraphicAssets } from '../lib/rundown/rundownReferences';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
 import type { GraphicInstance } from '../types/graphics';
@@ -75,6 +76,16 @@ export function useEditTarget(): EditTarget {
     const patch = (changes: Partial<typeof graphic>) =>
       updateItem(rundownId, item.id, { graphic: { ...graphic, ...changes } });
 
+    /**
+     * Every values write goes through here so a stored graphic's asset
+     * bookkeeping cannot drift from its values: `assetRefs` and the legacy
+     * `theme.logoAssetId` are reconciled in the SAME updateItem call, so the
+     * two can never be momentarily inconsistent — and an export can never
+     * bundle an image the operator removed.
+     */
+    const patchValues = (nextValues: Record<string, string>, patchKeys: readonly string[]) =>
+      patch(reconcileGraphicAssets(graphic, nextValues, patchKeys));
+
     return {
       mode: 'rundown-item',
       isRundownItem: true,
@@ -93,18 +104,19 @@ export function useEditTarget(): EditTarget {
       // path, so a URL entered against an item that carries a stored asset
       // cannot save while changing nothing on screen.
       setField: (key, value) =>
-        patch({
-          values:
-            key === 'variantId'
-              ? applyVariantSelection(graphic.values, graphic.templateId, value)
-              : key === 'logoUrl'
-                ? applyLogoUrl(graphic.values, value)
-                : { ...graphic.values, [key]: value }
-        }),
+        patchValues(
+          key === 'variantId'
+            ? applyVariantSelection(graphic.values, graphic.templateId, value)
+            : key === 'logoUrl'
+              ? applyLogoUrl(graphic.values, value)
+              : { ...graphic.values, [key]: value },
+          [key]
+        ),
       // Atomic multi-field write: one updateItem over the current values, so
       // all fields land together instead of each overwriting the last from the
       // render-time snapshot.
-      setFields: (fieldPatch) => patch({ values: { ...graphic.values, ...fieldPatch } }),
+      setFields: (fieldPatch) =>
+        patchValues({ ...graphic.values, ...fieldPatch }, Object.keys(fieldPatch)),
       setLayout: (p) => patch({ layout: { ...(graphic.layout ?? {}), ...p } }),
       resetLayout: () => patch({ layout: {} }),
       setDuration: (seconds) => patch({ durationSeconds: seconds }),

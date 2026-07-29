@@ -9,6 +9,7 @@ import { defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys } from '..
 import { createDraftValues } from '../lib/draftSeed';
 import { templateRegistry } from '../components/templates/registry';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
+import { collectGraphicAssetIds } from '../lib/rundown/rundownReferences';
 import {
   addItem,
   clearAllRundowns,
@@ -797,5 +798,136 @@ describe('theme and brandTheme move together only for a draft swatch', () => {
     useLiveLayerStore.getState().setTemplate('preacher-lower-third');
     readBrandReset()();
     expect(useLiveLayerStore.getState().program).toBe(before);
+  });
+});
+
+/* --- rundown asset bookkeeping ------------------------------------------ *
+ * collectGraphicAssetIds unions values.*AssetId, assetRefs AND the legacy
+ * theme.logoAssetId, so a values-only write leaves an export bundling an image
+ * the operator removed. The invariant lives at the write boundary.
+ * ------------------------------------------------------------------------ */
+
+function seedRundownWithLogo(graphicOverrides: Partial<GraphicInstance> = {}) {
+  const rundown = createRundown('Service')!;
+  const base = makeGraphic({
+    id: 'graphic-1',
+    values: { name: 'Item name', logoAssetId: 'asset-logo', logoUrl: '' },
+    assetRefs: { logo: 'asset-logo' },
+    ...graphicOverrides
+  });
+  const first = addItem(rundown.id, { graphic: base, title: 'First' })!;
+  const second = addItem(rundown.id, { graphic: makeGraphic({ id: 'graphic-2' }), title: 'Second' })!;
+  setActiveRundown(rundown.id);
+  setSelectedItem(rundown.id, first.id);
+  return { rundownId: rundown.id, first, second };
+}
+
+const itemGraphic = (rundownId: string, itemId: string) =>
+  getRundown(rundownId)!.items.find((entry) => entry.id === itemId)!.graphic;
+
+describe('Rundown logo writes keep assetRefs and the legacy theme pointer in step', () => {
+  it('an upload records values and assetRefs together', () => {
+    const { rundownId, first } = seedRundownWithLogo({ values: { name: 'Item name' }, assetRefs: {} });
+    readEditTarget().setFields(planLogoWrite({ type: 'asset', assetId: 'asset-new' }));
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.logoAssetId).toBe('asset-new');
+    expect(g.assetRefs).toEqual({ logo: 'asset-new' });
+    expect(collectGraphicAssetIds(g)).toEqual(['asset-new']);
+  });
+
+  it('Remove image clears values, assetRefs and the legacy theme pointer', () => {
+    const { rundownId, first } = seedRundownWithLogo({
+      theme: { primaryColor: '#fff', accentColor: '#0d2095', backgroundColor: 'transparent', logoAssetId: 'asset-logo' }
+    });
+    readEditTarget().setFields(planLogoWrite({ type: 'clear' }));
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.logoAssetId).toBe('');
+    expect(g.values.logoUrl).toBe('');
+    expect(g.assetRefs).toEqual({});
+    expect(g.theme.logoAssetId).toBeUndefined();
+    // The export would no longer bundle it.
+    expect(collectGraphicAssetIds(g)).toEqual([]);
+  });
+
+  it('a typed URL supersedes the upload everywhere', () => {
+    const { rundownId, first } = seedRundownWithLogo({
+      theme: { primaryColor: '#fff', accentColor: '#0d2095', backgroundColor: 'transparent', logoAssetId: 'asset-logo' }
+    });
+    // The generic field path — the Content tab and the dock Edit step.
+    readEditTarget().setField('logoUrl', 'https://typed.test/l.png');
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.logoUrl).toBe('https://typed.test/l.png');
+    expect(g.values.logoAssetId).toBe('');
+    expect(g.assetRefs).toEqual({});
+    expect(g.theme.logoAssetId).toBeUndefined();
+    expect(collectGraphicAssetIds(g)).toEqual([]);
+  });
+
+  it('clearing an empty URL box preserves the upload', () => {
+    const { rundownId, first } = seedRundownWithLogo();
+    readEditTarget().setField('logoUrl', '');
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.logoAssetId).toBe('asset-logo');
+    expect(g.assetRefs).toEqual({ logo: 'asset-logo' });
+    expect(collectGraphicAssetIds(g)).toEqual(['asset-logo']);
+  });
+
+  it('reconciles headshots through the generic field path', () => {
+    const { rundownId, first } = seedRundownWithLogo({
+      values: { name: 'Item name', headshotAssetId: 'asset-face' },
+      assetRefs: { headshot: 'asset-face' }
+    });
+    readEditTarget().setField('headshotAssetId', '');
+    expect(itemGraphic(rundownId, first.id).assetRefs).toEqual({});
+  });
+
+  it('preserves unknown refs while removing the logo', () => {
+    const { rundownId, first } = seedRundownWithLogo({
+      assetRefs: { logo: 'asset-logo', background: 'asset-bg' }
+    });
+    readEditTarget().setFields(planLogoWrite({ type: 'clear' }));
+    expect(itemGraphic(rundownId, first.id).assetRefs).toEqual({ background: 'asset-bg' });
+  });
+
+  it('leaves an unrelated edit’s asset bookkeeping alone', () => {
+    const { rundownId, first } = seedRundownWithLogo();
+    readEditTarget().setField('name', 'Renamed');
+
+    const g = itemGraphic(rundownId, first.id);
+    expect(g.values.name).toBe('Renamed');
+    expect(g.assetRefs).toEqual({ logo: 'asset-logo' });
+  });
+
+  it('preserves identity, ordering, selection and Program', () => {
+    const { rundownId, first, second } = seedRundownWithLogo();
+    const programBefore = useLiveLayerStore.getState().program;
+
+    readEditTarget().setFields(planLogoWrite({ type: 'clear' }));
+
+    const rundown = getRundown(rundownId)!;
+    expect(rundown.items.map((entry) => entry.id)).toEqual([first.id, second.id]);
+    expect(rundown.items[0].graphic.id).toBe('graphic-1');
+    expect(rundown.items[1].graphic.values.name).toBe('Item name');
+    expect(rundown.selectedItemId).toBe(first.id);
+    expect(rundown.id).toBe(rundownId);
+    expect(useLiveLayerStore.getState().program).toBe(programBefore);
+  });
+
+  it('leaves the draft path unchanged — no assetRefs are stored on the draft', () => {
+    useLiveLayerStore.setState({ draftValues: { name: 'Draft name', logoAssetId: 'asset-draft' } });
+    readEditTarget().setFields(planLogoWrite({ type: 'clear' }));
+    expect(draft().logoAssetId).toBe('');
+    // buildInstanceFromDraft still derives refs from the current values.
+    expect(buildInstanceFromDraft(useLiveLayerStore.getState()).assetRefs).toEqual({});
+  });
+
+  it('derives draft assetRefs from values on Take/save', () => {
+    useLiveLayerStore.setState({ draftValues: { name: 'Draft name' } });
+    readEditTarget().setFields(planLogoWrite({ type: 'asset', assetId: 'asset-draft' }));
+    expect(buildInstanceFromDraft(useLiveLayerStore.getState()).assetRefs).toEqual({ logo: 'asset-draft' });
   });
 });
