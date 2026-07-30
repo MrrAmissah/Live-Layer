@@ -10,10 +10,13 @@
  *    through here so two spellings of one colour aren't reported as a change.
  *  - what does the colour PICKER show? — six-digit hex or nothing.
  *
- * Alpha is dropped rather than refused: `#11223344` paints a translucent colour
- * that a picker cannot express, and its RGB is a truer answer than falling back
- * to a template default. `transparent` and `currentColor` are not colours a
- * picker can stand in for at all, so they yield nothing.
+ * Alpha is dropped for the PICKER rather than refused: `#11223344` paints a
+ * translucent colour a colour input cannot express, and its RGB is a truer answer
+ * than falling back to a template default. It is NOT dropped for comparison —
+ * translucent red and opaque red are visibly different graphics — so
+ * `comparableColor` keeps it as an eight-digit form. `transparent` and
+ * `currentColor` are not colours a picker can stand in for at all, so they yield
+ * nothing.
  *
  * Coverage is the machine-written formats plus the 16 basic named colours. An
  * exotic name (`rebeccapurple`) yields nothing here — the picker then shows its
@@ -50,8 +53,19 @@ const NAMED: Record<string, string> = {
 
 const clampChannel = (value: number): number => Math.max(0, Math.min(255, Math.round(value)));
 
-const toHex = (r: number, g: number, b: number): string =>
-  `#${[r, g, b].map((channel) => clampChannel(channel).toString(16).padStart(2, '0')).join('')}`;
+const channelHex = (value: number): string => clampChannel(value).toString(16).padStart(2, '0');
+
+const toHex = (r: number, g: number, b: number): string => `#${channelHex(r)}${channelHex(g)}${channelHex(b)}`;
+
+/** An alpha channel as CSS states it: `0.5`, `50%`, or absent (opaque). */
+const alphaValue = (raw: string | undefined): number => {
+  const text = raw?.trim();
+  if (!text) return 1;
+  const percent = text.endsWith('%');
+  const numeric = Number.parseFloat(percent ? text.slice(0, -1) : text);
+  if (!Number.isFinite(numeric)) return 1;
+  return Math.max(0, Math.min(1, percent ? numeric / 100 : numeric));
+};
 
 /** `50%` → 127.5 of 255; a bare number stays as-is. */
 const channelValue = (raw: string): number | undefined => {
@@ -99,44 +113,66 @@ function hslToHex(parts: string[]): string | undefined {
   return toHex((r1 + match) * 255, (g1 + match) * 255, (b1 + match) * 255);
 }
 
-export function normalizeCssColorToHex(value: string | undefined): string | undefined {
+/** Hex plus alpha, or nothing when this build cannot read the notation. */
+function parseCssColor(value: string | undefined): { hex: string; alpha: number } | undefined {
   const text = value?.trim();
   if (!text) return undefined;
 
   const named = NAMED[text.toLowerCase()];
-  if (named) return named;
+  if (named) return { hex: named, alpha: 1 };
 
   const hex = HEX.exec(text);
   if (hex) {
-    const digits = hex[1];
+    const digits = hex[1].toLowerCase();
     if (digits.length === 3 || digits.length === 4) {
       const [r, g, b] = [...digits.slice(0, 3)];
-      return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+      const alpha = digits.length === 4 ? parseInt(digits[3] + digits[3], 16) / 255 : 1;
+      return { hex: `#${r}${r}${g}${g}${b}${b}`, alpha };
     }
-    if (digits.length === 6 || digits.length === 8) return `#${digits.slice(0, 6)}`.toLowerCase();
+    if (digits.length === 6 || digits.length === 8) {
+      const alpha = digits.length === 8 ? parseInt(digits.slice(6, 8), 16) / 255 : 1;
+      return { hex: `#${digits.slice(0, 6)}`, alpha };
+    }
     return undefined;
   }
 
   const rgb = RGB.exec(text);
   if (rgb) {
-    const parts = splitChannels(rgb[1]).slice(0, 3).map(channelValue);
-    if (parts.length < 3 || parts.some((part) => part === undefined)) return undefined;
-    return toHex(parts[0]!, parts[1]!, parts[2]!);
+    const parts = splitChannels(rgb[1]);
+    const channels = parts.slice(0, 3).map(channelValue);
+    if (channels.length < 3 || channels.some((part) => part === undefined)) return undefined;
+    return { hex: toHex(channels[0]!, channels[1]!, channels[2]!), alpha: alphaValue(parts[3]) };
   }
 
   const hsl = HSL.exec(text);
-  if (hsl) return hslToHex(splitChannels(hsl[1]));
+  if (hsl) {
+    const parts = splitChannels(hsl[1]);
+    const converted = hslToHex(parts);
+    return converted ? { hex: converted, alpha: alphaValue(parts[3]) } : undefined;
+  }
 
   return undefined;
+}
+
+/** Six-digit hex for a colour control. Alpha is dropped — see the module note. */
+export function normalizeCssColorToHex(value: string | undefined): string | undefined {
+  return parseCssColor(value)?.hex;
 }
 
 /**
  * The comparable form of a colour the renderer paints: normalized where this
  * build can, and the lowercased raw string otherwise — so an unrepresentable
  * colour compares as itself rather than as some fallback.
+ *
+ * Alpha is preserved as an eight-digit suffix, because translucent red and
+ * opaque red are different graphics. Opaque colours keep the plain six-digit
+ * form so nothing that used to compare equal stops doing so.
  */
 export function comparableColor(value: string | undefined): string {
   const text = value?.trim() ?? '';
   if (!text) return '';
-  return normalizeCssColorToHex(text) ?? text.toLowerCase();
+  const parsed = parseCssColor(text);
+  if (!parsed) return text.toLowerCase();
+  if (parsed.alpha >= 1) return parsed.hex;
+  return `${parsed.hex}${channelHex(parsed.alpha * 255)}`;
 }

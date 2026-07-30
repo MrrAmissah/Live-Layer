@@ -61,12 +61,27 @@ function normalize(fieldId: string, value: string | undefined): string {
  * call such a logo unavailable.
  */
 function comparable(state: VisualState): Record<string, string> {
-  return {
-    ...state.painted,
-    variantId: state.variantId,
-    logoUrl: state.logo.url,
-    logoAssetId: state.logo.missing ? '' : state.logo.assetId
-  };
+  return { ...state.painted, variantId: state.variantId };
+}
+
+/**
+ * The ONE logo the renderer selects, as a comparable key plus the row that
+ * should describe it.
+ *
+ * `resolveLogoSrc` picks a resolved asset, else `logoUrl`, else nothing — so a
+ * ready upload SHADOWS whatever URL sits beneath it. Comparing the two fields
+ * independently reported both an "Uploaded logo" and a "Logo URL" override for a
+ * graphic that paints one image, and `logo.source` already knew which.
+ *
+ * When the target paints no logo but the seed does, the row is the seed's field
+ * with an empty value — "the seeded logo is gone" is the difference, and naming
+ * the field it came from is what makes that readable.
+ */
+function effectiveLogo(state: VisualState): { key: string; fieldId: 'logoAssetId' | 'logoUrl' | null; value: string } {
+  const { source, assetId, url } = state.logo;
+  if (source === 'asset') return { key: `asset:${assetId}`, fieldId: 'logoAssetId', value: assetId };
+  if (source === 'url') return { key: `url:${url}`, fieldId: 'logoUrl', value: url };
+  return { key: '', fieldId: null, value: '' };
 }
 
 /**
@@ -90,13 +105,30 @@ function comparedFields(templateId: string): ReadonlyArray<{ id: string; label: 
   });
 }
 
+const labelFor = (fieldId: string): string =>
+  VISUAL_OVERRIDE_FIELDS.find((field) => field.id === fieldId)?.label ?? fieldId;
+
 /** The allowlisted fields where the target renders differently from its seed. */
 export function compareVisualStates(target: VisualState, seed: VisualState): VisualOverride[] {
   const left = comparable(target);
   const right = comparable(seed);
-  return comparedFields(target.templateId)
+  const overrides = comparedFields(target.templateId)
+    .filter((field) => field.id !== 'logoUrl' && field.id !== 'logoAssetId')
     .filter((field) => normalize(field.id, left[field.id]) !== normalize(field.id, right[field.id]))
     .map((field) => ({ id: field.id, label: field.label, value: (left[field.id] ?? '').trim() }));
+
+  if (rendersLogo(target.templateId)) {
+    const targetLogo = effectiveLogo(target);
+    const seedLogo = effectiveLogo(seed);
+    if (targetLogo.key !== seedLogo.key) {
+      const fieldId = targetLogo.fieldId ?? seedLogo.fieldId;
+      if (fieldId) {
+        overrides.push({ id: fieldId, label: labelFor(fieldId), value: targetLogo.value });
+      }
+    }
+  }
+
+  return overrides;
 }
 
 /** Summary line for the disclosure header. */

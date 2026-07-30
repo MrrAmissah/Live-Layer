@@ -54,6 +54,30 @@ describe('normalizeCssColorToHex', () => {
   });
 });
 
+describe('comparableColor — alpha is a visible difference', () => {
+  it('keeps alpha, so translucent red is not opaque red', () => {
+    expect(comparableColor('rgba(255, 0, 0, 0.5)')).toBe('#ff000080');
+    expect(comparableColor('#ff000080')).toBe('#ff000080');
+    expect(comparableColor('rgba(255, 0, 0, 0.5)')).not.toBe(comparableColor('#ff0000'));
+  });
+
+  it('reads alpha from every notation that carries one', () => {
+    expect(comparableColor('rgb(255 0 0 / 50%)')).toBe('#ff000080');
+    expect(comparableColor('hsla(0, 100%, 50%, 0.5)')).toBe('#ff000080');
+    expect(comparableColor('#f008')).toBe(comparableColor('#ff000088'));
+  });
+
+  it('leaves opaque colours in the plain six-digit form', () => {
+    expect(comparableColor('rgba(255, 0, 0, 1)')).toBe('#ff0000');
+    expect(comparableColor('#ff0000ff')).toBe('#ff0000');
+    expect(comparableColor('red')).toBe('#ff0000');
+  });
+
+  it('still hands the picker an opaque hex for a translucent colour', () => {
+    expect(normalizeCssColorToHex('rgba(255, 0, 0, 0.5)')).toBe('#ff0000');
+  });
+});
+
 describe('comparableColor', () => {
   it('makes two spellings of one colour compare equal', () => {
     expect(comparableColor('red')).toBe(comparableColor('#FF0000'));

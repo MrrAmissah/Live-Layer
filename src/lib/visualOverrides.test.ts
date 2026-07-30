@@ -267,3 +267,64 @@ describe('compareVisualStates — painted colours', () => {
     expect(found.map((entry) => entry.id)).not.toContain('colorBrand');
   });
 });
+
+/* --- One painted logo, one row -------------------------------------------- *
+ * `resolveLogoSrc` picks a resolved asset, else the URL. A ready upload shadows
+ * whatever URL sits beneath it, so a graphic that paints one image must not be
+ * reported as differing in two fields.
+ * ------------------------------------------------------------------------ */
+describe('compareVisualStates — the logo the renderer selects', () => {
+  it('reports the upload only, when a stale URL sits beneath a ready asset', () => {
+    const found = compare(
+      { ...seedValues, logoAssetId: 'asset-1', logoUrl: 'https://stale.test/old.png' },
+      brandTheme,
+      'ready'
+    );
+    expect(found).toEqual([{ id: 'logoAssetId', label: 'Uploaded logo', value: 'asset-1' }]);
+  });
+
+  it('reports the URL when the upload beneath it cannot be produced', () => {
+    const found = compare(
+      { ...seedValues, logoAssetId: 'asset-gone', logoUrl: 'https://other.test/l.png' },
+      brandTheme,
+      'missing'
+    );
+    expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: 'https://other.test/l.png' }]);
+  });
+
+  it('names the seed’s field when the target paints no logo at all', () => {
+    const found = compare({ ...seedValues, logoUrl: '', logoAssetId: '' });
+    expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: '' }]);
+  });
+
+  it('is silent when both paint the same image, however each stores it', () => {
+    expect(compare({ ...seedValues, logoAssetId: 'asset-gone' }, brandTheme, 'missing')).toEqual([]);
+  });
+});
+
+/* --- Alpha is a visible difference --------------------------------------- */
+describe('compareVisualStates — translucent colours', () => {
+  const sermon = templateRegistry.find((entry) => entry.id === 'sermon-title')!;
+  const sermonSeed = resolveSeedVisualState({
+    templateId: 'sermon-title',
+    packId: 'house',
+    brandTheme,
+    explicitBrandKeys: []
+  });
+
+  it('reports a translucent theme colour against an opaque seed', () => {
+    const translucent = resolveGraphicVisualState({
+      templateId: 'sermon-title',
+      values: { name: 'Legacy sermon' },
+      theme: { ...sermon.theme, accentColor: 'rgba(255, 0, 0, 0.5)' }
+    });
+    const opaque = resolveGraphicVisualState({
+      templateId: 'sermon-title',
+      values: { name: 'Legacy sermon' },
+      theme: { ...sermon.theme, accentColor: '#ff0000' }
+    });
+    expect(compareVisualStates(translucent, sermonSeed).map((entry) => entry.id)).toContain('colorBrand');
+    // ...and the two are not each other: the alpha is the difference.
+    expect(compareVisualStates(translucent, opaque).map((entry) => entry.id)).toContain('colorBrand');
+  });
+});
