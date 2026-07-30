@@ -102,17 +102,48 @@ live", "Clear". Avoid "resolved theme", "template schema", "animation override",
 
 ## Studio mode — full browser
 
-A single responsive CSS grid (`.studio-grid`) for roomy widths. Three columns at
-≥1180px: template **rail** (left, full height), **preview** + **editor** (center),
-**on-air actions** + **brand** + **library** (right). Panels stretch to fill
-their cells so leftover space becomes panel surface, never dead black gaps. This
-is the screenshot/portfolio view and is deliberately information-dense.
+A **bounded application workspace**, not a page. `.control-root--studio` owns the
+viewport exactly once (`height: 100dvh` with a `100vh` fallback for OBS's embedded
+Chromium — the same pair the dock uses) and clips; `.control-inner` fills it, and
+`.studio` takes whatever the command bar leaves via `flex: 1; min-height: 0`
+rather than a hardcoded `calc()`. Its three columns — `studio__nav`,
+`studio__center`, `studio__rail` — each scroll independently.
+
+The rule that follows from it: **the document never scrolls, so Take, Program and
+the preview cannot be pushed out of reach.** Before this, `.control-inner` carried
+`min-height: 100vh` beneath a 76px command bar, so a long queue made the whole
+page taller and the operator scrolled the document mid-service to reach Take.
+`.studio` also hardcoded `calc(100vh - 64px)` for a bar that is `min-height: 76px`
+— two constants for one bar, wrong by 12px whenever it wrapped.
+
+`workspaceShell.test.ts` asserts that contract against the stylesheet; a browser
+pass measures the result (document `scrollHeight === clientHeight` while all three
+columns overflow, at 1680×1050 and 1366×768).
+
+Left column is the template **library/nav**, centre is **preview + editor**, right
+is the **Program/Live rail** with Take/Clear and the queue. Panels stretch to fill
+their columns so leftover space becomes panel surface, never dead black gaps.
+
+Legacy note: `.studio-grid` and `.control-workspace` are still in `styles.css`
+from the pre-`ControlShell` grid and are rendered by nothing — left in place
+rather than deleted inside a layout change.
 
 When a rundown is active, the **On-air actions** column hosts the richer
 `StudioRundownPanel` (R5): the full ordered list with reorder/duplicate/delete/
 done and selected/LIVE/done badges, plus Previous/Next — so the operator manages
 and runs the queue without returning to Library. Take/Clear stay the deck buttons
 above it (one mode-aware Take). The dock keeps the compact `RundownQueue`.
+
+## Reserved routes
+
+`/scripture` exists and renders a bounded placeholder (`ScripturePage`). It
+reserves the destination so a Scripture workspace can be built as its own
+workspace rather than another panel inside `/control`, and it is deliberately not
+linked from the studio nav — a nav entry lands with the feature, not before it.
+Nothing on that route touches scripture lookup, speech recognition, quotation
+detection or any AI provider; those are separate decisions with their own
+provider-neutral interfaces, and the placeholder exists partly so none of them
+arrives as a side effect of layout work.
 
 ## Component map
 
