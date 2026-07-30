@@ -8,19 +8,14 @@ import { packVariantIdsFor } from '../../lib/packs';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 import { Icon } from '../../lib/icons';
-import {
-  PALETTE_FIELD_IDS,
-  resolveEffectiveVariantId,
-  resolvePaletteColors,
-  resolveResetPalette
-} from '../../lib/variantPalette';
+import { PALETTE_FIELD_IDS, resolveEffectiveVariantId, resolveResetPalette } from '../../lib/variantPalette';
+import { resolvePaletteColors } from '../../lib/visualState';
 import { composeThumbTheme } from './TemplateThumb';
 
 /**
- * Chip labels only. The field list, the theme slot each falls back to, and the
- * resolution itself live in `variantPalette` — the Graphic overrides panel
- * reads the same resolver, so the chip and the panel cannot describe the same
- * sparse graphic differently.
+ * Chip labels only. The field list lives in `variantPalette` and the resolution
+ * in `visualState`, which the Brand swatches and the overrides panel also read —
+ * so no two surfaces can describe the same sparse graphic differently.
  */
 const COLOR_LABELS: Record<string, string> = {
   colorBrand: 'Main',

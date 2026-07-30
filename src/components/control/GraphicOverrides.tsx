@@ -3,8 +3,8 @@ import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useAsset } from '../../hooks/useAsset';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { templateRegistry } from '../templates/registry';
-import { createDraftValues } from '../../lib/draftSeed';
-import { describeOverrideCount, findVisualOverrides } from '../../lib/visualOverrides';
+import { compareVisualStates, describeOverrideCount } from '../../lib/visualOverrides';
+import { resolveGraphicVisualState, resolveSeedVisualState } from '../../lib/visualState';
 import { getPack } from '../../lib/packs';
 import { Icon } from '../../lib/icons';
 
@@ -34,17 +34,11 @@ export default function GraphicOverrides() {
   const logoAsset = useAsset(values.logoAssetId);
 
   const known = templateRegistry.some((template) => template.id === templateId);
-  // Same inputs the store seeds with, so the count can never disagree with
-  // what a fresh graphic would actually look like — including the theme it
-  // would carry, which is what fills in whatever its values omit.
-  const seed = createDraftValues(templateId, activePackId, brandTheme, explicitBrandKeys);
-  const overrides = known
-    ? findVisualOverrides(
-        templateId,
-        { values, theme, logoAssetAvailable: logoAsset.status !== 'missing' },
-        { values: seed, theme: brandTheme }
-      )
-    : [];
+  // Two resolved states, never a raw field compare: the graphic as Preview and
+  // Take render it, against what selecting this template right now would give.
+  const target = resolveGraphicVisualState({ templateId, values, theme, logoAssetStatus: logoAsset.status });
+  const seed = resolveSeedVisualState({ templateId, packId: activePackId, brandTheme, explicitBrandKeys });
+  const overrides = known ? compareVisualStates(target, seed) : [];
   const summary = known ? describeOverrideCount(overrides.length) : 'Comparison unavailable';
 
   return (

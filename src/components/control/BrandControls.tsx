@@ -9,7 +9,7 @@ import { GFX_DEFAULT_ACCENT_2, GFX_DEFAULT_BRAND } from '../graphics/stage';
 import { BRAND_SWATCHES, describeLogoRef, planLogoWrite, type BrandSwatch } from '../../lib/brandWrites';
 import { useBrandSwatch } from '../../hooks/useBrandSwatch';
 import { getPack, graphicPacks } from '../../lib/packs';
-import { resolvePaletteColors } from '../../lib/variantPalette';
+import { resolvePaletteColors, type PaletteFieldId } from '../../lib/visualState';
 
 
 function Swatch({
@@ -150,7 +150,7 @@ export default function BrandControls({ showEventPack = true }: BrandControlsPro
   const resolvedPalette = resolvePaletteColors(templateId, values, targetTheme);
 
   const swatchValue = (swatch: BrandSwatch, fallback: string): string =>
-    resolvedPalette[BRAND_SWATCHES[swatch].field] || fallback;
+    resolvedPalette[BRAND_SWATCHES[swatch].field as PaletteFieldId] || fallback;
 
   // The target decision lives in useBrandSwatch so it is testable — see there.
   const applySwatch = useBrandSwatch();

@@ -16,6 +16,7 @@ import {
   setSelectedItem
 } from '../../lib/rundown/rundownStore';
 import BrandTab from './BrandTab';
+import { PREMIUM_FALLBACKS } from '../../lib/rendererFallbacks';
 import { BRAND_RESET_TITLE } from './FieldEditor';
 import ContentTab from './ContentTab';
 import BrandStep from './steps/BrandStep';
@@ -262,51 +263,69 @@ function selectItemWithTheme(values: Record<string, string>, theme: GraphicInsta
   return { rundownId: rundown.id, itemId: item.id };
 }
 
-describe('Brand swatch fallbacks follow the visible target', () => {
-  it('shows shorthand theme hex as the colour Program paints', () => {
-    // themeToVars copies the theme colour into --gfx-* unvalidated, so CSS
-    // paints #fff; a six-digit-only chip showed the template default instead.
-    selectItemWithTheme(
-      { name: 'Legacy speaker' },
-      { primaryColor: '#fff', accentColor: '#fff', backgroundColor: 'transparent', accent2Color: '#0F0' }
-    );
-    const found = swatches(brandTab());
-    expect(found.main).toBe('#ffffff');
-    expect(found.accent).toBe('#00ff00');
-  });
+function selectStageItemWithTheme(values: Record<string, string>, theme: GraphicInstance['theme']) {
+  const rundown = createRundown('Service')!;
+  const item = addItem(rundown.id, {
+    graphic: { ...makeGraphic(values), templateId: 'sermon-title', theme },
+    title: 'Sermon item'
+  })!;
+  setActiveRundown(rundown.id);
+  setSelectedItem(rundown.id, item.id);
+  return { rundownId: rundown.id, itemId: item.id };
+}
 
-  it('uses the item’s own theme when it carries no colour values', () => {
+describe('Brand swatch fallbacks follow the visible target', () => {
+  /*
+   * The swatch reports what the graphic PAINTS. For this template — a premium
+   * family one — the plates resolve through `--gfx-template-brand`, which only
+   * per-graphic values ever set, so an item carrying no `colorBrand` paints the
+   * stylesheet's constant and its theme's brand simply never reaches those
+   * plates. Showing the theme colour there described a colour the operator could
+   * not see on the plate. `visualState` owns that chain; these assert the
+   * surface reads it, and `visualState.test.ts` asserts the chain itself.
+   */
+  it('shows the stylesheet constant a sparse premium item actually paints', () => {
     selectItemWithTheme(
       { name: 'Legacy speaker' },
       { primaryColor: '#ffffff', accentColor: '#654321', backgroundColor: 'transparent', accent2Color: '#123456' }
     );
     const found = swatches(brandTab());
-    expect(found.main).toBe('#654321');
-    expect(found.accent).toBe('#123456');
-    // ...and demonstrably not the hidden draft's theme.
+    expect(found.main).toBe(PREMIUM_FALLBACKS.colorBrand);
+    expect(found.accent).toBe(PREMIUM_FALLBACKS.colorAccent);
+    // ...and still demonstrably not the hidden draft's theme, which is what
+    // this test originally existed to rule out.
     expect(found.main).not.toBe(DRAFT_THEME.accentColor);
     expect(found.accent).not.toBe(DRAFT_THEME.accent2Color);
   });
 
-  it('ignores an invalid stored colour value and falls back to the item theme', () => {
+  it('ignores an invalid stored colour value the renderer would also drop', () => {
     selectItemWithTheme(
       { colorBrand: 'not-a-colour', colorAccent: '' },
       { primaryColor: '#ffffff', accentColor: '#654321', backgroundColor: 'transparent', accent2Color: '#123456' }
     );
     const found = swatches(brandTab());
-    expect(found.main).toBe('#654321');
-    expect(found.accent).toBe('#123456');
+    expect(found.main).toBe(PREMIUM_FALLBACKS.colorBrand);
+    expect(found.accent).toBe(PREMIUM_FALLBACKS.colorAccent);
   });
 
-  it('falls back to the template’s declared theme when the item has neither', () => {
-    // Exactly what TemplatePreview merges, so picker and preview agree.
+  it('shows the same constants when the item has no theme at all', () => {
     selectItemWithTheme({ name: 'Legacy speaker' }, {} as GraphicInstance['theme']);
     const found = swatches(brandTab());
-    expect(found.accent).toBe(PREACHER.theme.accent2Color);
-    expect(found.accent).not.toBe(DRAFT_THEME.accent2Color);
-    // Discriminates the template-theme fallback from the stage default, which
-    // the accent alone cannot (GFX_DEFAULT_ACCENT_2 === PREACHER gold).
-    expect(found.main).toBe(PREACHER.theme.accentColor);
+    expect(found.main).toBe(PREMIUM_FALLBACKS.colorBrand);
+    expect(found.accent).toBe(PREMIUM_FALLBACKS.colorAccent);
+  });
+
+  it('follows the item theme on a template whose renderer reads --gfx-brand', () => {
+    // sermon-title is in the stage family: themeToVars drives its brand, so the
+    // theme is exactly what it paints — including shorthand hex, which
+    // themeToVars passes through unvalidated and CSS resolves.
+    selectStageItemWithTheme(
+      { name: 'Legacy sermon' },
+      { primaryColor: '#ffffff', accentColor: '#fff', backgroundColor: 'transparent', accent2Color: '#0F0' }
+    );
+    const found = swatches(brandTab());
+    expect(found.main).toBe('#ffffff');
+    expect(found.accent).toBe('#00ff00');
   });
 
   it('still prefers the item’s own colour values when it has them', () => {

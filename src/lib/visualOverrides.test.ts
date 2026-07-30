@@ -1,38 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { describeOverrideCount, findVisualOverrides, VISUAL_OVERRIDE_FIELDS } from './visualOverrides';
+import { compareVisualStates, describeOverrideCount, VISUAL_OVERRIDE_FIELDS } from './visualOverrides';
+import { resolveGraphicVisualState, resolveSeedVisualState } from './visualState';
+import { PREMIUM_FALLBACKS } from './rendererFallbacks';
+import { defaultBrandTheme } from './storage';
 import { templateRegistry } from '../components/templates/registry';
+import type { TemplateTheme } from '../types/graphics';
 
 const TEMPLATE_ID = 'preacher-lower-third';
 const template = templateRegistry.find((entry) => entry.id === TEMPLATE_ID)!;
+const brandTheme = defaultBrandTheme();
 
-/** What a graphic seeded right now under the house pack carries. */
-const seedValues: Record<string, string> = {
-  ...template.defaultValues,
-  name: 'Rev. Ishmael K. Awotwe',
-  title: 'Lead Pastor',
-  subtitle: 'Mathapoly Church International'
-};
+/** What selecting this template right now would produce, under the house pack. */
+const seed = resolveSeedVisualState({
+  templateId: TEMPLATE_ID,
+  packId: 'house',
+  brandTheme,
+  explicitBrandKeys: []
+});
 
-/** The theme such a graphic carries: the persisted brand default. */
-const brandTheme = { ...template.theme };
-const seed = { values: seedValues, theme: brandTheme };
+const seedValues: Record<string, string> = { ...template.defaultValues };
 
-const find = (values: Record<string, string>, theme: Partial<Record<string, string>> = brandTheme) =>
-  findVisualOverrides(TEMPLATE_ID, { values, theme }, seed);
+const compare = (
+  values: Record<string, string>,
+  theme: Partial<TemplateTheme> = brandTheme,
+  logoAssetStatus?: string
+) => compareVisualStates(resolveGraphicVisualState({ templateId: TEMPLATE_ID, values, theme, logoAssetStatus }), seed);
 
-describe('findVisualOverrides', () => {
+describe('compareVisualStates', () => {
   it('reports nothing for an untouched graphic', () => {
-    expect(find({ ...seedValues })).toEqual([]);
+    expect(compare({ ...seedValues })).toEqual([]);
   });
 
   it('reports a single changed visual field', () => {
-    const found = find({ ...seedValues, colorBrand: '#ff0000' });
-    expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ id: 'colorBrand', label: 'Main colour', value: '#ff0000' });
+    const found = compare({ ...seedValues, colorBrand: '#ff0000' });
+    expect(found).toEqual([{ id: 'colorBrand', label: 'Main colour', value: '#ff0000' }]);
   });
 
   it('reports several changed visual fields', () => {
-    const found = find({
+    const found = compare({
       ...seedValues,
       colorBrand: '#ff0000',
       variantId: 'split-bar',
@@ -42,7 +47,7 @@ describe('findVisualOverrides', () => {
   });
 
   it('ignores content fields entirely', () => {
-    const found = find({
+    const found = compare({
       ...seedValues,
       name: 'Someone Else',
       title: 'Guest Speaker',
@@ -55,77 +60,35 @@ describe('findVisualOverrides', () => {
 
   it('treats hex casing as equal, so picking the colour already in use is not an override', () => {
     const inUse = seedValues.colorAccent;
-    expect(find({ ...seedValues, colorAccent: inUse.toLowerCase() })).toEqual([]);
-    expect(find({ ...seedValues, colorAccent: inUse.toUpperCase() })).toEqual([]);
-  });
-
-  it('treats an absent logo and an empty logo as the same', () => {
-    // This template seeds a logo URL, so compare against a seed that has none.
-    const noLogo = { values: { ...seedValues, logoUrl: '' }, theme: brandTheme };
-    expect(
-      findVisualOverrides(
-        TEMPLATE_ID,
-        { values: { ...seedValues, logoUrl: '   ', logoAssetId: '   ' }, theme: brandTheme },
-        noLogo
-      )
-    ).toEqual([]);
+    expect(compare({ ...seedValues, colorAccent: inUse.toLowerCase() })).toEqual([]);
+    expect(compare({ ...seedValues, colorAccent: inUse.toUpperCase() })).toEqual([]);
   });
 
   it('reports a seeded logo the operator cleared', () => {
-    const found = find({ ...seedValues, logoUrl: '' });
-    expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ id: 'logoUrl', value: '' });
-  });
-
-  it('does not count an unavailable upload that the URL fallback covers', () => {
-    // resolveLogoSrc falls through an upload it cannot produce to logoUrl, so
-    // this graphic paints the seed's logo — the same judgement describeLogoRef
-    // makes in the Brand panel.
-    expect(
-      findVisualOverrides(
-        TEMPLATE_ID,
-        { values: { ...seedValues, logoAssetId: 'asset-gone' }, theme: brandTheme, logoAssetAvailable: false },
-        seed
-      )
-    ).toEqual([]);
+    const found = compare({ ...seedValues, logoUrl: '' });
+    expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: '' }]);
   });
 
   it('counts an upload that resolves, because that is what paints', () => {
-    const found = findVisualOverrides(
-      TEMPLATE_ID,
-      { values: { ...seedValues, logoAssetId: 'asset-1' }, theme: brandTheme, logoAssetAvailable: true },
-      seed
-    );
+    const found = compare({ ...seedValues, logoAssetId: 'asset-1' }, brandTheme, 'ready');
     expect(found).toEqual([{ id: 'logoAssetId', label: 'Uploaded logo', value: 'asset-1' }]);
   });
 
+  it('does not count an unavailable upload that the URL fallback covers', () => {
+    expect(compare({ ...seedValues, logoAssetId: 'asset-gone' }, brandTheme, 'missing')).toEqual([]);
+  });
+
   it('still reports an unavailable upload when the URL beneath it differs', () => {
-    const found = findVisualOverrides(
-      TEMPLATE_ID,
-      {
-        values: { ...seedValues, logoAssetId: 'asset-gone', logoUrl: 'https://other.test/l.png' },
-        theme: brandTheme,
-        logoAssetAvailable: false
-      },
-      seed
+    const found = compare(
+      { ...seedValues, logoAssetId: 'asset-gone', logoUrl: 'https://other.test/l.png' },
+      brandTheme,
+      'missing'
     );
-    // The upload paints nothing, so the difference on screen is the URL.
     expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: 'https://other.test/l.png' }]);
   });
 
   it('treats a not-yet-resolved upload as present, so no row blinks out and back', () => {
-    const loading = findVisualOverrides(
-      TEMPLATE_ID,
-      { values: { ...seedValues, logoAssetId: 'asset-1' }, theme: brandTheme },
-      seed
-    );
-    expect(loading.map((entry) => entry.id)).toEqual(['logoAssetId']);
-  });
-
-  it('detects a logo that was added where the seed has none', () => {
-    const found = find({ ...seedValues, logoAssetId: 'asset-1' });
-    expect(found).toHaveLength(1);
-    expect(found[0].id).toBe('logoAssetId');
+    expect(compare({ ...seedValues, logoAssetId: 'asset-1' }).map((entry) => entry.id)).toEqual(['logoAssetId']);
   });
 
   it('only ever looks at the allowlist', () => {
@@ -142,60 +105,54 @@ describe('findVisualOverrides', () => {
   });
 });
 
-/* --- Resolution, not raw records ----------------------------------------- *
- * A legacy or imported graphic can omit palette and variant fields; the
- * renderer fills them from the theme and the template. Comparing what is
- * stored rather than what is painted reported overrides nobody could see, and
- * missed differences carried only by the theme.
+/* --- Sparse graphics are compared as they render ------------------------- *
+ * A legacy or imported graphic that carries no palette is NOT the same as a
+ * freshly seeded one: on a premium template its plates paint the stylesheet's
+ * constants, because --gfx-template-brand is only ever set from values. The
+ * comparison has to say so — reporting "nothing changed" there was the defect.
  * ------------------------------------------------------------------------ */
-describe('findVisualOverrides — sparse graphics are compared as they render', () => {
-  /**
-   * A legacy graphic: content and the seeded logo, but no palette and no
-   * variant. Its theme fills every palette gap with the colour the seed stores,
-   * so it renders exactly like a graphic seeded now — the raw comparison called
-   * it four overrides with an em dash for a value.
-   */
-  const sparse = { name: 'Rev. Ishmael K. Awotwe', title: 'Lead Pastor', logoUrl: seedValues.logoUrl };
-  const matchingTheme = {
-    accentColor: seedValues.colorBrand,
-    accent2Color: seedValues.colorAccent,
-    surfaceColor: seedValues.colorSurface,
-    primaryColor: seedValues.colorText
-  };
+describe('compareVisualStates — sparse premium graphics', () => {
+  const sparse = { name: 'Legacy Import', title: 'Guest Speaker', logoUrl: seedValues.logoUrl };
 
-  it('reports nothing when the omitted fields resolve to the seed', () => {
-    expect(find(sparse, matchingTheme)).toEqual([]);
+  it('reports the stylesheet constants the plates actually paint', () => {
+    // The theme matches the seed's colours exactly, and it still differs: the
+    // premium plates never consult the theme for brand or accent.
+    const found = compare(sparse, brandTheme);
+    const byId = Object.fromEntries(found.map((entry) => [entry.id, entry.value]));
+    expect(byId.colorBrand).toBe(PREMIUM_FALLBACKS.colorBrand);
+    expect(byId.colorAccent).toBe(PREMIUM_FALLBACKS.colorAccent);
+    expect(byId.colorSecondary).toBe(PREMIUM_FALLBACKS.colorSecondary);
   });
 
-  it('reports a difference carried only by the theme, with the colour it paints', () => {
-    const found = find(sparse, { ...matchingTheme, accentColor: '#ff0000' });
-    expect(found).toHaveLength(1);
-    // `colorBrand` falls back to `accentColor` — and the row shows the colour
-    // on screen rather than the em dash a missing value used to produce.
-    expect(found[0]).toMatchObject({ id: 'colorBrand', value: '#ff0000' });
-  });
-
-  it('never reports an em dash for a colour the graphic actually renders', () => {
-    const found = find(sparse, { ...matchingTheme, accentColor: '#ff0000', surfaceColor: '#101010' });
-    expect(found.map((entry) => entry.id).sort()).toEqual(['colorBrand', 'colorSurface']);
-    for (const override of found) {
-      expect(override.value).toMatch(/^#[0-9a-f]{6}$/i);
+  it('never reports an em dash for a colour the graphic renders', () => {
+    for (const override of compare(sparse, brandTheme)) {
+      if (override.id.startsWith('color')) expect(override.value).toMatch(/^#[0-9a-f]{6}$/i);
     }
   });
 
-  it('an absent variant is the template default, which is what the seed renders', () => {
-    expect(find({ ...seedValues, variantId: '' })).toEqual([]);
+  it('an absent variant is the renderer’s fallback, which the seed also renders', () => {
+    expect(compare({ ...seedValues, variantId: '' })).toEqual([]);
   });
 
-  it('reports the variant a shared renderer actually paints, not the registry default', () => {
-    // performer-lower-third renders through the lower-third renderer, so an item
-    // storing no variant paints `signature-medallion` while a fresh performer
-    // graphic is `performer-pill`. Those look different, so it is an override.
+  it('reports a legacy variant id that no longer exists, because it is not the seed’s look', () => {
+    const found = compare({ ...seedValues, variantId: 'variant-that-was-removed' });
+    expect(found).toEqual([{ id: 'variantId', label: 'Design variant', value: 'variant-that-was-removed' }]);
+  });
+
+  it('reports the variant a shared renderer paints, not the registry default', () => {
     const performer = templateRegistry.find((entry) => entry.id === 'performer-lower-third')!;
-    const performerSeed = { values: { ...performer.defaultValues }, theme: { ...performer.theme } };
-    const found = findVisualOverrides(
-      'performer-lower-third',
-      { values: { name: 'Mass Choir', logoUrl: performer.defaultValues.logoUrl }, theme: { ...performer.theme } },
+    const performerSeed = resolveSeedVisualState({
+      templateId: 'performer-lower-third',
+      packId: 'house',
+      brandTheme,
+      explicitBrandKeys: []
+    });
+    const found = compareVisualStates(
+      resolveGraphicVisualState({
+        templateId: 'performer-lower-third',
+        values: { name: 'Mass Choir', logoUrl: performer.defaultValues.logoUrl },
+        theme: performer.theme
+      }),
       performerSeed
     );
     expect(found.filter((entry) => entry.id === 'variantId')).toEqual([
@@ -203,16 +160,10 @@ describe('findVisualOverrides — sparse graphics are compared as they render', 
     ]);
   });
 
-  it('reports a legacy variant id that no longer exists, because it is not the seed’s look', () => {
-    const found = find({ ...seedValues, variantId: 'variant-that-was-removed' });
-    expect(found).toHaveLength(1);
-    expect(found[0]).toMatchObject({ id: 'variantId', value: 'variant-that-was-removed' });
-  });
-
-  it('still reports a cleared colour when clearing it changes what is painted', () => {
-    // Cleared, `colorSurface` falls back to the theme's surfaceColor.
-    const found = find({ ...seedValues, colorSurface: '' }, { ...brandTheme, surfaceColor: '#101010' });
-    expect(found).toEqual([{ id: 'colorSurface', label: 'Surface colour', value: '#101010' }]);
+  it('surface and text still track the theme, so a matching theme is not an override', () => {
+    const found = compare(sparse, { ...brandTheme, surfaceColor: seedValues.colorSurface, primaryColor: seedValues.colorText });
+    expect(found.map((entry) => entry.id)).not.toContain('colorSurface');
+    expect(found.map((entry) => entry.id)).not.toContain('colorText');
   });
 });
 

@@ -1,17 +1,15 @@
 import { templateFallbackVariant, templateRegistry } from '../components/templates/registry';
-import type { TemplateTheme } from '../types/graphics';
 
 const templateById = new Map(templateRegistry.map((t) => [t.id, t]));
 
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-
 /**
  * The five per-graphic colour fields the Design palette edits, each paired with
- * the theme slot the RENDERER falls back to when a graphic carries no value for
- * it (`templateColorStyle` → `themeToVars`). They live in `values` (not
- * `theme`) so a preset or rundown item keeps its own palette.
+ * the theme slot that CAN back it. They live in `values` (not `theme`) so a
+ * preset or rundown item keeps its own palette.
  *
- * `colorSecondary` has no theme slot; the template default is its only fallback.
+ * Which of those theme slots a given template actually consults is a renderer
+ * question, and it differs per template family — `visualState` owns that chain,
+ * and every surface resolves through it.
  */
 export const PALETTE_FIELDS = [
   { id: 'colorBrand', themeKey: 'accentColor' },
@@ -25,73 +23,6 @@ export const PALETTE_FIELDS = [
 export const PALETTE_FIELD_IDS: ReadonlyArray<(typeof PALETTE_FIELDS)[number]['id']> = PALETTE_FIELDS.map(
   (field) => field.id
 );
-
-/** Any theme record: a template's, a graphic's captured one, or the brand default. */
-type ThemeLike = Partial<TemplateTheme>;
-
-/**
- * A per-graphic VALUE colour, gated exactly as `templateColorStyle` gates it:
- * six-digit hex or nothing. A three-digit value never reaches `--gfx-*`, so a
- * chip must not display one either.
- */
-function colorValue(value: string | undefined, fallback: string): string {
-  const next = value?.trim();
-  return next && HEX_COLOR.test(next) ? next : fallback;
-}
-
-const SHORT_HEX = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i;
-
-/**
- * A THEME slot, gated as `themeToVars` gates it — which is to say hardly at all:
- * it copies the string into `--gfx-*`, and CSS resolves `#fff` happily, so a
- * legacy or imported theme carrying shorthand really is what Program paints.
- * Expanded to six digits because that is all `<input type="color">` accepts.
- *
- * A theme colour that is neither three- nor six-digit hex (a named CSS colour,
- * say) still cannot be shown in a colour input, so the chip falls back — the
- * honest limit of a picker, and unreachable through the UI's own writes.
- */
-function themeColorValue(value: string | undefined, fallback: string): string {
-  const next = value?.trim();
-  if (!next) return fallback;
-  const short = SHORT_HEX.exec(next);
-  // Lowercase, which is what `<input type="color">` emits — so a chip that
-  // started at an expanded shorthand doesn't change case the moment it is
-  // re-picked. Six-digit values pass through as authored.
-  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase();
-  return HEX_COLOR.test(next) ? next : fallback;
-}
-
-/**
- * What each palette field currently RESOLVES to for a graphic — the renderer's
- * own chain: the graphic's own value, then the theme slot it falls back to,
- * then the template default.
- *
- * One home on purpose. The Design chips, "Reset palette" and the Graphic
- * overrides panel all read this, so a sparse legacy or imported graphic cannot
- * be described one way by the chip beside it and another by the panel above it
- * — the drift that made both report colours the preview never painted.
- *
- * `theme` is the graphic's OWN theme; the template's is merged underneath here,
- * the same merge `TemplatePreview` performs.
- */
-export function resolvePaletteColors(
-  templateId: string,
-  values: Record<string, string>,
-  theme: ThemeLike | undefined
-): Record<string, string> {
-  const template = templateById.get(templateId);
-  const defaults: Record<string, string> = template?.defaultValues ?? {};
-  const effectiveTheme: ThemeLike = { ...(template?.theme ?? {}), ...(theme ?? {}) };
-  const resolved: Record<string, string> = {};
-  for (const { id, themeKey } of PALETTE_FIELDS) {
-    resolved[id] = colorValue(
-      values[id],
-      themeColorValue(themeKey ? effectiveTheme[themeKey] : undefined, defaults[id] ?? '')
-    );
-  }
-  return resolved;
-}
 
 /**
  * The variant id that should actually be treated as selected: the requested one

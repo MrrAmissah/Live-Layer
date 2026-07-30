@@ -1,5 +1,4 @@
-import { resolvePaletteColors, resolveRenderedVariantId } from './variantPalette';
-import type { TemplateTheme } from '../types/graphics';
+import type { VisualState } from './visualState';
 
 /**
  * "Graphic overrides" — how the VISIBLE graphic differs from what its template
@@ -9,12 +8,18 @@ import type { TemplateTheme } from '../types/graphics';
  * scripture text, announcement copy and every other content field are what an
  * operator is expected to type on every graphic; counting them would report
  * "12 overrides" on a normal lower third and mean nothing.
+ *
+ * Boundary 3 of the visual-resolution model: this compares two already-resolved
+ * `VisualState`s and knows nothing else. It cannot validate a colour, expand
+ * shorthand, walk a theme fallback, pick a variant or ask whether an asset
+ * resolved — every one of those lives in `visualState`, so the panel and the
+ * controls cannot disagree about the same graphic.
  */
 
 export interface VisualOverride {
   id: string;
   label: string;
-  /** The target's current value (already a display string). */
+  /** The target's effective value, ready to display. */
   value: string;
 }
 
@@ -30,11 +35,11 @@ export const VISUAL_OVERRIDE_FIELDS: ReadonlyArray<{ id: string; label: string }
 ];
 
 /**
- * Compare like with like. Hex colours reach `values` from three sources with
- * different casing — registry/pack literals are mixed case (`#E8B93C`) while
- * `<input type="color">` always emits lowercase — so a case-sensitive compare
- * would report a phantom override for picking the very colour already in use.
- * Absent and empty are the same thing for the logo fields.
+ * Compare like with like. Hex colours reach a resolved state from three sources
+ * with different casing — registry/pack literals are mixed case (`#E8B93C`)
+ * while `<input type="color">` always emits lowercase — so a case-sensitive
+ * compare would report a phantom override for picking the very colour already
+ * in use.
  */
 function normalize(fieldId: string, value: string | undefined): string {
   const next = (value ?? '').trim();
@@ -42,58 +47,29 @@ function normalize(fieldId: string, value: string | undefined): string {
 }
 
 /**
- * One graphic's side of the comparison: what it stores, plus the theme the
- * renderer falls back to for whatever it doesn't.
- */
-export interface VisualSide {
-  values: Record<string, string>;
-  /** The graphic's OWN theme — the target's captured one, or the brand default
-   *  a graphic seeded right now would carry. */
-  theme?: Partial<TemplateTheme>;
-  /**
-   * False only when this side names an upload the asset store could not produce.
-   * Absent means "not known to be missing", which is also the loading state —
-   * a row must not blink out and back while IndexedDB is read.
-   */
-  logoAssetAvailable?: boolean;
-}
-
-/**
- * What this side actually paints, not what it happens to store.
+ * The comparable form of a resolved state.
  *
- * A legacy or imported graphic can omit palette and variant fields entirely;
- * the renderer resolves those through the theme and the template, so comparing
- * raw records reported "Main colour —" against a graphic that renders exactly
- * the seed colour. Both sides go through the SAME resolvers the chips and the
- * renderers use, so a reported override is always a visible one — and a
- * difference carried only by the theme is now visible to the comparison
- * instead of invisible to it.
+ * The logo is flattened the way the renderers read it: an upload that cannot be
+ * produced paints nothing, so it compares as absent and the URL beneath it is
+ * what differs — the same judgement the Brand block makes when it declines to
+ * call such a logo unavailable.
  */
-function resolveVisualValues(templateId: string, side: VisualSide): Record<string, string> {
+function comparable(state: VisualState): Record<string, string> {
   return {
-    ...resolvePaletteColors(templateId, side.values, side.theme),
-    variantId: resolveRenderedVariantId(templateId, side.values.variantId),
-    // The renderers read the logo straight from `values` — no theme chain — but
-    // they DO fall through an upload that cannot be produced to `logoUrl`
-    // (`resolveLogoSrc`). An unavailable id paints nothing, so counting it as a
-    // difference contradicted the Brand panel, which stopped calling that same
-    // graphic's logo unavailable once a URL covered it.
-    logoUrl: side.values.logoUrl ?? '',
-    logoAssetId: side.logoAssetAvailable === false ? '' : side.values.logoAssetId ?? ''
+    ...state.palette,
+    variantId: state.variantId,
+    logoUrl: state.logo.url,
+    logoAssetId: state.logo.missing ? '' : state.logo.assetId
   };
 }
 
 /** The allowlisted fields where the target renders differently from its seed. */
-export function findVisualOverrides(
-  templateId: string,
-  target: VisualSide,
-  seed: VisualSide
-): VisualOverride[] {
-  const targetValues = resolveVisualValues(templateId, target);
-  const seedValues = resolveVisualValues(templateId, seed);
+export function compareVisualStates(target: VisualState, seed: VisualState): VisualOverride[] {
+  const left = comparable(target);
+  const right = comparable(seed);
   return VISUAL_OVERRIDE_FIELDS.filter(
-    (field) => normalize(field.id, targetValues[field.id]) !== normalize(field.id, seedValues[field.id])
-  ).map((field) => ({ id: field.id, label: field.label, value: targetValues[field.id].trim() }));
+    (field) => normalize(field.id, left[field.id]) !== normalize(field.id, right[field.id])
+  ).map((field) => ({ id: field.id, label: field.label, value: (left[field.id] ?? '').trim() }));
 }
 
 /** Summary line for the disclosure header. */
