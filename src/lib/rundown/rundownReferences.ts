@@ -37,6 +37,73 @@ export function collectGraphicAssetIds(graphic: GraphicInstance): string[] {
   return [...ids];
 }
 
+/** The value fields that own an `assetRefs` entry on a stored graphic. */
+const ASSET_REF_FIELDS = [
+  { valueKey: 'logoAssetId', refKey: 'logo' },
+  { valueKey: 'headshotAssetId', refKey: 'headshot' }
+] as const;
+
+function isSet(value: string | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+/** The snapshot metadata a rundown write has to update alongside `values`. */
+export type ReconciledGraphicMeta = Pick<GraphicInstance, 'values' | 'assetRefs' | 'theme'>;
+
+/**
+ * Keep a stored graphic's asset bookkeeping consistent with its values.
+ *
+ * `collectGraphicAssetIds` unions `values.*AssetId`, `assetRefs` AND the legacy
+ * `theme.logoAssetId`, so a write that only edits `values` leaves the other two
+ * pointing at an image the operator believes they removed — and a later export
+ * still bundles it into a shared pack. This runs at the rundown write boundary
+ * so every editor inherits the invariant, not just the button it was noticed on.
+ *
+ * `patchKeys` is what the caller INTENDED to write. It distinguishes "remove the
+ * logo" from an unrelated edit that merely happens to leave no upload, so a
+ * legacy reference is never dropped as a side effect of typing a name.
+ *
+ * Refs are reconciled per field and only where the value key is present, so
+ * unrelated and unknown `assetRefs` entries survive — this patches the object,
+ * it never rebuilds it.
+ */
+export function reconcileGraphicAssets(
+  graphic: GraphicInstance,
+  nextValues: Record<string, string>,
+  patchKeys: readonly string[]
+): ReconciledGraphicMeta {
+  const refs = { ...(graphic.assetRefs ?? {}) };
+  for (const { valueKey, refKey } of ASSET_REF_FIELDS) {
+    if (!(valueKey in nextValues)) continue; // absent: not this write's business
+    const id = nextValues[valueKey]?.trim();
+    if (id) refs[refKey] = id;
+    else delete refs[refKey];
+  }
+
+  // A logo is superseded by any write that decides the upload — replacing it
+  // as well as clearing it — or by one that sets a real URL. The legacy theme
+  // pointer is only a fallback for a graphic whose values name no logo, so once
+  // a write names one it is stale either way. Clearing an empty URL box decides
+  // nothing, so an existing upload survives that.
+  const supersedesLogo =
+    patchKeys.includes('logoAssetId') ||
+    (patchKeys.includes('logoUrl') && isSet(nextValues.logoUrl));
+
+  let theme = graphic.theme;
+  if (supersedesLogo && isSet(graphic.theme?.logoAssetId)) {
+    // Drop only the legacy pointer; every other theme field is untouched.
+    const { logoAssetId: _removed, ...rest } = graphic.theme;
+    theme = rest;
+  }
+
+  const hadRefs = graphic.assetRefs !== undefined;
+  return {
+    values: nextValues,
+    ...(hadRefs || Object.keys(refs).length > 0 ? { assetRefs: refs } : {}),
+    theme
+  };
+}
+
 /** Every asset id referenced by a rundown's items. */
 export function collectRundownAssetIds(rundown: Rundown): string[] {
   const ids = new Set<string>();

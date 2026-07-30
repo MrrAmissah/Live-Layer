@@ -1,13 +1,25 @@
 import type { TemplateDefinition, TemplateVariant } from '../../types/graphics';
 import { DEFAULT_CHURCH_LOGO_URL as BRAND_DEFAULT_CHURCH_LOGO_URL } from '../../lib/brandAssets';
 import { PPC_PALETTE } from '../../lib/packs';
-import PreacherLowerThird from './PreacherLowerThird';
-import ScriptureCard from './ScriptureCard';
-import AnnouncementBanner from './AnnouncementBanner';
-import QuoteCard from './QuoteCard';
-import EventBanner from './EventBanner';
-import SermonTitle from './SermonTitle';
-import FullscreenMessage from './FullscreenMessage';
+import PreacherLowerThird, {
+  DEFAULT_VARIANT_ID as L3_FALLBACK_VARIANT,
+  logoFallbackForVariant as l3LogoFallback
+} from './PreacherLowerThird';
+import ScriptureCard, { DEFAULT_VARIANT_ID as SCRIPTURE_FALLBACK_VARIANT } from './ScriptureCard';
+import AnnouncementBanner, {
+  DEFAULT_VARIANT_ID as ANNOUNCE_FALLBACK_VARIANT,
+  logoFallbackForVariant as announceLogoFallback
+} from './AnnouncementBanner';
+import QuoteCard, { DEFAULT_VARIANT_ID as QUOTE_FALLBACK_VARIANT } from './QuoteCard';
+import EventBanner, {
+  DEFAULT_VARIANT_ID as EVENT_FALLBACK_VARIANT,
+  logoFallbackForVariant as eventLogoFallback
+} from './EventBanner';
+import SermonTitle, {
+  DEFAULT_VARIANT_ID as SERMON_FALLBACK_VARIANT,
+  logoFallbackForVariant as sermonLogoFallback
+} from './SermonTitle';
+import FullscreenMessage, { DEFAULT_VARIANT_ID as FULLSCREEN_FALLBACK_VARIANT } from './FullscreenMessage';
 
 const HOUSE_BLUE = {
   brand: '#0d2095',
@@ -580,4 +592,43 @@ export const templateRendererMap: Record<string, React.ComponentType<{ values: R
   'event-banner': EventBanner,
   'sermon-title': SermonTitle,
   'fullscreen-message': FullscreenMessage
+};
+
+/**
+ * The variant each template's RENDERER paints when a graphic names none —
+ * imported from the renderers themselves, so this can't drift from what is on
+ * screen. It is keyed by template rather than by renderer because
+ * `performer-lower-third` shares the lower-third renderer: a performer graphic
+ * that stores no variant really does fall back to the preacher's
+ * `signature-medallion`, not to its own `defaultValues.variantId`. Anything
+ * describing what a graphic looks like has to read this rather than the
+ * registry default. Keep it in step with `templateRendererMap` above.
+ */
+export const templateFallbackVariant: Record<string, string> = {
+  'preacher-lower-third': L3_FALLBACK_VARIANT,
+  'performer-lower-third': L3_FALLBACK_VARIANT,
+  'scripture-card': SCRIPTURE_FALLBACK_VARIANT,
+  'announcement-banner': ANNOUNCE_FALLBACK_VARIANT,
+  'quote-card': QUOTE_FALLBACK_VARIANT,
+  'event-banner': EVENT_FALLBACK_VARIANT,
+  'sermon-title': SERMON_FALLBACK_VARIANT,
+  'fullscreen-message': FULLSCREEN_FALLBACK_VARIANT
+};
+
+/**
+ * The logo each template's RENDERER paints when the graphic names none, per
+ * variant — imported from the renderers, so no URL literal is repeated outside
+ * the component that draws it. Keyed by template because both lower thirds share
+ * one renderer, and absent for templates that draw no logo in any design.
+ *
+ * Anything describing what a graphic looks like has to consult this: without it
+ * a cleared logo reads as "removed" while Preview and Program still paint the
+ * house mark. Keep in step with `templateRendererMap`.
+ */
+export const templateLogoFallback: Record<string, (variantId: string | undefined) => string | undefined> = {
+  'preacher-lower-third': l3LogoFallback,
+  'performer-lower-third': l3LogoFallback,
+  'announcement-banner': announceLogoFallback,
+  'event-banner': eventLogoFallback,
+  'sermon-title': sermonLogoFallback
 };

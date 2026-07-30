@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEffectiveVariantId } from './TemplateFields';
+import { resolveEffectiveVariantId } from '../../lib/variantPalette';
 
 const variants = [{ id: 'alpha' }, { id: 'beta' }, { id: 'gamma' }];
 

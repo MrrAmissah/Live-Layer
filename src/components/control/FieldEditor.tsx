@@ -2,9 +2,9 @@ import { useState } from 'react';
 import Panel from './Panel';
 import ContentTab from './ContentTab';
 import DesignTab from './DesignTab';
-import BrandControls from './BrandControls';
+import BrandTab from './BrandTab';
 import { useEditTarget } from '../../hooks/useEditTarget';
-import { useLiveLayerStore } from '../../store/useLiveLayerStore';
+import { useBrandReset } from '../../hooks/useBrandReset';
 import type { StudioView } from './StudioNav';
 import type { GraphicInstance } from '../../types/graphics';
 
@@ -28,22 +28,38 @@ const TABS: Array<{ id: EditorTab; label: string; enabled: boolean }> = [
 ];
 
 /**
+ * What "Reset brand" promises, per target. `useBrandReset` follows the same rule
+ * the swatches do — with an item selected it restores that item and leaves the
+ * persisted default alone — so the draft copy is the only one that may promise
+ * anything about new graphics. Exported because the tab that shows it can't be
+ * reached in static markup, and the claim is worth a test.
+ */
+export const BRAND_RESET_TITLE = {
+  draft: 'Restore the default brand colours on this graphic and for new graphics',
+  item: 'Restore the default brand colours on the selected rundown item; brand defaults for new graphics are unchanged'
+} as const;
+
+/**
  * Contextual editor (studio). Tabs scope the controls: Content (schema-backed
- * text fields + character guidance), Design (variant + palette), Brand (event
- * pack + brand). Motion and Advanced are disabled until Stages 2+ implement
+ * text fields + character guidance), Design (variant + palette), Brand (save,
+ * event pack + brand, overrides). Motion and Advanced are disabled until later stages implement
  * them — never shown as clickable empty tabs. In rundown mode the Content tab
  * also carries the item's layout/duration, preserving today's behaviour.
  */
 export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorProps = {}) {
   const { isRundownItem, resetDraft } = useEditTarget();
-  const resetTheme = useLiveLayerStore((state) => state.resetTheme);
+  const resetBrand = useBrandReset();
   const [tab, setTab] = useState<EditorTab>('content');
 
   // Reset acts on whatever the visible tab edits, and says so. A generic
   // "Reset" on the Brand tab used to wipe the draft instead of the brand.
   const reset =
     tab === 'brand'
-      ? { label: 'Reset brand', run: resetTheme, title: 'Restore the default brand colours' }
+      ? {
+          label: 'Reset brand',
+          run: resetBrand,
+          title: isRundownItem ? BRAND_RESET_TITLE.item : BRAND_RESET_TITLE.draft
+        }
       : { label: 'Reset graphic', run: resetDraft, title: 'Restore this template’s default content and design' };
 
   return (
@@ -85,7 +101,7 @@ export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorPr
             onBrowseAssets={() => onNavigate?.('assets')}
           />
         ) : null}
-        {tab === 'brand' ? <BrandControls /> : null}
+        {tab === 'brand' ? <BrandTab /> : null}
       </div>
     </Panel>
   );

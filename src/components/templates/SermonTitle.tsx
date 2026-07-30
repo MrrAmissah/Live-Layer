@@ -5,6 +5,24 @@ import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
 import { resolveLogoSrc } from '../../lib/brandAssets';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template, and anything describing what
+ * a graphic looks like reads that rather than `defaultValues.variantId` — the two
+ * differ wherever a renderer is shared by more than one template.
+ */
+export const DEFAULT_VARIANT_ID = 'sermon-paper';
+
+/**
+ * This renderer has no logo fallback: `resolveLogoSrc(values)` is called without
+ * one and the image is rendered only when it resolves, so a graphic naming no
+ * logo paints none. Exported anyway so the registry's table is complete and the
+ * rule lives with the renderer that owns it.
+ */
+export function logoFallbackForVariant(): string | undefined {
+  return undefined;
+}
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -17,7 +35,7 @@ function sermonTitleSizeClass(text: string): string {
 }
 
 export default function SermonTitle({ values }: Props) {
-  const variantId = values.variantId?.trim() || 'sermon-paper';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const sermonTitle = values.sermonTitle?.trim() || 'Sermon Title';
   const speakerName = values.speakerName?.trim() || '';
   const churchName = values.churchName?.trim() || '';

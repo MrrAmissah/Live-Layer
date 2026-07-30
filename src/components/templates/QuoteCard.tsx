@@ -3,6 +3,14 @@ import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template, and anything describing what
+ * a graphic looks like reads that rather than `defaultValues.variantId` — the two
+ * differ wherever a renderer is shared by more than one template.
+ */
+export const DEFAULT_VARIANT_ID = 'quote-gradient';
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -15,7 +23,7 @@ function quoteSizeClass(text: string): string {
 }
 
 export default function QuoteCard({ values }: Props) {
-  const variantId = values.variantId?.trim() || 'quote-gradient';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const quoteText = values.quoteText?.trim() || 'Grace makes room for people to come alive again.';
   const sourceName = values.sourceName?.trim() || '';
   const sourceRole = values.sourceRole?.trim() || '';

@@ -8,6 +8,51 @@ import { useAsset } from '../../hooks/useAsset';
 import { CONVENTION_LOGO_URL, DEFAULT_CHURCH_LOGO_URL } from '../../lib/brandAssets';
 import { templateColorStyle } from './colorVars';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template: BOTH lower thirds render
+ * through here, so a performer graphic that stores no variant falls back to this
+ * preacher default rather than to its own `defaultValues.variantId`.
+ */
+export const DEFAULT_VARIANT_ID = 'signature-medallion';
+
+/**
+ * Variants whose medallion the stylesheet actually shows.
+ *
+ * The medallion is in the markup for every variant, but `styles.css` hides it
+ * (`.gfx-l3:not([data-variant='signature-medallion']) .l3-medallion { display:none }`)
+ * and individual variants switch it back on. This list is the cascade's real
+ * answer, measured with `getComputedStyle` across all 15 variants, and
+ * `logoFallback.test.ts` re-derives it from the stylesheet so it cannot drift.
+ */
+const MEDALLION_VARIANTS = new Set([
+  'signature-medallion',
+  'clean-broadcast',
+  'split-bar',
+  'event-style',
+  'canva-host-bar',
+  'canva-celebration',
+  'canva-ministry',
+  'soft-broadcast',
+  'performer-pill',
+  'performer-note'
+]);
+
+/**
+ * The logo this renderer paints when the graphic names none — its own rule, so
+ * nothing else has to know these URLs.
+ *
+ * `resolvedLogo` falls back to the house logo unconditionally, so any variant
+ * that SHOWS the medallion paints it; `convention-strap` hides the medallion and
+ * draws the strap image instead, whose own fallback is the event logo; and a
+ * variant that shows neither paints no logo at all.
+ */
+export function logoFallbackForVariant(variantId: string | undefined): string | undefined {
+  const variant = variantId?.trim() || DEFAULT_VARIANT_ID;
+  if (variant === 'convention-strap') return CONVENTION_LOGO_URL;
+  return MEDALLION_VARIANTS.has(variant) ? DEFAULT_CHURCH_LOGO_URL : undefined;
+}
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -53,7 +98,7 @@ function roleFit(title: string, subtitle: string): string | undefined {
  */
 export default function PreacherLowerThird({ values }: Props) {
   const [headshotFailed, setHeadshotFailed] = useState(false);
-  const variantId = values.variantId?.trim() || 'signature-medallion';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const name = values.name?.trim() || 'Speaker Name';
   const title = values.title?.trim() || '';
   const subtitle = values.subtitle?.trim() || '';

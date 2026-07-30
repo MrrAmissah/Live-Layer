@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   recent: 'livelayer.recent',
   quickQueue: 'livelayer.quickQueue',
   activePack: 'livelayer.activePack',
+  brandExplicit: 'livelayer.brandExplicit',
   program: 'livelayer.program',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
@@ -22,6 +23,35 @@ const DEFAULT_THEME: TemplateDefinition['theme'] = {
   accent2Color: '#1284ff'
 };
 const THEME_KEYS = ['primaryColor', 'accentColor', 'backgroundColor', 'surfaceColor', 'accent2Color', 'logoAssetId'] as const;
+
+/**
+ * The brand colours an operator can pick, and which therefore seed new
+ * graphics. Only these two are ever marked explicit.
+ */
+export type ExplicitBrandKey = 'accentColor' | 'accent2Color';
+export const EXPLICIT_BRAND_KEYS: readonly ExplicitBrandKey[] = ['accentColor', 'accent2Color'];
+
+/**
+ * A stored entry with its PRESENCE preserved.
+ *
+ * `safeReadJson` collapses "no such key", "malformed", "empty" and "storage
+ * threw" into one undefined, which is fine for records that simply fall back to
+ * a default — but not for anything that has to tell a legacy record (migrate)
+ * from a corrupted one (discard).
+ */
+type StoredEntry =
+  | { status: 'absent' }
+  | { status: 'present'; raw: string }
+  | { status: 'unavailable' };
+
+function readStoredEntry(key: string): StoredEntry {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw === null ? { status: 'absent' } : { status: 'present', raw };
+  } catch {
+    return { status: 'unavailable' };
+  }
+}
 
 function safeReadJson(key: string): unknown {
   try {
@@ -168,6 +198,64 @@ export function defaultBrandTheme(): TemplateDefinition['theme'] {
 
 export function saveBrandOverrides(theme: TemplateDefinition['theme']) {
   safeWrite(STORAGE_KEYS.brand, theme);
+}
+
+function sameColor(a: string | undefined, b: string | undefined): boolean {
+  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+}
+
+/**
+ * Which brand swatches the operator has actually chosen.
+ *
+ * This has to be tracked, not inferred: an operator may deliberately pick the
+ * very colour that happens to be the built-in default (#1284ff as the accent,
+ * say), and that choice must still seed new graphics. Comparing values would
+ * read it as "untouched" and quietly restore each template's own accent on the
+ * next template switch or reload.
+ *
+ * Stored apart from the theme itself so no graphic, schema or renderer payload
+ * carries editor metadata.
+ */
+export function loadExplicitBrandKeys(): ExplicitBrandKey[] {
+  const entry = readStoredEntry(STORAGE_KEYS.brandExplicit);
+
+  // Storage could not be read at all, so absence was never established.
+  // Inferring here would resurrect colours from a record we cannot see.
+  if (entry.status === 'unavailable') return [];
+
+  if (entry.status === 'present') {
+    // Present means a decision was already recorded. Whatever shape it is in
+    // now, it is NOT a legacy record — a corrupted marker file must read as
+    // "nothing chosen", never fall through to inference and quietly resume
+    // seeding custom colours.
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(entry.raw);
+    } catch {
+      return [];
+    }
+    if (!Array.isArray(parsed)) return [];
+    // Filtering the allowlist both validates and de-duplicates.
+    return EXPLICIT_BRAND_KEYS.filter((key) => parsed.includes(key));
+  }
+
+  // Genuinely absent: a record written before markers existed. The only
+  // evidence available is the stored brand, so infer a choice exactly where it
+  // differs from the default — a default-equal legacy value is
+  // indistinguishable from untouched and stays unmarked. Nothing is written
+  // here; the next real swatch write persists exact markers.
+  const stored = loadBrandOverrides();
+  const defaults = defaultBrandTheme();
+  return EXPLICIT_BRAND_KEYS.filter((key) => !sameColor(stored[key], defaults[key]));
+}
+
+/** Persist the marker set, filtered to the two allowed keys and de-duplicated. */
+export function saveExplicitBrandKeys(keys: Iterable<ExplicitBrandKey>) {
+  const chosen = new Set(keys);
+  safeWrite(
+    STORAGE_KEYS.brandExplicit,
+    EXPLICIT_BRAND_KEYS.filter((key) => chosen.has(key))
+  );
 }
 
 export function clearAllData() {

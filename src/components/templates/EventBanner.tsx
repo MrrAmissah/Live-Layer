@@ -5,6 +5,23 @@ import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
 import { CONVENTION_LOGO_URL, resolveLogoSrc } from '../../lib/brandAssets';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template, and anything describing what
+ * a graphic looks like reads that rather than `defaultValues.variantId` — the two
+ * differ wherever a renderer is shared by more than one template.
+ */
+export const DEFAULT_VARIANT_ID = 'festival-stage';
+
+/**
+ * The logo this renderer paints when the graphic names none. Only the
+ * `convention-bar` design draws one at all, and its fallback is the event logo;
+ * every other variant of this template paints no logo.
+ */
+export function logoFallbackForVariant(variantId: string | undefined): string | undefined {
+  return (variantId?.trim() || DEFAULT_VARIANT_ID) === 'convention-bar' ? CONVENTION_LOGO_URL : undefined;
+}
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -17,7 +34,7 @@ function titleSizeClass(text: string): string {
 }
 
 export default function EventBanner({ values }: Props) {
-  const variantId = values.variantId?.trim() || 'festival-stage';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const eventTitle = values.eventTitle?.trim() || 'Upcoming Event';
   const dateTime = values.dateTime?.trim() || '';
   const location = values.location?.trim() || '';

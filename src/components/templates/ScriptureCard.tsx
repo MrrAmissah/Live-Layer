@@ -3,6 +3,14 @@ import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
 
+/**
+ * The variant this renderer paints when a graphic names none. Exported so
+ * `templateFallbackVariant` can key it by template, and anything describing what
+ * a graphic looks like reads that rather than `defaultValues.variantId` — the two
+ * differ wherever a renderer is shared by more than one template.
+ */
+export const DEFAULT_VARIANT_ID = 'blue-quote-card';
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
@@ -26,7 +34,7 @@ function verseSizeClass(text: string): string {
  * --gfx-* theme variables (theme prop is applied at the stage root, not here).
  */
 export default function ScriptureCard({ values }: Props) {
-  const variantId = values.variantId?.trim() || 'blue-quote-card';
+  const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
   const reference = values.reference?.trim() || 'Scripture';
   const verseText = values.verseText?.trim() || 'The Lord is my shepherd; I shall not want.';
   const translationLabel = values.translationLabel?.trim() || '';

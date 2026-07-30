@@ -18,6 +18,9 @@ yarn-error.log*
 # app and not cleared for redistribution. Keep local; do not publish.
 reference-samples/
 
+# local verification scratch — screenshots, probe output, throwaway scripts
+scratchpad/
+
 # env
 .env
 .env.local

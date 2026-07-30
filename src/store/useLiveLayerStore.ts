@@ -5,13 +5,15 @@ import type { ProgramSourceType, ProgramState } from '../types/program';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 import type { PersonProfile } from '../types/people';
 import type { LayoutSettings } from '../types/layout';
-import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, savePresets, saveProgram, saveQuickQueue, saveRecentGraphics } from '../lib/storage';
+import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, saveExplicitBrandKeys, savePresets, saveProgram, saveQuickQueue, saveRecentGraphics, type ExplicitBrandKey } from '../lib/storage';
 import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
-import { loadActivePackId, packOverridesFor, saveActivePackId } from '../lib/packs';
+import { loadActivePackId, saveActivePackId } from '../lib/packs';
+import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
 import { applyVariantSelection } from '../lib/variantPalette';
+import { applyLogoUrl } from '../lib/brandWrites';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
 export interface QuickQueueUpdate {
@@ -37,7 +39,17 @@ export interface ProgramSource {
 interface LiveLayerState {
   currentTemplateId: string;
   draftValues: Record<string, string>;
+  /** Theme of the CURRENT ad-hoc graphic. Travels with it into Take, presets
+   *  and the quick queue, and is replaced wholesale by loadGraphicInstance. */
   theme: TemplateDefinition['theme'];
+  /** The persisted brand default that seeds FUTURE graphics. Deliberately
+   *  separate from `theme`: loading a preset or queue item must not redefine
+   *  what the next new graphic looks like. */
+  brandTheme: TemplateDefinition['theme'];
+  /** Which brand swatches the operator has actually chosen. Paired with
+   *  brandTheme to drive seeding; tracked rather than inferred so a choice that
+   *  equals the built-in default still seeds (see loadExplicitBrandKeys). */
+  explicitBrandKeys: ExplicitBrandKey[];
   layout: LayoutSettings;
   durationSeconds: number;
   presets: GraphicInstance[];
@@ -84,13 +96,21 @@ interface LiveLayerState {
   addRecent: (item: GraphicInstance) => void;
 }
 
-function createDraftValues(templateId: string, packId: string) {
-  const template = templateRegistry.find((item) => item.id === templateId);
-  if (!template) return {};
-  return { ...template.defaultValues, ...packOverridesFor(packId, templateId) };
-}
-
 const DEFAULT_DURATION_SECONDS = 6;
+
+/**
+ * Field equality for the dirty check. Colour fields are compared
+ * case-insensitively for the same reason visualOverrides does it: registry and
+ * pack literals are mixed case (`#E8B93C`) while `<input type="color">` always
+ * emits lowercase, so re-picking the colour already in use read as an edit and
+ * raised the destructive pack-switch confirmation over a no-op.
+ */
+function sameFieldValue(key: string, a: string | undefined, b: string | undefined): boolean {
+  if (key.startsWith('color')) {
+    return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+  }
+  return a === b;
+}
 
 function deepClone<T>(value: T): T {
   return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value));
@@ -142,31 +162,39 @@ export function buildInstanceFromDraft(
 }
 
 const initialPackId = loadActivePackId();
+const initialTheme = loadBrandOverrides();
+const initialExplicitBrandKeys = loadExplicitBrandKeys();
 
 export const useLiveLayerStore = create<LiveLayerState>()(
   devtools((set, get) => ({
     currentTemplateId: templateRegistry[0].id,
-    draftValues: createDraftValues(templateRegistry[0].id, initialPackId),
+    draftValues: createDraftValues(templateRegistry[0].id, initialPackId, initialTheme, initialExplicitBrandKeys),
     activePackId: initialPackId,
     setActivePack: (packId) =>
       set((state) => {
         saveActivePackId(packId);
         return {
           activePackId: packId,
-          draftValues: createDraftValues(state.currentTemplateId, packId)
+          // A pack switch re-seeds a fresh ad-hoc graphic, so it wears the
+          // brand default — never a theme carried in by a loaded snapshot.
+          theme: { ...state.brandTheme },
+          draftValues: createDraftValues(state.currentTemplateId, packId, state.brandTheme, state.explicitBrandKeys)
         };
       }),
     isDraftDirty: () => {
-      const { draftValues, currentTemplateId, activePackId } = get();
-      // Same seed setActivePack would re-create, so "clean" is defined identically.
-      const seed = createDraftValues(currentTemplateId, activePackId);
+      const { draftValues, currentTemplateId, activePackId, brandTheme, explicitBrandKeys } = get();
+      // Same seed setActivePack would re-create, from the same inputs, so
+      // "clean" is defined identically and the pack guard cannot drift.
+      const seed = createDraftValues(currentTemplateId, activePackId, brandTheme, explicitBrandKeys);
       const keys = new Set([...Object.keys(seed), ...Object.keys(draftValues)]);
       for (const key of keys) {
-        if (draftValues[key] !== seed[key]) return true;
+        if (!sameFieldValue(key, draftValues[key], seed[key])) return true;
       }
       return false;
     },
-    theme: loadBrandOverrides(),
+    theme: { ...initialTheme },
+    brandTheme: { ...initialTheme },
+    explicitBrandKeys: initialExplicitBrandKeys,
     layout: {},
     durationSeconds: 6,
     durationByTemplate: {},
@@ -281,8 +309,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
             state.durationByTemplate[templateId] ??
             template?.defaultDurationSeconds ??
             DEFAULT_DURATION_SECONDS,
+          // Selecting a template starts a new graphic: it wears the brand
+          // default, so a previously loaded snapshot's theme cannot leak in.
+          theme: { ...state.brandTheme },
           draftValues: {
-            ...createDraftValues(templateId, state.activePackId),
+            ...createDraftValues(templateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
             ...carriedLogo(state.draftValues)
           }
         };
@@ -294,6 +325,11 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         // the rundown-item path (see useEditTarget / applyVariantSelection).
         if (fieldId === 'variantId') {
           return { draftValues: applyVariantSelection(state.draftValues, state.currentTemplateId, value) };
+        }
+        // A typed logo URL supersedes an upload — renderers prefer a ready
+        // asset, so leaving both would make the URL silently do nothing.
+        if (fieldId === 'logoUrl') {
+          return { draftValues: applyLogoUrl(state.draftValues, value) };
         }
         return {
           draftValues: {
@@ -310,8 +346,21 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           ...state.theme,
           ...theme
         };
-        saveBrandOverrides(next);
-        return { theme: next };
+        // Every setTheme is a draft-mode swatch choice (a selected rundown item
+        // never reaches here), so any brand key present in the patch is now an
+        // explicit selection — including one that happens to equal the default.
+        const explicit = new Set(state.explicitBrandKeys);
+        for (const { themeKey } of THEME_SEEDED_FIELDS) {
+          if (theme[themeKey] !== undefined) explicit.add(themeKey);
+        }
+        const explicitBrandKeys = [...explicit];
+        // The draft IS the next new graphic, so a swatch moves the current
+        // graphic and the persisted default together. Only this path writes
+        // brand storage.
+        const brandTheme = { ...state.brandTheme, ...theme };
+        saveBrandOverrides(brandTheme);
+        saveExplicitBrandKeys(explicitBrandKeys);
+        return { theme: next, brandTheme, explicitBrandKeys };
       }),
     setLayout: (layout) =>
       set((state) => ({
@@ -328,16 +377,33 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       })),
     resetDraft: () =>
       set((state) => ({
+        theme: { ...state.brandTheme },
         draftValues: {
-          ...createDraftValues(state.currentTemplateId, state.activePackId),
+          ...createDraftValues(state.currentTemplateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
           ...carriedLogo(state.draftValues)
         }
       })),
     resetTheme: () =>
-      set(() => {
+      set((state) => {
+        // Back to "nothing chosen": templates seed their own accents again.
         const defaults = defaultBrandTheme();
         saveBrandOverrides(defaults);
-        return { theme: defaults };
+        saveExplicitBrandKeys([]);
+        return {
+          // Brand owns exactly two slots. The CURRENT graphic keeps the rest of
+          // its theme — primaryColor / surfaceColor / backgroundColor describe
+          // that graphic, not the brand, and on a legacy graphic without
+          // matching colour values they are what the renderer paints. Replacing
+          // the whole theme here silently restyled a loaded preset.
+          theme: {
+            ...state.theme,
+            accentColor: defaults.accentColor,
+            ...(defaults.accent2Color !== undefined ? { accent2Color: defaults.accent2Color } : {})
+          },
+          // The persisted default is not a graphic, so it does go back whole.
+          brandTheme: { ...defaults },
+          explicitBrandKeys: []
+        };
       }),
     clearLocalData: () =>
       set(() => {
@@ -346,11 +412,16 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         clearAllAssets().catch(() => undefined);
         clearPeople().catch(() => undefined);
         saveActivePackId('house');
+        // Storage has just been wiped, so the brand IS the default now. Seeding
+        // from the pre-clear theme would re-apply a colour the reset erased.
+        const clearedTheme = defaultBrandTheme();
         return {
           currentTemplateId: templateRegistry[0].id,
-          draftValues: createDraftValues(templateRegistry[0].id, 'house'),
+          draftValues: createDraftValues(templateRegistry[0].id, 'house', clearedTheme, []),
           activePackId: 'house',
-          theme: loadBrandOverrides(),
+          theme: { ...clearedTheme },
+          brandTheme: { ...clearedTheme },
+          explicitBrandKeys: [],
           layout: {},
           durationSeconds: 6,
           durationByTemplate: {},
@@ -383,6 +454,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       });
     },
     loadGraphicInstance: (graphic) => {
+      // Loading a stored graphic is not a brand decision. Only the CURRENT
+      // graphic's theme is replaced; brandTheme, the explicit markers and both
+      // brand storage keys are untouched, so the next new graphic still wears
+      // the operator's saved default rather than this snapshot's colours.
       set(() => ({
         currentTemplateId: graphic.templateId,
         draftValues: { ...graphic.values },
@@ -399,8 +474,12 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         const subtitle = person.churchName || person.subtitle || '';
         return {
           currentTemplateId: 'preacher-lower-third',
+          // Switching template starts a new graphic, so it wears the brand —
+          // the same rule setTemplate/setActivePack/resetDraft follow. Without
+          // this, a theme installed by loadGraphicInstance survived into it.
+          theme: { ...state.brandTheme },
           draftValues: {
-            ...createDraftValues('preacher-lower-third', state.activePackId),
+            ...createDraftValues('preacher-lower-third', state.activePackId, state.brandTheme, state.explicitBrandKeys),
             ...state.draftValues,
             personId: person.id,
             name: person.displayName,

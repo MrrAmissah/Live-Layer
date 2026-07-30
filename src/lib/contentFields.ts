@@ -5,11 +5,15 @@
  * the Brand tab, where uploads and brand-wide logo state live — so `logoUrl` is
  * excluded from the text field list to avoid two competing editors.
  *
- * A selected RUNDOWN ITEM is different: it carries its own captured values, and
- * BrandControls writes global draft/brand state that explicitly does not apply
- * to it. Excluding `logoUrl` there would leave the item's captured logo with no
- * editor at all, so in rundown mode nothing is excluded and the field renders
- * through TemplateFields/useEditTarget as before.
+ * A selected RUNDOWN ITEM keeps the field inline as well. BrandControls now
+ * edits the visible target, so the item's logo IS reachable from Brand — but a
+ * queue-driven operator works down the Content tab, and a captured URL is worth
+ * one direct text field rather than a tab switch. Nothing is excluded there.
+ *
+ * The two editors cannot disagree: writing a NON-EMPTY `logoUrl` anywhere
+ * clears `logoAssetId` (see `applyLogoUrl`), because renderers prefer a ready
+ * asset and would otherwise ignore the URL just typed. Emptying the field is
+ * not a request to delete an upload — Brand's "Remove image" is.
  */
 export function contentFieldExclusions(isRundownItem: boolean): string[] {
   return isRundownItem ? [] : ['logoUrl'];
@@ -17,8 +21,10 @@ export function contentFieldExclusions(isRundownItem: boolean): string[] {
 
 /**
  * Whether the Content tab may offer the "Change in Brand" shortcut. Hidden for
- * a rundown item because Brand cannot edit that item — and we deliberately show
- * no replacement control there, since the real field is rendered inline instead.
+ * a rundown item not because Brand is unable to edit it — it can, via the edit
+ * target — but because the real `logoUrl` field is rendered inline there, and a
+ * shortcut to a second editor for the same value is just a way to lose track of
+ * which one you used.
  */
 export function canManageLogoInBrand(isRundownItem: boolean): boolean {
   return !isRundownItem;

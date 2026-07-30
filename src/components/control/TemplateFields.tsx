@@ -2,40 +2,31 @@ import { templateRegistry, templateRendererMap } from '../templates/registry';
 import GraphicStage from '../graphics/GraphicStage';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
-import type { TemplateField } from '../../types/graphics';
+import type { TemplateDefinition, TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
 import { packVariantIdsFor } from '../../lib/packs';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
 import { Icon } from '../../lib/icons';
-import { resolveResetPalette } from '../../lib/variantPalette';
+import { PALETTE_FIELD_IDS, resolveEffectiveVariantId, resolveResetPalette } from '../../lib/variantPalette';
+import { resolvePaletteColors } from '../../lib/visualState';
+import { composeThumbTheme } from './TemplateThumb';
 
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-
-const COLOR_FIELDS = [
-  { id: 'colorBrand', label: 'Main' },
-  { id: 'colorAccent', label: 'Accent' },
-  { id: 'colorSurface', label: 'Surface' },
-  { id: 'colorText', label: 'Text' },
-  { id: 'colorSecondary', label: 'Second' }
-] as const;
+/**
+ * Chip labels only. The field list lives in `variantPalette` and the resolution
+ * in `visualState`, which the Brand swatches and the overrides panel also read —
+ * so no two surfaces can describe the same sparse graphic differently.
+ */
+const COLOR_LABELS: Record<string, string> = {
+  colorBrand: 'Main',
+  colorAccent: 'Accent',
+  colorSurface: 'Surface',
+  colorText: 'Text',
+  colorSecondary: 'Second'
+};
 
 type TemplateVariant = NonNullable<(typeof templateRegistry)[number]['variants']>[number];
 type VariantGroupId = 'all' | 'classic' | 'broadcast' | 'event' | 'compact';
-
-/**
- * The variant id the carousel should actually treat as selected: the requested
- * one when it exists, else the first available variant, else '' when there are
- * none. A persisted graphic can carry a `variantId` that no longer exists in the
- * registry (legacy/imported presets), and graphic validation accepts arbitrary
- * strings — so every selection concern (index, active card, aria-checked,
- * tabindex, paging, browser) must key off this normalized value, not the raw
- * request, or no card ends up selected or tabbable.
- */
-export function resolveEffectiveVariantId(variants: Pick<TemplateVariant, 'id'>[], requestedId: string): string {
-  if (variants.some((variant) => variant.id === requestedId)) return requestedId;
-  return variants[0]?.id ?? '';
-}
 
 const VARIANT_GROUPS: Array<{ id: VariantGroupId; label: string }> = [
   { id: 'all', label: 'All' },
@@ -44,11 +35,6 @@ const VARIANT_GROUPS: Array<{ id: VariantGroupId; label: string }> = [
   { id: 'event', label: 'Event' },
   { id: 'compact', label: 'Compact' }
 ];
-
-function colorValue(value: string | undefined, fallback: string): string {
-  const next = value?.trim();
-  return next && HEX_COLOR.test(next) ? next : fallback;
-}
 
 function variantGroupFor(variant: TemplateVariant): Exclude<VariantGroupId, 'all'> {
   const text = `${variant.name} ${variant.description}`.toLowerCase();
@@ -159,7 +145,7 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
 
 /**
  * Real miniature render of a variant: the actual template renderer inside a
- * scaled GraphicStage, using the operator's current draft values and palette,
+ * scaled GraphicStage, using the visible target's values and palette,
  * so the picker shows exactly what each design produces. Entrance animations
  * are killed via CSS so thumbs rest at their final frame. Memoized — with the
  * picker feeding it deferred values, the ~13 mini-stages reconcile off the
@@ -168,16 +154,20 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
 const VariantThumb = memo(function VariantThumb({
   templateId,
   variantId,
-  values
+  values,
+  theme
 }: {
   templateId: string;
   variantId: string;
   values: Record<string, string>;
+  /** The VISIBLE target's theme, routed from the owner. Reading the store theme
+   *  here showed the hidden draft's colours whenever a rundown item was
+   *  selected, so the picker disagreed with the preview and with Take. */
+  theme: Partial<TemplateDefinition['theme']>;
 }) {
-  const storeTheme = useLiveLayerStore((state) => state.theme);
   const template = templateRegistry.find((item) => item.id === templateId);
   const Renderer = templateRendererMap[templateId];
-  const mergedTheme = useMemo(() => ({ ...template?.theme, ...storeTheme }), [template, storeTheme]);
+  const mergedTheme = useMemo(() => composeThumbTheme(template?.theme, theme), [template, theme]);
   const thumbValues = useMemo(() => ({ ...values, variantId }), [values, variantId]);
   if (!template || !Renderer) return null;
   const focus = template.category === 'Lower Third' ? 'lower-third' : 'full';
@@ -203,15 +193,21 @@ const VariantThumb = memo(function VariantThumb({
 function TemplateVariantPicker({
   templateId,
   draftValues,
+  targetTheme,
   variants,
   value,
-  onChange
+  onChange,
+  onNormalize
 }: {
   templateId: string;
   draftValues: Record<string, string>;
+  /** The visible target's theme — see VariantThumb. */
+  targetTheme: Partial<TemplateDefinition['theme']>;
   variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
+  /** Write ONLY the variant id, with no palette merge — see the effect below. */
+  onNormalize: (value: string) => void;
 }) {
   const [browseOpen, setBrowseOpen] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -233,11 +229,17 @@ function TemplateVariantPicker({
   // stored graphic stops carrying a dead variantId. Deliberately does NOT set
   // focusSelectedRef — this is an automatic correction, not a user navigation,
   // so it must not steal focus.
+  //
+  // It writes the id ALONE. Routing this through the normal selection path
+  // would merge the substitute variant's signature palette, so merely opening
+  // the Design tab on an imported or pack-curated graphic silently repainted
+  // its five colours and persisted that. Choosing a variant is a decision;
+  // repairing a dead id is not.
   useEffect(() => {
     if (variants.length > 0 && effectiveValue && effectiveValue !== value) {
-      onChange(effectiveValue);
+      onNormalize(effectiveValue);
     }
-  }, [variants, effectiveValue, value, onChange]);
+  }, [variants, effectiveValue, value, onNormalize]);
 
   const selectedIndex = Math.max(0, variants.findIndex((variant) => variant.id === effectiveValue));
   const selectedVariant = variants[selectedIndex];
@@ -338,7 +340,7 @@ function TemplateVariantPicker({
                 onClick={() => onChange(variant.id)}
               >
                 <span className="variant-card__preview" aria-hidden>
-                  <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} />
+                  <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} theme={targetTheme} />
                   {active ? (
                     <span className="variant-card__check" aria-hidden>
                       <Icon name="check" size={13} />
@@ -377,6 +379,7 @@ function TemplateVariantPicker({
         <VariantBrowser
           templateId={templateId}
           thumbValues={thumbValues}
+          targetTheme={targetTheme}
           variants={variants}
           value={effectiveValue}
           onChange={onChange}
@@ -394,12 +397,15 @@ function TemplateVariantPicker({
 function VariantBrowser({
   templateId,
   thumbValues,
+  targetTheme,
   variants,
   value,
   onChange
 }: {
   templateId: string;
   thumbValues: Record<string, string>;
+  /** The visible target's theme — see VariantThumb. */
+  targetTheme: Partial<TemplateDefinition['theme']>;
   variants: TemplateVariant[];
   value: string;
   onChange: (value: string) => void;
@@ -462,7 +468,7 @@ function VariantBrowser({
             onClick={() => onChange(variant.id)}
           >
             <span className="variant-choice__preview" aria-hidden>
-              <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} />
+              <VariantThumb templateId={templateId} variantId={variant.id} values={thumbValues} theme={targetTheme} />
             </span>
             <span className="variant-choice__name">
               <span>{variant.name}</span>
@@ -482,20 +488,29 @@ function VariantBrowser({
 function TemplateColorControls({
   template,
   values,
+  targetTheme,
   setField,
   setFields
 }: {
   template: (typeof templateRegistry)[number];
   values: Record<string, string>;
+  /** The visible target's theme — the renderer's fallback for absent values. */
+  targetTheme: Partial<TemplateDefinition['theme']>;
   setField: (key: string, value: string) => void;
   setFields: (patch: Record<string, string>) => void;
 }) {
-  const defaults = template.defaultValues;
   // "Reset palette" restores the selected variant's signature palette when it
   // has one, else the template's palette defaults — the shared rule.
   const resetPalette = resolveResetPalette(template.id, values.variantId);
-  const canReset = COLOR_FIELDS.some(
-    (field) => resetPalette[field.id] !== undefined && colorValue(values[field.id], defaults[field.id]) !== resetPalette[field.id]
+  /**
+   * What each chip currently DISPLAYS — the renderer's own fallback chain, not
+   * the registry default. Comparing the raw value against the defaults hid
+   * "Reset palette" on a sparse graphic whose captured theme differs from the
+   * template, even though applying the reset would visibly change it.
+   */
+  const displayed = resolvePaletteColors(template.id, values, targetTheme);
+  const canReset = PALETTE_FIELD_IDS.some(
+    (id) => resetPalette[id] !== undefined && displayed[id] !== resetPalette[id]
   );
 
   return (
@@ -503,7 +518,7 @@ function TemplateColorControls({
       <span className="field__label">
         <span>Appearance / palette</span>
         <span className="template-colors__aside">
-          <span className="field__meta">{COLOR_FIELDS.length} swatches</span>
+          <span className="field__meta">{PALETTE_FIELD_IDS.length} swatches</span>
           {canReset ? (
             <button
               type="button"
@@ -518,18 +533,19 @@ function TemplateColorControls({
         </span>
       </span>
       <div className="template-colors__grid" aria-label="Template colour controls">
-        {COLOR_FIELDS.map((field) => {
-          const value = colorValue(values[field.id], defaults[field.id]);
+        {PALETTE_FIELD_IDS.map((id) => {
+          const value = displayed[id];
+          const label = COLOR_LABELS[id];
           return (
-            <label key={field.id} className="template-color">
+            <label key={id} className="template-color">
               <input
                 type="color"
                 className="template-color__input"
                 value={value}
-                onChange={(event) => setField(field.id, event.target.value)}
-                aria-label={`${field.label} colour`}
+                onChange={(event) => setField(id, event.target.value)}
+                aria-label={`${label} colour`}
               />
-              <span className="template-color__label">{field.label}</span>
+              <span className="template-color__label">{label}</span>
               <span className="template-color__hex">{value.toUpperCase()}</span>
             </label>
           );
@@ -557,7 +573,7 @@ export default function TemplateFields({
   /** Field ids rendered elsewhere (e.g. logo in the Content tab's Logo block). */
   excludeFieldIds?: string[];
 }) {
-  const { templateId: currentTemplateId, values: draftValues, setField, setFields } = useEditTarget();
+  const { templateId: currentTemplateId, values: draftValues, theme: targetTheme, setField, setFields } = useEditTarget();
   const activePackId = useLiveLayerStore((state) => state.activePackId);
   const showDesign = section === 'all' || section === 'design';
   const showContent = section === 'all' || section === 'content';
@@ -590,13 +606,21 @@ export default function TemplateFields({
         <TemplateVariantPicker
           templateId={template.id}
           draftValues={draftValues}
+          targetTheme={targetTheme}
           variants={packVariants}
           value={draftValues.variantId ?? template.defaultValues.variantId ?? packVariants[0].id}
           onChange={(value) => setField('variantId', value)}
+          onNormalize={(value) => setFields({ variantId: value })}
         />
       ) : null}
       {showDesign && template ? (
-        <TemplateColorControls template={template} values={draftValues} setField={setField} setFields={setFields} />
+        <TemplateColorControls
+          template={template}
+          values={draftValues}
+          targetTheme={targetTheme ?? {}}
+          setField={setField}
+          setFields={setFields}
+        />
       ) : null}
       {showContent && required.map((field) => (
         <div key={field.id} className="field-stack">
@@ -604,11 +628,17 @@ export default function TemplateFields({
             <ScriptureReferencePicker
               reference={draftValues.reference ?? ''}
               onReferenceChange={(reference) => setField('reference', reference)}
-              onApply={(values) => {
-                setField('reference', values.reference);
-                setField('verseText', values.verseText);
-                setField('translationLabel', values.translationLabel);
-              }}
+              onApply={(values) =>
+                // ONE write. Three sequential setFields each start from the
+                // same render-time snapshot on a rundown item, so the verse
+                // text and reference were silently dropped and only the
+                // translation label survived.
+                setFields({
+                  reference: values.reference,
+                  verseText: values.verseText,
+                  translationLabel: values.translationLabel
+                })
+              }
             />
           ) : (
             <FieldRow
