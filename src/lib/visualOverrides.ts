@@ -1,4 +1,6 @@
-import type { VisualState } from './visualState';
+import { comparableColor } from './cssColor';
+import { paletteFieldsFor, rendersLogo } from './templateCapabilities';
+import type { PaletteFieldId, VisualState } from './visualState';
 
 /**
  * "Graphic overrides" — how the VISIBLE graphic differs from what its template
@@ -35,19 +37,23 @@ export const VISUAL_OVERRIDE_FIELDS: ReadonlyArray<{ id: string; label: string }
 ];
 
 /**
- * Compare like with like. Hex colours reach a resolved state from three sources
- * with different casing — registry/pack literals are mixed case (`#E8B93C`)
- * while `<input type="color">` always emits lowercase — so a case-sensitive
- * compare would report a phantom override for picking the very colour already
- * in use.
+ * Compare like with like. Colours reach a resolved state from several sources in
+ * several notations — mixed-case registry literals (`#E8B93C`), the lowercase a
+ * picker emits, and whatever a legacy theme stores (`red`, `rgb(255 0 0)`) — so
+ * they compare through `comparableColor`, which normalizes what it can and keeps
+ * the rest as itself. A case-sensitive compare reported a phantom override for
+ * picking the very colour already in use.
  */
 function normalize(fieldId: string, value: string | undefined): string {
-  const next = (value ?? '').trim();
-  return fieldId.startsWith('color') ? next.toLowerCase() : next;
+  return fieldId.startsWith('color') ? comparableColor(value) : (value ?? '').trim();
 }
 
 /**
  * The comparable form of a resolved state.
+ *
+ * Colours come from `painted`, not from the picker-ready palette: those differ
+ * only where a stored colour cannot be expressed as hex, and there the painted
+ * string is the truth.
  *
  * The logo is flattened the way the renderers read it: an upload that cannot be
  * produced paints nothing, so it compares as absent and the URL beneath it is
@@ -56,20 +62,41 @@ function normalize(fieldId: string, value: string | undefined): string {
  */
 function comparable(state: VisualState): Record<string, string> {
   return {
-    ...state.palette,
+    ...state.painted,
     variantId: state.variantId,
     logoUrl: state.logo.url,
     logoAssetId: state.logo.missing ? '' : state.logo.assetId
   };
 }
 
+/**
+ * Which fields can be a VISIBLE difference on this template.
+ *
+ * A graphic carries fields its template never renders — `setTemplate` carries
+ * the logo across a switch, and all five palette values are seeded whether or
+ * not the design reads them — so an unfiltered comparison reported a "Logo URL"
+ * override on a scripture card that has no logo in any of its designs, and a
+ * secondary-colour override on templates that never consume it. Capability comes
+ * from `templateCapabilities`, which is pinned to the stylesheet and the
+ * rendered markup.
+ */
+function comparedFields(templateId: string): ReadonlyArray<{ id: string; label: string }> {
+  const palette = new Set<string>(paletteFieldsFor(templateId) as ReadonlyArray<PaletteFieldId>);
+  const logoShown = rendersLogo(templateId);
+  return VISUAL_OVERRIDE_FIELDS.filter((field) => {
+    if (field.id === 'variantId') return true;
+    if (field.id === 'logoUrl' || field.id === 'logoAssetId') return logoShown;
+    return palette.has(field.id);
+  });
+}
+
 /** The allowlisted fields where the target renders differently from its seed. */
 export function compareVisualStates(target: VisualState, seed: VisualState): VisualOverride[] {
   const left = comparable(target);
   const right = comparable(seed);
-  return VISUAL_OVERRIDE_FIELDS.filter(
-    (field) => normalize(field.id, left[field.id]) !== normalize(field.id, right[field.id])
-  ).map((field) => ({ id: field.id, label: field.label, value: (left[field.id] ?? '').trim() }));
+  return comparedFields(target.templateId)
+    .filter((field) => normalize(field.id, left[field.id]) !== normalize(field.id, right[field.id]))
+    .map((field) => ({ id: field.id, label: field.label, value: (left[field.id] ?? '').trim() }));
 }
 
 /** Summary line for the disclosure header. */

@@ -174,3 +174,96 @@ describe('describeOverrideCount', () => {
     expect(describeOverrideCount(4)).toBe('4 visual overrides');
   });
 });
+
+/* --- Only fields the template can actually show --------------------------- *
+ * A graphic carries fields its design never renders: `setTemplate` carries the
+ * logo across a switch, and every template is seeded all five palette values.
+ * Counting those reported differences nobody could see.
+ * ------------------------------------------------------------------------ */
+describe('compareVisualStates — capability filtering', () => {
+  const stateFor = (templateId: string, values: Record<string, string>, theme?: Partial<TemplateTheme>) =>
+    resolveGraphicVisualState({ templateId, values, theme });
+  const seedFor = (templateId: string) =>
+    resolveSeedVisualState({ templateId, packId: 'house', brandTheme, explicitBrandKeys: [] });
+
+  for (const templateId of ['scripture-card', 'quote-card', 'fullscreen-message']) {
+    it(`${templateId} never reports a logo it cannot draw`, () => {
+      const template = templateRegistry.find((entry) => entry.id === templateId)!;
+      const carried = { ...template.defaultValues, logoUrl: 'https://carried.test/l.png', logoAssetId: 'asset-1' };
+      const found = compareVisualStates(stateFor(templateId, carried, template.theme), seedFor(templateId));
+      expect(found.map((entry) => entry.id)).not.toContain('logoUrl');
+      expect(found.map((entry) => entry.id)).not.toContain('logoAssetId');
+    });
+  }
+
+  it('a lower third still reports its logo, which it does draw', () => {
+    const found = compare({ ...seedValues, logoUrl: 'https://carried.test/l.png' });
+    expect(found.map((entry) => entry.id)).toContain('logoUrl');
+  });
+
+  it('a stage template reports only the palette fields it paints', () => {
+    const sermon = templateRegistry.find((entry) => entry.id === 'sermon-title')!;
+    const changed = {
+      ...sermon.defaultValues,
+      colorSecondary: '#ff0000',
+      colorSurface: '#ff0000',
+      colorText: '#ff0000',
+      colorBrand: '#ff0000'
+    };
+    const found = compareVisualStates(stateFor('sermon-title', changed, sermon.theme), seedFor('sermon-title'));
+    expect(found.map((entry) => entry.id)).toEqual(['colorBrand']);
+  });
+
+  it('a premium template reports all five, because it paints all five', () => {
+    const found = compare({
+      ...seedValues,
+      colorBrand: '#ff0000',
+      colorAccent: '#ff0001',
+      colorSurface: '#ff0002',
+      colorText: '#ff0003',
+      colorSecondary: '#ff0004'
+    });
+    expect(found.map((entry) => entry.id).sort()).toEqual(
+      ['colorAccent', 'colorBrand', 'colorSecondary', 'colorSurface', 'colorText'].sort()
+    );
+  });
+});
+
+/* --- Colours are compared as painted, not as the picker shows them -------- *
+ * A theme may store any CSS colour; `themeToVars` passes it through. The picker
+ * needs hex, but the comparison must use what is painted.
+ * ------------------------------------------------------------------------ */
+describe('compareVisualStates — painted colours', () => {
+  const sermon = templateRegistry.find((entry) => entry.id === 'sermon-title')!;
+  const sermonSeed = resolveSeedVisualState({
+    templateId: 'sermon-title',
+    packId: 'house',
+    brandTheme,
+    explicitBrandKeys: []
+  });
+  const sermonState = (theme: Partial<TemplateTheme>) =>
+    resolveGraphicVisualState({ templateId: 'sermon-title', values: { name: 'Legacy sermon' }, theme });
+
+  it('reports a colour a picker cannot express, as the graphic stores it', () => {
+    const found = compareVisualStates(sermonState({ ...sermon.theme, accentColor: 'rebeccapurple' }), sermonSeed);
+    expect(found.find((entry) => entry.id === 'colorBrand')?.value).toBe('rebeccapurple');
+  });
+
+  it('treats two notations for one colour as equal', () => {
+    const asName = compareVisualStates(sermonState({ ...sermon.theme, accentColor: 'red' }), sermonSeed);
+    const asHex = compareVisualStates(sermonState({ ...sermon.theme, accentColor: '#FF0000' }), sermonSeed);
+    const asRgb = compareVisualStates(sermonState({ ...sermon.theme, accentColor: 'rgb(255 0 0)' }), sermonSeed);
+    const brandOf = (found: ReturnType<typeof compareVisualStates>) =>
+      found.filter((entry) => entry.id === 'colorBrand').length;
+    // All three differ from the seed, and none of them is the teal fallback.
+    expect([brandOf(asName), brandOf(asHex), brandOf(asRgb)]).toEqual([1, 1, 1]);
+  });
+
+  it('does not report an override for a colour only the picker had to approximate', () => {
+    // The seed paints the house brand; a theme naming the same colour any other
+    // way is not a difference.
+    const seedBrand = sermonSeed.painted.colorBrand;
+    const found = compareVisualStates(sermonState({ ...sermon.theme, accentColor: seedBrand.toUpperCase() }), sermonSeed);
+    expect(found.map((entry) => entry.id)).not.toContain('colorBrand');
+  });
+});

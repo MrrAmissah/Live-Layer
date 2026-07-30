@@ -3,6 +3,7 @@ import { createDraftValues } from './draftSeed';
 import { PALETTE_FIELDS, resolveRenderedVariantId } from './variantPalette';
 import { PREMIUM_FALLBACKS, STAGE_FALLBACKS, paletteFamilyFor } from './rendererFallbacks';
 import type { ExplicitBrandKey } from './storage';
+import { normalizeCssColorToHex } from './cssColor';
 import type { TemplateTheme } from '../types/graphics';
 
 /**
@@ -32,7 +33,6 @@ import type { TemplateTheme } from '../types/graphics';
 export type PaletteFieldId = (typeof PALETTE_FIELDS)[number]['id'];
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
-const SHORT_HEX = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i;
 
 const templateById = new Map(templateRegistry.map((template) => [template.id, template]));
 
@@ -47,19 +47,21 @@ function valueColor(value: string | undefined): string | undefined {
 }
 
 /**
- * A THEME colour, gated as `themeToVars` gates it — which is to say hardly at
- * all: it copies the string into `--gfx-*` and CSS resolves `#fff`. Expanded to
- * six digits (lowercase, as `<input type="color">` emits) because that is all a
- * colour input accepts. A theme colour that is neither three- nor six-digit hex
- * — a named CSS colour — cannot be shown in a picker at all, so it yields
- * nothing and the chain continues.
+ * A THEME colour as the PICKER can show it. `themeToVars` validates nothing — it
+ * copies the string into `--gfx-*` and CSS resolves `#fff`, `rgb(255 0 0)` or
+ * `red` alike — so this normalizes every format `cssColor` can express to
+ * six-digit hex. What the graphic paints is kept separately (`painted` below),
+ * because an unrepresentable colour must not be *compared* as the fallback a
+ * picker has to display.
  */
 function themeColor(value: string | undefined): string | undefined {
+  return normalizeCssColorToHex(value);
+}
+
+/** The raw theme string, which is what the renderer paints. */
+function paintedThemeColor(value: string | undefined): string | undefined {
   const next = value?.trim();
-  if (!next) return undefined;
-  const short = SHORT_HEX.exec(next);
-  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase();
-  return HEX_COLOR.test(next) ? next : undefined;
+  return next ? next : undefined;
 }
 
 export interface LogoState {
@@ -75,8 +77,15 @@ export interface LogoState {
 
 export interface VisualState {
   templateId: string;
-  /** Picker-ready hex per palette field: what this graphic's template paints. */
+  /** Picker-ready hex per palette field — what a colour control can show. */
   palette: Record<PaletteFieldId, string>;
+  /**
+   * The colour the renderer actually paints per field, in whatever notation the
+   * graphic stores: `#0d2095`, `rgb(255 0 0)`, `red`. Comparisons use this, so a
+   * colour no picker can express is never compared as the fallback the picker
+   * had to display instead.
+   */
+  painted: Record<PaletteFieldId, string>;
   /** The variant the renderer paints, not the one the carousel would select. */
   variantId: string;
   logo: LogoState;
@@ -108,7 +117,13 @@ export interface GraphicVisualInput {
 function resolvePalette(
   templateId: string,
   values: Record<string, string>,
-  theme: Partial<TemplateTheme> | undefined
+  theme: Partial<TemplateTheme> | undefined,
+  /**
+   * How a theme slot is read: normalized to hex for the pickers, or raw for
+   * `painted`. One chain, two readers — so what a chip shows and what the
+   * comparison compares can never walk different fallbacks.
+   */
+  readTheme: (value: string | undefined) => string | undefined
 ): Record<PaletteFieldId, string> {
   const template = templateById.get(templateId);
   const registryDefaults: Record<string, string> = template?.defaultValues ?? {};
@@ -123,24 +138,24 @@ function resolvePalette(
     switch (field) {
       case 'colorBrand':
         return (
-          (premium ? undefined : themeColor(merged.accentColor)) ??
+          (premium ? undefined : readTheme(merged.accentColor)) ??
           (premium ? PREMIUM_FALLBACKS.colorBrand : STAGE_FALLBACKS.colorBrand)
         );
       case 'colorAccent':
         return (
-          (premium ? undefined : themeColor(merged.accent2Color)) ??
+          (premium ? undefined : readTheme(merged.accent2Color)) ??
           (premium ? PREMIUM_FALLBACKS.colorAccent : STAGE_FALLBACKS.colorAccent)
         );
       case 'colorSurface':
         return (
-          themeColor(merged.surfaceColor) ??
-          themeColor(merged.primaryColor) ??
+          readTheme(merged.surfaceColor) ??
+          readTheme(merged.primaryColor) ??
           (premium ? PREMIUM_FALLBACKS.colorSurface : registryDefaults.colorSurface) ??
           PREMIUM_FALLBACKS.colorSurface
         );
       case 'colorText':
         return (
-          themeColor(merged.primaryColor) ??
+          readTheme(merged.primaryColor) ??
           (premium ? PREMIUM_FALLBACKS.colorText : registryDefaults.colorText) ??
           PREMIUM_FALLBACKS.colorText
         );
@@ -176,7 +191,8 @@ function resolveLogo(values: Record<string, string>, assetStatus: string | undef
 export function resolveGraphicVisualState(input: GraphicVisualInput): VisualState {
   return {
     templateId: input.templateId,
-    palette: resolvePalette(input.templateId, input.values, input.theme),
+    palette: resolvePalette(input.templateId, input.values, input.theme, themeColor),
+    painted: resolvePalette(input.templateId, input.values, input.theme, paintedThemeColor),
     variantId: resolveRenderedVariantId(input.templateId, input.values.variantId),
     logo: resolveLogo(input.values, input.logoAssetStatus)
   };
@@ -209,5 +225,5 @@ export function resolvePaletteColors(
   values: Record<string, string>,
   theme: Partial<TemplateTheme> | undefined
 ): Record<PaletteFieldId, string> {
-  return resolvePalette(templateId, values, theme);
+  return resolvePalette(templateId, values, theme, themeColor);
 }
