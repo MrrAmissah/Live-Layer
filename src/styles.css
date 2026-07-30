@@ -7744,7 +7744,27 @@ body.gfx-transparent {
   .control-root .studio { grid-template-columns: minmax(248px, 272px) minmax(0, 1fr) minmax(312px, 340px); }
 }
 @media (max-width: 1024px) {
-  .control-root--studio .studio { grid-template-columns: 1fr; height: auto; }
+  /* Reachable only at exactly 1024: `ControlPage` picks the studio at
+     `min-width: 1024px` and this stacks at `max-width: 1024px`, so the two
+     overlap on that single width (below it the dock renders and none of this
+     applies). Stacked, all three regions are one column and taller than the
+     frame — and the frame now clips, so the STACK has to own the scrolling.
+     Without this the Program rail and Take/Clear sat outside the clip and were
+     unreachable on a 1024-wide window. */
+  .control-root--studio .studio {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    /* Each region takes its own height and the STACK scrolls. Without these the
+       grid still had the frame's height to distribute, so the three regions were
+       squeezed to ~246px each and their content — an 811px library, a 1966px
+       centre, an 1892px rail — spilled out of its box and overlapped the region
+       below, clipped by the frame. Measured at 1024: 3×246 with spill, versus
+       877/1966/1893 with none. */
+    align-content: start;
+    grid-auto-rows: min-content;
+  }
+  /* The columns hand their overflow to the stack above rather than each opening
+     a scroller of its own, which would strand content in nested regions. */
   .control-root--studio .studio__nav,
   .control-root--studio .studio__rail { border: 0; border-bottom: 1px solid var(--ll-border-soft); overflow: visible; }
   .control-root--studio .studio__center { overflow: visible; }

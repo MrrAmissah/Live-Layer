@@ -124,3 +124,39 @@ describe('the reserved Scripture route stays provider-neutral', () => {
     expect(nav).not.toContain('/scripture');
   });
 });
+
+describe('the stacked studio at the breakpoint overlap', () => {
+  /**
+   * `ControlPage` picks the studio at `(min-width: 1024px)` and the stylesheet
+   * stacks it at `(max-width: 1024px)`, so exactly 1024 gets a bounded frame
+   * around a single-column stack. Something must own that overflow or the frame
+   * clips Take and Program out of reach.
+   */
+  const stackedBlock = (() => {
+    const match = /@media \(max-width: 1024px\) \{([\s\S]*?)\n\}/.exec(css);
+    return match?.[1] ?? '';
+  })();
+
+  it('exists at all — the overlap is real, not hypothetical', () => {
+    expect(stackedBlock).toContain('.control-root--studio .studio');
+  });
+
+  it('gives the stack its own scrolling', () => {
+    const studioRule = /\.control-root--studio \.studio \{([^}]*)\}/.exec(stackedBlock)?.[1] ?? '';
+    expect(studioRule).toMatch(/overflow-y:\s*auto/);
+    // `height: auto` here fought the flex frame; the base rule sizes it now.
+    expect(studioRule).not.toMatch(/height:\s*auto/);
+  });
+
+  it('lets each stacked region take its own height instead of a third of the frame', () => {
+    // Scrolling alone was not enough: the grid had a fixed height to distribute,
+    // so the regions were squeezed and their content spilled over each other.
+    const studioRule = /\.control-root--studio \.studio \{([^}]*)\}/.exec(stackedBlock)?.[1] ?? '';
+    expect(studioRule).toMatch(/align-content:\s*start/);
+    expect(studioRule).toMatch(/grid-auto-rows:\s*min-content/);
+  });
+
+  it('keeps the columns out of the scrolling business, so nothing nests', () => {
+    expect(stackedBlock).toMatch(/overflow:\s*visible/);
+  });
+});
