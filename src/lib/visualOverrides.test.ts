@@ -64,9 +64,12 @@ describe('compareVisualStates', () => {
     expect(compare({ ...seedValues, colorAccent: inUse.toUpperCase() })).toEqual([]);
   });
 
-  it('reports a seeded logo the operator cleared', () => {
-    const found = compare({ ...seedValues, logoUrl: '' });
-    expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: '' }]);
+  it('does not report a cleared logo the renderer still paints', () => {
+    // The medallion draws DEFAULT_CHURCH_LOGO_URL for a graphic naming none, and
+    // the seed names that very URL — so Preview and Program show the same image
+    // and there is nothing to report. Reporting "Logo URL removed" here was the
+    // false claim this closes.
+    expect(compare({ ...seedValues, logoUrl: '' })).toEqual([]);
   });
 
   it('counts an upload that resolves, because that is what paints', () => {
@@ -293,8 +296,19 @@ describe('compareVisualStates — the logo the renderer selects', () => {
   });
 
   it('names the seed’s field when the target paints no logo at all', () => {
-    const found = compare({ ...seedValues, logoUrl: '', logoAssetId: '' });
-    expect(found).toEqual([{ id: 'logoUrl', label: 'Logo URL', value: '' }]);
+    // Clearing the logo is only a difference where the renderer draws nothing in
+    // its place: `bold-plate` hides the medallion, so this graphic really is
+    // logo-less while the seed paints the house mark.
+    const found = compare({ ...seedValues, variantId: 'bold-plate', logoUrl: '', logoAssetId: '' });
+    expect(found.filter((entry) => entry.id === 'logoUrl' || entry.id === 'logoAssetId')).toEqual([
+      { id: 'logoUrl', label: 'Logo URL', value: '' }
+    ]);
+  });
+
+  it('is silent when the same clearing leaves the renderer painting the seed’s logo', () => {
+    // The default variant DOES draw the medallion, so the identical edit is
+    // invisible — the case the panel used to get wrong.
+    expect(compare({ ...seedValues, logoUrl: '', logoAssetId: '' })).toEqual([]);
   });
 
   it('is silent when both paint the same image, however each stores it', () => {

@@ -78,9 +78,15 @@ function comparable(state: VisualState): Record<string, string> {
  * the field it came from is what makes that readable.
  */
 function effectiveLogo(state: VisualState): { key: string; fieldId: 'logoAssetId' | 'logoUrl' | null; value: string } {
-  const { source, assetId, url } = state.logo;
+  const { source, assetId, painted } = state.logo;
+  // An upload's identity is its id; every other source is an image URL, and two
+  // sides that paint the same URL are the same logo however each stored it — a
+  // cleared graphic falling back to the house mark matches a seed that names it
+  // explicitly.
   if (source === 'asset') return { key: `asset:${assetId}`, fieldId: 'logoAssetId', value: assetId };
-  if (source === 'url') return { key: `url:${url}`, fieldId: 'logoUrl', value: url };
+  if (source === 'url' || source === 'fallback') {
+    return { key: `img:${painted}`, fieldId: 'logoUrl', value: painted };
+  }
   return { key: '', fieldId: null, value: '' };
 }
 

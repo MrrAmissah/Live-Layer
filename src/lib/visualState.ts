@@ -1,4 +1,4 @@
-import { templateRegistry } from '../components/templates/registry';
+import { templateLogoFallback, templateRegistry } from '../components/templates/registry';
 import { createDraftValues } from './draftSeed';
 import { PALETTE_FIELDS, resolveRenderedVariantId } from './variantPalette';
 import { PREMIUM_FALLBACKS, STAGE_FALLBACKS, paletteFamilyFor } from './rendererFallbacks';
@@ -67,11 +67,22 @@ function paintedThemeColor(value: string | undefined): string | undefined {
 export interface LogoState {
   assetId: string;
   url: string;
-  /** Which source `resolveLogoSrc` will actually use. */
-  source: 'asset' | 'url' | 'none';
+  /**
+   * Which source the renderer actually draws from. `fallback` is the renderer's
+   * own image for a graphic that names none — the house mark on a lower-third
+   * medallion, the event mark on a convention strap.
+   */
+  source: 'asset' | 'url' | 'fallback' | 'none';
+  /** The image on screen: the URL, the renderer's fallback, or '' for none.
+   *  An uploaded asset has no URL here — its identity is `assetId`. */
+  painted: string;
   /** A named upload the asset store could not produce. */
   missing: boolean;
-  /** The graphic NAMES a logo — true even when it cannot be produced. */
+  /**
+   * The graphic NAMES a logo of its own. Deliberately unaffected by a renderer
+   * fallback: "Remove image" must not appear for an image the operator never
+   * chose and cannot remove.
+   */
   hasRef: boolean;
 }
 
@@ -174,27 +185,61 @@ function resolvePalette(
 }
 
 /**
- * The logo as the renderers see it: `resolveLogoSrc` prefers a resolved asset,
- * then `logoUrl`. An upload that cannot be produced therefore paints nothing and
- * the URL beneath it takes over — while the graphic still NAMES a logo, which is
- * what the Brand block reports and what export bundles.
+ * The renderer's own logo for a graphic that names none, per template and the
+ * variant it renders. The rule and the URLs belong to the renderers — this only
+ * looks them up, so no image literal is repeated here.
  */
-function resolveLogo(values: Record<string, string>, assetStatus: string | undefined): LogoState {
+export function resolveRenderedLogoFallback(templateId: string, renderedVariantId: string): string | undefined {
+  return templateLogoFallback[templateId]?.(renderedVariantId);
+}
+
+/**
+ * The logo as the renderers see it: a resolved asset, then `logoUrl`, then the
+ * renderer's own fallback, then nothing.
+ *
+ * An upload that cannot be produced paints nothing and the URL beneath it takes
+ * over (`resolveLogoSrc`). With neither, several designs still draw an image of
+ * their own — the lower third's medallion carries the house mark, a convention
+ * strap the event mark — so a graphic whose logo was cleared is NOT blank, and a
+ * comparison that assumed otherwise reported a removal nobody could see.
+ *
+ * `hasRef` stays presence-based: a fallback is not a reference the operator owns.
+ */
+function resolveLogo(
+  templateId: string,
+  renderedVariantId: string,
+  values: Record<string, string>,
+  assetStatus: string | undefined
+): LogoState {
   const assetId = values.logoAssetId?.trim() ?? '';
   const url = values.logoUrl?.trim() ?? '';
   const missing = Boolean(assetId) && assetStatus === 'missing';
-  const source: LogoState['source'] = assetId && !missing ? 'asset' : url ? 'url' : 'none';
-  return { assetId, url, source, missing, hasRef: Boolean(assetId || url) };
+  const hasRef = Boolean(assetId || url);
+
+  if (assetId && !missing) {
+    return { assetId, url, source: 'asset', painted: '', missing, hasRef };
+  }
+  if (url) {
+    return { assetId, url, source: 'url', painted: url, missing, hasRef };
+  }
+  const fallback = resolveRenderedLogoFallback(templateId, renderedVariantId);
+  if (fallback) {
+    return { assetId, url, source: 'fallback', painted: fallback, missing, hasRef };
+  }
+  return { assetId, url, source: 'none', painted: '', missing, hasRef };
 }
 
 /** Boundary 1 — an existing graphic, described as Preview and Take render it. */
 export function resolveGraphicVisualState(input: GraphicVisualInput): VisualState {
+  // The logo fallback is variant-sensitive, so the variant is resolved first and
+  // the same answer feeds both.
+  const variantId = resolveRenderedVariantId(input.templateId, input.values.variantId);
   return {
     templateId: input.templateId,
     palette: resolvePalette(input.templateId, input.values, input.theme, themeColor),
     painted: resolvePalette(input.templateId, input.values, input.theme, paintedThemeColor),
-    variantId: resolveRenderedVariantId(input.templateId, input.values.variantId),
-    logo: resolveLogo(input.values, input.logoAssetStatus)
+    variantId,
+    logo: resolveLogo(input.templateId, variantId, input.values, input.logoAssetStatus)
   };
 }
 

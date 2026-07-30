@@ -13,6 +13,15 @@ import { CONVENTION_LOGO_URL, resolveLogoSrc } from '../../lib/brandAssets';
  */
 export const DEFAULT_VARIANT_ID = 'festival-stage';
 
+/**
+ * The logo this renderer paints when the graphic names none. Only the
+ * `convention-bar` design draws one at all, and its fallback is the event logo;
+ * every other variant of this template paints no logo.
+ */
+export function logoFallbackForVariant(variantId: string | undefined): string | undefined {
+  return (variantId?.trim() || DEFAULT_VARIANT_ID) === 'convention-bar' ? CONVENTION_LOGO_URL : undefined;
+}
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];

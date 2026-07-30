@@ -13,6 +13,16 @@ import { resolveLogoSrc } from '../../lib/brandAssets';
  */
 export const DEFAULT_VARIANT_ID = 'sermon-paper';
 
+/**
+ * This renderer has no logo fallback: `resolveLogoSrc(values)` is called without
+ * one and the image is rendered only when it resolves, so a graphic naming no
+ * logo paints none. Exported anyway so the registry's table is complete and the
+ * rule lives with the renderer that owns it.
+ */
+export function logoFallbackForVariant(): string | undefined {
+  return undefined;
+}
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];

@@ -10,6 +10,7 @@ import { PALETTE_FIELD_IDS } from './variantPalette';
 import { PREMIUM_FALLBACKS, STAGE_FALLBACKS, paletteFamilyFor } from './rendererFallbacks';
 import { defaultBrandTheme } from './storage';
 import { templateRegistry, templateRendererMap } from '../components/templates/registry';
+import { CONVENTION_LOGO_URL, DEFAULT_CHURCH_LOGO_URL } from './brandAssets';
 
 const PREMIUM = 'preacher-lower-third';
 const STAGE = 'sermon-title';
@@ -158,13 +159,15 @@ describe('logo state describes what resolveLogoSrc will use', () => {
     expect(logo).toMatchObject({ source: 'url', missing: true, hasRef: true });
   });
 
-  it('reports a named upload as a reference even when it cannot be produced', () => {
+  it('falls through an unavailable upload with no URL to the renderer\u2019s own logo', () => {
+    // The lower third's medallion draws the house mark regardless, so this
+    // graphic is not blank — it just isn't showing the operator's upload.
     const { logo } = resolveGraphicVisualState({
       templateId: PREMIUM,
       values: { logoAssetId: 'asset-gone', logoUrl: '' },
       logoAssetStatus: 'missing'
     });
-    expect(logo).toMatchObject({ source: 'none', missing: true, hasRef: true });
+    expect(logo).toMatchObject({ source: 'fallback', painted: DEFAULT_CHURCH_LOGO_URL, missing: true, hasRef: true });
   });
 
   it('treats an unknown status as present, so nothing flickers while IndexedDB is read', () => {
@@ -175,9 +178,16 @@ describe('logo state describes what resolveLogoSrc will use', () => {
     expect(logo).toMatchObject({ source: 'asset', missing: false });
   });
 
-  it('reports no reference when the graphic names no logo', () => {
+  it('reports no reference of its own, while still naming what the renderer paints', () => {
     const { logo } = resolveGraphicVisualState({ templateId: PREMIUM, values: { logoUrl: '   ' } });
-    expect(logo).toMatchObject({ source: 'none', missing: false, hasRef: false });
+    // hasRef stays false: the operator owns no image here, so the Brand block
+    // must not offer to remove one.
+    expect(logo).toMatchObject({ source: 'fallback', painted: DEFAULT_CHURCH_LOGO_URL, missing: false, hasRef: false });
+  });
+
+  it('reports none on a template that draws no logo at all', () => {
+    const { logo } = resolveGraphicVisualState({ templateId: 'scripture-card', values: {} });
+    expect(logo).toMatchObject({ source: 'none', painted: '', hasRef: false });
   });
 });
 

@@ -16,6 +16,43 @@ import { templateColorStyle } from './colorVars';
  */
 export const DEFAULT_VARIANT_ID = 'signature-medallion';
 
+/**
+ * Variants whose medallion the stylesheet actually shows.
+ *
+ * The medallion is in the markup for every variant, but `styles.css` hides it
+ * (`.gfx-l3:not([data-variant='signature-medallion']) .l3-medallion { display:none }`)
+ * and individual variants switch it back on. This list is the cascade's real
+ * answer, measured with `getComputedStyle` across all 15 variants, and
+ * `logoFallback.test.ts` re-derives it from the stylesheet so it cannot drift.
+ */
+const MEDALLION_VARIANTS = new Set([
+  'signature-medallion',
+  'clean-broadcast',
+  'split-bar',
+  'event-style',
+  'canva-host-bar',
+  'canva-celebration',
+  'canva-ministry',
+  'soft-broadcast',
+  'performer-pill',
+  'performer-note'
+]);
+
+/**
+ * The logo this renderer paints when the graphic names none — its own rule, so
+ * nothing else has to know these URLs.
+ *
+ * `resolvedLogo` falls back to the house logo unconditionally, so any variant
+ * that SHOWS the medallion paints it; `convention-strap` hides the medallion and
+ * draws the strap image instead, whose own fallback is the event logo; and a
+ * variant that shows neither paints no logo at all.
+ */
+export function logoFallbackForVariant(variantId: string | undefined): string | undefined {
+  const variant = variantId?.trim() || DEFAULT_VARIANT_ID;
+  if (variant === 'convention-strap') return CONVENTION_LOGO_URL;
+  return MEDALLION_VARIANTS.has(variant) ? DEFAULT_CHURCH_LOGO_URL : undefined;
+}
+
 interface Props {
   values: Record<string, string>;
   theme: TemplateDefinition['theme'];
