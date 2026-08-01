@@ -49,7 +49,7 @@ export default function LibraryControls() {
           Import
         </button>
       </div>
-      {section === 'presets' ? <PresetControls /> : null}
+      {section === 'presets' ? <PresetControls surface="dock" /> : null}
       {section === 'people' ? <PeopleLibrary /> : null}
       {section === 'rundowns' ? <RundownLibrary /> : null}
       {section === 'import' ? <ImportPackPreview /> : null}

@@ -153,12 +153,11 @@ describe('corrections from review', () => {
   it('names a destination that exists in every studio recovery prompt', () => {
     // Rundown management moved out of Library, so "Library → Rundowns" became a
     // dead end for studio operators. The dock keeps its own Library tab.
-    for (const file of [
-      'src/components/control/StudioRundownPanel.tsx',
-      'src/components/control/PresetControls.tsx'
-    ]) {
-      expect(read(file), file).not.toContain('Library → Rundowns');
-    }
+    // StudioRundownPanel is studio-only, so it may name the workspace directly.
+    // PresetControls is mounted by both layouts and therefore names neither —
+    // see rundownDestination.test.ts.
+    expect(read('src/components/control/StudioRundownPanel.tsx')).not.toContain('Library → Rundowns');
+    expect(read('src/components/control/PresetControls.tsx')).toContain('noActiveRundownMessage(surface)');
     expect(read('src/components/control/StudioRundownPanel.tsx')).toMatch(/Rundown<\/strong> workspace/);
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useRundowns } from '../../hooks/useRundowns';
+import { noActiveRundownMessage, type ControlSurface } from './rundownDestination';
 import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
 import { defaultPresetName, resolvePresetName, templateDisplayName } from '../../lib/presetNaming';
 import type { GraphicInstance } from '../../types/graphics';
@@ -16,7 +17,15 @@ import type { GraphicInstance } from '../../types/graphics';
  * to save the draft unconditionally, so "Save" here and "Save" in the editor
  * could serialize two different graphics.
  */
-export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (preset: GraphicInstance) => void } = {}) {
+export default function PresetControls({
+  onLoadGraphic,
+  /**
+   * Which layout is mounting this. Both do, and they keep their rundown manager
+   * in different places, so the recovery message has to follow the surface —
+   * correcting it for one silently broke it for the other.
+   */
+  surface = 'studio'
+}: { onLoadGraphic?: (preset: GraphicInstance) => void; surface?: ControlSurface } = {}) {
   const presets = useLiveLayerStore((state) => state.presets);
   const removePreset = useLiveLayerStore((state) => state.removePreset);
   const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
@@ -49,7 +58,7 @@ export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (pre
 
   const onAddToRundown = (preset: GraphicInstance) => {
     if (!rd.activeRundownId) {
-      flash('Create or select a rundown first — open the Rundown workspace.');
+      flash(noActiveRundownMessage(surface));
       return;
     }
     if ((rd.activeRundown?.items.length ?? 0) >= MAX_ITEMS_PER_RUNDOWN) {
