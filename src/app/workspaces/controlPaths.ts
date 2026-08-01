@@ -35,15 +35,23 @@ export function resolveCanonicalControlPath(pathname: string): string | null {
   const segments = trimmed.split('/').filter(Boolean).slice(1); // drop 'control'
   const [workspace, section] = segments;
 
-  if (!workspace) return DEFAULT_WORKSPACE;
-  if (!WORKSPACES.includes(workspace as (typeof WORKSPACES)[number])) return DEFAULT_WORKSPACE;
+  const canonical = (() => {
+    if (!workspace || !WORKSPACES.includes(workspace as (typeof WORKSPACES)[number])) return DEFAULT_WORKSPACE;
+    if (workspace === 'library') {
+      return `/control/library/${isLibrarySection(section) ? section : DEFAULT_LIBRARY_SECTION}`;
+    }
+    return `/control/${workspace}`;
+  })();
 
-  if (workspace === 'library') {
-    if (!isLibrarySection(section)) return `/control/library/${DEFAULT_LIBRARY_SECTION}`;
-    // A trailing extra segment is still a URL nobody can produce on purpose.
-    return segments.length > 2 ? `/control/library/${section}` : null;
-  }
-
-  // Studio and Rundown take no sub-path.
-  return segments.length > 1 ? `/control/${workspace}` : null;
+  /**
+   * Compare the REBUILT path with what was asked for, rather than reasoning
+   * case by case about what makes a URL wrong.
+   *
+   * Empty segments are dropped while parsing, so `/control/library//saved` read
+   * as already-canonical — while the router, which does not ignore the extra
+   * separator, matched no child and rendered a blank workspace. Rebuilding and
+   * comparing catches doubled separators, trailing slashes and extra segments
+   * with one rule instead of three that can each miss a case.
+   */
+  return canonical === trimmed ? null : canonical;
 }

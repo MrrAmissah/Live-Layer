@@ -31,6 +31,20 @@ describe('canonical control paths', () => {
     expect(resolveCanonicalControlPath('/control/library/people/extra')).toBe('/control/library/people');
   });
 
+  it('corrects separators the router will not match', () => {
+    // `filter(Boolean)` hides a doubled slash from the parser, but the router
+    // does not ignore it: `library/:section` matched nothing and the workspace
+    // rendered blank. Rebuild-and-compare catches these without a special case.
+    expect(resolveCanonicalControlPath('/control/library//saved')).toBe('/control/library/saved');
+    expect(resolveCanonicalControlPath('/control//rundown')).toBe('/control/rundown');
+    expect(resolveCanonicalControlPath('/control//')).toBe('/control/studio');
+    // A trailing slash alone is already normalised away before comparing.
+    expect(resolveCanonicalControlPath('/control/studio/')).toBeNull();
+    // `//control/...` is not under /control at all — the app's top-level
+    // catch-all owns that, and this function correctly declines it.
+    expect(resolveCanonicalControlPath('//control//studio')).toBeNull();
+  });
+
   it('is not any other route’s business', () => {
     for (const path of ['/output', '/setup', '/scripture', '/', '/controlled', '/control-x']) {
       expect(resolveCanonicalControlPath(path), path).toBeNull();
