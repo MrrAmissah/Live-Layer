@@ -183,7 +183,16 @@ export default function ControlPage() {
   // 1024px — the address bar kept a non-canonical URL and widening the window
   // later produced a surprise redirect.
   const canonical = resolveCanonicalControlPath(location.pathname);
-  if (canonical) return <Navigate to={canonical} replace />;
+  if (canonical) {
+    // Carry the query and hash across. `/setup` hands out the LAN control URL as
+    // `/control?relay=…`, and the realtime channel reads that param when it is
+    // constructed — a path-only redirect drops it, so on a machine with no
+    // stored relay the controller comes up with no relay at all and its commands
+    // never reach the remote output. Worse, `<Navigate>` is a child, so its
+    // effect runs BEFORE this component's channel effect: the param is already
+    // gone from the URL by the time the channel looks for it.
+    return <Navigate to={{ pathname: canonical, search: location.search, hash: location.hash }} replace />;
+  }
 
   if (!isStudio) {
     return (

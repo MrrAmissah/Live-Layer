@@ -59,6 +59,15 @@ describe('the redirect runs for both layouts', () => {
     expect(controlBlock).toContain('<Route path="*" element={null} />');
   });
 
+  it('carries the query and hash across the redirect', () => {
+    // `/setup` hands out the LAN control URL as `/control?relay=…` and the
+    // realtime channel reads that param when it is constructed. A path-only
+    // redirect drops it, and because <Navigate> is a child its effect runs
+    // BEFORE the channel effect — so the controller would come up with no relay
+    // and its commands would never reach the remote output.
+    expect(controlPage).toMatch(/to={{\s*pathname: canonical,\s*search: location\.search,\s*hash: location\.hash\s*}}/);
+  });
+
   it('is the only owner — the children match, they do not redirect', () => {
     // The index and catch-all children exist to make the layout match; the
     // redirecting is ControlPage's, so no <Navigate> belongs in this block.
