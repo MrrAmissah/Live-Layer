@@ -150,9 +150,13 @@ export default function ControlPage() {
   const openGraphicInEditor = useCallback(
     (graphic: GraphicInstance) => {
       useLiveLayerStore.getState().loadGraphicInstance(graphic);
-      navigate('/control/studio');
+      // Only travel if there is somewhere to travel from. Design presets and the
+      // queue's "Edit" both call this from inside Studio, and navigating to the
+      // URL you are already on pushes a duplicate history entry — after a few
+      // loads, Back does nothing visible until those duplicates are walked off.
+      if (!location.pathname.startsWith('/control/studio')) navigate('/control/studio');
     },
-    [navigate]
+    [navigate, location.pathname]
   );
 
   /**

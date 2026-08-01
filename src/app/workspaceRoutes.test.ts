@@ -164,6 +164,21 @@ describe('corrections from review', () => {
   });
 });
 
+describe('navigation does not pile up history', () => {
+  it('only travels to Studio when it is somewhere else', () => {
+    // Design presets and the queue's Edit both call this from inside Studio;
+    // navigating to the URL you are already on pushes a duplicate entry and
+    // Back stops appearing to work.
+    expect(controlPage).toMatch(/if \(!location\.pathname\.startsWith\('\/control\/studio'\)\) navigate\('\/control\/studio'\)/);
+  });
+
+  it('still loads the graphic either way', () => {
+    // The store write is unconditional — only the travel is conditional.
+    const handler = controlPage.slice(controlPage.indexOf('const openGraphicInEditor'), controlPage.indexOf('const onTakeInstance'));
+    expect(handler.indexOf('loadGraphicInstance')).toBeLessThan(handler.indexOf('location.pathname.startsWith'));
+  });
+});
+
 describe('rundown management has one owner on screen', () => {
   const rail = read('src/components/control/ProgramRail.tsx');
   const panel = read('src/components/control/StudioRundownPanel.tsx');
