@@ -26,21 +26,18 @@ const workspaces = {
 describe('workspace routing', () => {
   it('nests the workspaces inside the control layout route', () => {
     expect(app).toMatch(/path="\/control"\s+element={<ControlPage/);
-    for (const path of ['studio', 'rundown', 'library']) {
+    for (const path of ['studio', 'rundown']) {
       expect(app, path).toContain(`path="${path}"`);
     }
     // Library keeps its sections addressable, so a link can point at People.
     expect(app).toContain('path="library/:section"');
   });
 
-  it('keeps /control working by sending it to a real workspace', () => {
-    // An index route, not a dead layout with an empty outlet.
-    expect(app).toMatch(/<Route index element={<Navigate to="\/control\/studio" replace/);
-  });
-
-  it('sends an unknown /control/* path somewhere real instead of blank', () => {
-    const controlBlock = app.slice(app.indexOf('path="/control"'), app.indexOf('path="/output"'));
-    expect(controlBlock).toMatch(/path="\*"\s+element={<Navigate to="\/control\/studio"/);
+  it('canonicalises /control in the layout, so the dock gets it too', () => {
+    // Redirect routes only run when the layout renders its outlet, and the dock
+    // never does — canonicalPaths + ControlPage own this instead. The rules
+    // themselves are asserted in controlPaths.test.ts.
+    expect(controlPage).toContain('resolveCanonicalControlPath');
   });
 
   it('leaves the reserved Scripture route unlinked', () => {
@@ -135,11 +132,13 @@ describe('live actions are one implementation', () => {
 
 describe('corrections from review', () => {
   it('sends an invalid library section to a canonical URL instead of guessing', () => {
-    // `/control/library/rundowns` matches the dynamic route before the wildcard,
-    // so rendering a default there left the address bar wrong and every section
-    // link inactive — content and navigation disagreeing about where you are.
+    // Rendering a default under `/control/library/rundowns` left the address bar
+    // wrong and every section link inactive. The correction now lives with the
+    // other canonical-path rules, so it applies to the dock as well — the
+    // behaviour itself is asserted in controlPaths.test.ts.
+    expect(controlPage).toContain('resolveCanonicalControlPath');
     const library = read('src/app/workspaces/LibraryWorkspace.tsx');
-    expect(library).toMatch(/if \(!isSection\(section\)\) return <Navigate to="\/control\/library\/saved" replace/);
+    expect(library).not.toContain('<Navigate');
   });
 
   it('points the skip link at whichever action set is visible', () => {

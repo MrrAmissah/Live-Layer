@@ -20,12 +20,19 @@ function App() {
   return (
     <Routes>
       <Route path="/control" element={<ControlPage />}>
-        <Route index element={<Navigate to="/control/studio" replace />} />
+        {/* Canonicalisation lives in ControlPage, not here: redirect routes only
+            run when the layout renders its outlet, and the dock never does.
+
+            The empty index and catch-all children exist so that EVERY `/control/*`
+            URL matches this layout. Without them a path like `/control/library`
+            matches no child, the sibling top-level `*` wins instead, and the URL
+            is rewritten to `/control` before the layout can canonicalise it —
+            which quietly turned a Library link into Studio. */}
+        <Route index element={null} />
         <Route path="studio" element={<StudioWorkspace />} />
         <Route path="rundown" element={<RundownWorkspace />} />
-        <Route path="library" element={<Navigate to="/control/library/saved" replace />} />
         <Route path="library/:section" element={<LibraryWorkspace />} />
-        <Route path="*" element={<Navigate to="/control/studio" replace />} />
+        <Route path="*" element={null} />
       </Route>
       <Route path="/output" element={<OutputPage />} />
       <Route path="/setup" element={<SetupPage />} />

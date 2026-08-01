@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage, publishCommand } from '../lib/realtime';
 import { resolveClearOutcome, resolveTakeOutcome } from '../lib/takeOutcome';
@@ -21,6 +21,7 @@ import ProgramRail from '../components/control/ProgramRail';
 import StudioNav from '../components/control/StudioNav';
 import StudioLiveBar from '../components/control/StudioLiveBar';
 import type { WorkspaceContext } from './workspaces/workspaceContext';
+import { resolveCanonicalControlPath } from './workspaces/controlPaths';
 import { PackSwitchGuardProvider } from '../hooks/usePackSwitchGuard';
 
 /** Deep clone so a taken graphic shares no references with editable draft state. */
@@ -176,6 +177,13 @@ export default function ControlPage() {
         useLiveLayerStore.getState().addRecent(instance);
       }
     });
+
+  // Canonicalise BEFORE the shell choice. Redirect routes are children, and the
+  // dock never renders the outlet, so as route elements these never ran below
+  // 1024px — the address bar kept a non-canonical URL and widening the window
+  // later produced a surprise redirect.
+  const canonical = resolveCanonicalControlPath(location.pathname);
+  if (canonical) return <Navigate to={canonical} replace />;
 
   if (!isStudio) {
     return (
