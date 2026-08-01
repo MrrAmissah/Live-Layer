@@ -1,5 +1,6 @@
 import type { LastAction } from './StatusBadge';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
+import LiveActions from './LiveActions';
 
 interface StickyLiveBarProps {
   onTake: () => void;
@@ -17,8 +18,7 @@ interface StickyLiveBarProps {
  * row carries just the auto-hide value.
  */
 export default function StickyLiveBar({ onTake, onClear, lastAction, sending = false }: StickyLiveBarProps) {
-  const { takeLabel, takeDisabled, durationSeconds } = useLiveTakeContext();
-  const takeDisplayLabel = lastAction === 'taken' ? 'Update live' : takeLabel;
+  const { durationSeconds } = useLiveTakeContext();
 
   return (
     <div className="dock-livebar" data-state={lastAction}>
@@ -27,27 +27,7 @@ export default function StickyLiveBar({ onTake, onClear, lastAction, sending = f
           Auto-hide · {durationSeconds === 0 ? 'Off' : `${durationSeconds}s`}
         </span>
       </div>
-      <div className="dock-livebar__actions">
-        <button
-          type="button"
-          className="take-btn dock-livebar__take"
-          data-state={lastAction}
-          onClick={onTake}
-          disabled={takeDisabled || sending}
-          aria-busy={sending || undefined}
-        >
-          {sending ? 'Sending…' : takeDisplayLabel}
-        </button>
-        <button
-          type="button"
-          className="clear-btn dock-livebar__clear"
-          onClick={onClear}
-          disabled={sending}
-          aria-busy={sending || undefined}
-        >
-          {sending ? 'Sending…' : 'Clear'}
-        </button>
-      </div>
+      <LiveActions surface="dock" onTake={onTake} onClear={onClear} sending={sending} lastAction={lastAction} />
     </div>
   );
 }

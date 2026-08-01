@@ -13,7 +13,7 @@ Messaging is currently **one-way**: control publishes, output renders. The contr
 
 ## Control surface
 
-`/control` is one route with two responsive layouts, switched by a JS breakpoint at 1024px (no separate routes): a guided **dock** below 1024px and a multi-panel **studio** dashboard above it. State lives in a **Zustand** store; presets, brand overrides, and recents persist to `localStorage` and are validated with **Zod** on read. The control preview and `/output` share the same renderer, so the preview is pixel-true to air. See `CONTROL_UI_UX.md`.
+`/control` is a layout route with three workspaces inside it (`/control/studio`, `/control/rundown`, `/control/library/:section`) and two responsive layouts, switched by a JS breakpoint at 1024px — the layouts are responsive, not separate routes: a guided **dock** below 1024px and a multi-panel **studio** dashboard above it. State lives in a **Zustand** store; presets, brand overrides, and recents persist to `localStorage` and are validated with **Zod** on read. The control preview and `/output` share the same renderer, so the preview is pixel-true to air. See `CONTROL_UI_UX.md`.
 
 ## Output rendering
 

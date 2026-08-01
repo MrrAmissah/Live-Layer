@@ -1,66 +1,71 @@
+import { NavLink, useLocation } from 'react-router-dom';
 import { Icon, type IconName } from '../../lib/icons';
 import TemplateLibrary from './TemplateLibrary';
 
-export type StudioView = 'templates' | 'saved' | 'people' | 'assets' | 'rundowns' | 'import';
+interface Workspace {
+  to: string;
+  label: string;
+  icon: IconName;
+}
 
-const SECONDARY: Array<{ id: StudioView; label: string; icon: IconName }> = [
-  { id: 'saved', label: 'Saved graphics', icon: 'bookmark' },
-  { id: 'people', label: 'People', icon: 'user' },
-  { id: 'assets', label: 'Assets', icon: 'image' },
-  { id: 'rundowns', label: 'Rundowns', icon: 'queue' },
-  // Desktop path to the .livelayerpack preview/import flow. Without it the
-  // feature was only reachable by shrinking below the dock breakpoint.
-  { id: 'import', label: 'Import pack', icon: 'layers' }
+/**
+ * Three jobs, not six collections.
+ *
+ * The nav used to list every place data lived — Saved graphics, People, Assets,
+ * Rundowns, Import pack — which made switching sections feel like browsing a
+ * filing cabinet. Library now holds all of those, so the top level reads as what
+ * an operator is doing: composing a graphic, preparing the running order, or
+ * finding something they kept.
+ */
+const WORKSPACES: Workspace[] = [
+  { to: '/control/studio', label: 'Studio', icon: 'grid' },
+  { to: '/control/rundown', label: 'Rundown', icon: 'queue' },
+  { to: '/control/library', label: 'Library', icon: 'bookmark' }
 ];
 
 /**
- * Left navigation shell (studio). Templates is the active destination and its
- * searchable library renders inline; the other destinations sit below a divider
- * so browsing templates is clearly separated from switching sections. Every
- * existing management surface is preserved (App wiring swaps the centre).
+ * Left navigation (studio): the workspace switcher, plus the searchable
+ * template library inline while Studio is the open workspace — the library is a
+ * picker for composing, so it belongs with the surface that composes.
+ *
+ * These are real links now. `aria-current="page"` comes from `NavLink`, the
+ * browser's back button works, and a workspace can be opened directly by URL.
  */
-export default function StudioNav({ view, onViewChange }: { view: StudioView; onViewChange: (view: StudioView) => void }) {
+export default function StudioNav() {
+  const { pathname } = useLocation();
+  const studioOpen = pathname.startsWith('/control/studio');
+
   return (
-    <nav className="studio-nav" aria-label="Library">
+    <nav className="studio-nav" aria-label="Workspaces">
       <div className="studio-nav__scroll">
         <p className="studio-nav__heading">
-          <span>Library</span>
-          <Icon name="chevronDown" size={15} />
+          <span>Workspaces</span>
         </p>
 
-        <button
-          type="button"
-          className={`studio-nav__item studio-nav__item--primary${view === 'templates' ? ' studio-nav__item--active' : ''}`}
-          aria-current={view === 'templates' ? 'page' : undefined}
-          onClick={() => onViewChange('templates')}
-        >
-          <Icon name="grid" size={18} />
-          <span>Templates</span>
-        </button>
-
-        {view === 'templates' ? (
-          <div className="studio-nav__library">
-            <TemplateLibrary />
-          </div>
-        ) : null}
-
-        <div className="studio-nav__divider" />
-
-        <ul className="studio-nav__list">
-          {SECONDARY.map((dest) => (
-            <li key={dest.id}>
-              <button
-                type="button"
-                className={`studio-nav__item${view === dest.id ? ' studio-nav__item--active' : ''}`}
-                aria-current={view === dest.id ? 'page' : undefined}
-                onClick={() => onViewChange(dest.id)}
+        <ul className="studio-nav__list studio-nav__list--primary">
+          {WORKSPACES.map((workspace) => (
+            <li key={workspace.to}>
+              <NavLink
+                to={workspace.to}
+                className={({ isActive }) =>
+                  `studio-nav__item studio-nav__item--primary${isActive ? ' studio-nav__item--active' : ''}`
+                }
               >
-                <Icon name={dest.icon} size={18} />
-                <span>{dest.label}</span>
-              </button>
+                <Icon name={workspace.icon} size={18} />
+                <span>{workspace.label}</span>
+              </NavLink>
             </li>
           ))}
         </ul>
+
+        {studioOpen ? (
+          <>
+            <div className="studio-nav__divider" />
+            <div className="studio-nav__library">
+              <TemplateLibrary />
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="studio-nav__footer">

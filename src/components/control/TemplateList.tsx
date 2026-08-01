@@ -10,7 +10,7 @@ interface TemplateListProps {
 
 /**
  * Category-grouped list of selectable template presets. Shared verbatim by the
- * studio `TemplateRail` and the dock `TemplateStep`; it owns its own store
+ * studio template library and the dock `TemplateStep`; it owns its own store
  * subscription so either consumer can drop it in with no wiring.
  */
 export default function TemplateList({ onAfterSelect }: TemplateListProps) {

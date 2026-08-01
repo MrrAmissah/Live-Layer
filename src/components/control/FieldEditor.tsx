@@ -5,14 +5,12 @@ import DesignTab from './DesignTab';
 import BrandTab from './BrandTab';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useBrandReset } from '../../hooks/useBrandReset';
-import type { StudioView } from './StudioNav';
+import { useNavigate } from 'react-router-dom';
 import type { GraphicInstance } from '../../types/graphics';
 
 type EditorTab = 'content' | 'design' | 'brand' | 'motion' | 'advanced';
 
 export interface FieldEditorProps {
-  /** Switch the studio destination (Design → Saved graphics / Assets). */
-  onNavigate?: (view: StudioView) => void;
   /** Load a stored graphic into this editor (Design presets → Load). */
   onLoadGraphic?: (graphic: GraphicInstance) => void;
 }
@@ -46,7 +44,8 @@ export const BRAND_RESET_TITLE = {
  * them — never shown as clickable empty tabs. In rundown mode the Content tab
  * also carries the item's layout/duration, preserving today's behaviour.
  */
-export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorProps = {}) {
+export default function FieldEditor({ onLoadGraphic }: FieldEditorProps = {}) {
+  const navigate = useNavigate();
   const { isRundownItem, resetDraft } = useEditTarget();
   const resetBrand = useBrandReset();
   const [tab, setTab] = useState<EditorTab>('content');
@@ -97,8 +96,8 @@ export default function FieldEditor({ onNavigate, onLoadGraphic }: FieldEditorPr
           <DesignTab
             onOpenBrand={() => setTab('brand')}
             onLoadPreset={(preset) => onLoadGraphic?.(preset)}
-            onBrowseSaved={() => onNavigate?.('saved')}
-            onBrowseAssets={() => onNavigate?.('assets')}
+            onBrowseSaved={() => navigate('/control/library/saved')}
+            onBrowseAssets={() => navigate('/control/library/assets')}
           />
         ) : null}
         {tab === 'brand' ? <BrandTab /> : null}

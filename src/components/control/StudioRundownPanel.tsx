@@ -9,7 +9,8 @@ import RundownItemCard from './RundownItemCard';
  * Richer rundown queue for studio/desktop (R5). Additive UI only — it reuses the
  * R2/R3/R4 hooks and operations (no new state, no second queue, no second Take
  * path). Take/Clear remain the action-deck buttons above it. Mounts only in
- * studio (it lives in the LiveActionsPanel, which renders at ≥1024px); the dock
+ * studio (they live in the Program rail, and in the stacked layout's sticky
+ * strip, both rendering the shared LiveActions); the dock
  * keeps the compact RundownQueue.
  */
 export default function StudioRundownPanel() {

@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage, publishCommand } from '../lib/realtime';
+import { resolveClearOutcome, resolveTakeOutcome } from '../lib/takeOutcome';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import {
   getActiveRundownId,
@@ -15,29 +17,11 @@ import type { LastAction } from '../components/control/StatusBadge';
 import ControlShell from '../components/control/ControlShell';
 import DockShell from '../components/control/DockShell';
 import CommandBar from '../components/control/CommandBar';
-import StudioNav, { type StudioView } from '../components/control/StudioNav';
-import PreviewPanel from '../components/control/PreviewPanel';
-import FieldEditor from '../components/control/FieldEditor';
 import ProgramRail from '../components/control/ProgramRail';
-import Panel from '../components/control/Panel';
-import PresetControls from '../components/control/PresetControls';
-import PeopleLibrary from '../components/control/PeopleLibrary';
-import RundownLibrary from '../components/control/RundownLibrary';
-import AssetsView from '../components/control/AssetsView';
-import ImportPackPreview from '../components/control/ImportPackPreview';
+import StudioNav from '../components/control/StudioNav';
+import StudioLiveBar from '../components/control/StudioLiveBar';
+import type { WorkspaceContext } from './workspaces/workspaceContext';
 import { PackSwitchGuardProvider } from '../hooks/usePackSwitchGuard';
-
-/** Wraps an existing management surface as a full-height studio destination. */
-function DestinationPanel({ kicker, children }: { kicker: string; children: React.ReactNode }) {
-  return (
-    <Panel className="ll-fill">
-      <div className="editor-head">
-        <span className="ll-kicker">{kicker}</span>
-      </div>
-      <div className="ll-panel__body">{children}</div>
-    </Panel>
-  );
-}
 
 /** Deep clone so a taken graphic shares no references with editable draft state. */
 function snapshot<T>(value: T): T {
@@ -52,10 +36,11 @@ function snapshot<T>(value: T): T {
  * field keystrokes — only the panels that subscribe do.
  */
 export default function ControlPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const channelRef = useRef<ReturnType<typeof createRealtimeChannel> | null>(null);
   const [lastAction, setLastAction] = useState<LastAction>('idle');
   const [lastTakenAt, setLastTakenAt] = useState<number | null>(null);
-  const [view, setView] = useState<StudioView>('templates');
   // A command is in flight. The ref guards against duplicate submissions from
   // repeated clicks (state alone updates too late); the state drives the UI.
   const [sending, setSending] = useState(false);
@@ -84,7 +69,10 @@ export default function ControlPage() {
     const { markProgramShowing, markProgramFailed } = useLiveLayerStore.getState();
     const message = createMessage('SHOW_GRAPHIC', instance);
     const result = await publishCommand(channelRef.current, message);
-    if (!result.ok) {
+    // The transitions live in `resolveTakeOutcome` so they are testable as a
+    // rule rather than re-modelled in a test file.
+    const outcome = resolveTakeOutcome(result);
+    if (outcome.markFailed) {
       markProgramFailed({ snapshot: instance, commandId: message.id, source });
       return false;
     }
@@ -93,12 +81,12 @@ export default function ControlPage() {
     markProgramShowing({ snapshot: instance, commandId: message.id, source });
     setLastAction('taken');
     setLastTakenAt(Date.now());
-    return true;
+    return outcome.addRecent && outcome.advanceLiveCursor;
   };
 
   /** Publish CLEAR_ALL. Same rule: a missing channel is a failure, not a clear. */
   const publishClear = async (): Promise<boolean> =>
-    (await publishCommand(channelRef.current, createMessage('CLEAR_ALL', {}))).ok;
+    resolveClearOutcome(await publishCommand(channelRef.current, createMessage('CLEAR_ALL', {}))).markClear;
 
   /** Serialises operator commands: one in flight at a time, so a slow relay
    *  cannot produce duplicate Takes from repeated clicks. */
@@ -153,17 +141,19 @@ export default function ControlPage() {
     });
 
   /**
-   * Load any stored graphic into the editor and reveal it. FieldEditor mounts
-   * only under the Templates view, while the surfaces that offer "load into
-   * editor" actions (the Program rail's queue, the Saved graphics destination)
-   * render elsewhere — so the view switch is part of the action, not an extra
-   * step for the operator. Read-only with respect to Program, the queue and the
+   * Load any stored graphic into the editor and go there. The editor lives in
+   * the Studio workspace, while the surfaces offering "load into editor" (the
+   * Program rail's queue, Library → Saved graphics) render elsewhere — so the
+   * navigation is part of the action, not an extra step for the operator. Read-only with respect to Program, the queue and the
    * saved preset. One handler for every such entry point.
    */
-  const openGraphicInEditor = (graphic: GraphicInstance) => {
-    useLiveLayerStore.getState().loadGraphicInstance(graphic);
-    setView('templates');
-  };
+  const openGraphicInEditor = useCallback(
+    (graphic: GraphicInstance) => {
+      useLiveLayerStore.getState().loadGraphicInstance(graphic);
+      navigate('/control/studio');
+    },
+    [navigate]
+  );
 
   /**
    * Take a stored quick-queue graphic straight to air. A fresh id/timestamp
@@ -197,38 +187,15 @@ export default function ControlPage() {
     );
   }
 
-  const center =
-    view === 'templates' ? (
-      <div className="studio-center">
-        <PreviewPanel />
-        <FieldEditor onNavigate={setView} onLoadGraphic={openGraphicInEditor} />
-      </div>
-    ) : view === 'saved' ? (
-      <DestinationPanel kicker="Saved graphics">
-        <PresetControls onLoadGraphic={openGraphicInEditor} />
-      </DestinationPanel>
-    ) : view === 'people' ? (
-      <DestinationPanel kicker="People">
-        <PeopleLibrary />
-      </DestinationPanel>
-    ) : view === 'assets' ? (
-      <AssetsView />
-    ) : view === 'import' ? (
-      <DestinationPanel kicker="Import pack">
-        <ImportPackPreview />
-      </DestinationPanel>
-    ) : (
-      <DestinationPanel kicker="Rundowns">
-        <RundownLibrary />
-      </DestinationPanel>
-    );
+  const workspace: WorkspaceContext = { onLoadGraphic: openGraphicInEditor };
 
   return (
     <PackSwitchGuardProvider>
       <ControlShell
         commandBar={<CommandBar />}
-        nav={<StudioNav view={view} onViewChange={setView} />}
-        center={center}
+        nav={<StudioNav />}
+        center={<Outlet context={workspace} />}
+        centerKey={location.pathname}
         rail={
           <ProgramRail
             onTake={onTake}
@@ -238,6 +205,11 @@ export default function ControlPage() {
             sending={sending}
           />
         }
+        /* Stacked layouts put the rail — and Take — thousands of pixels down the
+           scroll, so the actions also render as a bar the frame always shows.
+           CSS decides which of the two is in the tree at a given width, so there
+           is never a second Take on screen or in the accessibility tree. */
+        liveBar={<StudioLiveBar onTake={onTake} onClear={onClear} sending={sending} />}
       />
     </PackSwitchGuardProvider>
   );

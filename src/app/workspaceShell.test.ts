@@ -7,22 +7,77 @@ import { describe, expect, it } from 'vitest';
  * asserted against the stylesheet — the browser pass in the PR covers the
  * rendered result, and these guard the rules that produce it.
  */
-const css = readFileSync('src/styles.css', 'utf8')
+const rawCss = readFileSync('src/styles.css', 'utf8')
   // Comments are stripped first: several of these rules explain in prose the very
   // constants they no longer use, and an absence check must not read the story.
   .replace(/\/\*[\s\S]*?\*\//g, '');
 
-const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((match) => ({
-  selectors: match[1]
-    .split(',')
-    .map((entry) => entry.trim().replace(/\s+/g, ' '))
-    .filter(Boolean),
-  body: match[2]
-}));
+/**
+ * Split top-level rules from at-rule blocks.
+ *
+ * The previous helper ran one flat regex over the whole sheet, which had two
+ * measured failure modes: the FIRST rule nested in an `@media` block was
+ * swallowed (its selector was eaten by the at-rule prelude), and every
+ * SUBSEQUENT nested rule leaked into the base bucket — so a frame rule that
+ * became conditional on a breakpoint still satisfied a base-layer assertion.
+ * Both were reproduced before this was rewritten.
+ */
+function splitBlocks(css: string): { base: string; atRules: Array<{ prelude: string; body: string }> } {
+  const atRules: Array<{ prelude: string; body: string }> = [];
+  let base = '';
+  let i = 0;
+  while (i < css.length) {
+    const at = css.indexOf('@', i);
+    if (at === -1) {
+      base += css.slice(i);
+      break;
+    }
+    base += css.slice(i, at);
+    const open = css.indexOf('{', at);
+    if (open === -1) break;
+    // Walk to the matching brace so nested rules stay with their at-rule.
+    let depth = 0;
+    let j = open;
+    for (; j < css.length; j += 1) {
+      if (css[j] === '{') depth += 1;
+      else if (css[j] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    atRules.push({ prelude: css.slice(at, open).trim(), body: css.slice(open + 1, j) });
+    i = j + 1;
+  }
+  return { base, atRules };
+}
 
-/** Every declaration written for a selector, across all the rules that name it. */
+const { base: baseCss, atRules } = splitBlocks(rawCss);
+
+const rulesOf = (css: string) =>
+  [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((match) => ({
+    selectors: match[1]
+      .split(',')
+      .map((entry) => entry.trim().replace(/\s+/g, ' '))
+      .filter(Boolean),
+    body: match[2]
+  }));
+
+/** Declarations for a selector at the TOP level only — no at-rule leakage. */
 const declarationsFor = (selector: string): string =>
-  rules
+  rulesOf(baseCss)
+    .filter((rule) => rule.selectors.includes(selector))
+    .map((rule) => rule.body)
+    .join('\n');
+
+/**
+ * Declarations for a selector across EVERY at-rule block with this prelude —
+ * a stylesheet may state the same breakpoint more than once, and reading only
+ * the first one silently misses whatever the later block says.
+ */
+const declarationsInAtRule = (preludeMatch: string, selector: string): string =>
+  atRules
+    .filter((rule) => rule.prelude.includes(preludeMatch))
+    .flatMap((rule) => rulesOf(rule.body))
     .filter((rule) => rule.selectors.includes(selector))
     .map((rule) => rule.body)
     .join('\n');
@@ -132,17 +187,13 @@ describe('the stacked studio at the breakpoint overlap', () => {
    * around a single-column stack. Something must own that overflow or the frame
    * clips Take and Program out of reach.
    */
-  const stackedBlock = (() => {
-    const match = /@media \(max-width: 1024px\) \{([\s\S]*?)\n\}/.exec(css);
-    return match?.[1] ?? '';
-  })();
+  const studioRule = declarationsInAtRule('max-width: 1024px', '.control-root--studio .studio');
 
   it('exists at all — the overlap is real, not hypothetical', () => {
-    expect(stackedBlock).toContain('.control-root--studio .studio');
+    expect(studioRule).not.toBe('');
   });
 
   it('gives the stack its own scrolling', () => {
-    const studioRule = /\.control-root--studio \.studio \{([^}]*)\}/.exec(stackedBlock)?.[1] ?? '';
     expect(studioRule).toMatch(/overflow-y:\s*auto/);
     // `height: auto` here fought the flex frame; the base rule sizes it now.
     expect(studioRule).not.toMatch(/height:\s*auto/);
@@ -151,12 +202,48 @@ describe('the stacked studio at the breakpoint overlap', () => {
   it('lets each stacked region take its own height instead of a third of the frame', () => {
     // Scrolling alone was not enough: the grid had a fixed height to distribute,
     // so the regions were squeezed and their content spilled over each other.
-    const studioRule = /\.control-root--studio \.studio \{([^}]*)\}/.exec(stackedBlock)?.[1] ?? '';
     expect(studioRule).toMatch(/align-content:\s*start/);
     expect(studioRule).toMatch(/grid-auto-rows:\s*min-content/);
   });
 
-  it('keeps the columns out of the scrolling business, so nothing nests', () => {
-    expect(stackedBlock).toMatch(/overflow:\s*visible/);
+  it('keeps each column out of the scrolling business, so nothing nests', () => {
+    // Asserted per selector: a single match anywhere in the block would pass
+    // even if one of the three columns had quietly regained a scroller.
+    for (const column of ['studio__nav', 'studio__rail', 'studio__center']) {
+      const rule = declarationsInAtRule('max-width: 1024px', `.control-root--studio .${column}`);
+      expect(rule, column).toMatch(/overflow:\s*visible/);
+    }
+  });
+
+  it('hands the live actions to the bar, so only one Take is in the tree', () => {
+    // The rail's copy is display:none here; the bar is display:flex. Neither is
+    // hidden with visibility/opacity, which would leave it in the a11y tree.
+    const bar = declarationsInAtRule('max-width: 1024px', '.control-root--studio .studio-livebar');
+    const railActions = declarationsInAtRule('max-width: 1024px', '.control-root--studio .program-rail__actions');
+    expect(bar).toMatch(/display:\s*flex/);
+    expect(railActions).toMatch(/display:\s*none/);
+    // ...and above the breakpoint the bar is the hidden one.
+    expect(declarationsFor('.control-root .studio-livebar')).toMatch(/display:\s*none/);
+  });
+
+  it('keeps the bar in the frame rather than over the content', () => {
+    const bar = declarationsInAtRule('max-width: 1024px', '.control-root--studio .studio-livebar');
+    // A flex row in the frame covers nothing, so no padding or scroll-padding
+    // compensation is needed — and no z-index can put it over the pack dialog.
+    expect(bar).toMatch(/flex:\s*none/);
+    expect(bar).not.toMatch(/position:\s*(fixed|sticky|absolute)/);
+  });
+});
+
+describe('the focus indicator is visible', () => {
+  it('does not rely on a near-invisible ring after removing the outline', () => {
+    // The base rule removes the native outline surface-wide, so the token has to
+    // carry the whole indicator. A single low-alpha ring measured ~1.4:1 against
+    // the panel it sits on — below what a focus indicator needs.
+    const root = declarationsFor('.control-root');
+    const token = /--ll-focus:\s*([^;]+);/.exec(root)?.[1] ?? '';
+    expect(token).not.toBe('');
+    const alphas = [...token.matchAll(/rgba\([^)]*?,\s*([0-9.]+)\)/g)].map((m) => Number(m[1]));
+    expect(Math.max(...alphas, 0)).toBeGreaterThan(0.5);
   });
 });

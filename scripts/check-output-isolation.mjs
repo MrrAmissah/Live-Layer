@@ -1,13 +1,35 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outputPath = join(root, 'src/app/OutputPage.tsx');
-const controlPath = join(root, 'src/app/ControlPage.tsx');
+// The Take path used to live in exactly one file, so this checked exactly one
+// file — and would have gone green at the moment that stopped being true. It now
+// walks the whole control surface and fails if it cannot even find the place
+// SHOW_GRAPHIC is constructed.
+const controlDirs = ['src/app', 'src/components/control'];
 const stylesPath = join(root, 'src/styles.css');
 const source = readFileSync(outputPath, 'utf8');
-const controlSource = readFileSync(controlPath, 'utf8');
+function collectSources(dir) {
+  const out = [];
+  for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) out.push(...collectSources(rel));
+    else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith('.test.ts')) {
+      out.push({ path: rel, source: readFileSync(join(root, rel), 'utf8') });
+    }
+  }
+  return out;
+}
+const controlFiles = controlDirs.flatMap(collectSources);
+// Scope the Take-path checks to the files that actually build or publish a
+// SHOW_GRAPHIC, found by content rather than by path — the editor legitimately
+// resolves asset bytes for preview, and scanning it would flag that.
+const takePathFiles = controlFiles.filter((file) =>
+  /createMessage\(\s*['"]SHOW_GRAPHIC['"]|buildInstanceFromDraft\s*\(/.test(file.source)
+);
+const controlSource = takePathFiles.map((file) => file.source).join('\n');
 const styles = readFileSync(stylesPath, 'utf8');
 
 const forbiddenPatterns = [
@@ -36,6 +58,15 @@ if (failures.length) {
   process.exit(1);
 }
 
+// Positive anchor: if the construction site vanished, the greps below would
+// pass by inspecting code that no longer sends anything.
+const showSite = takePathFiles.find((file) => /createMessage\(\s*['"]SHOW_GRAPHIC['"]/.test(file.source));
+if (!showSite) {
+  console.error('SHOW_GRAPHIC asset-reference check failed:');
+  console.error("- could not find where SHOW_GRAPHIC is constructed; this guard would pass vacuously");
+  process.exit(1);
+}
+
 const controlMessageFailures = [
   { pattern: /\bdataUrl\b/, label: 'thumbnail/dataUrl usage in the Take path' },
   { pattern: /\b(getAsset|getAssetBlob|resolveAssetSource)\b/, label: 'asset byte resolution in the Take path' },
@@ -45,7 +76,7 @@ const controlMessageFailures = [
 if (controlMessageFailures.length) {
   console.error('SHOW_GRAPHIC asset-reference check failed:');
   for (const failure of controlMessageFailures) {
-    console.error(`- ControlPage.tsx contains ${failure.label}`);
+    console.error(`- the control surface contains ${failure.label}`);
   }
   process.exit(1);
 }
