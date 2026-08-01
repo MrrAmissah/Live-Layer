@@ -40,10 +40,10 @@ export default function StudioRundownPanel() {
   };
 
   if (rd.rundowns.length === 0) {
-    return <p className="field__hint studio-rd__hint">Create a rundown in <strong>Library → Rundowns</strong>.</p>;
+    return <p className="field__hint studio-rd__hint">Create a rundown in the <strong>Rundown</strong> workspace.</p>;
   }
   if (!rundown) {
-    return <p className="field__hint studio-rd__hint">Select an active rundown in <strong>Library → Rundowns</strong>.</p>;
+    return <p className="field__hint studio-rd__hint">Select an active rundown in the <strong>Rundown</strong> workspace.</p>;
   }
 
   const items = rundown.items;
@@ -72,7 +72,7 @@ export default function StudioRundownPanel() {
       {items.length === 0 ? (
         <div className="empty-state">
           <p className="empty-state__title">No items yet</p>
-          <p className="empty-state__hint">Add items from Library → Rundowns, or “Add current draft”.</p>
+          <p className="empty-state__hint">Add items in the Rundown workspace, or “Add current draft”.</p>
         </div>
       ) : (
         <>

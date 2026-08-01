@@ -21,8 +21,19 @@ interface ControlShellProps {
  * uses.
  */
 export default function ControlShell({ commandBar, nav, center, rail, liveBar, centerKey }: ControlShellProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const centerRef = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
+
+  /**
+   * Focus the visible Take. `display: none` keeps the hidden action set out of
+   * `getClientRects()`, so "first with a box" is exactly "the one on screen".
+   */
+  const focusLiveActions = () => {
+    const buttons = [...(rootRef.current?.querySelectorAll<HTMLButtonElement>('button.take-btn') ?? [])];
+    const visible = buttons.find((button) => button.getClientRects().length > 0);
+    visible?.focus();
+  };
 
   /**
    * Switching workspace swaps the whole centre region. Without moving focus, a
@@ -42,14 +53,19 @@ export default function ControlShell({ commandBar, nav, center, rail, liveBar, c
   }, [centerKey]);
 
   return (
-    <div className="control-root control-root--studio">
+    <div className="control-root control-root--studio" ref={rootRef}>
       <div className="control-inner">
         {/* Stacked, the live actions are the last of well over a hundred tab
             stops — behind the whole template library and the editor. This is the
-            keyboard equivalent of the bar itself. */}
-        <a className="skip-link" href="#live-actions">
+            keyboard equivalent of the bar itself.
+
+            It focuses the Take button that is actually VISIBLE rather than
+            linking to a fixed anchor: which of the two action sets is rendered
+            depends on the width, so an anchor pointing at one of them does
+            nothing at the other — and a wrapper is not focusable in any case. */}
+        <button type="button" className="skip-link" onClick={focusLiveActions}>
           Skip to live actions
-        </a>
+        </button>
         {commandBar}
         <div className="studio">
           <aside className="studio__nav" aria-label="Workspaces and template library">
@@ -64,7 +80,7 @@ export default function ControlShell({ commandBar, nav, center, rail, liveBar, c
             {rail}
           </aside>
         </div>
-        <div id="live-actions">{liveBar}</div>
+        {liveBar}
       </div>
     </div>
   );

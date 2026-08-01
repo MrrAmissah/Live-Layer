@@ -49,7 +49,7 @@ export default function PresetControls({ onLoadGraphic }: { onLoadGraphic?: (pre
 
   const onAddToRundown = (preset: GraphicInstance) => {
     if (!rd.activeRundownId) {
-      flash('Create or select a rundown first (Library → Rundowns).');
+      flash('Create or select a rundown first — open the Rundown workspace.');
       return;
     }
     if ((rd.activeRundown?.items.length ?? 0) >= MAX_ITEMS_PER_RUNDOWN) {

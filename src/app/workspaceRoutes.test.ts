@@ -132,3 +132,34 @@ describe('live actions are one implementation', () => {
     expect(controlPage).toMatch(/if \(activeRundownId\)/);
   });
 });
+
+describe('corrections from review', () => {
+  it('sends an invalid library section to a canonical URL instead of guessing', () => {
+    // `/control/library/rundowns` matches the dynamic route before the wildcard,
+    // so rendering a default there left the address bar wrong and every section
+    // link inactive — content and navigation disagreeing about where you are.
+    const library = read('src/app/workspaces/LibraryWorkspace.tsx');
+    expect(library).toMatch(/if \(!isSection\(section\)\) return <Navigate to="\/control\/library\/saved" replace/);
+  });
+
+  it('points the skip link at whichever action set is visible', () => {
+    // An anchor to a fixed wrapper reaches a display:none bar above 1024, where
+    // the visible Take is in the rail — and a wrapper is not focusable anyway.
+    const shell = read('src/components/control/ControlShell.tsx');
+    expect(shell).toContain('focusLiveActions');
+    expect(shell).toMatch(/getClientRects\(\)\.length > 0/);
+    expect(shell).not.toContain('href="#live-actions"');
+  });
+
+  it('names a destination that exists in every studio recovery prompt', () => {
+    // Rundown management moved out of Library, so "Library → Rundowns" became a
+    // dead end for studio operators. The dock keeps its own Library tab.
+    for (const file of [
+      'src/components/control/StudioRundownPanel.tsx',
+      'src/components/control/PresetControls.tsx'
+    ]) {
+      expect(read(file), file).not.toContain('Library → Rundowns');
+    }
+    expect(read('src/components/control/StudioRundownPanel.tsx')).toMatch(/Rundown<\/strong> workspace/);
+  });
+});

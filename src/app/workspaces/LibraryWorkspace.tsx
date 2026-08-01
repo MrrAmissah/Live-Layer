@@ -1,4 +1,4 @@
-import { NavLink, useParams } from 'react-router-dom';
+import { Navigate, NavLink, useParams } from 'react-router-dom';
 import PresetControls from '../../components/control/PresetControls';
 import PeopleLibrary from '../../components/control/PeopleLibrary';
 import AssetsView from '../../components/control/AssetsView';
@@ -38,7 +38,17 @@ const isSection = (value: string | undefined): value is SectionId =>
 export default function LibraryWorkspace() {
   const { section } = useParams();
   const { onLoadGraphic } = useWorkspace();
-  const active: SectionId = isSection(section) ? section : 'saved';
+
+  /**
+   * An unknown section is a bad URL, not a reason to guess. Rendering Saved
+   * under `/control/library/rundowns` left the address bar wrong and every
+   * section link inactive — content and navigation disagreeing about where the
+   * operator is. The dynamic route matches before the wildcard, so the
+   * correction has to happen here.
+   */
+  if (!isSection(section)) return <Navigate to="/control/library/saved" replace />;
+
+  const active: SectionId = section;
   const label = SECTIONS.find((entry) => entry.id === active)!.label;
 
   return (
