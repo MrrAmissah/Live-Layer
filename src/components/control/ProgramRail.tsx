@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
@@ -132,6 +133,9 @@ interface ProgramRailProps {
  */
 export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
+  // The rail rides along in every workspace, so it hands the editable list to
+  // the Rundown workspace when that is what the operator is looking at.
+  const managingRundown = useLocation().pathname.startsWith('/control/rundown');
   const { rundownActive } = useLiveTakeContext();
   // Shared with the stacked layout's sticky strip — one vocabulary, one source.
   const statusLabel = describeProgramStatus(program).pill;
@@ -156,7 +160,7 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditIns
 
       {rundownActive ? (
         <div className="program-rail__section">
-          <StudioRundownPanel />
+          <StudioRundownPanel showItems={!managingRundown} />
         </div>
       ) : (
         <div className="program-rail__section">

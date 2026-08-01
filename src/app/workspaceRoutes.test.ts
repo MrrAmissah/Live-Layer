@@ -163,3 +163,30 @@ describe('corrections from review', () => {
     expect(read('src/components/control/StudioRundownPanel.tsx')).toMatch(/Rundown<\/strong> workspace/);
   });
 });
+
+describe('rundown management has one owner on screen', () => {
+  const rail = read('src/components/control/ProgramRail.tsx');
+  const panel = read('src/components/control/StudioRundownPanel.tsx');
+
+  it('hands the editable list to the workspace that owns management', () => {
+    // The rail rides along in every workspace, so without this an active rundown
+    // rendered two independently scrolled editable copies of the same list.
+    expect(rail).toContain("pathname.startsWith('/control/rundown')");
+    expect(rail).toMatch(/<StudioRundownPanel showItems={!managingRundown}/);
+  });
+
+  it('keeps operation in the rail even when the list is elsewhere', () => {
+    // Selected · live · next and Previous/Next are how a service is run; they
+    // must not disappear with the list.
+    const gated = panel.slice(panel.indexOf('{showItems ?'));
+    expect(gated).toContain('rd-item-list');
+    const alwaysOn = panel.slice(0, panel.indexOf('{showItems ?'));
+    expect(alwaysOn).toContain('studio-rd__summary');
+    expect(alwaysOn).toContain('Select previous rundown item');
+    expect(alwaysOn).toContain('Select next rundown item');
+  });
+
+  it('defaults to showing the list, so no other caller loses it', () => {
+    expect(panel).toMatch(/showItems = true/);
+  });
+});

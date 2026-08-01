@@ -8,12 +8,17 @@ import RundownItemCard from './RundownItemCard';
 /**
  * Richer rundown queue for studio/desktop (R5). Additive UI only — it reuses the
  * R2/R3/R4 hooks and operations (no new state, no second queue, no second Take
- * path). Take/Clear remain the action-deck buttons above it. Mounts only in
- * studio (they live in the Program rail, and in the stacked layout's sticky
- * strip, both rendering the shared LiveActions); the dock
- * keeps the compact RundownQueue.
+ * path). Take/Clear remain the shared LiveActions, in the Program rail or the
+ * stacked layout's bar; the dock keeps the compact RundownQueue.
+ *
+ * `showItems` is how the rail defers to the Rundown workspace. The rail is on
+ * screen in every workspace, so when the workspace that OWNS rundown management
+ * is open, the rail would otherwise render a second editable copy of the same
+ * ordered list — two independently scrolled lists with identical reorder,
+ * duplicate and delete actions. Operation (selected · live · next, Previous /
+ * Next) stays here; management belongs to the workspace.
  */
-export default function StudioRundownPanel() {
+export default function StudioRundownPanel({ showItems = true }: { showItems?: boolean } = {}) {
   const rd = useRundowns();
   const { activeItemId } = useLiveTakeContext();
   const [message, setMessage] = useState('');
@@ -104,6 +109,7 @@ export default function StudioRundownPanel() {
             </div>
           ) : null}
 
+          {showItems ? (
           <ul className="studio-rd__list rd-item-list">
             {items.map((item, index) => (
               <RundownItemCard
@@ -122,6 +128,11 @@ export default function StudioRundownPanel() {
               />
             ))}
           </ul>
+          ) : (
+            <p className="field__hint studio-rd__hint">
+              The ordered list is in this workspace — reorder, duplicate and remove items below.
+            </p>
+          )}
         </>
       )}
     </div>
