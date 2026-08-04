@@ -32,6 +32,8 @@ export default function RundownQueue() {
         <span className="rd-queue__name" title={rundown.name}>{rundown.name}</span>
       </div>
 
+      {/* Dock-only surface: the dock keeps its Library tab, so this destination
+          is still correct here. The studio names its Rundown workspace instead. */}
       {items.length === 0 ? (
         <p className="field__hint">No items yet — add some in Library → Rundowns.</p>
       ) : !selected ? (

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
+import { describeProgramStatus } from '../../lib/programStatus';
+import LiveActions from './LiveActions';
 import type { GraphicInstance } from '../../types/graphics';
 import type { ProgramState } from '../../types/program';
 import { Icon } from '../../lib/icons';
@@ -130,9 +133,12 @@ interface ProgramRailProps {
  */
 export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
-  const { takeLabel, takeDisabled, rundownActive } = useLiveTakeContext();
-  const statusLabel =
-    program.status === 'showing' ? 'SENT' : program.status === 'recovering' ? 'UNVERIFIED' : program.status === 'failed' ? 'FAILED' : 'CLEAR';
+  // The rail rides along in every workspace, so it hands the editable list to
+  // the Rundown workspace when that is what the operator is looking at.
+  const managingRundown = useLocation().pathname.startsWith('/control/rundown');
+  const { rundownActive } = useLiveTakeContext();
+  // Shared with the stacked layout's sticky strip — one vocabulary, one source.
+  const statusLabel = describeProgramStatus(program).pill;
 
   return (
     <div className="program-rail">
@@ -148,26 +154,13 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditIns
         <OutputCard program={program} />
 
         <div className="program-rail__actions">
-          <button
-            type="button"
-            className="take-btn"
-            onClick={onTake}
-            disabled={takeDisabled || sending}
-            aria-busy={sending || undefined}
-            aria-label={sending ? 'Sending command' : takeLabel}
-          >
-            <Icon name="broadcast" size={17} />
-            {sending ? 'Sending…' : rundownActive ? takeLabel : 'Take live'}
-          </button>
-          <button type="button" className="clear-btn" onClick={onClear} disabled={sending} aria-busy={sending || undefined}>
-            {sending ? 'Sending…' : 'Clear graphic'}
-          </button>
+          <LiveActions surface="studio" onTake={onTake} onClear={onClear} sending={sending} />
         </div>
       </div>
 
       {rundownActive ? (
         <div className="program-rail__section">
-          <StudioRundownPanel />
+          <StudioRundownPanel showItems={!managingRundown} />
         </div>
       ) : (
         <div className="program-rail__section">

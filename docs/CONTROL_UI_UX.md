@@ -5,9 +5,14 @@ surface a volunteer can learn in under two minutes and run during a live
 service** — not a generic dark dashboard. This document is the source of truth
 for control-page layout and interaction; visual tokens live in `DESIGN_SYSTEM.md`.
 
-## Two experiences, one route
+## Two experiences, one layout route
 
-There are **no separate routes** for desktop vs OBS. `ControlPage` picks the
+`/control` is a **layout route**: it owns the realtime channel, the Take/Clear
+decision and the studio-vs-dock choice, and the workspaces render inside it
+through an outlet. One command owner, whichever workspace is open — a second
+owner would mean a second in-flight guard, and two Takes could race.
+
+There are still **no separate routes for desktop vs OBS**. `ControlPage` picks the
 layout from one breakpoint (`useMediaQuery('(min-width: 1024px)')`, initialised
 synchronously so there is no first-paint flash). Both layouts share the same
 Zustand store, the same Take/Clear handlers, and the same preview-parity
@@ -100,6 +105,64 @@ The main flow avoids jargon. Use "Choose a graphic", "Edit the text", "Take it
 live", "Clear". Avoid "resolved theme", "template schema", "animation override",
 "transparent output" — those belong in `/setup` and docs, not the operator path.
 
+## Workspaces
+
+Three destinations, named for what an operator is doing rather than for where
+data lives:
+
+| Route | Job |
+|---|---|
+| `/control/studio` | Compose, edit and preview one graphic |
+| `/control/rundown` | Prepare and order a service |
+| `/control/library/:section` | Saved graphics · People · Assets · Import pack |
+
+`/control` redirects to Studio, `/control/library` to its first section, and any
+unknown `/control/*` path lands on Studio rather than an empty outlet. The nav is
+real links: browser back works, `aria-current="page"` comes from `NavLink`, and a
+workspace can be opened directly by URL.
+
+Library exists because Saved graphics, People, Assets and Import pack were four
+top-level destinations, which made the nav a list of collections. "Find something
+I kept" is one intent. Each section renders the same component the single-page
+surface used — moves, not copies.
+
+**Rundown ownership.** The Rundown workspace owns *management*: create, rename,
+delete, export, add the current draft, and the ordered item list. The Program
+rail owns *operation*: what is selected, what is live, Previous/Next. The rail is
+on screen in every workspace, so splitting it this way avoids the same editable
+list appearing twice.
+
+The dock is unchanged. Below 1024px `ControlPage` renders `DockShell` with its
+own tab flow regardless of the URL, because a guided one-task-at-a-time surface
+is not improved by route-level navigation.
+
+**Scripture** stays reserved and unlinked. `/scripture` renders a bounded
+placeholder; a nav entry lands with the feature.
+
+## Live actions — one implementation, two placements
+
+`LiveActions` is the only component that renders Take and Clear. It appears:
+
+- in the **Program rail** on studio layouts wide enough to show the rail, and
+- in the **`StudioLiveBar`** when the studio stacks, where the rail lands
+  thousands of pixels down the scroll (Take sat ~3000px into a ~4700px stack).
+
+CSS decides which is in the DOM — `display: none` removes the other from the
+accessibility tree too — so an operator never sees, and a screen reader never
+hears, two Takes. Measured at 1024: two `take-btn` in the document, exactly one
+visible.
+
+The bar is a **flex sibling of the workspace grid, not an overlay**: the frame
+gives it a row, so it covers nothing and needs no padding or `scroll-padding`
+compensation, and the pack-switch dialog still sits above it. A "Skip to live
+actions" link is the keyboard counterpart — stacked, the bar is otherwise tab
+stop 168 of 169.
+
+Both vocabularies stay separate. The dock says "Update live" from its local
+`lastAction`; the studio reports Program (`SENT` / `UNVERIFIED` / `FAILED` /
+`CLEAR`) and never claims a confirmed live, because no acknowledgement protocol
+exists to confirm one. `lastAction` is an optional prop the studio does not pass.
+
 ## Studio mode — full browser
 
 A **bounded application workspace**, not a page. `.control-root--studio` owns the
@@ -158,9 +221,11 @@ ControlPage                 realtime channel + Take/Clear + last-action; picks D
 │  ├─ steps/BrandStep       StepIntro + BrandControls
 │  ├─ steps/LibraryStep     StepIntro + LibraryControls
 │  └─ StickyLiveBar         always-visible Take / Clear / auto-hide readout
-└─ ControlShell (≥ 1024px)  CommandBar + studio grid
-   ├─ CommandBar · TemplateRail · PreviewPanel · FieldEditor
-   ├─ LiveActionsPanel · BrandPanel · LibraryPanel
+└─ ControlShell (≥ 1024px)  CommandBar + studio grid + StudioLiveBar
+   ├─ StudioNav              workspace switcher + (on Studio) TemplateLibrary
+   ├─ <Outlet>               StudioWorkspace | RundownWorkspace | LibraryWorkspace
+   ├─ ProgramRail            Program status · LiveActions · queue
+   └─ StudioLiveBar          LiveActions when the studio stacks
 
 Shared presentational (used by BOTH layouts, each owns its store slice):
   TemplateList · TemplateFields · BrandControls · PresetControls · PeopleLibrary
