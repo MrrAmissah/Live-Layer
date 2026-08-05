@@ -58,6 +58,27 @@ describe('an in-flight lookup cannot outlive its translation', () => {
     expect(code).toMatch(/latestTranslation\.current\s*=\s*translationId/);
   });
 
+  it('cancels the request on unmount, so nothing reaches the cache either', () => {
+    /**
+     * The `alive` check below only guards the CONTINUATION. `runScriptureLookup`
+     * writes the fetched passage to the cache before returning, gated on the
+     * hook's request id — which unmounting does not move. So leaving Scripture to
+     * run "Reset all local data" let the pending response repopulate the cache the
+     * reset had just cleared. Cancelling on unmount bumps that id, so the write
+     * never happens.
+     */
+    const code = stripComments(panel);
+    expect(code).toContain('cancel()');
+    const cleanupAt = code.indexOf('alive.current = false');
+    const cancelAt = code.indexOf('cancel()', cleanupAt);
+    expect(cleanupAt).toBeGreaterThan(-1);
+    expect(cancelAt).toBeGreaterThan(cleanupAt);
+
+    // And `cancel` must invalidate the id, not merely reset rendered state.
+    const hook = readFileSync('src/hooks/useScriptureLookup.ts', 'utf8');
+    expect(stripComments(hook)).toMatch(/const cancel = \(\) => \{\s*requestId\.current \+= 1;\s*\}/);
+  });
+
   it('does not write the shared draft after the panel is gone', () => {
     /**
      * The draft is a module store, so it outlives this component: an await that

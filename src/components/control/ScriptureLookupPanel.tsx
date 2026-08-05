@@ -58,7 +58,7 @@ export default function ScriptureLookupPanel({
   onDismissNotice,
   currentGraphicReference
 }: Props) {
-  const { provider, status, message, failure, lookup, reset } = useScriptureLookup();
+  const { provider, status, message, failure, lookup, reset, cancel } = useScriptureLookup();
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
   const [offline, setOffline] = useState(false);
 
@@ -125,6 +125,15 @@ export default function ScriptureLookupPanel({
     alive.current = true;
     return () => {
       alive.current = false;
+      /**
+       * Cancel the request itself, not just its continuation. The check below
+       * runs after `lookup()` returns — by which point `runScriptureLookup` has
+       * already written the fetched passage to the cache, because its
+       * `isCurrent()` port is the hook's request id and unmounting does not move
+       * it. So leaving Scripture to run "Reset all local data" let the pending
+       * response repopulate the cache the reset had just cleared.
+       */
+      cancel();
     };
   }, []);
 

@@ -83,10 +83,26 @@ export function useScriptureLookup() {
     setState({ status: 'idle' });
   };
 
+  /**
+   * Invalidate the in-flight request without touching rendered state.
+   *
+   * For unmount. `reset` would also `setState`, which is pointless on a component
+   * that is going away; more importantly the invalidation has to reach INSIDE
+   * `runScriptureLookup`, which consults `isCurrent()` before writing the cache.
+   * A guard placed after the await — in the caller — is too late: by then the
+   * fetched passage has already been persisted, so leaving Scripture to run
+   * "Reset all local data" let the pending response repopulate the cache the
+   * reset had just cleared. Bumping the id here makes that write not happen.
+   */
+  const cancel = () => {
+    requestId.current += 1;
+  };
+
   return {
     provider: defaultScriptureProvider,
     ...state,
     lookup,
-    reset
+    reset,
+    cancel
   };
 }
