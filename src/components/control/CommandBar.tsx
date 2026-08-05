@@ -9,8 +9,16 @@ function openRoute(path: string) {
   window.open(`${window.location.origin}${path}`, '_blank');
 }
 
+/**
+ * Four distinguishable states, because "connected" used to cover two very
+ * different things. A dev server's SPA fallback answers `/health` with 200, so a
+ * relay URL pointing at the app's own port read as connected while every command
+ * 404'd. `not-relay` is that case, named. Only `ready` claims commands can go
+ * out — see `relayReadiness.ts` and issue #20.
+ */
 const RELAY_LABEL: Record<RelayConnection, string> = {
-  connected: 'Relay connected',
+  ready: 'Relay ready',
+  'not-relay': 'Not a relay',
   unreachable: 'Relay unreachable',
   checking: 'Checking relay…',
   local: 'Local output'
@@ -60,6 +68,9 @@ export default function CommandBar() {
         <span className="cmd-transport__copy">
           <span className="cmd-transport__state">{RELAY_LABEL[relay.connection]}</span>
           {relay.host ? <span className="cmd-transport__host">{relay.host}</span> : null}
+          {/* The reason, when there is one. A badge that says only "unreachable"
+              sends the operator guessing at the port. */}
+          {relay.detail ? <span className="cmd-transport__detail">{relay.detail}</span> : null}
         </span>
       </div>
 

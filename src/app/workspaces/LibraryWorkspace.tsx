@@ -1,4 +1,5 @@
-import { NavLink, useParams } from 'react-router-dom';
+import { NavLink, useLocation, useParams } from 'react-router-dom';
+import { linkTo } from '../../lib/navigateTo';
 import PresetControls from '../../components/control/PresetControls';
 import PeopleLibrary from '../../components/control/PeopleLibrary';
 import AssetsView from '../../components/control/AssetsView';
@@ -37,6 +38,7 @@ const isSection = (value: string | undefined): value is SectionId =>
 
 export default function LibraryWorkspace() {
   const { section } = useParams();
+  const location = useLocation();
   const { onLoadGraphic } = useWorkspace();
 
   // `ControlPage` canonicalises the URL before this renders, so an unknown
@@ -50,7 +52,7 @@ export default function LibraryWorkspace() {
         {SECTIONS.map((entry) => (
           <NavLink
             key={entry.id}
-            to={`/control/library/${entry.id}`}
+            to={linkTo(`/control/library/${entry.id}`, location)}
             className={({ isActive }) => `library-subnav__link${isActive ? ' library-subnav__link--active' : ''}`}
           >
             {entry.label}
