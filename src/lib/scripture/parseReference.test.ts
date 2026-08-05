@@ -110,6 +110,22 @@ describe('parseScriptureReference — refuses rather than reinterprets', () => {
   it('refuses a bare book instead of fetching the whole book', () => {
     expect(problemOf('John')).toBe('chapter-missing');
     expect(problemOf('1 Corinthians')).toBe('chapter-missing');
+    expect(problemOf('Jude')).toBe('chapter-missing');
+  });
+
+  it('suggests a verse, not a chapter, when the book has only one', () => {
+    // "Try Jude 1" would be self-defeating: that now reads as verse 1, so
+    // following the advice returns one verse rather than the implied chapter.
+    const oneChapter = parseScriptureReference('Jude');
+    expect(oneChapter.ok).toBe(false);
+    if (oneChapter.ok) return;
+    expect(oneChapter.message).toContain('one chapter');
+    expect(oneChapter.message).not.toContain('Jude 1.');
+
+    const many = parseScriptureReference('John');
+    expect(many.ok).toBe(false);
+    if (many.ok) return;
+    expect(many.message).toContain('Add a chapter');
   });
 
   it('rejects verse 0 and backwards ranges instead of truncating them', () => {

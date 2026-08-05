@@ -247,13 +247,25 @@ export function parseScriptureReference(input: string): ReferenceParseResult {
     return fail('book-unknown', `No Bible book matches "${rawBook}".`);
   }
 
-  if (!rest) {
-    // Deliberately refused. A bare book is a legible intent but a whole-book
-    // fetch, which is neither a graphic nor something the operator asked for.
-    return fail('chapter-missing', `Add a chapter to ${book} — for example ${book} 1.`);
-  }
-
   const chapterCount = getChapterCount(book);
+
+  if (!rest) {
+    /**
+     * Deliberately refused. A bare book is a legible intent but a whole-book
+     * fetch, which is neither a graphic nor something the operator asked for.
+     *
+     * The example has to match how the book is actually addressed. Suggesting
+     * "Jude 1" for a one-chapter book would be self-defeating: the branch below
+     * reads that as verse 1, so following the advice gives one verse, not the
+     * chapter the message implied.
+     */
+    return fail(
+      'chapter-missing',
+      chapterCount === 1
+        ? `${book} has one chapter — add a verse, for example ${book} 3.`
+        : `Add a chapter to ${book} — for example ${book} 1.`
+    );
+  }
 
   /**
    * In a one-chapter book the WHOLE locator is a verse selection.
