@@ -4,6 +4,7 @@ import ScriptureLookupPanel from '../../components/control/ScriptureLookupPanel'
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useRundowns } from '../../hooks/useRundowns';
 import { rundownDestination, noActiveRundownMessage } from '../../components/control/rundownDestination';
+import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
 import {
   getScriptureDraft,
   subscribeScriptureDraft,
@@ -35,7 +36,7 @@ export default function ScriptureWorkspace() {
   const setTemplate = useLiveLayerStore((state) => state.setTemplate);
   const setFields = useLiveLayerStore((state) => state.setFields);
   const addToQuickQueue = useLiveLayerStore((state) => state.addToQuickQueue);
-  const { activeRundownId, addDraftToRundown } = useRundowns();
+  const { activeRundownId, activeRundown, addDraftToRundown } = useRundowns();
 
   // Transient confirmations. Losing these on a workspace switch is correct —
   // they describe an action just taken, not state the operator is composing.
@@ -84,13 +85,28 @@ export default function ScriptureWorkspace() {
       setNotice(noActiveRundownMessage('studio'));
       return;
     }
+    /**
+     * Check the cap BEFORE touching anything.
+     *
+     * `addDraftToRundown` builds from the shared draft, so the passage has to be
+     * applied first — which meant a full rundown left the operator with a
+     * "couldn't add" notice *and* a silently changed current graphic. Nothing may
+     * change on a failed action, so the one case that can fail is tested up front.
+     */
+    if ((activeRundown?.items.length ?? 0) >= MAX_ITEMS_PER_RUNDOWN) {
+      setNotice(
+        `${rundownDestination('studio')} is full at ${MAX_ITEMS_PER_RUNDOWN} items — nothing was changed. Remove an item first.`
+      );
+      return;
+    }
+
     applyPassage(result);
     rememberScripturePassage(result, translationId);
     const item = addDraftToRundown();
     setNotice(
       item
         ? `Added ${result.reference} to the active rundown — manage the order in ${rundownDestination('studio')}.`
-        : `Couldn't add ${result.reference} — the rundown is full.`
+        : `Couldn't add ${result.reference} to the rundown, but it is now the current graphic.`
     );
   };
 

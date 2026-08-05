@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
 import {
   parseScriptureReference,
@@ -90,9 +90,31 @@ export default function ScriptureLookupPanel({
    */
   const typingHint = !parsed.ok && query.trim().length > 0 ? parsed.message : '';
 
+  /**
+   * Mirror of the translation currently selected, so an in-flight request can be
+   * discarded if the operator switches before it lands.
+   *
+   * The hook's request-id guard does NOT cover this. It only invalidates when a
+   * NEWER LOOKUP starts, and changing the translation starts no lookup — it just
+   * clears the panel. So a WEB request begun before the switch still passed the
+   * id check and repopulated the panel with WEB wording while the select read
+   * KJV, and that passage could then be staged. Mislabelled text on air is the
+   * exact failure this surface exists to prevent, one level up from the cache
+   * guard in the provider.
+   *
+   * Only the translation is compared. A result for a reference the operator has
+   * since edited-but-not-submitted is still the passage they asked for, and the
+   * passage panel is a separate surface from the reference box — discarding it
+   * would throw away a legitimate answer.
+   */
+  const latestTranslation = useRef(translationId);
+  latestTranslation.current = translationId;
+
   const runLookup = async (reference: string) => {
-    const result = await lookup(reference, translationId);
+    const requested = translationId;
+    const result = await lookup(reference, requested);
     if (!result) return; // stale, or a failure the hook has already reported
+    if (latestTranslation.current !== requested) return;
     onPassage(result, false);
   };
 
