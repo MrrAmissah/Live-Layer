@@ -8151,3 +8151,17 @@ body.gfx-transparent {
   line-height: 1.45;
   color: #f5c77e;
 }
+
+/* Relay readiness. `ready` is the only state that claims commands can go out;
+   `not-relay` is amber because it is a misconfiguration the operator can fix
+   (usually the wrong port), not an outage. See lib/relayReadiness.ts. */
+.control-root .cmd-transport--ready .cmd-transport__dot { background: #22c55e; }
+.control-root .cmd-transport--not-relay .cmd-transport__dot,
+.control-root .cmd-transport--unreachable .cmd-transport__dot { background: #f5c77e; }
+.control-root .cmd-transport__detail {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #f5c77e;
+  max-width: 30ch;
+}

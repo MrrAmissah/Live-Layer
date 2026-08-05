@@ -1,8 +1,9 @@
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import ControlPage from './app/ControlPage';
 import OutputPage from './app/OutputPage';
 import SetupPage from './app/SetupPage';
 import ScriptureRedirect from './app/ScriptureRedirect';
+import CatchAllRedirect from './app/CatchAllRedirect';
 import StudioWorkspace from './app/workspaces/StudioWorkspace';
 import RundownWorkspace from './app/workspaces/RundownWorkspace';
 import LibraryWorkspace from './app/workspaces/LibraryWorkspace';
@@ -46,7 +47,9 @@ function App() {
           reserved URL redirects there, carrying search and hash. */}
       <Route path="/scripture" element={<ScriptureRedirect />} />
       <Route path="/scripture/*" element={<ScriptureRedirect />} />
-      <Route path="*" element={<Navigate to="/control" replace />} />
+      {/* Carries ?relay= across. See CatchAllRedirect — this is the one
+          navigation whose search loss cannot be recovered from. */}
+      <Route path="*" element={<CatchAllRedirect />} />
     </Routes>
   );
 }

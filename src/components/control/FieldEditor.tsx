@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { withUrlState } from '../../lib/navigateTo';
 import Panel from './Panel';
 import ContentTab from './ContentTab';
 import DesignTab from './DesignTab';
 import BrandTab from './BrandTab';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useBrandReset } from '../../hooks/useBrandReset';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { GraphicInstance } from '../../types/graphics';
 
 type EditorTab = 'content' | 'design' | 'brand' | 'motion' | 'advanced';
@@ -46,6 +47,7 @@ export const BRAND_RESET_TITLE = {
  */
 export default function FieldEditor({ onLoadGraphic }: FieldEditorProps = {}) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isRundownItem, resetDraft } = useEditTarget();
   const resetBrand = useBrandReset();
   const [tab, setTab] = useState<EditorTab>('content');
@@ -96,8 +98,8 @@ export default function FieldEditor({ onLoadGraphic }: FieldEditorProps = {}) {
           <DesignTab
             onOpenBrand={() => setTab('brand')}
             onLoadPreset={(preset) => onLoadGraphic?.(preset)}
-            onBrowseSaved={() => navigate('/control/library/saved')}
-            onBrowseAssets={() => navigate('/control/library/assets')}
+            onBrowseSaved={() => navigate(withUrlState('/control/library/saved', location))}
+            onBrowseAssets={() => navigate(withUrlState('/control/library/assets', location))}
           />
         ) : null}
         {tab === 'brand' ? <BrandTab /> : null}
