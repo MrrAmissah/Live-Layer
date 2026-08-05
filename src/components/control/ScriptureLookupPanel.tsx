@@ -214,6 +214,15 @@ export default function ScriptureLookupPanel({
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
+    /**
+     * Enter submits even though the Look up button is disabled — the disabled
+     * attribute stops the click, not the form. So an operator who pressed Enter
+     * twice fired a second provider request while the first was still out, and
+     * this service rate-limits at roughly 15 requests per 30 seconds per IP:
+     * duplicate submits spend a budget shared by every operator on the LAN, to
+     * get an answer already on its way.
+     */
+    if (pending) return;
     void runLookup(query);
   };
 

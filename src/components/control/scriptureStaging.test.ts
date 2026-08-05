@@ -181,6 +181,21 @@ describe('the staging notice tells the truth about how Take will behave', () => 
   });
 });
 
+describe('a pending lookup is not submitted twice', () => {
+  it('ignores Enter while a request is in flight', () => {
+    // `disabled` stops the button's click, not the form's submit — so Enter fired
+    // a second request against a service that rate-limits per IP across the LAN.
+    const code = stripComments(panel);
+    const submitAt = code.indexOf('const submit = (event: React.FormEvent)');
+    const guardAt = code.indexOf('if (pending) return;', submitAt);
+    const runAt = code.indexOf('void runLookup(query)', submitAt);
+    expect(submitAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(runAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(runAt);
+  });
+});
+
 describe('switching translation frees the surface immediately', () => {
   it('cancels the pending request rather than waiting it out', () => {
     /**
