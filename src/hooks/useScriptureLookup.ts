@@ -29,7 +29,20 @@ export function useScriptureLookup() {
   // request resolving after a newer one is ignored silently.
   const requestId = useRef(0);
 
-  const lookup = async (reference: string, translation: string): Promise<ScriptureLookupResult | null> => {
+  /**
+   * Resolves to the passage AND where it came from.
+   *
+   * The flag is returned rather than read off `state.fromCache` because the
+   * caller runs immediately after this await, before React has re-rendered with
+   * the new state — it would read the previous lookup's value. Hardcoding
+   * `false` at the call site instead made a cached passage render as a fresh
+   * one, which is the "previous result reading as a current success" this
+   * surface is otherwise careful to avoid.
+   */
+  const lookup = async (
+    reference: string,
+    translation: string
+  ): Promise<{ result: ScriptureLookupResult; fromCache: boolean } | null> => {
     const id = ++requestId.current;
     setState({ status: 'loading', message: 'Looking up scripture…' });
 
@@ -55,10 +68,10 @@ export function useScriptureLookup() {
         // Named as a saved copy: a cache hit is a previous result, and calling it
         // "found" would let a stale passage read as a fresh confirmation.
         setState({ status: 'success', message: `${outcome.result.reference} — from saved copy.`, fromCache: true });
-        return outcome.result;
+        return { result: outcome.result, fromCache: true };
       case 'fresh':
         setState({ status: 'success', message: `Found ${outcome.result.reference}.`, fromCache: false });
-        return outcome.result;
+        return { result: outcome.result, fromCache: false };
       case 'failed':
         setState({ status: 'error', message: outcome.failure.message, failure: outcome.failure.kind });
         return null;

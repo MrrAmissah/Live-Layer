@@ -112,10 +112,14 @@ export default function ScriptureLookupPanel({
 
   const runLookup = async (reference: string) => {
     const requested = translationId;
-    const result = await lookup(reference, requested);
-    if (!result) return; // stale, or a failure the hook has already reported
+    const found = await lookup(reference, requested);
+    if (!found) return; // stale, or a failure the hook has already reported
     if (latestTranslation.current !== requested) return;
-    onPassage(result, false);
+    // The provenance travels with the result. Hardcoding `false` here made a
+    // cache hit render as a fresh fetch, so the "from saved copy" label — the one
+    // thing distinguishing a stored passage from a confirmed current one —
+    // never appeared on the path that most often serves one.
+    onPassage(found.result, found.fromCache);
   };
 
   const submit = (event: React.FormEvent) => {

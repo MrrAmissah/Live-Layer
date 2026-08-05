@@ -30,8 +30,13 @@ describe('an in-flight lookup cannot outlive its translation', () => {
     // Order matters: the comparison must sit between the await and onPassage.
     const awaitAt = code.indexOf('await lookup(reference, requested)');
     const guardAt = code.indexOf('latestTranslation.current !== requested');
-    const applyAt = code.indexOf('onPassage(result, false)');
+    const applyAt = code.indexOf('onPassage(found.result');
+    // Each anchor asserted present FIRST. `indexOf` returns -1 when a symbol is
+    // gone, and `-1 < n` is true — so an ordering assertion alone passes when the
+    // code it orders has been deleted.
     expect(awaitAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(applyAt).toBeGreaterThan(-1);
     expect(guardAt).toBeGreaterThan(awaitAt);
     expect(applyAt).toBeGreaterThan(guardAt);
   });
@@ -39,6 +44,19 @@ describe('an in-flight lookup cannot outlive its translation', () => {
   it('keeps the mirror fresh on every render, or the comparison reads a stale value', () => {
     const code = stripComments(panel);
     expect(code).toMatch(/latestTranslation\.current\s*=\s*translationId/);
+  });
+
+  it('carries the cache flag with the result rather than hardcoding it', () => {
+    /**
+     * `onPassage(result, false)` made a cache hit render as a fresh fetch, so the
+     * "from saved copy" label never appeared on the path that most often serves
+     * one. The flag cannot be read off the hook's state here — that state has not
+     * re-rendered yet at this point in the await, so it would report the previous
+     * lookup's value.
+     */
+    const code = stripComments(panel);
+    expect(code).toContain('onPassage(found.result, found.fromCache)');
+    expect(code).not.toMatch(/onPassage\([^)]*,\s*false\s*\)/);
   });
 });
 
