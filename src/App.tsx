@@ -2,10 +2,11 @@ import { Route, Routes, Navigate } from 'react-router-dom';
 import ControlPage from './app/ControlPage';
 import OutputPage from './app/OutputPage';
 import SetupPage from './app/SetupPage';
-import ScripturePage from './app/ScripturePage';
+import ScriptureRedirect from './app/ScriptureRedirect';
 import StudioWorkspace from './app/workspaces/StudioWorkspace';
 import RundownWorkspace from './app/workspaces/RundownWorkspace';
 import LibraryWorkspace from './app/workspaces/LibraryWorkspace';
+import ScriptureWorkspace from './app/workspaces/ScriptureWorkspace';
 
 /**
  * `/control` is a layout route, not a page: it owns the realtime channel, the
@@ -32,12 +33,19 @@ function App() {
         <Route path="studio" element={<StudioWorkspace />} />
         <Route path="rundown" element={<RundownWorkspace />} />
         <Route path="library/:section" element={<LibraryWorkspace />} />
+        {/* Adding a workspace here is only half of it — it must also be listed in
+            `WORKSPACES` in controlPaths.ts, or ControlPage canonicalises the URL
+            to Studio before this element ever mounts. */}
+        <Route path="scripture" element={<ScriptureWorkspace />} />
         <Route path="*" element={null} />
       </Route>
       <Route path="/output" element={<OutputPage />} />
       <Route path="/setup" element={<SetupPage />} />
-      {/* Reserved: its own workspace, not a panel inside /control. See ScripturePage. */}
-      <Route path="/scripture" element={<ScripturePage />} />
+      {/* Was a reserved placeholder page. The workspace had to move inside the
+          /control layout to reach the one channel and the one Take, so the
+          reserved URL redirects there, carrying search and hash. */}
+      <Route path="/scripture" element={<ScriptureRedirect />} />
+      <Route path="/scripture/*" element={<ScriptureRedirect />} />
       <Route path="*" element={<Navigate to="/control" replace />} />
     </Routes>
   );

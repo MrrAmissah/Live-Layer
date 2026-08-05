@@ -19,6 +19,7 @@ interface Workspace {
  */
 const WORKSPACES: Workspace[] = [
   { to: '/control/studio', label: 'Studio', icon: 'grid' },
+  { to: '/control/scripture', label: 'Scripture', icon: 'book' },
   { to: '/control/rundown', label: 'Rundown', icon: 'queue' },
   { to: '/control/library', label: 'Library', icon: 'bookmark' }
 ];

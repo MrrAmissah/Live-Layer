@@ -17,7 +17,17 @@ export type LibrarySection = (typeof LIBRARY_SECTIONS)[number];
 export const DEFAULT_WORKSPACE = '/control/studio';
 export const DEFAULT_LIBRARY_SECTION: LibrarySection = 'saved';
 
-const WORKSPACES = ['studio', 'rundown', 'library'] as const;
+/**
+ * Adding a workspace means adding it HERE as well as to the route table.
+ *
+ * An unlisted workspace is classified as unknown below and canonicalised to
+ * Studio, and because `ControlPage` returns that redirect before it ever renders
+ * the outlet, the new route element never mounts — the URL silently becomes
+ * `/control/studio` with no error. That is exactly how a Library link resolved to
+ * Studio at every width in the previous stage. `App.tsx` reads like the route
+ * table, so this is the line that gets forgotten.
+ */
+const WORKSPACES = ['studio', 'rundown', 'library', 'scripture'] as const;
 
 export const isLibrarySection = (value: string | undefined): value is LibrarySection =>
   LIBRARY_SECTIONS.includes(value as LibrarySection);
@@ -54,4 +64,24 @@ export function resolveCanonicalControlPath(pathname: string): string | null {
    * with one rule instead of three that can each miss a case.
    */
   return canonical === trimmed ? null : canonical;
+}
+
+/** Where the Scripture workspace actually lives. */
+export const SCRIPTURE_WORKSPACE = '/control/scripture';
+
+/**
+ * `/scripture` was reserved as a top-level route before the workspace existed.
+ * It cannot stay one: the realtime channel, the in-flight guard and the only
+ * Take/Clear live in the `/control` layout, so a sibling route would need a
+ * second command owner — two guards, and two Takes that can race. The reserved
+ * URL keeps working as a redirect instead.
+ *
+ * Rebuild-and-compare, like the function above, so `/scripture/`, `/scripture//`
+ * and `/scripture/anything` all resolve rather than 404ing into the catch-all.
+ * Returns `null` when the path is not this legacy URL.
+ */
+export function resolveLegacyScripturePath(pathname: string): string | null {
+  const trimmed = pathname.replace(/\/+$/, '') || '/';
+  if (trimmed !== '/scripture' && !trimmed.startsWith('/scripture/')) return null;
+  return SCRIPTURE_WORKSPACE;
 }

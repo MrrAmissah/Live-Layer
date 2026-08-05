@@ -12,8 +12,19 @@ const STORAGE_KEYS = {
   program: 'livelayer.program',
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
+  scriptureRecents: 'livelayer.scriptureRecents',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
+
+/**
+ * Exported so the scripture recents store reads its key from here rather than
+ * redeclaring the string. `clearAllData` wipes exactly `Object.values(STORAGE_KEYS)`,
+ * so a key defined locally elsewhere survives "Reset all local data" — which on a
+ * shared production machine means one church's passages outliving the reset.
+ * (`scriptureCache.ts` and `chapterCache.ts` still declare their own literals;
+ * they happen to match, so clear-all works today by coincidence, not by design.)
+ */
+export const SCRIPTURE_RECENTS_KEY = STORAGE_KEYS.scriptureRecents;
 
 const DEFAULT_THEME: TemplateDefinition['theme'] = {
   primaryColor: '#f8fafc',

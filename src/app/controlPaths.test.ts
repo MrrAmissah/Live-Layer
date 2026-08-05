@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolveCanonicalControlPath, LIBRARY_SECTIONS } from './workspaces/controlPaths';
+import { resolveCanonicalControlPath, resolveLegacyScripturePath, LIBRARY_SECTIONS } from './workspaces/controlPaths';
 
 /**
  * Canonicalisation has to be layout-independent. Redirect *routes* only run when
@@ -88,5 +88,53 @@ describe('the redirect runs for both layouts', () => {
     const app = readFileSync('src/App.tsx', 'utf8');
     const controlBlock = app.slice(app.indexOf('path="/control"'), app.indexOf('path="/output"'));
     expect(controlBlock).not.toContain('Navigate');
+  });
+});
+
+describe('the Scripture workspace is a canonical /control path', () => {
+  it('treats /control/scripture as already canonical', () => {
+    /**
+     * The trap this pins. If `scripture` is missing from `WORKSPACES`, this
+     * returns `/control/studio`, and because ControlPage renders that redirect
+     * BEFORE it renders the outlet, the Scripture route element never mounts —
+     * the URL silently becomes Studio with no error anywhere. `App.tsx` reads
+     * like the route table, so the gate is easy to miss. It is exactly how a
+     * Library link resolved to Studio at every width in the previous stage.
+     */
+    expect(resolveCanonicalControlPath('/control/scripture')).toBeNull();
+  });
+
+  it('normalises the malformed spellings the router will not match', () => {
+    expect(resolveCanonicalControlPath('/control/scripture/')).toBeNull();
+    expect(resolveCanonicalControlPath('/control//scripture')).toBe('/control/scripture');
+    // Scripture has no sub-sections, so an extra segment is trimmed rather than
+    // rendering a blank workspace.
+    expect(resolveCanonicalControlPath('/control/scripture/anything')).toBe('/control/scripture');
+  });
+});
+
+describe('the reserved /scripture URL redirects into the layout', () => {
+  it('resolves the legacy top-level URL and its variants', () => {
+    for (const path of ['/scripture', '/scripture/', '/scripture//', '/scripture/anything']) {
+      expect(resolveLegacyScripturePath(path), path).toBe('/control/scripture');
+    }
+  });
+
+  it('declines every other route, including the destination itself', () => {
+    // Returning a value for /control/scripture would redirect it to itself.
+    for (const path of ['/control/scripture', '/control', '/output', '/setup', '/', '/scriptures', '/scripture-x']) {
+      expect(resolveLegacyScripturePath(path), path).toBeNull();
+    }
+  });
+
+  it('carries search and hash, and replaces rather than pushes', () => {
+    // Same reason as the /control redirect: /setup hands out `?relay=…`, and the
+    // channel reads that param when it is constructed. `replace` so Back does not
+    // bounce off the redirect.
+    const redirect = readFileSync('src/app/ScriptureRedirect.tsx', 'utf8');
+    expect(redirect).toMatch(
+      /to={{\s*pathname: SCRIPTURE_WORKSPACE,\s*search: location\.search,\s*hash: location\.hash\s*}}/
+    );
+    expect(redirect).toContain('replace');
   });
 });

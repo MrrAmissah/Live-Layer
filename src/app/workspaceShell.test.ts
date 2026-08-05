@@ -148,35 +148,72 @@ describe('the layout boundary and the semantics around it are untouched', () => 
   });
 });
 
-describe('the reserved Scripture route stays provider-neutral', () => {
-  const page = readFileSync('src/app/ScripturePage.tsx', 'utf8');
+describe('the Scripture workspace stays provider-neutral', () => {
+  /**
+   * This guard used to point at the `/scripture` placeholder and forbade
+   * `scriptureLookup` along with every AI and speech dependency — which was right
+   * for an empty room, and would now forbid the one hook the feature is built on.
+   *
+   * So it moves onto the real files and loses exactly one entry. The other eight
+   * are the dependencies this stage must not acquire: no microphone, no
+   * speech-to-text, no LLM, no automatic quotation detection. Retargeted rather
+   * than deleted, because deleting the block would silently drop all eight.
+   */
+  const scriptureFiles = {
+    workspace: readFileSync('src/app/workspaces/ScriptureWorkspace.tsx', 'utf8'),
+    panel: readFileSync('src/components/control/ScriptureLookupPanel.tsx', 'utf8'),
+    redirect: readFileSync('src/app/ScriptureRedirect.tsx', 'utf8'),
+    provider: readFileSync('src/lib/scripture/bibleApiProvider.ts', 'utf8'),
+    parser: readFileSync('src/lib/scripture/parseReference.ts', 'utf8'),
+    hook: readFileSync('src/hooks/useScriptureLookup.ts', 'utf8')
+  };
 
-  it('is registered as its own route', () => {
+  it('is mounted inside the control layout, with the reserved URL redirecting to it', () => {
     const app = readFileSync('src/App.tsx', 'utf8');
+    expect(app).toContain('path="scripture"');
     expect(app).toContain('path="/scripture"');
-    expect(app).toContain('ScripturePage');
+    expect(app).toContain('ScriptureRedirect');
+    expect(app).not.toContain('ScripturePage');
   });
 
   it('pulls in no AI, speech or quotation-detection dependency', () => {
-    // The point of a placeholder is that nothing gets wired in by accident.
-    for (const forbidden of [
-      'openai',
-      'anthropic',
-      'whisper',
-      'SpeechRecognition',
-      'speechRecognition',
-      'transcribe',
-      'quotationDetect',
-      'detectQuotation',
-      'scriptureLookup'
-    ]) {
-      expect(page.toLowerCase(), forbidden).not.toContain(forbidden.toLowerCase());
+    for (const [name, source] of Object.entries(scriptureFiles)) {
+      // Comments are stripped first: these files discuss the future voice flow at
+      // length, and an absence check must not read the story.
+      const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').toLowerCase();
+      for (const forbidden of [
+        'openai',
+        'anthropic',
+        'whisper',
+        'speechrecognition',
+        'mediarecorder',
+        'getusermedia',
+        'transcribe',
+        'quotationdetect',
+        'detectquotation'
+      ]) {
+        expect(code, `${name}: ${forbidden}`).not.toContain(forbidden);
+      }
     }
   });
 
-  it('does not link itself into the control surface yet', () => {
-    const nav = readFileSync('src/components/control/StudioNav.tsx', 'utf8');
-    expect(nav).not.toContain('/scripture');
+  it('keeps the passage provider behind the provider-neutral interface', () => {
+    // Presence anchor: without this the absence checks above pass on an empty file.
+    expect(scriptureFiles.provider).toContain('ScriptureProvider');
+    expect(scriptureFiles.provider).toContain('bible-api.com');
+    // The workspace talks to the hook, never to a URL of its own.
+    expect(scriptureFiles.workspace).not.toContain('https://');
+    expect(scriptureFiles.panel).not.toContain('https://');
+  });
+
+  it('ships only translations the provider declares public domain', () => {
+    // Every translation entry must carry the flag, so a licensed text cannot be
+    // added without the diff making that visible.
+    const entries = scriptureFiles.provider.match(/\{\s*id: '[^']+',[\s\S]*?\}/g) ?? [];
+    expect(entries.length).toBeGreaterThan(1);
+    for (const entry of entries) {
+      expect(entry, entry.slice(0, 40)).toContain('publicDomain: true');
+    }
   });
 });
 

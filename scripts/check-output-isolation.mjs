@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outputPath = join(root, 'src/app/OutputPage.tsx');
@@ -54,6 +54,81 @@ if (failures.length) {
   console.error('Output isolation check failed:');
   for (const failure of failures) {
     console.error(`- OutputPage.tsx contains ${failure.label}`);
+  }
+  process.exit(1);
+}
+
+/**
+ * The same forbidden imports, applied to what the output bundle ACTUALLY loads.
+ *
+ * The check above reads one file. That was enough while the only plausible
+ * mistake was importing a provider directly into `OutputPage.tsx` — which nobody
+ * would do. The realistic leak is one hop away: adding a scripture import to
+ * `ScriptureCard.tsx`, which the output bundle pulls in through `registry.ts` and
+ * which that grep never opens. Measured: the entry point reaches 32 files, and
+ * only 1 was being inspected, so the two scripture patterns were dead in practice.
+ *
+ * Scoped deliberately to the dependencies that must never ship to air — a passage
+ * provider, its cache, a microphone, or an AI SDK. The broader control-surface
+ * patterns are NOT applied transitively: `lib/realtime.ts` is legitimately in the
+ * bundle (the output subscribes to it) and defines `createMessage`, so reusing the
+ * full list here would fail on correct code.
+ */
+function resolveImport(fromFile, spec) {
+  if (!spec.startsWith('.')) return null;
+  const base = resolve(dirname(fromFile), spec);
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+function outputBundleClosure(entry) {
+  const seen = new Set();
+  const walk = (file) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const text = readFileSync(file, 'utf8');
+    for (const match of text.matchAll(/(?:from|import)\s*['"]([^'"]+)['"]/g)) {
+      const next = resolveImport(file, match[1]);
+      if (next) walk(next);
+    }
+  };
+  walk(entry);
+  return [...seen];
+}
+
+const bundleFiles = outputBundleClosure(outputPath);
+// Positive anchor: a resolver that silently stopped following imports would
+// inspect one file and report success. The bundle genuinely spans dozens.
+if (bundleFiles.length < 10) {
+  console.error('Output bundle isolation check failed:');
+  console.error(
+    `- resolved only ${bundleFiles.length} file(s) from OutputPage.tsx; the import walk is broken and this guard would pass vacuously`
+  );
+  process.exit(1);
+}
+
+const bundlePatterns = [
+  { pattern: /from ['"].*lib\/scripture\//, label: 'scripture provider/cache import' },
+  { pattern: /from ['"].*hooks\/useScripture/, label: 'scripture hook import' },
+  { pattern: /bible-api\.com/, label: 'passage provider endpoint' },
+  { pattern: /\b(openai|anthropic)\b/i, label: 'AI provider SDK' },
+  { pattern: /\b(SpeechRecognition|webkitSpeechRecognition|MediaRecorder|getUserMedia)\b/, label: 'speech/microphone API' }
+];
+
+const bundleFailures = [];
+for (const file of bundleFiles) {
+  const text = readFileSync(file, 'utf8');
+  for (const { pattern, label } of bundlePatterns) {
+    if (pattern.test(text)) bundleFailures.push({ file: file.replace(`${root}/`, ''), label });
+  }
+}
+
+if (bundleFailures.length) {
+  console.error('Output bundle isolation check failed:');
+  for (const failure of bundleFailures) {
+    console.error(`- ${failure.file} contains ${failure.label} and is reachable from OutputPage.tsx`);
   }
   process.exit(1);
 }

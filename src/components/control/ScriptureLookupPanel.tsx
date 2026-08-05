@@ -1,0 +1,368 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useScriptureLookup } from '../../hooks/useScriptureLookup';
+import {
+  parseScriptureReference,
+  formatCanonicalReference,
+  formatSpans,
+  type CanonicalReference,
+  type VerseSpan
+} from '../../lib/scripture/parseReference';
+import { readScriptureRecents, type ScriptureRecent } from '../../lib/scripture/scriptureRecents';
+import type { ScriptureLookupResult } from '../../types/scripture';
+
+interface Props {
+  query: string;
+  translationId: string;
+  passage: ScriptureLookupResult | null;
+  fromCache: boolean;
+  onQueryChange: (query: string) => void;
+  onTranslationChange: (translationId: string) => void;
+  onPassage: (passage: ScriptureLookupResult | null, fromCache: boolean) => void;
+  onAccept: (passage: ScriptureLookupResult, translationId: string) => void;
+  onQueue: (passage: ScriptureLookupResult, translationId: string) => void;
+  onAddToRundown: (passage: ScriptureLookupResult, translationId: string) => void;
+  rundownActive: boolean;
+  notice: string;
+  onDismissNotice: () => void;
+  /** Reference currently on the graphic draft, when it is a scripture card. */
+  currentGraphicReference: string;
+}
+
+/**
+ * Reference entry, retrieval, review and staging — the operator-facing half of
+ * the Scripture workspace.
+ *
+ * Two surfaces, deliberately separate: the STATUS line and the PASSAGE panel.
+ * Status changes on every keystroke and every request; the passage panel changes
+ * only on a successful, still-wanted result or an explicit operator action. A
+ * failed lookup therefore never blanks the passage the operator was reading —
+ * mid-service, losing the verse you already found because a later search failed
+ * is worse than the failure itself.
+ *
+ * There is no Take here, and no Clear. `LiveActions` in the Program rail is the
+ * only place those exist, and it is already on screen.
+ */
+export default function ScriptureLookupPanel({
+  query,
+  translationId,
+  passage,
+  fromCache,
+  onQueryChange,
+  onTranslationChange,
+  onPassage,
+  onAccept,
+  onQueue,
+  onAddToRundown,
+  rundownActive,
+  notice,
+  onDismissNotice,
+  currentGraphicReference
+}: Props) {
+  const { provider, status, message, failure, lookup } = useScriptureLookup();
+  const [recents, setRecents] = useState<ScriptureRecent[]>([]);
+  const [offline, setOffline] = useState(false);
+
+  // Re-read after every accepted action; `notice` changes exactly then.
+  useEffect(() => {
+    setRecents(readScriptureRecents());
+  }, [notice]);
+
+  useEffect(() => {
+    const sync = () => setOffline(typeof navigator !== 'undefined' && navigator.onLine === false);
+    sync();
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', sync);
+    };
+  }, []);
+
+  const parsed = useMemo(() => parseScriptureReference(query), [query]);
+  const pending = status === 'loading';
+  const translation = provider.translations.find((item) => item.id === translationId);
+
+  /**
+   * Locally invalid input is shown as guidance while typing, not as an error —
+   * "John" is a correct halfway state on the way to "John 3:16", and shouting at
+   * every keystroke trains the operator to ignore the line that also carries real
+   * failures. It becomes an error only once they ask for a lookup.
+   */
+  const typingHint = !parsed.ok && query.trim().length > 0 ? parsed.message : '';
+
+  const runLookup = async (reference: string) => {
+    const result = await lookup(reference, translationId);
+    if (!result) return; // stale, or a failure the hook has already reported
+    onPassage(result, false);
+  };
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void runLookup(query);
+  };
+
+  /** Rebuild the reference from adjusted spans, then re-retrieve it. */
+  const adjust = (next: VerseSpan[], reference: CanonicalReference) => {
+    const rebuilt = formatCanonicalReference(reference.book, reference.chapter, next);
+    onQueryChange(rebuilt);
+    void runLookup(rebuilt);
+  };
+
+  // Range controls act on the reference of the passage under review, so they can
+  // never disagree with the text on screen.
+  const reviewed = useMemo(() => (passage ? parseScriptureReference(passage.reference) : null), [passage]);
+  const reviewedRef = reviewed?.ok ? reviewed.reference : null;
+  const spans = reviewedRef?.spans ?? [];
+  const bounds = spans.length ? { first: spans[0].start, last: spans[spans.length - 1].end } : null;
+
+  /**
+   * Edit the OUTER edges while leaving any gap intact.
+   *
+   * Operating on `[{start: first, end: last}]` would have been simpler and wrong:
+   * extending `John 3:16,18` would have produced `John 3:16-19`, quietly adding
+   * verse 17 the operator had deliberately excluded. Same silent-reinterpretation
+   * failure the parser exists to prevent, one layer up. `mergeSpans` in the parser
+   * collapses the result if an edit closes the gap, so `16,17,18` still
+   * canonicalises to `16-18`.
+   */
+  const editEdge = (edge: 'first' | 'last', delta: -1 | 1): VerseSpan[] => {
+    const next = spans.map((span) => ({ ...span }));
+    if (edge === 'first') {
+      const head = next[0];
+      head.start += delta;
+      // A span trimmed past its own end is gone, not inverted.
+      if (head.start > head.end) next.shift();
+    } else {
+      const tail = next[next.length - 1];
+      tail.end += delta;
+      if (tail.end < tail.start) next.pop();
+    }
+    return next;
+  };
+
+  /** How many verses are selected in total — 1 means trimming would empty it. */
+  const selectedCount = spans.reduce((total, span) => total + (span.end - span.start + 1), 0);
+
+  const openRecent = (recent: ScriptureRecent) => {
+    // No fetch: the stored result is complete, so this works with no network.
+    onQueryChange(recent.result.reference);
+    onTranslationChange(recent.translationId);
+    onPassage(recent.result, true);
+  };
+
+  const stagingDisabled = !passage || pending;
+
+  return (
+    <div className="scripture-ws">
+      <form className="scripture-ws__search" role="search" aria-label="Scripture lookup" onSubmit={submit}>
+        <div className="scripture-ws__row">
+          <label className="scripture-ws__field">
+            <span className="field__label">Reference</span>
+            <input
+              className="field__input"
+              value={query}
+              placeholder="e.g. John 3:16, Psalm 23:1-3, 1 Cor 13:4-7"
+              aria-label="Scripture reference"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => onQueryChange(event.target.value)}
+            />
+          </label>
+          <label className="scripture-ws__field scripture-ws__field--translation">
+            <span className="field__label">Translation</span>
+            <select
+              className="field__input"
+              value={translationId}
+              onChange={(event) => onTranslationChange(event.target.value)}
+            >
+              {provider.translations.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label} — {item.name ?? item.label}
+                  {item.partial ? ` (${item.partial})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="btn btn--secondary btn--md scripture-ws__lookup" disabled={pending}>
+            {pending ? 'Looking…' : 'Look up'}
+          </button>
+        </div>
+
+        <div className="scripture-ws__meta">
+          {/* Translation is named in text, never by colour alone — WEB and KJV of
+              one verse are different on-air content, and airing the wrong one is a
+              real mistake. */}
+          <span className="ll-tag">{translation?.label ?? translationId.toUpperCase()}</span>
+          {translation?.partial ? <span className="scripture-ws__note">{translation.partial}</span> : null}
+          {offline ? (
+            <span className="ll-tag ll-tag--warn">Offline — saved passages only</span>
+          ) : null}
+        </div>
+      </form>
+
+      {/*
+        Both live regions are always mounted. Toggling `role` on a single element
+        means the region does not exist at the moment its content changes, and the
+        change can go unannounced. Progress and success are polite: a settling
+        search must not interrupt someone verifying what is on air. Errors are
+        assertive, because they block the action just requested.
+      */}
+      <p className="field__hint scripture-ws__status" role="status" aria-live="polite">
+        {status === 'error' ? '' : message || typingHint || 'Type a reference and press Look up. Nothing goes on air until you press Take.'}
+      </p>
+      <p className="field__hint field__hint--error scripture-ws__status" role="alert">
+        {status === 'error' ? message : ''}
+      </p>
+
+      {status === 'error' && failure === 'rate-limited' ? (
+        <p className="scripture-ws__note">
+          The service limits how often it can be asked. Recent passages below still work without it.
+        </p>
+      ) : null}
+
+      {passage ? (
+        <section className="scripture-ws__passage" aria-label="Retrieved passage">
+          <header className="scripture-ws__passage-head">
+            <h3 className="scripture-ws__ref">{passage.reference}</h3>
+            <span className="ll-tag">{passage.translation}</span>
+            {fromCache ? <span className="scripture-ws__note">from saved copy</span> : null}
+          </header>
+          <p className="scripture-ws__text">{passage.text}</p>
+          {passage.attribution ? (
+            <p className="scripture-ws__attribution">{passage.attribution}</p>
+          ) : null}
+
+          {reviewedRef && bounds ? (
+            <div className="scripture-ws__range" role="group" aria-label="Verse range">
+              {/* The canonical spans, not first-to-last: a readout of "16-18" over
+                  a passage that is verses 16 and 18 claims a verse that is not
+                  there. */}
+              <span className="scripture-ws__range-readout">
+                {reviewedRef.book} {reviewedRef.chapter}:{formatSpans(spans)}
+              </span>
+              {/* Native buttons: real tab stops, Enter/Space, and the surface's
+                  focus ring with no extra CSS. Each label states the resulting
+                  reference, so one press is predictable before it is pressed. */}
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={pending || bounds.first <= 1}
+                aria-label={`Include verse ${bounds.first - 1} — ${reviewedRef.book} ${reviewedRef.chapter}:${formatSpans(editEdge('first', -1))}`}
+                onClick={() => adjust(editEdge('first', -1), reviewedRef)}
+              >
+                ‹ Verse before
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                /* No upper bound is asserted here: verse counts vary per chapter
+                   and are provider-assisted, so a local guess would either block
+                   a valid verse or invent one. Extending past the end returns an
+                   honest "no passage found" and leaves the current text standing. */
+                disabled={pending}
+                aria-label={`Include verse ${bounds.last + 1} — ${reviewedRef.book} ${reviewedRef.chapter}:${formatSpans(editEdge('last', 1))}`}
+                onClick={() => adjust(editEdge('last', 1), reviewedRef)}
+              >
+                Verse after ›
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={pending || selectedCount <= 1}
+                aria-label={`Drop verse ${bounds.first} — ${reviewedRef.book} ${reviewedRef.chapter}:${formatSpans(editEdge('first', 1))}`}
+                onClick={() => adjust(editEdge('first', 1), reviewedRef)}
+              >
+                − First
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                disabled={pending || selectedCount <= 1}
+                aria-label={`Drop verse ${bounds.last} — ${reviewedRef.book} ${reviewedRef.chapter}:${formatSpans(editEdge('last', -1))}`}
+                onClick={() => adjust(editEdge('last', -1), reviewedRef)}
+              >
+                − Last
+              </button>
+            </div>
+          ) : null}
+
+          {/*
+            Staging only. These lock while a lookup is in flight so a passage can
+            never be committed with a reference that has already moved on.
+          */}
+          <div className="scripture-ws__actions">
+            <button
+              type="button"
+              className="btn btn--md"
+              disabled={stagingDisabled}
+              onClick={() => passage && onAccept(passage, translationId)}
+            >
+              Set as current graphic
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary btn--md"
+              disabled={stagingDisabled}
+              onClick={() => passage && onQueue(passage, translationId)}
+            >
+              Add to quick queue
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary btn--md"
+              disabled={stagingDisabled}
+              onClick={() => passage && onAddToRundown(passage, translationId)}
+            >
+              Add to rundown
+            </button>
+          </div>
+          {rundownActive ? (
+            <p className="scripture-ws__note">
+              A rundown is active, so Take fires the selected rundown item — add this passage to the rundown, then
+              select it there.
+            </p>
+          ) : null}
+        </section>
+      ) : (
+        <p className="scripture-ws__empty">
+          {currentGraphicReference
+            ? `The current graphic is ${currentGraphicReference}. Look up a reference to replace it.`
+            : 'No passage retrieved yet.'}
+        </p>
+      )}
+
+      {notice ? (
+        <p className="scripture-ws__notice" role="status" aria-live="polite">
+          {notice}{' '}
+          <button type="button" className="btn btn--ghost btn--xs" onClick={onDismissNotice}>
+            Dismiss
+          </button>
+        </p>
+      ) : null}
+
+      <section className="scripture-ws__recents" aria-label="Recent passages">
+        <span className="ll-kicker">Recent passages</span>
+        {recents.length ? (
+          <div className="scripture-ws__recent-row" role="group" aria-label="Reopen a recent passage">
+            {recents.map((recent) => (
+              <button
+                key={recent.key}
+                type="button"
+                className="scripture-ws__recent"
+                onClick={() => openRecent(recent)}
+              >
+                <span className="scripture-ws__recent-ref">{recent.result.reference}</span>
+                <span className="scripture-ws__recent-tag">{recent.result.translation}</span>
+                <span className="scripture-ws__recent-snip">{recent.result.text.slice(0, 48)}…</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="scripture-ws__note">
+            Passages you use appear here, so you can reopen one without retyping it.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}

@@ -6000,6 +6000,96 @@ body.gfx-transparent {
 .control-root .scripture-lookup__select { flex: 1; display: grid; gap: 6px; }
 .control-root .scripture-lookup__row .btn { flex: none; min-height: 38px; }
 
+/* ── Scripture workspace ─────────────────────────────────────────────────────
+   The centre pane of /control/scripture. Every interactive element here is a
+   native button, input or select, so the surface's focus ring (--ll-focus,
+   applied to .control-root button/input/select:focus-visible) covers all of it
+   with no extra rules — and keyboard operation comes for free.
+
+   Base layer only: this column stacks naturally, so there is no breakpoint of
+   its own. At 1024 the whole studio grid becomes one column and this simply
+   narrows with it. */
+.control-root .scripture-ws { display: flex; flex-direction: column; gap: 14px; }
+
+.control-root .scripture-ws__search {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+.control-root .scripture-ws__row { display: flex; align-items: end; gap: 9px; flex-wrap: wrap; }
+.control-root .scripture-ws__field { display: grid; gap: 6px; flex: 1 1 220px; min-width: 0; }
+.control-root .scripture-ws__field--translation { flex: 0 1 260px; }
+.control-root .scripture-ws__lookup { flex: none; min-height: 38px; }
+.control-root .scripture-ws__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Amber rather than red: an offline controller is a degraded state the operator
+   can work in (recents still resolve), not a failure. */
+.control-root .ll-tag--warn {
+  color: #f5c77e;
+  background: rgba(245, 199, 126, 0.1);
+  border-color: rgba(245, 199, 126, 0.32);
+}
+
+.control-root .scripture-ws__status { margin: 0; min-height: 17px; }
+.control-root .scripture-ws__note { margin: 0; font-size: 11.5px; color: var(--ll-muted-2); }
+
+.control-root .scripture-ws__passage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ll-border-soft);
+  /* Left edge marks this as the reviewed passage — the thing the staging
+     buttons below will act on. Same device as .ref-picker__section. */
+  border-left: 2px solid rgba(34, 211, 238, 0.42);
+}
+.control-root .scripture-ws__passage-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.control-root .scripture-ws__ref { margin: 0; font-size: 15px; font-weight: 700; color: #e8eef7; }
+.control-root .scripture-ws__text { margin: 0; font-size: 13.5px; line-height: 1.62; color: #cdd6e4; }
+.control-root .scripture-ws__attribution { margin: 0; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ll-muted-2); }
+
+.control-root .scripture-ws__range {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding-top: 9px;
+  border-top: 1px solid var(--ll-border-soft);
+}
+.control-root .scripture-ws__range-readout { font-size: 12px; font-weight: 700; color: #9fb0c6; margin-right: 3px; }
+
+.control-root .scripture-ws__actions { display: flex; gap: 9px; flex-wrap: wrap; padding-top: 4px; }
+.control-root .scripture-ws__empty { margin: 0; font-size: 12.5px; color: var(--ll-muted-2); }
+.control-root .scripture-ws__notice { margin: 0; font-size: 12.5px; color: #bfe9d2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.control-root .scripture-ws__recents { display: flex; flex-direction: column; gap: 8px; padding-top: 11px; border-top: 1px solid var(--ll-border-soft); }
+.control-root .scripture-ws__recent-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.control-root .scripture-ws__recent {
+  display: grid;
+  gap: 2px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.026);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .scripture-ws__recent:hover { border-color: rgba(34, 211, 238, 0.42); background: rgba(34, 211, 238, 0.1); }
+.control-root .scripture-ws__recent-ref { font-size: 12.5px; font-weight: 700; color: #dff9ff; }
+/* Translation as readable text on every entry: WEB and KJV of one verse are
+   different on-air content, so colour alone could not tell them apart. */
+.control-root .scripture-ws__recent-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ll-muted-2); }
+.control-root .scripture-ws__recent-snip { font-size: 11px; color: #9fb0c6; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .control-root .field-grid__optional { display: flex; flex-direction: column; gap: 13px; margin-top: 4px; padding-top: 15px; border-top: 1px solid var(--ll-border-soft); }
 .control-root .field-grid__divider { font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ll-muted-2); }
 

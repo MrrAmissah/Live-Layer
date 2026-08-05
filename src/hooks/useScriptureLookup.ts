@@ -1,58 +1,79 @@
 import { useRef, useState } from 'react';
 import type { ScriptureLookupResult } from '../types/scripture';
 import { defaultScriptureProvider } from '../lib/scripture/providers';
-import { scriptureCacheKey } from '../lib/scripture/referenceParser';
 import { getCachedScripture, saveCachedScripture } from '../lib/scripture/scriptureCache';
+import { runScriptureLookup } from '../lib/scripture/runLookup';
+import type { ScriptureFailureKind } from '../lib/scripture/lookupOutcome';
 
 interface LookupState {
   status: 'idle' | 'loading' | 'success' | 'error';
   message?: string;
+  /** Served from the local cache rather than fetched just now. */
   fromCache?: boolean;
+  /** Set on failure so the UI can offer the right recovery. */
+  failure?: ScriptureFailureKind;
 }
 
-function friendlyError(error: unknown) {
-  if (error instanceof Error && error.message === 'reference-required') {
-    return 'Enter a scripture reference first.';
-  }
-  return 'Unable to look that up. You can still paste the verse.';
+function isOnline() {
+  return typeof navigator === 'undefined' || navigator.onLine !== false;
 }
 
+/**
+ * React binding for `runScriptureLookup`. The rule — parse, cache, fetch, discard
+ * stale, then write — lives in that module so it can be tested with interleaved
+ * requests; all this owns is the request counter and the rendered state.
+ */
 export function useScriptureLookup() {
   const [state, setState] = useState<LookupState>({ status: 'idle' });
-  // Sequence guard: only the newest lookup may update status/message or return a
-  // result. A stale response (an earlier request resolving after a newer one) is
-  // ignored silently — it never overwrites loading/success/error state, and
-  // returns null so callers don't apply it.
+  // Only the newest lookup may update state or return a result. An earlier
+  // request resolving after a newer one is ignored silently.
   const requestId = useRef(0);
 
   const lookup = async (reference: string, translation: string): Promise<ScriptureLookupResult | null> => {
     const id = ++requestId.current;
-    const key = scriptureCacheKey(defaultScriptureProvider.id, translation, reference);
-    setState({ status: 'loading', message: 'Looking up scripture...' });
+    setState({ status: 'loading', message: 'Looking up scripture…' });
 
-    try {
-      const cached = await getCachedScripture(key);
-      if (cached) {
-        if (requestId.current !== id) return null;
-        setState({ status: 'success', message: `Found ${cached.reference} from cache.`, fromCache: true });
-        return cached;
-      }
+    const outcome = await runScriptureLookup(reference, translation, {
+      provider: defaultScriptureProvider,
+      getCached: getCachedScripture,
+      saveCached: saveCachedScripture,
+      isCurrent: () => requestId.current === id,
+      online: isOnline()
+    });
 
-      const result = await defaultScriptureProvider.lookup(reference, translation);
-      await saveCachedScripture(key, result);
-      if (requestId.current !== id) return null;
-      setState({ status: 'success', message: `Found ${result.reference}.`, fromCache: false });
-      return result;
-    } catch (error) {
-      if (requestId.current !== id) return null;
-      setState({ status: 'error', message: friendlyError(error) });
-      return null;
+    switch (outcome.kind) {
+      case 'stale':
+        return null;
+      case 'invalid':
+        setState({
+          status: 'error',
+          message: outcome.message,
+          failure: outcome.problem === 'empty' ? 'reference-required' : 'reference-invalid'
+        });
+        return null;
+      case 'cached':
+        // Named as a saved copy: a cache hit is a previous result, and calling it
+        // "found" would let a stale passage read as a fresh confirmation.
+        setState({ status: 'success', message: `${outcome.result.reference} — from saved copy.`, fromCache: true });
+        return outcome.result;
+      case 'fresh':
+        setState({ status: 'success', message: `Found ${outcome.result.reference}.`, fromCache: false });
+        return outcome.result;
+      case 'failed':
+        setState({ status: 'error', message: outcome.failure.message, failure: outcome.failure.kind });
+        return null;
     }
+  };
+
+  const reset = () => {
+    requestId.current += 1;
+    setState({ status: 'idle' });
   };
 
   return {
     provider: defaultScriptureProvider,
     ...state,
-    lookup
+    lookup,
+    reset
   };
 }
