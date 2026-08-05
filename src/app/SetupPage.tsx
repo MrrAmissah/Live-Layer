@@ -92,129 +92,135 @@ export default function SetupPage() {
           </div>
         </header>
 
-        <div className="setup-grid">
-          <div className="setup-col">
-            <div className="setup-head">
-              <h1 className="setup-title">Connect LiveLayer to OBS</h1>
-              <p className="setup-lead">
-                Add the control page as a dock and the output page as a transparent browser source. Two surfaces, no install.
-              </p>
+        {/* The command bar spans the viewport like every other surface; the
+            content below is a centred reading column. Without this wrapper the
+            page inherited the studio's full-bleed `.control-inner` frame and
+            sat pinned to the left edge with no gutters. */}
+        <main className="setup-main">
+          <div className="setup-head">
+            <h1 className="setup-title">Connect LiveLayer to OBS</h1>
+            <p className="setup-lead">
+              Add the control page as a dock and the output page as a transparent browser source. Two surfaces, no install.
+            </p>
+          </div>
+
+          <div className="setup-grid">
+            <div className="setup-col">
+              <Panel>
+                <SectionHeader kicker="Step 1" title="Add the control dock" />
+                <div className="ll-panel__body setup-body">
+                  <p className="setup-text">
+                    Add the control page to OBS as a Custom Browser Dock — where you choose templates, edit fields, and press Take.
+                  </p>
+                  <UrlRow
+                    url={controlUrl}
+                    label="Control URL"
+                    onCopy={() => copyToClipboard(controlUrl, 'Control URL')}
+                    onOpen={() => window.open(controlUrl, '_blank')}
+                    openLabel="Open"
+                  />
+                </div>
+              </Panel>
+
+              <Panel>
+                <SectionHeader kicker="Step 2" title="Add the output source" />
+                <div className="ll-panel__body setup-body">
+                  <p className="setup-text">
+                    Add the output page as an OBS Browser Source. Enable <strong>transparent</strong> background at 1920×1080 (or your scene resolution).
+                  </p>
+                  <UrlRow
+                    url={outputUrl}
+                    label="Output URL"
+                    onCopy={() => copyToClipboard(outputUrl, 'Output URL')}
+                    onOpen={() => window.open(`${outputUrl}?debug=1`, '_blank')}
+                    openLabel="Debug"
+                  />
+                </div>
+              </Panel>
+
+              <Panel>
+                <SectionHeader kicker="Step 3" title="Recommended OBS settings" />
+                <div className="ll-panel__body">
+                  <ul className="setup-list">
+                    <li>Browser source size: 1920×1080</li>
+                    <li>Enable transparent background</li>
+                    <li>Refresh the browser when the scene becomes active</li>
+                    <li>Use the dock for editing, the browser source for live output</li>
+                  </ul>
+                </div>
+              </Panel>
+
+              <Panel>
+                <SectionHeader kicker="Optional" title="Send the OBS output over NDI" />
+                <div className="ll-panel__body setup-body">
+                  <p className="setup-text">
+                    LiveLayer does not emit native NDI. To send graphics to another PC or Mac today, render
+                    <code className="setup-kbd">/output</code> inside OBS on the graphics machine, then use
+                    OBS with DistroAV/NDI to send the finished scene or program feed across the network.
+                  </p>
+                  <ul className="setup-list">
+                    <li>Install the same NDI runtime/plugin workflow on the sending and receiving machines.</li>
+                    <li>In OBS, keep the LiveLayer Browser Source above the camera/video layer.</li>
+                    <li>Enable OBS NDI output for the scene/program you want to send.</li>
+                    <li>On the second machine, receive that NDI feed in OBS or another NDI-compatible app.</li>
+                  </ul>
+                  <p className="setup-text">
+                    This sends rendered video only. Control and Take/Clear still run on the local graphics
+                    machine until LiveLayer has a LAN event bus.
+                  </p>
+                </div>
+              </Panel>
+
+              <Panel>
+                <SectionHeader kicker="Beta" title="Control over LAN" />
+                <div className="ll-panel__body setup-body">
+                  <p className="setup-text">
+                    For a second PC or tablet controller, run the app and relay on the graphics machine:
+                    <code className="setup-kbd">npm run dev:lan</code> and
+                    <code className="setup-kbd">npm run lan:relay</code>. Then use the relay URLs below.
+                  </p>
+                  <UrlRow
+                    url={lanControlUrl}
+                    label="LAN Control URL"
+                    onCopy={() => copyToClipboard(lanControlUrl, 'LAN Control URL')}
+                    onOpen={() => window.open(lanControlUrl, '_blank')}
+                    openLabel="Open"
+                  />
+                  <UrlRow
+                    url={lanOutputUrl}
+                    label="LAN Output URL"
+                    onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
+                    onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
+                    openLabel="Debug"
+                  />
+                  <p className="setup-text">
+                    This relays live commands only. Uploaded asset libraries, People, presets, and saved
+                    rundowns are still stored per browser until host-owned asset storage is added.
+                  </p>
+                </div>
+              </Panel>
             </div>
 
-            <Panel>
-              <SectionHeader kicker="Step 1" title="Add the control dock" />
-              <div className="ll-panel__body setup-body">
-                <p className="setup-text">
-                  Add the control page to OBS as a Custom Browser Dock — where you choose templates, edit fields, and press Take.
-                </p>
-                <UrlRow
-                  url={controlUrl}
-                  label="Control URL"
-                  onCopy={() => copyToClipboard(controlUrl, 'Control URL')}
-                  onOpen={() => window.open(controlUrl, '_blank')}
-                  openLabel="Open"
-                />
-              </div>
-            </Panel>
-
-            <Panel>
-              <SectionHeader kicker="Step 2" title="Add the output source" />
-              <div className="ll-panel__body setup-body">
-                <p className="setup-text">
-                  Add the output page as an OBS Browser Source. Enable <strong>transparent</strong> background at 1920×1080 (or your scene resolution).
-                </p>
-                <UrlRow
-                  url={outputUrl}
-                  label="Output URL"
-                  onCopy={() => copyToClipboard(outputUrl, 'Output URL')}
-                  onOpen={() => window.open(`${outputUrl}?debug=1`, '_blank')}
-                  openLabel="Debug"
-                />
-              </div>
-            </Panel>
-
-            <Panel>
-              <SectionHeader kicker="Step 3" title="Recommended OBS settings" />
-              <div className="ll-panel__body">
-                <ul className="setup-list">
-                  <li>Browser source size: 1920×1080</li>
-                  <li>Enable transparent background</li>
-                  <li>Refresh the browser when the scene becomes active</li>
-                  <li>Use the dock for editing, the browser source for live output</li>
-                </ul>
-              </div>
-            </Panel>
-
-            <Panel>
-              <SectionHeader kicker="Optional" title="Send the OBS output over NDI" />
-              <div className="ll-panel__body setup-body">
-                <p className="setup-text">
-                  LiveLayer does not emit native NDI. To send graphics to another PC or Mac today, render
-                  <code className="setup-kbd">/output</code> inside OBS on the graphics machine, then use
-                  OBS with DistroAV/NDI to send the finished scene or program feed across the network.
-                </p>
-                <ul className="setup-list">
-                  <li>Install the same NDI runtime/plugin workflow on the sending and receiving machines.</li>
-                  <li>In OBS, keep the LiveLayer Browser Source above the camera/video layer.</li>
-                  <li>Enable OBS NDI output for the scene/program you want to send.</li>
-                  <li>On the second machine, receive that NDI feed in OBS or another NDI-compatible app.</li>
-                </ul>
-                <p className="setup-text">
-                  This sends rendered video only. Control and Take/Clear still run on the local graphics
-                  machine until LiveLayer has a LAN event bus.
-                </p>
-              </div>
-            </Panel>
-
-            <Panel>
-              <SectionHeader kicker="Beta" title="Control over LAN" />
-              <div className="ll-panel__body setup-body">
-                <p className="setup-text">
-                  For a second PC or tablet controller, run the app and relay on the graphics machine:
-                  <code className="setup-kbd">npm run dev:lan</code> and
-                  <code className="setup-kbd">npm run lan:relay</code>. Then use the relay URLs below.
-                </p>
-                <UrlRow
-                  url={lanControlUrl}
-                  label="LAN Control URL"
-                  onCopy={() => copyToClipboard(lanControlUrl, 'LAN Control URL')}
-                  onOpen={() => window.open(lanControlUrl, '_blank')}
-                  openLabel="Open"
-                />
-                <UrlRow
-                  url={lanOutputUrl}
-                  label="LAN Output URL"
-                  onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
-                  onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
-                  openLabel="Debug"
-                />
-                <p className="setup-text">
-                  This relays live commands only. Uploaded asset libraries, People, presets, and saved
-                  rundowns are still stored per browser until host-owned asset storage is added.
-                </p>
-              </div>
-            </Panel>
+            <div className="setup-col">
+              <Panel className="setup-aside">
+                <SectionHeader kicker="Checklist" title="Quick start" />
+                <div className="ll-panel__body setup-body">
+                  <ol className="setup-steps">
+                    <li>Open <code className="setup-kbd">/setup</code> to copy the OBS URLs.</li>
+                    <li>Add <code className="setup-kbd">/control</code> as an OBS dock.</li>
+                    <li>Add <code className="setup-kbd">/output</code> as a browser source.</li>
+                    <li>Pick a template, edit values, press Take.</li>
+                    <li>Use the debug output to verify transparency.</li>
+                  </ol>
+                  <p className="setup-statusline" role="status" aria-live="polite">
+                    {copyHint || 'Copy either URL and open it to verify the connection.'}
+                  </p>
+                </div>
+              </Panel>
+              <SetupDiagnostics />
+            </div>
           </div>
-
-          <div className="setup-col">
-            <Panel className="setup-aside">
-              <SectionHeader kicker="Checklist" title="Quick start" />
-              <div className="ll-panel__body setup-body">
-                <ol className="setup-steps">
-                  <li>Open <code className="setup-kbd">/setup</code> to copy the OBS URLs.</li>
-                  <li>Add <code className="setup-kbd">/control</code> as an OBS dock.</li>
-                  <li>Add <code className="setup-kbd">/output</code> as a browser source.</li>
-                  <li>Pick a template, edit values, press Take.</li>
-                  <li>Use the debug output to verify transparency.</li>
-                </ol>
-                <p className="setup-statusline" role="status" aria-live="polite">
-                  {copyHint || 'Copy either URL and open it to verify the connection.'}
-                </p>
-              </div>
-            </Panel>
-            <SetupDiagnostics />
-          </div>
-        </div>
+        </main>
       </div>
     </div>
   );
