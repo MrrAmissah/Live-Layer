@@ -181,6 +181,20 @@ describe('the staging notice tells the truth about how Take will behave', () => 
   });
 });
 
+describe('a queued passage names its translation', () => {
+  it('puts the translation in the quick-queue label', () => {
+    /**
+     * `presetName` is what the rail shows and it wins over the graphic's fields,
+     * so queueing one verse in two translations produced two identical rows —
+     * with a Take button on each, and nothing to choose between them.
+     */
+    const code = stripComments(workspace);
+    expect(code).toMatch(/addToQuickQueue\(`\$\{result\.reference\}[^`]*\$\{result\.translation\}`\)/);
+    // The bare form is the bug.
+    expect(code).not.toContain('addToQuickQueue(result.reference)');
+  });
+});
+
 describe('the workspace still stages rather than airs', () => {
   it('renders no Take or Clear of its own', () => {
     // Presence anchor lives in workspaceRoutes.test.ts, which asserts LiveActions

@@ -89,7 +89,18 @@ export default function ScriptureWorkspace() {
   const queue = (result: ScriptureLookupResult, translationId: string) => {
     applyPassage(result);
     rememberScripturePassage(result, translationId);
-    addToQuickQueue(result.reference);
+    /**
+     * The translation belongs in the label.
+     *
+     * `presetName` is what the quick-queue rail shows, and it wins over the
+     * graphic's own fields — so queueing John 3:16 in WEB and again in KJV gave
+     * two rows reading `John 3:16`, indistinguishable. The compact rail puts a
+     * Take button directly on that row, so the operator picks between them with
+     * nothing to tell them apart, and they are different on-air content. Same
+     * rule as the passage tag and every recents entry: translation is readable
+     * text wherever a passage is identified.
+     */
+    addToQuickQueue(`${result.reference} · ${result.translation}`);
     setNotice(
       activeRundownId
         ? `Added ${result.reference} to the quick queue — it is in the rail, not on air. A rundown is active, so Take fires the selected rundown item.`
