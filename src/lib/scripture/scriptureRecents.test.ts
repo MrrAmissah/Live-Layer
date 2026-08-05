@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   readScriptureRecents,
@@ -140,7 +141,6 @@ describe('Reset all local data reaches the Scripture scratchpad', () => {
 
   it('is wired from clearLocalData, not left as an unused export', () => {
     // Presence anchor: the function existing is not the same as it being called.
-    const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const store = readFileSync('src/store/useLiveLayerStore.ts', 'utf8');
     expect(store).toContain('resetScriptureDraft');
     const clearAt = store.indexOf('clearLocalData: () =>');
@@ -162,7 +162,6 @@ describe('the recents key is registered for clear-all', () => {
     const storage = await import('../storage');
     expect(storage.SCRIPTURE_RECENTS_KEY).toBe(KEY);
 
-    const { readFileSync } = await import('node:fs');
     const source = readFileSync('src/lib/storage.ts', 'utf8');
     expect(source).toContain(`scriptureRecents: '${KEY}'`);
     expect(source).toContain('Object.values(STORAGE_KEYS).forEach');
