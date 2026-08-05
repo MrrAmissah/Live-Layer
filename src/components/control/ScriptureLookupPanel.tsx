@@ -114,7 +114,17 @@ export default function ScriptureLookupPanel({
     const requested = translationId;
     const found = await lookup(reference, requested);
     if (!found) return; // stale, or a failure the hook has already reported
-    if (latestTranslation.current !== requested) return;
+    if (latestTranslation.current !== requested) {
+      /**
+       * The hook has already written "Found …" by this point — it resolves the
+       * request before this guard sees it. Returning alone would leave that
+       * success on the status line above a passage panel the translation switch
+       * emptied, so the surface would report finding something it is not showing.
+       * `reset` puts the status back to idle for the discarded result.
+       */
+      reset();
+      return;
+    }
     // The provenance travels with the result. Hardcoding `false` here made a
     // cache hit render as a fresh fetch, so the "from saved copy" label — the one
     // thing distinguishing a stored passage from a confirmed current one —

@@ -41,6 +41,18 @@ describe('an in-flight lookup cannot outlive its translation', () => {
     expect(applyAt).toBeGreaterThan(guardAt);
   });
 
+  it('clears the success status it is discarding, not just the result', () => {
+    // The hook resolves the request — writing "Found …" — before this guard runs,
+    // so returning alone leaves a success message above an emptied passage panel.
+    const code = stripComments(panel);
+    const guardAt = code.indexOf('latestTranslation.current !== requested');
+    const resetAt = code.indexOf('reset();', guardAt);
+    const returnAt = code.indexOf('return;', guardAt);
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(resetAt).toBeGreaterThan(-1);
+    expect(resetAt).toBeLessThan(returnAt);
+  });
+
   it('keeps the mirror fresh on every render, or the comparison reads a stale value', () => {
     const code = stripComments(panel);
     expect(code).toMatch(/latestTranslation\.current\s*=\s*translationId/);
