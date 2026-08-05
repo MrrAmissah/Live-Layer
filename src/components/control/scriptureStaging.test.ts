@@ -46,6 +46,24 @@ describe('an in-flight lookup cannot outlive its translation', () => {
     expect(code).toMatch(/latestTranslation\.current\s*=\s*translationId/);
   });
 
+  it('cancels a pending lookup before restoring a recent passage', () => {
+    /**
+     * Reopening a recent starts no lookup, so an in-flight request still passed
+     * the hook's id check and overwrote the restored passage on arrival. The
+     * translation comparison does not cover it — a recent in the SAME translation
+     * as the pending request clears that check.
+     */
+    const code = stripComments(panel);
+    const openAt = code.indexOf('const openRecent');
+    const resetAt = code.indexOf('reset();', openAt);
+    const restoreAt = code.indexOf('onPassage(recent.result, true)', openAt);
+    expect(openAt).toBeGreaterThan(-1);
+    expect(resetAt).toBeGreaterThan(-1);
+    expect(restoreAt).toBeGreaterThan(-1);
+    // Cancel first, then restore — the other order leaves the same race open.
+    expect(resetAt).toBeLessThan(restoreAt);
+  });
+
   it('carries the cache flag with the result rather than hardcoding it', () => {
     /**
      * `onPassage(result, false)` made a cache hit render as a fresh fetch, so the

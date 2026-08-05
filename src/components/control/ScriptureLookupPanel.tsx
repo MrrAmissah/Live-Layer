@@ -58,7 +58,7 @@ export default function ScriptureLookupPanel({
   onDismissNotice,
   currentGraphicReference
 }: Props) {
-  const { provider, status, message, failure, lookup } = useScriptureLookup();
+  const { provider, status, message, failure, lookup, reset } = useScriptureLookup();
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
   const [offline, setOffline] = useState(false);
 
@@ -170,6 +170,16 @@ export default function ScriptureLookupPanel({
   const selectedCount = spans.reduce((total, span) => total + (span.end - span.start + 1), 0);
 
   const openRecent = (recent: ScriptureRecent) => {
+    /**
+     * Cancel anything in flight FIRST.
+     *
+     * Reopening a recent starts no lookup of its own, so a request already in
+     * flight still passed the hook's request-id check and overwrote the restored
+     * passage when it landed. The translation guard above does not catch it: a
+     * recent in the SAME translation as the pending request clears that check.
+     * `reset` bumps the request id, so the older lookup resolves to null.
+     */
+    reset();
     // No fetch: the stored result is complete, so this works with no network.
     onQueryChange(recent.result.reference);
     onTranslationChange(recent.translationId);
