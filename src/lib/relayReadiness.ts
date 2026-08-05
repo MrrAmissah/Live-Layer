@@ -94,3 +94,106 @@ export function classifyRelayProbe(probe: RelayProbe | null): RelayVerdict {
 /** True only when a command has somewhere to go. */
 export const canAcceptCommands = (connection: RelayConnection): boolean =>
   connection === 'ready' || connection === 'local';
+
+/** What the header shows, kept here so the transition rule can be tested. */
+export interface RelayStatusShape {
+  connection: RelayConnection;
+  host: string | null;
+  detail: string;
+}
+
+/** `host:port`, or null for an unparseable URL. */
+export function relayHost(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).host;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The state to show the moment the effective relay changes, before any probe.
+ *
+ * `useRelayStatus` used to resolve the relay only inside an effect keyed on
+ * `[pollMs, fetchImpl]`. The control layout stays mounted across navigation, so
+ * changing `?relay=` — including to `off` — did not re-run it: the old relay kept
+ * being polled, the old badge kept showing, and because the persistence side
+ * effects live inside `getRealtimeRelayUrl` (it clears storage on `off` and writes
+ * it on a valid value), **the stored relay was never cleared either**. The old
+ * configuration survived until a full reload.
+ *
+ * Two rules, and the second is the one that prevents a lie:
+ *
+ *  - No relay → `local` immediately. `?relay=off` must not sit on a stale `ready`
+ *    badge while a doomed probe finishes.
+ *  - A DIFFERENT relay → `checking` against the NEW host at once, so the previous
+ *    target's `ready` is never displayed beside the new host label.
+ *  - The SAME relay → unchanged, so re-running on an unrelated `search` change
+ *    does not flash `checking` at an operator mid-service.
+ */
+export function resolveRelayTransition(
+  previous: RelayStatusShape | null,
+  relayUrl: string | null
+): RelayStatusShape {
+  if (!relayUrl) return { connection: 'local', host: null, detail: '' };
+
+  const host = relayHost(relayUrl);
+  const sameTarget = previous && previous.host === host && previous.connection !== 'local';
+  if (sameTarget) return previous;
+
+  return { connection: 'checking', host, detail: '' };
+}
+
+/** Injected so a probe can be exercised without a network. */
+export interface RelayProbePorts {
+  fetchImpl: typeof fetch;
+  /** False once a newer relay generation has started. Checked after the await. */
+  isCurrent: () => boolean;
+}
+
+/**
+ * Probe one relay and classify it, or return `null` when the result is stale.
+ *
+ * The staleness check is the point. Without it, switching relay A → B (or A →
+ * `off`) let A's in-flight response land afterwards and overwrite B's state — so
+ * the badge could show A `ready` while the URL named B, or restore a relay the
+ * operator had just turned off. Same shape as `runScriptureLookup`: the rule and
+ * its guard live here where they can be interleaved in a test, and the hook only
+ * supplies the generation.
+ */
+export async function probeRelay(
+  relayUrl: string,
+  ports: RelayProbePorts
+): Promise<RelayStatusShape | null> {
+  const host = relayHost(relayUrl);
+  let probe: RelayProbe | null = null;
+
+  /**
+   * Destructured deliberately. Calling `ports.fetchImpl(...)` invokes the real
+   * `fetch` as a METHOD of `ports`, so `this` is that object and the browser
+   * throws "Illegal invocation" — every probe then failed as `unreachable`,
+   * including against a healthy relay. Unit tests could not catch it: a plain
+   * function fake does not care what `this` is. Found in the browser.
+   */
+  const { fetchImpl } = ports;
+
+  try {
+    const res = await fetchImpl(`${relayUrl}/health`, { method: 'GET' });
+    // The body must be read to classify it. A non-JSON body is the SIGNAL, not an
+    // error, so a parse failure becomes `body: null` rather than "unreachable".
+    let body: unknown = null;
+    try {
+      body = await res.clone().json();
+    } catch {
+      body = null;
+    }
+    probe = { ok: res.ok, status: res.status, contentType: res.headers.get('content-type'), body };
+  } catch {
+    probe = null;
+  }
+
+  if (!ports.isCurrent()) return null;
+  const verdict = classifyRelayProbe(probe);
+  return { connection: verdict.connection, host, detail: verdict.detail };
+}

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { getRealtimeRelayUrl } from '../lib/realtime';
 import {
-  classifyRelayProbe,
+  probeRelay,
+  relayHost,
+  resolveRelayTransition,
   type RelayConnection,
-  type RelayProbe,
-  type RelayVerdict
+  type RelayStatusShape
 } from '../lib/relayReadiness';
 
 export type { RelayConnection } from '../lib/relayReadiness';
@@ -23,72 +25,70 @@ export interface RelayStatus {
  * OBS source is listening, so this is reported honestly as "local") or through a
  * configured LAN relay, which we probe.
  *
- * The verdict lives in `classifyRelayProbe` so it can be tested without a
- * network — including the case that made this necessary, where a dev server's SPA
- * fallback answered `/health` with 200 text/html and the header read "Relay
- * connected" while every command 404'd (issue #20). This hook performs the probe
- * and reports what the rule decides; it never infers readiness from `res.ok`.
+ * **Keyed on `location.search`.** The relay is configured by `?relay=`, and the
+ * control layout stays mounted across navigation, so resolving it only once per
+ * mount left a URL change with no effect: the old relay kept being polled, the old
+ * badge kept showing, and — because the persistence side effects live inside
+ * `getRealtimeRelayUrl`, which clears storage on `off` and writes it on a valid
+ * value — the stored relay was never cleared either. `?relay=off` did nothing
+ * until a full reload. Reading the router's location rather than `window.location`
+ * is what makes the recompute happen at all: an untracked global read is invisible
+ * to React and would reintroduce the same staleness.
  *
- * `fetchImpl` is injectable for the same reason `postToRelay` takes it: assigning
- * `globalThis.fetch` in a test is not undone by `vi.restoreAllMocks()`.
+ * The verdict, the pre-probe transition and the stale-result guard all live in
+ * `relayReadiness.ts` so they can be tested without a DOM; this hook owns only the
+ * generation counter, the timer and the state. Nothing here infers readiness from
+ * `res.ok`, and Program's SENT / UNVERIFIED / FAILED vocabulary is untouched —
+ * readiness is about whether a command has somewhere to go, never about whether
+ * output received it.
  */
 export function useRelayStatus(pollMs = 5000, deps: { fetchImpl?: typeof fetch } = {}): RelayStatus {
+  const { search } = useLocation();
   const [status, setStatus] = useState<RelayStatus>(() => {
     const relayUrl = getRealtimeRelayUrl();
     return relayUrl
-      ? { connection: 'checking', host: hostOf(relayUrl), detail: '' }
+      ? { connection: 'checking', host: relayHost(relayUrl), detail: '' }
       : { connection: 'local', host: null, detail: '' };
   });
 
   const injectedFetch = deps.fetchImpl;
+  /**
+   * Incremented per effect run. A probe that resolves after the relay changed
+   * belongs to an older generation and is discarded, so A's late answer can never
+   * overwrite B — or restore a relay that `?relay=off` just cleared.
+   */
+  const generation = useRef(0);
 
   useEffect(() => {
     const fetchImpl = injectedFetch ?? fetch;
-    const relayUrl = getRealtimeRelayUrl();
-    if (!relayUrl) {
-      setStatus({ connection: 'local', host: null, detail: '' });
-      return;
-    }
-    const host = hostOf(relayUrl);
-    let cancelled = false;
+    const mine = ++generation.current;
 
+    // Re-resolving is also what APPLIES `?relay=off`: the clear-on-off and
+    // write-on-valid side effects live inside this call.
+    const relayUrl = getRealtimeRelayUrl();
+
+    // Show the new target's state before probing it, so the previous relay's
+    // `ready` is never displayed next to the new host label.
+    setStatus((previous) => resolveRelayTransition(previous, relayUrl) as RelayStatus);
+
+    if (!relayUrl) return;
+
+    const isCurrent = () => generation.current === mine;
     const check = async () => {
-      let probe: RelayProbe | null = null;
-      try {
-        const res = await fetchImpl(`${relayUrl}/health`, { method: 'GET' });
-        // The body has to be read to classify it. A non-JSON body is the SIGNAL,
-        // not an error, so a parse failure resolves to `body: null` rather than
-        // falling into the catch and being reported as unreachable.
-        let body: unknown = null;
-        try {
-          body = await res.clone().json();
-        } catch {
-          body = null;
-        }
-        probe = { ok: res.ok, status: res.status, contentType: res.headers.get('content-type'), body };
-      } catch {
-        probe = null;
-      }
-      if (cancelled) return;
-      const verdict: RelayVerdict = classifyRelayProbe(probe);
-      setStatus({ connection: verdict.connection, host, detail: verdict.detail });
+      const next: RelayStatusShape | null = await probeRelay(relayUrl, { fetchImpl, isCurrent });
+      if (!next) return; // stale — a newer relay generation has started
+      setStatus(next as RelayStatus);
     };
 
     void check();
     const timer = window.setInterval(() => void check(), pollMs);
     return () => {
-      cancelled = true;
+      // Bumping the generation cancels in-flight probes as well as the interval;
+      // clearing the timer alone would still let one land.
+      generation.current += 1;
       window.clearInterval(timer);
     };
-  }, [pollMs, injectedFetch]);
+  }, [pollMs, injectedFetch, search]);
 
   return status;
-}
-
-function hostOf(url: string): string | null {
-  try {
-    return new URL(url).host;
-  } catch {
-    return null;
-  }
 }

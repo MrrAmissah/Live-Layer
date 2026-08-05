@@ -109,11 +109,15 @@ describe('the header cannot say connected for a non-relay', () => {
 
   it('reports the verdict rather than inferring it from res.ok', () => {
     const hook = readFileSync('src/hooks/useRelayStatus.ts', 'utf8');
-    expect(hook).toContain('classifyRelayProbe');
+    // The hook delegates the probe AND the classification to `probeRelay`, so it
+    // has no opportunity to invent a verdict of its own.
+    expect(hook).toContain('probeRelay');
+    expect(hook).toContain('resolveRelayTransition');
     // The exact shape of the original bug must not come back.
     expect(hook).not.toMatch(/res\.ok \? 'connected'/);
     expect(hook).not.toMatch(/connection: res\.ok/);
     // A non-JSON body is the signal, so it must not be swallowed as unreachable.
-    expect(hook).toMatch(/catch \{\s*body = null;/);
+    // That now lives in probeRelay.
+    expect(readFileSync('src/lib/relayReadiness.ts', 'utf8')).toMatch(/catch \{\s*body = null;/);
   });
 });
