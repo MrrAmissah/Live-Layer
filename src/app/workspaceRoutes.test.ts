@@ -215,7 +215,11 @@ describe('navigation does not pile up history', () => {
     // Design presets and the queue's Edit both call this from inside Studio;
     // navigating to the URL you are already on pushes a duplicate entry and
     // Back stops appearing to work.
-    expect(controlPage).toMatch(/if \(!location\.pathname\.startsWith\('\/control\/studio'\)\) navigate\('\/control\/studio'\)/);
+    // The travel now goes through `withUrlState` so it carries ?relay= — the
+    // condition is what this test is about, and it must survive that change.
+    expect(controlPage).toMatch(
+      /if \(!location\.pathname\.startsWith\('\/control\/studio'\)\) navigate\(withUrlState\('\/control\/studio', location\)\)/
+    );
   });
 
   it('still loads the graphic either way', () => {

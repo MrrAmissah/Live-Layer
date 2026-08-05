@@ -23,6 +23,7 @@ import StudioNav from '../components/control/StudioNav';
 import StudioLiveBar from '../components/control/StudioLiveBar';
 import type { WorkspaceContext } from './workspaces/workspaceContext';
 import { resolveCanonicalControlPath } from './workspaces/controlPaths';
+import { withUrlState } from '../lib/navigateTo';
 import { PackSwitchGuardProvider } from '../hooks/usePackSwitchGuard';
 
 /** Deep clone so a taken graphic shares no references with editable draft state. */
@@ -178,9 +179,22 @@ export default function ControlPage() {
       // queue's "Edit" both call this from inside Studio, and navigating to the
       // URL you are already on pushes a duplicate history entry — after a few
       // loads, Back does nothing visible until those duplicates are walked off.
-      if (!location.pathname.startsWith('/control/studio')) navigate('/control/studio');
+      if (!location.pathname.startsWith('/control/studio')) navigate(withUrlState('/control/studio', location));
     },
-    [navigate, location.pathname]
+    /**
+     * The WHOLE location, not just `pathname`.
+     *
+     * This closure now reads `search` and `hash` through `withUrlState`, so
+     * depending on `pathname` alone left it holding a stale location whenever
+     * only the query changed while the route stayed mounted. The bad case is not
+     * theoretical: with the URL changed to `?relay=off`, a stale closure would
+     * navigate carrying the OLD `?relay=host:port` and silently restore a relay
+     * the operator had just turned off — reintroducing exactly the URL-state
+     * error this helper exists to prevent. `location` is a fresh object per
+     * navigation, so this recreates the callback slightly more often; that is
+     * cheap and it is correct.
+     */
+    [navigate, location]
   );
 
   /**

@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { linkTo } from '../../lib/navigateTo';
 import { Icon, type IconName } from '../../lib/icons';
 import TemplateLibrary from './TemplateLibrary';
 
@@ -33,7 +34,8 @@ const WORKSPACES: Workspace[] = [
  * browser's back button works, and a workspace can be opened directly by URL.
  */
 export default function StudioNav() {
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const studioOpen = pathname.startsWith('/control/studio');
 
   return (
@@ -47,7 +49,7 @@ export default function StudioNav() {
           {WORKSPACES.map((workspace) => (
             <li key={workspace.to}>
               <NavLink
-                to={workspace.to}
+                to={linkTo(workspace.to, location)}
                 className={({ isActive }) =>
                   `studio-nav__item studio-nav__item--primary${isActive ? ' studio-nav__item--active' : ''}`
                 }
