@@ -41,6 +41,17 @@ export default function ScriptureWorkspace() {
   // Transient confirmations. Losing these on a workspace switch is correct —
   // they describe an action just taken, not state the operator is composing.
   const [notice, setNotice] = useState<string>('');
+  /**
+   * Bumped on every accepted action, so the recents list refreshes even when two
+   * actions produce the SAME notice text — accepting John 3:16 in WEB and then in
+   * KJV yields an identical sentence, React skips the re-render, and the panel's
+   * effect never re-read the list. A counter cannot collide the way a message can.
+   */
+  const [acceptedCount, setAcceptedCount] = useState(0);
+  const recordAccepted = (message: string) => {
+    setNotice(message);
+    setAcceptedCount((count) => count + 1);
+  };
 
   const translationLabelFor = (result: ScriptureLookupResult) => result.translation;
 
@@ -79,7 +90,7 @@ export default function ScriptureWorkspace() {
      * Take would send them pressing a button that cannot air what they just set —
      * mid-service, that reads as the app being broken.
      */
-    setNotice(
+    recordAccepted(
       activeRundownId
         ? `${result.reference} is now the current graphic — but a rundown is active, so Take fires the selected rundown item. Add this passage to the rundown to air it.`
         : `${result.reference} is now the current graphic. Preview it, then Take when ready.`
@@ -101,7 +112,7 @@ export default function ScriptureWorkspace() {
      * text wherever a passage is identified.
      */
     addToQuickQueue(`${result.reference} · ${result.translation}`);
-    setNotice(
+    recordAccepted(
       activeRundownId
         ? `Added ${result.reference} to the quick queue — it is in the rail, not on air. A rundown is active, so Take fires the selected rundown item.`
         : `Added ${result.reference} to the quick queue — it is in the rail, not on air.`
@@ -130,8 +141,19 @@ export default function ScriptureWorkspace() {
 
     applyPassage(result);
     rememberScripturePassage(result, translationId);
-    const item = addDraftToRundown();
-    setNotice(
+    /**
+     * Name the item and record its provenance rather than letting
+     * `deriveItemTitle` guess. That helper reads `values.reference`, so one verse
+     * added in two translations produced two rows titled the same, and the rail
+     * offers Take from that row. `{type:'scripture'}` already exists in
+     * `RundownItemSource` and is read on pack import, but nothing produced it
+     * until now.
+     */
+    const item = addDraftToRundown({
+      title: `${result.reference} · ${result.translation}`,
+      source: { type: 'scripture', reference: result.reference }
+    });
+    recordAccepted(
       item
         ? `Added ${result.reference} to the active rundown — manage the order in ${rundownDestination('studio')}.`
         : `Couldn't add ${result.reference} to the rundown, but it is now the current graphic.`
@@ -158,6 +180,7 @@ export default function ScriptureWorkspace() {
         onAddToRundown={addToRundown}
         rundownActive={Boolean(activeRundownId)}
         notice={notice}
+        recentsVersion={acceptedCount}
         onDismissNotice={() => setNotice('')}
         currentGraphicReference={composing ? draftReference : ''}
       />

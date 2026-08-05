@@ -23,6 +23,8 @@ interface Props {
   onAddToRundown: (passage: ScriptureLookupResult, translationId: string) => void;
   rundownActive: boolean;
   notice: string;
+  /** Increments on every accepted action, so recents refresh even when the notice repeats. */
+  recentsVersion: number;
   onDismissNotice: () => void;
   /** Reference currently on the graphic draft, when it is a scripture card. */
   currentGraphicReference: string;
@@ -55,6 +57,7 @@ export default function ScriptureLookupPanel({
   onAddToRundown,
   rundownActive,
   notice,
+  recentsVersion,
   onDismissNotice,
   currentGraphicReference
 }: Props) {
@@ -62,10 +65,17 @@ export default function ScriptureLookupPanel({
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
   const [offline, setOffline] = useState(false);
 
-  // Re-read after every accepted action; `notice` changes exactly then.
+  /**
+   * Re-read after every accepted action.
+   *
+   * Keyed on a counter rather than the notice text: accepting John 3:16 in WEB
+   * and then in KJV produces the SAME sentence, so React skipped the update and
+   * the list never refreshed — the second translation was missing from recents
+   * until something else happened to change the message.
+   */
   useEffect(() => {
     setRecents(readScriptureRecents());
-  }, [notice]);
+  }, [recentsVersion]);
 
   useEffect(() => {
     const sync = () => setOffline(typeof navigator !== 'undefined' && navigator.onLine === false);

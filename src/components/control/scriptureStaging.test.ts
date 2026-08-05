@@ -181,6 +181,24 @@ describe('the staging notice tells the truth about how Take will behave', () => 
   });
 });
 
+describe('recents refresh on the action, not on the message', () => {
+  it('keys the re-read on a counter, which two identical notices cannot collide', () => {
+    /**
+     * Accepting John 3:16 in WEB and then in KJV produces the same sentence, so
+     * React skipped the update and the panel never re-read the list — the second
+     * translation was missing from recents until an unrelated change moved the
+     * message.
+     */
+    const code = stripComments(panel);
+    expect(code).toMatch(/useEffect\(\(\) => \{\s*setRecents\(readScriptureRecents\(\)\);\s*\}, \[recentsVersion\]\)/);
+    expect(code).not.toMatch(/\}, \[notice\]\)/);
+    // And the workspace must actually increment it on every accepted action.
+    const ws = stripComments(workspace);
+    expect(ws).toContain('setAcceptedCount((count) => count + 1)');
+    expect(ws.match(/recordAccepted\(/g)?.length).toBe(3);
+  });
+});
+
 describe('a queued passage names its translation', () => {
   it('puts the translation in the quick-queue label', () => {
     /**
@@ -192,6 +210,19 @@ describe('a queued passage names its translation', () => {
     expect(code).toMatch(/addToQuickQueue\(`\$\{result\.reference\}[^`]*\$\{result\.translation\}`\)/);
     // The bare form is the bug.
     expect(code).not.toContain('addToQuickQueue(result.reference)');
+  });
+
+  it('names the rundown item too, and records it as a scripture source', () => {
+    /**
+     * `deriveItemTitle` reads `values.reference`, so two translations of one verse
+     * produced two rundown rows with the same title — and the rail offers Take
+     * from that row. `{type:'scripture'}` has existed in `RundownItemSource` and
+     * been read on pack import since before this PR, with nothing producing it.
+     */
+    const code = stripComments(workspace);
+    expect(code).toMatch(/title: `\$\{result\.reference\}[^`]*\$\{result\.translation\}`/);
+    expect(code).toContain("source: { type: 'scripture', reference: result.reference }");
+    expect(code).not.toContain('addDraftToRundown()');
   });
 });
 
