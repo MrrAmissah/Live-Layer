@@ -165,7 +165,13 @@ describe('the Scripture workspace stays provider-neutral', () => {
     redirect: readFileSync('src/app/ScriptureRedirect.tsx', 'utf8'),
     provider: readFileSync('src/lib/scripture/bibleApiProvider.ts', 'utf8'),
     parser: readFileSync('src/lib/scripture/parseReference.ts', 'utf8'),
-    hook: readFileSync('src/hooks/useScriptureLookup.ts', 'utf8')
+    hook: readFileSync('src/hooks/useScriptureLookup.ts', 'utf8'),
+    // The voice-assist foundation MUST be covered by this guard — it is the work
+    // most likely to acquire a microphone or an SDK by accident.
+    spoken: readFileSync('src/lib/scripture/spokenReference.ts', 'utf8'),
+    voiceModel: readFileSync('src/lib/scripture/voiceAssist.ts', 'utf8'),
+    transcriptPort: readFileSync('src/lib/scripture/transcriptSource.ts', 'utf8'),
+    voicePanel: readFileSync('src/components/control/VoiceAssistPreview.tsx', 'utf8')
   };
 
   it('is mounted inside the control layout, with the reserved URL redirecting to it', () => {
