@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
 import { getSelectedItem } from '../lib/rundown/rundownStore';
+import { resolveGraphicReadiness } from '../lib/graphicReadiness';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 import type { RundownItem } from '../types/rundown';
@@ -32,13 +33,14 @@ export function useLiveTakeContext() {
   const selectedItem: RundownItem | undefined = getSelectedItem(rundown);
   const activeItemId = rundown?.activeItemId;
 
-  const takeDisabled = rundownActive && !selectedItem;
-  const takeLabel = rundownActive ? 'Take selected' : 'Take live';
-  const durationSeconds = selectedItem ? selectedItem.graphic.durationSeconds : draftDurationSeconds;
-
-  // The item snapshot's theme was cloned from the (full) draft theme, so the
-  // cast is safe; TemplatePreview merges it over the registry theme regardless.
-  const preview: LivePreviewSource = selectedItem
+  /**
+   * Readiness is computed from the SAME source the preview shows, so the button
+   * and the monitor can never disagree about whether something is airable — the
+   * selected rundown item when a rundown is active, the draft otherwise.
+   * `ControlPage` re-checks before publishing; this only decides what the surface
+   * offers.
+   */
+  const previewSource: LivePreviewSource = selectedItem
     ? {
         templateId: selectedItem.graphic.templateId,
         values: selectedItem.graphic.values,
@@ -47,5 +49,26 @@ export function useLiveTakeContext() {
       }
     : { templateId: currentTemplateId, values: draftValues, theme, layout };
 
-  return { rundown, rundownActive, selectedItem, activeItemId, takeDisabled, takeLabel, durationSeconds, preview };
+  const readiness = resolveGraphicReadiness(previewSource.templateId, previewSource.values);
+
+  const takeDisabled = (rundownActive && !selectedItem) || !readiness.ready;
+  const takeLabel = rundownActive ? 'Take selected' : 'Take live';
+  const durationSeconds = selectedItem ? selectedItem.graphic.durationSeconds : draftDurationSeconds;
+
+  // The item snapshot's theme was cloned from the (full) draft theme, so the
+  // cast is safe; TemplatePreview merges it over the registry theme regardless.
+  const preview = previewSource;
+
+  return {
+    rundown,
+    rundownActive,
+    selectedItem,
+    activeItemId,
+    takeDisabled,
+    takeLabel,
+    durationSeconds,
+    preview,
+    /** Why Take is unavailable on content grounds. Empty when it is available. */
+    notReadyReason: readiness.ready ? '' : readiness.reason
+  };
 }

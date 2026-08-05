@@ -1,4 +1,5 @@
 import type { TemplateDefinition } from '../../types/graphics';
+import { resolveGraphicReadiness, SCRIPTURE_TEMPLATE_ID } from '../../lib/graphicReadiness';
 import Plate from '../graphics/Plate';
 import MaskedLine from '../graphics/MaskedLine';
 import { templateColorStyle } from './colorVars';
@@ -35,10 +36,42 @@ function verseSizeClass(text: string): string {
  */
 export default function ScriptureCard({ values }: Props) {
   const variantId = values.variantId?.trim() || DEFAULT_VARIANT_ID;
-  const reference = values.reference?.trim() || 'Scripture';
-  const verseText = values.verseText?.trim() || 'The Lord is my shepherd; I shall not want.';
+  const reference = values.reference?.trim() ?? '';
+  const verseText = values.verseText?.trim() ?? '';
   const translationLabel = values.translationLabel?.trim() || '';
   const themeTitle = values.themeTitle?.trim() || '';
+  const { ready, reason } = resolveGraphicReadiness(SCRIPTURE_TEMPLATE_ID, values);
+
+  /**
+   * An incomplete card shows that it is incomplete. It does not invent content.
+   *
+   * These two fields used to fall back to `'Scripture'` and to the words of
+   * Psalm 23 — so a card nobody had filled in rendered as a real, unattributed
+   * passage, indistinguishable on a stream from one the operator chose. The
+   * fabricated text is gone, and the same rule that decides this
+   * (`resolveGraphicReadiness`) also gates Take, so what cannot air cannot be
+   * previewed as if it could.
+   *
+   * The placeholder is deliberately not styled as a graphic: no plate, no verse
+   * type, nothing that could read as content if it ever reached a scene. It
+   * exists so the operator sees an obviously unfinished card in Preview rather
+   * than an empty rectangle they might mistake for a rendering fault.
+   */
+  if (!ready) {
+    // Palette vars stay: the renderer contract is that a carried
+    // --gfx-template-* value is declared on the root, and that is theming, not
+    // content — so the placeholder honours it like every other branch.
+    return (
+      <div
+        className="gfx-scripture gfx-scripture--empty"
+        data-variant={variantId}
+        data-empty="true"
+        style={templateColorStyle(values)}
+      >
+        <span className="scripture-empty">{reason}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="gfx-scripture" data-variant={variantId} style={templateColorStyle(values)}>

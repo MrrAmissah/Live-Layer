@@ -8119,3 +8119,14 @@ body.gfx-transparent {
 /* `:focus`, not `:focus-visible` — a skip link must appear for any focus that
    reaches it, including programmatic focus restoration. */
 .control-root .skip-link:focus { top: 12px; box-shadow: var(--ll-focus); }
+
+/* Why Take is unavailable on content grounds. Sits above the actions in both
+   surfaces; amber rather than red because it is an unfinished graphic, not a
+   failure — the operator has something to complete, not something to recover. */
+.control-root .live-actions__blocked,
+.control-root .dock-livebar__actions .live-actions__blocked {
+  margin: 0 0 7px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #f5c77e;
+}

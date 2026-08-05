@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage, publishCommand } from '../lib/realtime';
 import { resolveClearOutcome, resolveTakeOutcome } from '../lib/takeOutcome';
+import { resolveGraphicReadiness } from '../lib/graphicReadiness';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import {
   getActiveRundownId,
@@ -44,6 +45,8 @@ export default function ControlPage() {
   const [lastTakenAt, setLastTakenAt] = useState<number | null>(null);
   // A command is in flight. The ref guards against duplicate submissions from
   // repeated clicks (state alone updates too late); the state drives the UI.
+  // Why the last Take was refused on content grounds, surfaced to the operator.
+  const [notReadyReason, setNotReadyReason] = useState('');
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   // Narrow contexts (OBS Custom Browser Dock, tablets, small windows) get the
@@ -67,6 +70,26 @@ export default function ControlPage() {
    * marks 'failed', never a confirmed live.
    */
   const publishShow = async (instance: GraphicInstance, source: ProgramSource): Promise<boolean> => {
+    /**
+     * Content gate, checked here rather than only on the button.
+     *
+     * `takeDisabled` stops the click, but Take also arrives from the quick queue
+     * and could arrive from a future surface, and a disabled attribute is not a
+     * guarantee. Refusing here is what makes "an empty Scripture card cannot
+     * air" true of the publish path itself.
+     *
+     * It returns BEFORE `publishCommand` and before any `markProgram*`, so a
+     * refused Take leaves Program byte-identical — the graphic already on air
+     * stays on air, and nothing records an attempt that never left.
+     */
+    const readiness = resolveGraphicReadiness(instance.templateId, instance.values);
+    if (!readiness.ready) {
+      setLastAction('idle');
+      setNotReadyReason(readiness.reason);
+      return false;
+    }
+    setNotReadyReason('');
+
     const { markProgramShowing, markProgramFailed } = useLiveLayerStore.getState();
     const message = createMessage('SHOW_GRAPHIC', instance);
     const result = await publishCommand(channelRef.current, message);
