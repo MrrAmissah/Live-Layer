@@ -110,9 +110,28 @@ export default function ScriptureLookupPanel({
   const latestTranslation = useRef(translationId);
   latestTranslation.current = translationId;
 
+  /**
+   * False once this panel is gone.
+   *
+   * The workspace's draft is a module store, so it outlives the component — which
+   * means an await that resolves after the operator has navigated away still
+   * writes into it. The concrete case: start a lookup, switch to Library, choose
+   * "Reset all local data", and the in-flight response repopulates the scratchpad
+   * the reset had just cleared. The hook's request id does not help; nothing
+   * cancelled the request, it simply has no surface left to land on.
+   */
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
   const runLookup = async (reference: string) => {
     const requested = translationId;
     const found = await lookup(reference, requested);
+    if (!alive.current) return; // the panel is gone; the draft store is not ours to write
     if (!found) return; // stale, or a failure the hook has already reported
     if (latestTranslation.current !== requested) {
       /**

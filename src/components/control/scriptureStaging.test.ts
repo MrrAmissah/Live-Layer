@@ -58,6 +58,24 @@ describe('an in-flight lookup cannot outlive its translation', () => {
     expect(code).toMatch(/latestTranslation\.current\s*=\s*translationId/);
   });
 
+  it('does not write the shared draft after the panel is gone', () => {
+    /**
+     * The draft is a module store, so it outlives this component: an await that
+     * resolved after the operator navigated away still wrote to it. Concretely —
+     * start a lookup, switch to Library, choose "Reset all local data", and the
+     * in-flight response repopulated the scratchpad the reset had just cleared.
+     */
+    const code = stripComments(panel);
+    expect(code).toMatch(/alive\.current\s*=\s*false/);
+    const awaitAt = code.indexOf('await lookup(reference, requested)');
+    const aliveAt = code.indexOf('!alive.current', awaitAt);
+    const applyAt = code.indexOf('onPassage(found.result', awaitAt);
+    expect(awaitAt).toBeGreaterThan(-1);
+    expect(aliveAt).toBeGreaterThan(-1);
+    expect(applyAt).toBeGreaterThan(-1);
+    expect(aliveAt).toBeLessThan(applyAt);
+  });
+
   it('cancels a pending lookup before restoring a recent passage', () => {
     /**
      * Reopening a recent starts no lookup, so an in-flight request still passed
