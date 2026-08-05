@@ -180,7 +180,19 @@ export default function ScriptureLookupPanel({
    * live guidance for what they are typing now.
    */
   const changeQuery = (next: string) => {
-    if (status === 'error') reset();
+    /**
+     * A settled result belongs to the reference that produced it.
+     *
+     * `message` takes precedence over `typingHint`, so once a lookup settled the
+     * status line kept announcing it — "Found John 3:16." above someone typing
+     * Romans 8 — and the live guidance for what they were typing now stayed
+     * hidden behind it. Both outcomes are retired on the first keystroke.
+     *
+     * `loading` is deliberately left alone: that message is still true, the
+     * request is still wanted, and cancelling on every keystroke would abandon a
+     * lookup the operator had just submitted with Enter.
+     */
+    if (status === 'error' || status === 'success') reset();
     onQueryChange(next);
   };
 

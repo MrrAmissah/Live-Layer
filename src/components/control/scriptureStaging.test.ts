@@ -207,7 +207,11 @@ describe('a stale error does not outlive the reference it described', () => {
      * describing input that no longer existed.
      */
     const code = stripComments(panel);
-    expect(code).toMatch(/const changeQuery = \(next: string\) => \{\s*if \(status === 'error'\) reset\(\);/);
+    // Both settled outcomes, not just the error: `message` wins over `typingHint`,
+    // so a lingering "Found John 3:16." hid the guidance for what was being typed.
+    expect(code).toMatch(/if \(status === 'error' \|\| status === 'success'\) reset\(\);/);
+    // `loading` must NOT be cleared — that would abandon a lookup just submitted.
+    expect(code).not.toMatch(/if \(status !== 'idle'\) reset\(\);/);
     // The input must use the wrapper, not the raw prop.
     expect(code).toContain('onChange={(event) => changeQuery(event.target.value)}');
     expect(code).not.toContain('onChange={(event) => onQueryChange(event.target.value)}');
