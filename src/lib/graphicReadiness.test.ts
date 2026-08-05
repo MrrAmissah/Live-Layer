@@ -125,6 +125,40 @@ describe('the renderer invents nothing', () => {
   });
 });
 
+describe('the design chooser still shows designs', () => {
+  /**
+   * Caught in the browser, not by a test: once the renderer stopped inventing
+   * content, the four scripture thumbnails in the variant strip all rendered the
+   * empty placeholder whenever the draft was empty — the design chooser stopped
+   * showing designs. They render the live draft precisely so the operator sees
+   * their own copy in each design.
+   *
+   * The fix is scoped to that strip: empty content fields fall back to the
+   * template's own declared `defaultValues`. That is the template's published
+   * sample copy, the same thing the library row already renders, and it cannot
+   * reach air — Preview and Take read `useLiveTakeContext`, which still refuses.
+   */
+  it('falls back to the template sample for the variant strip only', () => {
+    const contentTab = readFileSync('src/components/control/ContentTab.tsx', 'utf8');
+    expect(contentTab).toContain('const sampleValues');
+    expect(contentTab).toContain('valuesOverride={sampleValues}');
+    // The operator's own text must still win over the sample.
+    expect(contentTab).toMatch(/String\(value\)\.trim\(\) !== ''\) sampleValues\[key\] = value/);
+    // And the fallback must not have leaked into the airable path.
+    const takeContext = readFileSync('src/hooks/useLiveTakeContext.ts', 'utf8');
+    expect(takeContext).not.toContain('defaultValues');
+  });
+
+  it('renders a design for a scripture variant thumb built from template defaults', () => {
+    // The strip's merge is `{...defaultValues, ...nonEmpty(values)}`; with an empty
+    // draft that is the template's own sample, which must render as content.
+    const template = templateRegistry.find((t) => t.id === SCRIPTURE_TEMPLATE_ID)!;
+    const html = render({ ...(template.defaultValues as Record<string, string>) });
+    expect(html).not.toContain('scripture-empty');
+    expect(html).toContain('scripture-verse');
+  });
+});
+
 describe('Preview and Take read the same rule', () => {
   it('is the single source both consult', () => {
     const takeContext = readFileSync('src/hooks/useLiveTakeContext.ts', 'utf8');
