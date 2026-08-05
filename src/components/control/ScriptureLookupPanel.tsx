@@ -184,6 +184,22 @@ export default function ScriptureLookupPanel({
     onQueryChange(next);
   };
 
+  /**
+   * Switching translation cancels the request, it does not merely outlive it.
+   *
+   * The comparison in `runLookup` discards the wrong-translation result, but only
+   * once it arrives — until then `status` stays `loading`, which keeps Look up
+   * disabled. So the operator switched WEB→KJV and then could not search, for as
+   * long as a request they had already abandoned took to finish. `reset` bumps
+   * the request id and returns the status to idle, so the button is usable
+   * immediately and the comparison becomes a second line of defence rather than
+   * the only one.
+   */
+  const changeTranslation = (next: string) => {
+    reset();
+    onTranslationChange(next);
+  };
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     void runLookup(query);
@@ -271,7 +287,7 @@ export default function ScriptureLookupPanel({
             <select
               className="field__input"
               value={translationId}
-              onChange={(event) => onTranslationChange(event.target.value)}
+              onChange={(event) => changeTranslation(event.target.value)}
             >
               {provider.translations.map((item) => (
                 <option key={item.id} value={item.id}>

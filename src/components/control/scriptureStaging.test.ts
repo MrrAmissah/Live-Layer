@@ -181,6 +181,23 @@ describe('the staging notice tells the truth about how Take will behave', () => 
   });
 });
 
+describe('switching translation frees the surface immediately', () => {
+  it('cancels the pending request rather than waiting it out', () => {
+    /**
+     * The comparison in runLookup discards a wrong-translation result, but only
+     * once it arrives — until then `status` stays 'loading', which keeps Look up
+     * disabled. So switching WEB→KJV left the operator unable to search for as
+     * long as a request they had already abandoned took to finish.
+     */
+    const code = stripComments(panel);
+    expect(code).toMatch(/const changeTranslation = \(next: string\) => \{\s*reset\(\);/);
+    expect(code).toContain('onChange={(event) => changeTranslation(event.target.value)}');
+    expect(code).not.toContain('onChange={(event) => onTranslationChange(event.target.value)}');
+    // The comparison stays as a second line of defence, not removed.
+    expect(code).toContain('latestTranslation.current !== requested');
+  });
+});
+
 describe('a stale error does not outlive the reference it described', () => {
   it('clears the error when the operator edits the reference', () => {
     /**
