@@ -70,14 +70,31 @@ export default function ScriptureWorkspace() {
     // Recents record ACCEPTED passages, not every lookup — otherwise the four
     // references someone typed while hunting would bury the one they chose.
     rememberScripturePassage(result, translationId);
-    setNotice(`${result.reference} is now the current graphic. Preview it, then Take when ready.`);
+    /**
+     * "Then Take when ready" is only true in draft mode.
+     *
+     * With a rundown active, `ControlPage.onTake` returns through the rundown
+     * branch: it airs the SELECTED ITEM and never falls through to the draft (and
+     * with nothing selected Take is disabled outright). Telling the operator to
+     * Take would send them pressing a button that cannot air what they just set —
+     * mid-service, that reads as the app being broken.
+     */
+    setNotice(
+      activeRundownId
+        ? `${result.reference} is now the current graphic — but a rundown is active, so Take fires the selected rundown item. Add this passage to the rundown to air it.`
+        : `${result.reference} is now the current graphic. Preview it, then Take when ready.`
+    );
   };
 
   const queue = (result: ScriptureLookupResult, translationId: string) => {
     applyPassage(result);
     rememberScripturePassage(result, translationId);
     addToQuickQueue(result.reference);
-    setNotice(`Added ${result.reference} to the quick queue — it is in the rail, not on air.`);
+    setNotice(
+      activeRundownId
+        ? `Added ${result.reference} to the quick queue — it is in the rail, not on air. A rundown is active, so Take fires the selected rundown item.`
+        : `Added ${result.reference} to the quick queue — it is in the rail, not on air.`
+    );
   };
 
   const addToRundown = (result: ScriptureLookupResult, translationId: string) => {

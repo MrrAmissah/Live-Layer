@@ -86,6 +86,32 @@ describe('a failed rundown add changes nothing', () => {
   });
 });
 
+describe('the staging notice tells the truth about how Take will behave', () => {
+  /**
+   * `ControlPage.onTake` returns through the rundown branch when a rundown is
+   * active: it airs the SELECTED ITEM and never falls through to the draft, and
+   * with nothing selected Take is disabled. So "Preview it, then Take when ready"
+   * is only true in draft mode — with a rundown active it points the operator at
+   * a button that cannot air what they just set.
+   */
+  it('does not promise Take will air the draft while a rundown is active', () => {
+    const code = stripComments(workspace);
+    // Every notice that mentions Take must be gated on the rundown state.
+    const takeReady = code.indexOf('Take when ready');
+    expect(takeReady).toBeGreaterThan(-1);
+    const gate = code.lastIndexOf('activeRundownId', takeReady);
+    expect(gate).toBeGreaterThan(-1);
+    // The rundown-mode branch names what Take actually does instead.
+    expect(code).toContain('Take fires the selected rundown item');
+  });
+
+  it('still names the rundown branch in the panel note, not only in the notice', () => {
+    // Presence anchor: the standing note and the transient notice are separate
+    // surfaces, and the note is what an operator sees before acting.
+    expect(panel).toContain('Take fires the selected rundown item');
+  });
+});
+
 describe('the workspace still stages rather than airs', () => {
   it('renders no Take or Clear of its own', () => {
     // Presence anchor lives in workspaceRoutes.test.ts, which asserts LiveActions
