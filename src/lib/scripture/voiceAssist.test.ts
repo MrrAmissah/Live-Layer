@@ -209,20 +209,46 @@ describe('the transcript port stays provider-neutral', () => {
   const port = readFileSync('src/lib/scripture/transcriptSource.ts', 'utf8');
   const code = port.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
-  it('carries only a string across the boundary', () => {
-    // No audio, no confidence vector, no vendor handle — that is what keeps a
-    // future provider choice out of the parser and the Program path.
-    expect(code).toContain('onTranscript: (transcript: string) => void');
-    for (const leak of ['MediaStream', 'AudioBuffer', 'Blob', 'confidence', 'apiKey', 'token']) {
+  it('carries only text and its identity across the boundary', () => {
+    // No audio, no tensor, no model object, no vendor handle, no credentials —
+    // that is what keeps a future ASR choice out of the parser and Program.
+    expect(code).toContain('onEvent: (event: TranscriptEvent) => void');
+    for (const leak of ['MediaStream', 'AudioBuffer', 'Blob', 'Float32Array', 'apiKey', 'credential', 'model:']) {
       expect(code, leak).not.toContain(leak);
     }
   });
 
-  it('ships a manual adapter that does not claim to listen', () => {
-    expect(code).toContain("id: 'manual'");
-    expect(code).toContain('isLive: false');
-    // Exactly one source registered in this stage.
+  it('makes invalid source combinations unrepresentable', () => {
+    /**
+     * A discriminated union rather than optional methods: optional `start`/`stop`
+     * would permit a manual source that claims to stop, and a live source with no
+     * way to stop — which an operator must always have.
+     */
+    expect(code).toContain('export type TranscriptSource = ManualTranscriptSource | LiveTranscriptSource;');
+    const manual = code.slice(code.indexOf('interface ManualTranscriptSource'), code.indexOf('interface LiveTranscriptSource'));
+    expect(manual).toContain('isLive: false');
+    expect(manual).toContain('submit(text: string): void');
+    expect(manual).not.toContain('start(');
+    expect(manual).not.toContain('stop(');
+
+    const live = code.slice(code.indexOf('interface LiveTranscriptSource'));
+    expect(live).toContain('isLive: true');
+    // Required, not optional — no `?` on either.
+    expect(live).toMatch(/start\(\): Promise<void>;/);
+    expect(live).toMatch(/stop\(\): void;/);
+    expect(live).toContain('isListening()');
+    expect(live).toContain('languages: LanguageTag[]');
+    expect(live).toContain('setLanguage(');
+  });
+
+  it('ships a manual adapter that emits a FINAL event and claims no listening', () => {
+    expect(code).toContain("isLive: false");
+    expect(code).toContain('isFinal: true');
+    // Exactly one source registered in this stage, and it is the manual one.
     expect(code).toMatch(/transcriptSources: TranscriptSource\[\] = \[createManualTranscriptSource\(\)\]/);
+    // No live implementation ships here.
+    expect(code).not.toContain('getUserMedia');
+    expect(code).not.toContain('new MediaRecorder');
   });
 
   it('persists nothing', () => {

@@ -152,8 +152,21 @@ export interface SpokenCandidate {
   score: number;
 }
 
+/** One reference heard in the transcript, with its own ranked readings. */
+export interface SpokenReferenceGroup {
+  /** The transcript words this reference came from, for the operator to check. */
+  heard: string;
+  candidates: SpokenCandidate[];
+}
+
 export type SpokenParseResult =
-  | { ok: true; candidates: SpokenCandidate[] }
+  | {
+      ok: true;
+      /** Every reading, grouped by reference and in transcript order. */
+      candidates: SpokenCandidate[];
+      groups: SpokenReferenceGroup[];
+      message: string;
+    }
   | { ok: false; problem: SpokenProblem; message: string };
 
 const fail = (problem: SpokenProblem, message: string): SpokenParseResult => ({ ok: false, problem, message });
@@ -360,23 +373,26 @@ interface Locator {
   /** Index in `numbers` where a range began. */
   rangeAfter: Set<number>;
   listAfter: Set<number>;
-  /** True when the utterance said "chapter" or "verse" explicitly. */
-  explicit: boolean;
 }
 
-function readLocator(tokens: string[], from: number): Locator {
+function readLocator(tokens: string[], from: number, until = tokens.length): Locator {
   const numbers: number[] = [];
   const rangeAfter = new Set<number>();
   const listAfter = new Set<number>();
-  let explicit = false;
   let pendingRange = false;
   let pendingList = false;
 
-  for (let i = from; i < tokens.length; ) {
+  for (let i = from; i < until; ) {
     const token = tokens[i];
 
+    /**
+     * Consumed as structure, and nothing more. An earlier version recorded an
+     * `explicit` flag here and added a constant to every candidate from the same
+     * locator — which could not change their relative order, because they all got
+     * it. A scoring term that mathematically cannot influence ranking is worse
+     * than no term: it reads as a tie-breaker that is doing something.
+     */
     if (token === 'chapter' || token === 'verse' || token === 'verses' || token === 'chapters') {
-      explicit = true;
       i += 1;
       continue;
     }
@@ -409,7 +425,7 @@ function readLocator(tokens: string[], from: number): Locator {
     i += 1;
   }
 
-  return { numbers, rangeAfter, listAfter, explicit };
+  return { numbers, rangeAfter, listAfter };
 }
 
 /** Build the reference strings a locator could plausibly mean, best first. */
@@ -472,18 +488,16 @@ function buildRawReferences(book: string, loc: Locator): { raw: string; why: str
  * dropped here rather than shown. Candidates are ranked for ordering only; the
  * operator chooses.
  */
-export function parseSpokenReference(transcript: string): SpokenParseResult {
-  const tokens = tokenize(transcript ?? '');
-  if (!tokens.length) {
-    return fail('empty', 'No transcript yet.');
-  }
-
-  const match = findBook(tokens);
-  if (!match) {
-    return fail('no-book', `Couldn't find a Bible book in "${transcript.trim()}".`);
-  }
+/**
+ * Resolve ONE book span into ranked candidates.
+ *
+ * `until` is a hard boundary at the next book, which is what stops numbers
+ * crossing a reference: "John three sixteen and Romans eight twenty eight" used to
+ * read every number after "John" and fold them into a single synthetic
+ * `John 3:8,16` — a real verse, from numbers belonging to two different books.
+ */
+function resolveSpan(tokens: string[], match: BookMatch, until: number, spanStart = 0): SpokenCandidate[] {
   const bookNames = match.names;
-
   /**
    * A chapter spoken BEFORE the book — "in the third chapter of John verse
    * sixteen" — is ordinary pulpit phrasing, and the locator only reads forward, so
@@ -491,7 +505,7 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
    * candidate. Valid, and not what was said.
    */
   let preChapter: number | null = null;
-  const before = tokens.slice(0, match.at);
+  const before = tokens.slice(spanStart, match.at);
   const chapterAt = before.lastIndexOf('chapter');
   if (chapterAt >= 0) {
     // Either order: "third chapter" and "chapter three" are both said.
@@ -504,15 +518,14 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
     }
   }
 
-  const locator = readLocator(tokens, match.at + match.used);
+  const locator = readLocator(tokens, match.at + match.used, until);
   if (preChapter !== null) {
     // The trailing numbers are verses, so the chapter goes in front of them.
     locator.numbers = [preChapter, ...locator.numbers];
-    locator.explicit = true;
   }
-  if (!locator.numbers.length) {
-    return fail('no-numbers', `Heard "${bookNames[0].name}" but no chapter or verse.`);
-  }
+  // No numbers in this span — the caller decides whether that is the whole
+  // utterance's failure or just a bare mention alongside a good reference.
+  if (!locator.numbers.length) return [];
 
   const seen = new Set<string>();
   const candidates: SpokenCandidate[] = [];
@@ -529,7 +542,7 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
         raw: built.raw,
         reference: parsed.reference,
         interpretation: `${book.name} ${built.why}${book.note}`,
-        score: built.score - book.penalty + (locator.explicit ? 6 : 0)
+        score: built.score - book.penalty
       });
     }
   }
@@ -568,16 +581,85 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
     }
   }
 
-  if (!candidates.length) {
+  if (!candidates.length) return [];
+
+
+  candidates.sort((x, y) => y.score - x.score || x.reference.canonical.localeCompare(y.reference.canonical));
+  return candidates;
+}
+
+export function parseSpokenReference(transcript: string): SpokenParseResult {
+  const tokens = tokenize(transcript ?? '');
+  if (!tokens.length) {
+    return fail('empty', 'No transcript yet.');
+  }
+
+  /**
+   * Every book that is actually followed by numbers becomes its own span, in
+   * transcript order. A bare mention with no numbers is NOT a span — otherwise a
+   * passing "in John" would steal the numbers of the reference beside it.
+   */
+  const all = collectBookMatches(tokens);
+  if (!all.length) {
+    return fail('no-book', `Couldn't find a Bible book in "${transcript.trim()}".`);
+  }
+  const anchored = all.filter((m) => numberFollows(tokens, m.at + m.used));
+  const spans = anchored.length ? anchored : [findBook(tokens)!];
+
+  const groups: SpokenReferenceGroup[] = [];
+  const seen = new Set<string>();
+
+  for (let index = 0; index < spans.length; index += 1) {
+    const match = spans[index];
+    // Hard boundary at the next span's book, so numbers cannot cross.
+    const until = index + 1 < spans.length ? spans[index + 1].at : tokens.length;
+    const spanStart = index === 0 ? 0 : spans[index - 1].at + spans[index - 1].used;
+    const resolved = resolveSpan(tokens, match, until, spanStart);
+
+    // Repeated mentions of the same passage collapse; a malformed span is simply
+    // skipped and cannot corrupt a good one.
+    const fresh = resolved.filter((candidate) => {
+      if (seen.has(candidate.reference.canonical)) return false;
+      seen.add(candidate.reference.canonical);
+      return true;
+    });
+    if (!fresh.length) continue;
+
+    groups.push({ heard: tokens.slice(match.at, until).join(' '), candidates: fresh });
+  }
+
+  if (!groups.length) {
+    const named = spans[0].names[0].name;
+    const numbers = readLocator(tokens, spans[0].at + spans[0].used).numbers;
+    if (!numbers.length) {
+      return fail('no-numbers', `Heard "${named}" but no chapter or verse.`);
+    }
     return fail(
       'unresolvable',
-      `Heard "${bookNames[0].name}" with ${locator.numbers.map((n) => (Number.isSafeInteger(n) ? String(n) : 'a number too large to be a chapter')).join(', ')}, but that is not a passage that exists.`
+      `Heard "${named}" with ${numbers
+        .map((n) => (Number.isSafeInteger(n) ? String(n) : 'a number too large to be a chapter'))
+        .join(', ')}, but that is not a passage that exists.`
     );
   }
 
-  candidates.sort((x, y) => y.score - x.score || x.reference.canonical.localeCompare(y.reference.canonical));
-  return { ok: true, candidates };
+  /**
+   * Candidates stay grouped by reference and are NOT re-ranked globally — that
+   * would interleave two passages' readings and lose transcript order. Within a
+   * group they are ranked; across groups the transcript decides.
+   */
+  const candidates = groups.flatMap((group) => group.candidates);
+  const message =
+    groups.length > 1
+      ? `${groups.length} passages heard — choose one.`
+      : candidates.length > 1
+        ? `${candidates.length} readings — choose one.`
+        : `Heard ${candidates[0].reference.canonical}.`;
+
+  return { ok: true, candidates, groups, message };
 }
 
 /** True when more than one reading survived and the operator must choose. */
 export const isAmbiguous = (result: SpokenParseResult): boolean => result.ok && result.candidates.length > 1;
+
+/** True when the transcript named more than one distinct passage. */
+export const hasMultipleReferences = (result: SpokenParseResult): boolean => result.ok && result.groups.length > 1;

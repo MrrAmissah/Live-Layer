@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
-import { defaultTranscriptSource } from '../../lib/scripture/transcriptSource';
+import { defaultTranscriptSource, isLiveSource } from '../../lib/scripture/transcriptSource';
+import {
+  EMPTY_STREAM,
+  applyTranscriptEvent,
+  interimText,
+  type TranscriptStreamState
+} from '../../lib/scripture/transcriptStream';
 import {
   IDLE,
   accept as acceptCandidate,
@@ -44,11 +50,24 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   // Generation guard: a retrieval that resolves after the operator moved on must
   // not repopulate the panel. Same rule as the typed lookup path.
   const generation = useRef(0);
+  const [stream, setStream] = useState<TranscriptStreamState>(EMPTY_STREAM);
 
   useEffect(() => {
-    const unsubscribe = source.subscribe((transcript) => {
-      generation.current += 1;
-      setState(receiveTranscript(transcript));
+    const unsubscribe = source.subscribe((event) => {
+      /**
+       * Only a fresh, in-order, FINAL event is interpreted. An interim guess is
+       * shown but never parsed — it is a moving target, and offering a passage the
+       * speaker had not finished saying is exactly the kind of confident-wrong the
+       * rest of this work removes.
+       */
+      setStream((previous) => {
+        const update = applyTranscriptEvent(previous, event);
+        if (update.finalText !== null) {
+          generation.current += 1;
+          setState(receiveTranscript(update.finalText));
+        }
+        return update.state;
+      });
     });
     return () => {
       unsubscribe();
@@ -67,7 +86,14 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    source.submit?.(draftTranscript);
+    /**
+     * Narrowed, not optional-chained. `submit` exists only on a manual source and
+     * `start`/`stop` only on a live one — the union makes the invalid combinations
+     * unrepresentable, so the call site has to say which kind it is holding rather
+     * than hoping a method is there.
+     */
+    if (isLiveSource(source)) return;
+    source.submit(draftTranscript);
   };
 
   const resolve = async () => {
@@ -105,6 +131,13 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         No microphone and no speech provider yet. Type what was said to check how it would be interpreted — nothing
         reaches the graphic until you accept a reading.
       </p>
+      {/* Interim text is displayed for responsiveness and never parsed. A manual
+          source produces none, so this is inert today by construction. */}
+      {interimText(stream) ? (
+        <p className="voice-assist__interim" aria-live="off">
+          Hearing: {interimText(stream)}
+        </p>
+      ) : null}
 
       <form className="voice-assist__form" onSubmit={submit}>
         <label className="voice-assist__field">

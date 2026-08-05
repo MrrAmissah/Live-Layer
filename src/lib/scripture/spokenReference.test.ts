@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseSpokenReference, isAmbiguous } from './spokenReference';
+import { parseSpokenReference, isAmbiguous, hasMultipleReferences } from './spokenReference';
 
 /**
  * Spoken normalisation is a SEPARATE boundary in front of the strict parser, not a
@@ -240,6 +240,118 @@ describe('malformed transcripts fail honestly', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.candidates[0].interpretation).toContain('ignoring');
+  });
+});
+
+describe('more than one reference in one transcript', () => {
+  const groups = (t: string): string[][] => {
+    const r = parseSpokenReference(t);
+    if (!r.ok) throw new Error(`expected candidates for "${t}", got ${r.problem}`);
+    return r.groups.map((g) => g.candidates.map((c) => c.reference.canonical));
+  };
+
+  it('keeps two complete references separate, in transcript order', () => {
+    /**
+     * The known failure this fixes: the locator read every number after the first
+     * book to end-of-string, so "John three sixteen and Romans eight twenty eight"
+     * folded into `John 3:8,16` — a real verse built from two books' numbers.
+     */
+    expect(groups('John three sixteen and Romans eight twenty eight')).toEqual([['John 3:16'], ['Romans 8:28']]);
+    expect(hasMultipleReferences(parseSpokenReference('John three sixteen and Romans eight twenty eight'))).toBe(true);
+  });
+
+  it('handles three references', () => {
+    expect(groups('John three sixteen then Romans eight twenty eight and Psalm twenty three one')).toEqual([
+      ['John 3:16'],
+      ['Romans 8:28'],
+      ['Psalms 23:1']
+    ]);
+  });
+
+  it('drops a book mention that has no numbers of its own', () => {
+    /**
+     * Honest about WHICH mechanism holds this. Mutating the anchoring filter
+     * (`numberFollows` when choosing spans) does NOT break these — the hard
+     * boundary at the next book plus the empty-locator skip already do, because a
+     * bare mention has no numbers between it and the next book. The filter is
+     * defence in depth here; its load-bearing use is book SELECTION, proven by the
+     * wrong-book test above (mutating `findBook` to return the first match turns
+     * that red).
+     */
+    expect(groups('John three sixteen and also in Romans')).toEqual([['John 3:16']]);
+    expect(groups('in John and Romans eight twenty eight')).toEqual([['Romans 8:28']]);
+    expect(groups('Romans and John three sixteen')).toEqual([['John 3:16']]);
+    expect(groups('John three sixteen Romans')).toEqual([['John 3:16']]);
+  });
+
+  it('confines each locator to its own span, which is what stops numbers crossing', () => {
+    /**
+     * The mechanism, tested directly rather than by proxy. Removing the `until`
+     * boundary from the locator call reproduces the original defect on five of
+     * these at once, so this is the assertion that actually guards it.
+     */
+    expect(groups('John three sixteen and Romans eight twenty eight')).toEqual([['John 3:16'], ['Romans 8:28']]);
+    // Without the boundary the first span swallowed 8 and 28 and produced John 3:8,16.
+    const r = parseSpokenReference('John three sixteen and Romans eight twenty eight');
+    expect(r.ok && r.candidates.every((c) => !c.reference.canonical.includes('3:8'))).toBe(true);
+  });
+
+  it('keeps two references to the same book apart, and dedupes an identical one', () => {
+    expect(groups('John three sixteen and John three eighteen')).toEqual([['John 3:16'], ['John 3:18']]);
+    // The same passage twice collapses rather than being offered twice.
+    expect(groups('John three sixteen and John three sixteen')).toEqual([['John 3:16']]);
+  });
+
+  it('still reads a conjunction INSIDE one reference as a verse list', () => {
+    // The regression risk of splitting: "and" is also how a verse list is spoken.
+    expect(groups('John three sixteen and eighteen')).toEqual([['John 3:16,18']]);
+    expect(hasMultipleReferences(parseSpokenReference('John three sixteen and eighteen'))).toBe(false);
+  });
+
+  it('survives quoted speech between two references', () => {
+    expect(groups('John three sixteen for God so loved the world and Romans eight one')).toEqual([
+      ['John 3:16'],
+      ['Romans 8:1']
+    ]);
+  });
+
+  it('a malformed second reference cannot corrupt a valid first', () => {
+    // Romans has 16 chapters, so the second span yields nothing and is skipped.
+    expect(groups('John three sixteen and Romans ninety nine one')).toEqual([['John 3:16']]);
+  });
+
+  it('a malformed first reference cannot suppress a valid second', () => {
+    expect(groups('John ninety nine one and Romans eight twenty eight')).toEqual([['Romans 8:28']]);
+  });
+
+  it('fails honestly when every reference is malformed', () => {
+    const r = parseSpokenReference('John ninety nine one and Romans ninety nine one');
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.problem).toBe('unresolvable');
+  });
+
+  it('does not re-rank across references — the transcript decides their order', () => {
+    /**
+     * A global sort would interleave two passages' readings by score and lose the
+     * order they were spoken in. "Timothy" is ambiguous (two readings) and comes
+     * second; its readings must stay together, after John's.
+     */
+    const r = parseSpokenReference('John three sixteen and Timothy one seven');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.candidates.map((c) => c.reference.canonical)).toEqual([
+      'John 3:16',
+      '1 Timothy 1:7',
+      '2 Timothy 1:7'
+    ]);
+  });
+
+  it('says how many passages were heard', () => {
+    const one = parseSpokenReference('John three sixteen');
+    const two = parseSpokenReference('John three sixteen and Romans eight twenty eight');
+    expect(one.ok && one.message).toContain('John 3:16');
+    expect(two.ok && two.message).toContain('2 passages');
   });
 });
 
