@@ -14,6 +14,7 @@ import { loadActivePackId, saveActivePackId } from '../lib/packs';
 import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
+import { resetScriptureDraft } from '../lib/scripture/scriptureDraftStore';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
 export interface QuickQueueUpdate {
@@ -411,6 +412,15 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         clearAllRundowns();
         clearAllAssets().catch(() => undefined);
         clearPeople().catch(() => undefined);
+        /**
+         * The Scripture workspace's scratchpad lives in a module store, not in
+         * this one, so a wipe of localStorage and of this state left the retrieved
+         * passage and typed reference sitting on screen — the operator resets and
+         * the previous service's verse is still there. Its recents are already
+         * cleared by `clearAllData`, because that key is registered in
+         * STORAGE_KEYS; only the in-memory draft needs saying.
+         */
+        resetScriptureDraft();
         saveActivePackId('house');
         // Storage has just been wiped, so the brand IS the default now. Seeding
         // from the pre-clear theme would re-apply a colour the reset erased.

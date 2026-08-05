@@ -110,6 +110,46 @@ describe('scripture recents', () => {
   });
 });
 
+describe('Reset all local data reaches the Scripture scratchpad', () => {
+  it('resets the module-level draft, which no storage wipe can touch', async () => {
+    /**
+     * The workspace's composition state lives in a module store rather than in
+     * `useLiveLayerStore` (the centre region remounts on every workspace change,
+     * so `useState` would lose a typed reference mid-service). That puts it
+     * outside both localStorage and the zustand state, so "Reset all local data"
+     * cleared everything except the passage still on screen.
+     */
+    const draft = await import('./scriptureDraftStore');
+    draft.setScriptureDraft({
+      query: 'John 3:16',
+      translationId: 'kjv',
+      passage: { ...passage('John 3:16', 'KJV'), text: '<<LEFTOVER>>' },
+      fromCache: true
+    });
+    expect(draft.getScriptureDraft().passage).not.toBeNull();
+
+    const { useLiveLayerStore } = await import('../../store/useLiveLayerStore');
+    useLiveLayerStore.getState().clearLocalData();
+
+    const after = draft.getScriptureDraft();
+    expect(after.passage).toBeNull();
+    expect(after.query).toBe('');
+    expect(after.translationId).toBe('web');
+    expect(after.fromCache).toBe(false);
+  });
+
+  it('is wired from clearLocalData, not left as an unused export', () => {
+    // Presence anchor: the function existing is not the same as it being called.
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const store = readFileSync('src/store/useLiveLayerStore.ts', 'utf8');
+    expect(store).toContain('resetScriptureDraft');
+    const clearAt = store.indexOf('clearLocalData: () =>');
+    const resetAt = store.indexOf('resetScriptureDraft()', clearAt);
+    expect(clearAt).toBeGreaterThan(-1);
+    expect(resetAt).toBeGreaterThan(clearAt);
+  });
+});
+
 describe('the recents key is registered for clear-all', () => {
   it('is listed in STORAGE_KEYS, not redeclared locally', async () => {
     /**
