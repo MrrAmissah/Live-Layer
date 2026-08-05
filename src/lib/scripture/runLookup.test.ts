@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { runScriptureLookup, type LookupPorts } from './runLookup';
 import { scriptureCacheKey } from './referenceParser';
 import { ScriptureHttpError, ScriptureTranslationMismatchError } from './lookupOutcome';
+import { bibleApiProvider } from './bibleApiProvider';
 import type { ScriptureLookupResult } from '../../types/scripture';
 
 /**
@@ -226,6 +227,44 @@ describe('runScriptureLookup — translation isolation', () => {
     expect(outcome.failure.kind).toBe('translation-mismatch');
     // Nothing written: mislabelled text in a TTL-less cache is permanent.
     expect(cache.entries.size).toBe(0);
+  });
+});
+
+describe('verse counts for one-chapter books come from bundled data', () => {
+  /**
+   * The probe requests `${book} ${chapter}`, and in a one-chapter book the
+   * provider reads `Jude 1` as Jude VERSE 1 and returns one verse — so the count
+   * was 1 and the picker offered a single verse chip. An over-wide range returns
+   * nothing, so no request yields the chapter without knowing its length. Counts
+   * were each verified against the live service.
+   */
+  it('answers without a network call, and with the real count', async () => {
+    const fetchImpl = vi.fn(async () => new Response('{}'));
+    for (const [book, expected] of [
+      ['Jude', 25],
+      ['Obadiah', 21],
+      ['Philemon', 25],
+      ['2 John', 13],
+      ['3 John', 14]
+    ] as const) {
+      const count = await bibleApiProvider.fetchChapterVerseCount!(book, 1, 'web', {
+        fetchImpl: fetchImpl as unknown as typeof fetch
+      });
+      expect(count, book).toBe(expected);
+    }
+    // Not one request made: the wrong answer used to come from asking.
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('still asks the provider for multi-chapter books', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ verses: [{ verse: 1 }, { verse: 2 }, { verse: 36 }] }), { status: 200 })
+    );
+    const count = await bibleApiProvider.fetchChapterVerseCount!('John', 3, 'web', {
+      fetchImpl: fetchImpl as unknown as typeof fetch
+    });
+    expect(fetchImpl).toHaveBeenCalled();
+    expect(count).toBe(36);
   });
 });
 

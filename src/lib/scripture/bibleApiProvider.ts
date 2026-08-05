@@ -1,6 +1,7 @@
 import type { ScriptureLookupResult, ScriptureProvider } from '../../types/scripture';
 import { normalizeScriptureReference } from './referenceParser';
 import { ScriptureHttpError, ScriptureTranslationMismatchError } from './lookupOutcome';
+import { getSingleChapterVerseCount } from './bibleStructure';
 
 interface BibleApiResponse {
   reference?: string;
@@ -111,6 +112,19 @@ export const bibleApiProvider: ScriptureProvider = {
     };
   },
   async fetchChapterVerseCount(book, chapter, translation = 'web', deps = {}): Promise<number> {
+    /**
+     * One-chapter books are answered from bundled data, not asked.
+     *
+     * This probe requests `${book} ${chapter}` — and in a single-chapter book the
+     * provider reads `Jude 1` as Jude VERSE 1, returning one verse. So the count
+     * came back as 1 and the picker offered a single verse chip for Jude, Obadiah,
+     * Philemon, 2 John and 3 John. Asking for an over-wide range instead
+     * (`Jude 1:1-99`) returns nothing at all, so no request yields the chapter
+     * without already knowing its length. See SINGLE_CHAPTER_VERSE_COUNTS.
+     */
+    const bundled = getSingleChapterVerseCount(book);
+    if (bundled) return bundled;
+
     const fetchImpl = deps.fetchImpl ?? fetch;
     const url = new URL(`https://bible-api.com/${encodeURIComponent(`${book} ${chapter}`)}`);
     url.searchParams.set('translation', translation.toLowerCase());
