@@ -85,6 +85,24 @@ describe('every control-surface navigation carries URL state', () => {
     expect(redirect).toContain('replace');
   });
 
+  it('does not memoize the editor navigation against a stale location', () => {
+    /**
+     * `openGraphicInEditor` reads `search` and `hash` through `withUrlState`, so
+     * depending on `pathname` alone leaves it holding a stale location whenever
+     * only the query changes while the route stays mounted. The bad case is real:
+     * with the URL changed to `?relay=off`, a stale closure navigates carrying the
+     * OLD `?relay=host:port` and silently restores a relay the operator just
+     * turned off — the exact error this helper exists to prevent.
+     */
+    const controlPage = read('src/app/ControlPage.tsx');
+    const handler = controlPage.slice(
+      controlPage.indexOf('const openGraphicInEditor'),
+      controlPage.indexOf('const onTakeInstance')
+    );
+    expect(handler).toContain('[navigate, location]');
+    expect(handler).not.toContain('[navigate, location.pathname]');
+  });
+
   it('keeps the two canonical redirects preserving search, as they already did', () => {
     // Regression guard: these were the 1-of-8 that were already right.
     expect(read('src/app/ControlPage.tsx')).toMatch(
