@@ -82,6 +82,27 @@ function DesignVariantStrip() {
   if (!template || variants.length < 2) return null;
   const active = values.variantId ?? template.defaultValues.variantId ?? variants[0].id;
 
+  /**
+   * A design sample, not on-air content.
+   *
+   * These thumbnails exist to show what each variant LOOKS like, and they render
+   * the live draft so the operator sees their own copy in the design. Once
+   * `ScriptureCard` stopped inventing content for an empty card, an empty draft
+   * turned all four scripture thumbnails into the same placeholder — the design
+   * chooser stopped showing designs.
+   *
+   * So empty content fields fall back to the template's own declared
+   * `defaultValues` HERE ONLY. That is not the fabrication that was removed: it is
+   * the template's published sample copy, it is the same thing the library row
+   * already renders, and it cannot reach air — Preview and Take read
+   * `useLiveTakeContext`, which is a different path and still refuses an empty
+   * card. `values` wins wherever the operator has actually typed something.
+   */
+  const sampleValues: Record<string, string> = { ...template.defaultValues };
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined && value !== null && String(value).trim() !== '') sampleValues[key] = value;
+  }
+
   return (
     <div className="variant-strip">
       <span className="ll-kicker">Design variant</span>
@@ -100,7 +121,7 @@ function DesignVariantStrip() {
               <TemplateThumb
                 template={template}
                 variantId={variant.id}
-                valuesOverride={values}
+                valuesOverride={sampleValues}
                 themeOverride={targetTheme ?? {}}
               />
             </span>

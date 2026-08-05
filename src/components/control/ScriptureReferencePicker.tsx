@@ -44,11 +44,12 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
     onReferenceChange(buildReference(parsed.book, chapter));
   };
   const runLookup = async (ref: string) => {
-    const result = await lookup(ref, translation);
-    if (!result) return; // stale (hook seq guard) or failed — reference stands, hint shows the error
+    const found = await lookup(ref, translation);
+    if (!found) return; // stale (hook seq guard) or failed — reference stands, hint shows the error
     // Reference-match guard: ignore if the operator moved to a different reference
     // while this request was in flight (e.g. tapped a newer verse).
     if (latestReference.current !== ref) return;
+    const { result } = found;
     onApply({ reference: result.reference, verseText: result.text, translationLabel: result.translation });
   };
 

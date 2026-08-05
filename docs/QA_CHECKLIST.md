@@ -294,7 +294,9 @@ Use `http://127.0.0.1:4173` for every browser/OBS URL in this section.
 - [ ] Library → Rundowns → **⤓ Export** (or the studio panel **Export**) downloads a `.livelayerpack` file
 - [ ] Filename is safe: `livelayer-rundown-<safe-name>-<YYYY-MM-DD>.livelayerpack`
 - [ ] Unzip it → `livelayer-pack.json` exists; `assets/` holds the referenced logo/headshot blobs
-- [ ] Manifest `contents` has the rundown snapshot + referenced People; `summary` counts look right; **no scripture cache / API keys / local paths**
+- [ ] Manifest `contents` has the rundown snapshot + referenced People; `summary` counts look right; **no scripture lookup cache, no raw provider payloads, no API keys, no local paths**
+- [ ] **Accepted verse text DOES travel.** A Scripture item's `reference`, `verseText` and `translationLabel` are ordinary `GraphicInstance.values`, so they are inside the rundown snapshot and therefore inside the `.livelayerpack`. Only the lookup cache (`livelayer.scriptureCache`) and provider responses are excluded. Confirm the exported JSON contains the verse text you expect — that is correct behaviour, not a leak
+- [ ] **Before shipping any non-public-domain translation**, re-check this: the packs are portable files with no technical limit on who receives them, and most Bible licences permit retrieval and display while restricting redistribution. That the translations shipping today are public domain makes the *current* export safe; it says nothing about a licensed one. Do not treat this checkbox as a general clearance
 - [ ] Delete a referenced asset, then export → success message notes "N missing asset(s)"; export does **not** fail
 - [ ] Export does **not** change `/output`, Take/Clear, or rundown operation
 

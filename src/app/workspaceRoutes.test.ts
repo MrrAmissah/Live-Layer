@@ -20,7 +20,10 @@ const controlPage = read('src/app/ControlPage.tsx');
 const workspaces = {
   studio: read('src/app/workspaces/StudioWorkspace.tsx'),
   rundown: read('src/app/workspaces/RundownWorkspace.tsx'),
-  library: read('src/app/workspaces/LibraryWorkspace.tsx')
+  library: read('src/app/workspaces/LibraryWorkspace.tsx'),
+  // Every new workspace must be added here or the publish guard below silently
+  // stops covering the surface it was written to cover.
+  scripture: read('src/app/workspaces/ScriptureWorkspace.tsx')
 };
 
 describe('workspace routing', () => {
@@ -40,10 +43,55 @@ describe('workspace routing', () => {
     expect(controlPage).toContain('resolveCanonicalControlPath');
   });
 
-  it('leaves the reserved Scripture route unlinked', () => {
+  it('mounts Scripture as a workspace inside the layout, not as a sibling route', () => {
+    // A top-level /scripture would sit outside ControlPage and so would need its
+    // own channel and its own in-flight guard — two Takes that can race. The
+    // reserved URL survives as a redirect instead.
+    expect(app).toContain('path="scripture"');
+    expect(app).toContain('<ScriptureWorkspace />');
     expect(app).toContain('path="/scripture"');
-    // Still not in the nav: a nav entry lands with the feature.
-    expect(read('src/components/control/StudioNav.tsx')).not.toContain('/scripture');
+    expect(app).toContain('<ScriptureRedirect />');
+    // The old placeholder page is gone: no empty room behind a linked feature.
+    expect(app).not.toContain('ScripturePage');
+
+    const controlBlock = app.slice(app.indexOf('path="/control"'), app.indexOf('path="/output"'));
+    expect(controlBlock).toContain('path="scripture"');
+  });
+
+  it('leaves the dock untouched — deliberately, and consistently with every workspace', () => {
+    /**
+     * Below 1024px `ControlPage` returns `DockShell` before rendering its outlet,
+     * so NO workspace route mounts there — measured at 820px, `/control/studio`,
+     * `/control/rundown`, `/control/library/saved` and `/control/scripture` all
+     * render the dock with one visible Take and nothing blank. Scripture is not a
+     * special case, and rendering it ahead of the dock fallback would push the
+     * desktop workspace into a ~380px tab strip.
+     *
+     * The dock already reaches scripture by its own route: Edit step →
+     * scripture-card → `ScriptureReferencePicker`, which inherits the strict
+     * parser and the error taxonomy this PR adds. A sixth tab would duplicate the
+     * desktop product and break the numbered 1-2-3 beginner path.
+     */
+    const tabs = read('src/components/control/DockTabs.tsx');
+    const dock = read('src/components/control/DockShell.tsx');
+    // Presence anchor: the dock's own tab set is still here and still five.
+    expect(tabs).toContain('DockTab');
+    expect(tabs).toContain('templates');
+    expect(tabs.toLowerCase()).not.toContain('scripture');
+    expect(dock.toLowerCase()).not.toContain('scripture');
+    // And the dock still renders no outlet, which is what makes the above true.
+    expect(read('src/app/ControlPage.tsx')).toMatch(/if \(!isStudio\)[\s\S]{0,400}DockShell/);
+  });
+
+  it('links Scripture in the nav now that the feature exists', () => {
+    // The inverse of the guard this replaces. That one asserted the nav did NOT
+    // mention /scripture, which was right while the route was an empty placeholder
+    // and would now hide a shipped workspace.
+    const nav = read('src/components/control/StudioNav.tsx');
+    expect(nav).toContain('/control/scripture');
+    // Listed in the canonicaliser too, or ControlPage redirects to Studio before
+    // the route element mounts — the failure mode has no error message.
+    expect(read('src/app/workspaces/controlPaths.ts')).toContain("'scripture'");
   });
 });
 

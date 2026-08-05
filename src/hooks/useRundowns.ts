@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GraphicInstance } from '../types/graphics';
-import type { Rundown, RundownItem, RundownStoreState } from '../types/rundown';
+import type { Rundown, RundownItem, RundownItemSource, RundownStoreState } from '../types/rundown';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import * as store from '../lib/rundown/rundownStore';
 
@@ -60,10 +60,26 @@ export function useRundowns() {
     deleteRundown: (id: string) => run(() => store.deleteRundown(id)),
     setActiveRundown: (id: string | undefined) => run(() => store.setActiveRundown(id)),
 
-    /** Add the current editable draft to the active rundown (no Take, no /output). */
-    addDraftToRundown: (): RundownItem | null => {
+    /**
+     * Add the current editable draft to the active rundown (no Take, no /output).
+     *
+     * `options` lets a caller name the item and record where it came from instead
+     * of letting `deriveItemTitle` guess from the graphic's fields. Scripture
+     * needs it: that helper reads `values.reference`, so one verse added in two
+     * translations produced two rundown rows with the same title and nothing to
+     * tell them apart — and they are different on-air content.
+     */
+    addDraftToRundown: (options: { title?: string; source?: RundownItemSource } = {}): RundownItem | null => {
       if (!activeRundownId) return null;
-      return run(() => store.addItem(activeRundownId, { graphic: buildDraftInstance(), source: { type: 'draft' } })) ?? null;
+      return (
+        run(() =>
+          store.addItem(activeRundownId, {
+            graphic: buildDraftInstance(),
+            title: options.title,
+            source: options.source ?? { type: 'draft' }
+          })
+        ) ?? null
+      );
     },
     /** Add a Saved Graphic (a stored GraphicInstance) to the active rundown. */
     addSavedGraphicToRundown: (preset: GraphicInstance): RundownItem | null => {

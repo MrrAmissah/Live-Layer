@@ -42,7 +42,7 @@ export default function LiveActions({ onTake, onClear, sending = false, surface,
   // No aria-label: the visible text IS the name. An aria-label that said
   // "Take selected" over a button reading "Take live" desynchronised the two,
   // which breaks voice control ("click Take live" matching nothing).
-  const { takeLabel, takeDisabled, rundownActive } = useLiveTakeContext();
+  const { takeLabel, takeDisabled, rundownActive, notReadyReason } = useLiveTakeContext();
   const dock = surface === 'dock';
 
   // Studio wording is Program-honest; the dock adds its own "Update live" once a
@@ -57,6 +57,15 @@ export default function LiveActions({ onTake, onClear, sending = false, surface,
 
   return (
     <div className={dock ? 'dock-livebar__actions' : 'live-actions'}>
+      {/* A disabled Take with no stated reason is its own failure mid-service:
+          the operator presses, nothing happens, and they debug the app instead
+          of the graphic. `title` and `aria-describedby` both carry it, so the
+          reason is available to a pointer and to a screen reader. */}
+      {notReadyReason ? (
+        <p className="live-actions__blocked" id={`take-blocked-${surface}`} role="status" aria-live="polite">
+          {notReadyReason}
+        </p>
+      ) : null}
       <button
         type="button"
         className={dock ? 'take-btn dock-livebar__take' : 'take-btn'}
@@ -64,6 +73,8 @@ export default function LiveActions({ onTake, onClear, sending = false, surface,
         onClick={onTake}
         disabled={takeDisabled || sending}
         aria-busy={sending || undefined}
+        title={notReadyReason || undefined}
+        aria-describedby={notReadyReason ? `take-blocked-${surface}` : undefined}
       >
         {dock ? null : <Icon name="broadcast" size={17} />}
         {sending ? 'Sending…' : takeText}

@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outputPath = join(root, 'src/app/OutputPage.tsx');
@@ -54,6 +54,92 @@ if (failures.length) {
   console.error('Output isolation check failed:');
   for (const failure of failures) {
     console.error(`- OutputPage.tsx contains ${failure.label}`);
+  }
+  process.exit(1);
+}
+
+/**
+ * The same forbidden imports, applied to everything the output RENDER PATH can reach.
+ *
+ * The check above reads one file. That was enough while the only plausible
+ * mistake was importing a provider directly into `OutputPage.tsx` — which nobody
+ * would do. The realistic leak is one hop away: adding a scripture import to
+ * `ScriptureCard.tsx`, which the render path pulls in through `registry.ts` and
+ * which that grep never opens. Measured: the entry point reaches 32 files, and
+ * only 1 was being inspected, so the two scripture patterns were dead in practice.
+ *
+ * WHAT THIS DOES AND DOES NOT PROVE. It proves no module reachable from
+ * `OutputPage.tsx` can fetch a passage, touch a cache, open a microphone or call
+ * an AI provider — i.e. nothing on the path that renders to air can do those
+ * things. It does NOT prove the strings are absent from the JavaScript the
+ * browser downloads: `main.tsx` imports `App`, `App` statically imports every
+ * route including the control surface, and the build emits a single chunk, so
+ * `bible-api.com` does appear in the file `/output` loads. Making that untrue
+ * needs the control routes lazily loaded so `/output` gets its own chunk — a
+ * change to how the OBS browser source boots, which does not belong in a
+ * Scripture PR. Walking from `main.tsx` instead would fail permanently and
+ * usefully tell us nothing, since App reaches everything by design.
+ *
+ * Scoped deliberately to the dependencies that must never run while rendering to
+ * air. The broader control-surface patterns are NOT applied transitively:
+ * `lib/realtime.ts` is legitimately reachable (the output subscribes to it) and
+ * defines `createMessage`, so reusing the full list would fail on correct code.
+ */
+function resolveImport(fromFile, spec) {
+  if (!spec.startsWith('.')) return null;
+  const base = resolve(dirname(fromFile), spec);
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+function outputRenderPathClosure(entry) {
+  const seen = new Set();
+  const walk = (file) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const text = readFileSync(file, 'utf8');
+    for (const match of text.matchAll(/(?:from|import)\s*['"]([^'"]+)['"]/g)) {
+      const next = resolveImport(file, match[1]);
+      if (next) walk(next);
+    }
+  };
+  walk(entry);
+  return [...seen];
+}
+
+const renderPathFiles = outputRenderPathClosure(outputPath);
+// Positive anchor: a resolver that silently stopped following imports would
+// inspect one file and report success. The render path genuinely spans dozens.
+if (renderPathFiles.length < 10) {
+  console.error('Output render-path isolation check failed:');
+  console.error(
+    `- resolved only ${renderPathFiles.length} file(s) from OutputPage.tsx; the import walk is broken and this guard would pass vacuously`
+  );
+  process.exit(1);
+}
+
+const renderPathPatterns = [
+  { pattern: /from ['"].*lib\/scripture\//, label: 'scripture provider/cache import' },
+  { pattern: /from ['"].*hooks\/useScripture/, label: 'scripture hook import' },
+  { pattern: /bible-api\.com/, label: 'passage provider endpoint' },
+  { pattern: /\b(openai|anthropic)\b/i, label: 'AI provider SDK' },
+  { pattern: /\b(SpeechRecognition|webkitSpeechRecognition|MediaRecorder|getUserMedia)\b/, label: 'speech/microphone API' }
+];
+
+const renderPathFailures = [];
+for (const file of renderPathFiles) {
+  const text = readFileSync(file, 'utf8');
+  for (const { pattern, label } of renderPathPatterns) {
+    if (pattern.test(text)) renderPathFailures.push({ file: file.replace(`${root}/`, ''), label });
+  }
+}
+
+if (renderPathFailures.length) {
+  console.error('Output render-path isolation check failed:');
+  for (const failure of renderPathFailures) {
+    console.error(`- ${failure.file} contains ${failure.label} and is reachable from OutputPage.tsx`);
   }
   process.exit(1);
 }
