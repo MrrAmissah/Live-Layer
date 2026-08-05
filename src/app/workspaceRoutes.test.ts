@@ -58,6 +58,31 @@ describe('workspace routing', () => {
     expect(controlBlock).toContain('path="scripture"');
   });
 
+  it('leaves the dock untouched — deliberately, and consistently with every workspace', () => {
+    /**
+     * Below 1024px `ControlPage` returns `DockShell` before rendering its outlet,
+     * so NO workspace route mounts there — measured at 820px, `/control/studio`,
+     * `/control/rundown`, `/control/library/saved` and `/control/scripture` all
+     * render the dock with one visible Take and nothing blank. Scripture is not a
+     * special case, and rendering it ahead of the dock fallback would push the
+     * desktop workspace into a ~380px tab strip.
+     *
+     * The dock already reaches scripture by its own route: Edit step →
+     * scripture-card → `ScriptureReferencePicker`, which inherits the strict
+     * parser and the error taxonomy this PR adds. A sixth tab would duplicate the
+     * desktop product and break the numbered 1-2-3 beginner path.
+     */
+    const tabs = read('src/components/control/DockTabs.tsx');
+    const dock = read('src/components/control/DockShell.tsx');
+    // Presence anchor: the dock's own tab set is still here and still five.
+    expect(tabs).toContain('DockTab');
+    expect(tabs).toContain('templates');
+    expect(tabs.toLowerCase()).not.toContain('scripture');
+    expect(dock.toLowerCase()).not.toContain('scripture');
+    // And the dock still renders no outlet, which is what makes the above true.
+    expect(read('src/app/ControlPage.tsx')).toMatch(/if \(!isStudio\)[\s\S]{0,400}DockShell/);
+  });
+
   it('links Scripture in the nav now that the feature exists', () => {
     // The inverse of the guard this replaces. That one asserted the nav did NOT
     // mention /scripture, which was right while the route was an empty placeholder
