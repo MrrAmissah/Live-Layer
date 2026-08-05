@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { resolveGraphicReadiness } from '../../lib/graphicReadiness';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import { describeTemplate } from '../../lib/templateMeta';
@@ -94,10 +95,19 @@ export default function RailQueue({
                   {typeName(item.templateId)}
                 </span>
               </span>
+              {/* Same per-item rule as the full queue panel. This compact row is
+                  an icon button with no room for the reason, so it carries it as
+                  the accessible name and the tooltip rather than as visible text. */}
               <button
                 type="button"
                 className="rail-qrow__take"
-                aria-label={`Take ${itemLabel(item)}`}
+                aria-label={
+                  resolveGraphicReadiness(item.templateId, item.values).ready
+                    ? `Take ${itemLabel(item)}`
+                    : `Cannot take ${itemLabel(item)} — ${resolveGraphicReadiness(item.templateId, item.values).reason}`
+                }
+                title={resolveGraphicReadiness(item.templateId, item.values).reason || undefined}
+                disabled={!resolveGraphicReadiness(item.templateId, item.values).ready}
                 onClick={() => onTakeInstance(item)}
               >
                 <Icon name="play" size={15} />

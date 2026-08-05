@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { resolveGraphicReadiness } from '../../lib/graphicReadiness';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import { describeTemplate } from '../../lib/templateMeta';
@@ -6,6 +7,20 @@ import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 
 const templateById = new Map(templateRegistry.map((template) => [template.id, template]));
+
+/**
+ * Whether THIS queued item may air, by the same rule the main Take button and the
+ * renderer use. Asked per item because a queue can hold a valid card and an
+ * incomplete one at the same time: a single shared message could not say which row
+ * it referred to, and the refusal in `publishShow` was otherwise silent — the row's
+ * Take simply did nothing (issue #22).
+ *
+ * Cheap enough to call inline: it is a couple of string checks on values already
+ * in memory, with no allocation worth memoising.
+ */
+function itemReadiness(item: GraphicInstance) {
+  return resolveGraphicReadiness(item.templateId, item.values);
+}
 
 function templateShortName(templateId: string): string {
   return describeTemplate(templateById.get(templateId), templateId).label;
@@ -190,13 +205,27 @@ export default function QuickQueuePanel({
                     {templateShortName(item.templateId)}
                   </span>
                   <span className="qq-item__actions">
+                  {/* Readiness is asked PER ITEM. A queue can hold a valid card
+                      and an incomplete one at once, so a single shared message
+                      could not say which row it meant — and the refusal already
+                      happens in publishShow, silently. Disabling the row with the
+                      reason on it prevents the dead click rather than explaining
+                      it afterwards. */}
                   <button
                     type="button"
                     className="qq-btn qq-btn--take"
                     onClick={() => onTakeInstance(item)}
+                    disabled={!itemReadiness(item).ready}
+                    title={itemReadiness(item).reason || undefined}
+                    aria-describedby={itemReadiness(item).ready ? undefined : `qq-blocked-${item.id}`}
                   >
                     Take
                   </button>
+                  {itemReadiness(item).ready ? null : (
+                    <span className="qq-item__blocked" id={`qq-blocked-${item.id}`} role="note">
+                      {itemReadiness(item).reason}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="qq-btn"
