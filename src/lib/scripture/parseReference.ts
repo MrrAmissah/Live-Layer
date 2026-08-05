@@ -258,10 +258,38 @@ export function parseScriptureReference(input: string): ReferenceParseResult {
     return fail('verse-malformed', `Couldn't read "${rest}" as a chapter and verse. Try ${book} 3:16.`);
   }
 
-  const chapter = parseInt(locator[1], 10);
+  let chapter = parseInt(locator[1], 10);
   const chapterCount = getChapterCount(book);
   if (chapter < 1) {
     return fail('chapter-out-of-range', `Chapters start at 1, so ${book} ${chapter} isn't a chapter.`);
+  }
+
+  /**
+   * In a one-chapter book a bare number is a VERSE, not a chapter.
+   *
+   * `Jude 3`, `Obadiah 15`, `Philemon 6`, `2 John 4` are ordinary references that
+   * every Bible names this way, and reading the number as a chapter rejected all
+   * of them as out of range. `Jude 1` is the same convention: verified against the
+   * provider, it returns a single verse and echoes `Jude 1:1` — so treating it as
+   * a whole chapter meant the readout said `Jude 1` over one verse of text.
+   *
+   * Rewritten only when no explicit verse part was given: `Jude 1:3` already says
+   * what it means. The result is disclosed rather than silent — the canonical
+   * readout immediately shows `Jude 1:3`, so a mistaken reading is visible before
+   * anything is staged.
+   */
+  if (chapterCount === 1 && locator[2] === undefined) {
+    const verse = chapter;
+    chapter = 1;
+    return {
+      ok: true,
+      reference: {
+        book,
+        chapter,
+        spans: [{ start: verse, end: verse }],
+        canonical: formatCanonicalReference(book, chapter, [{ start: verse, end: verse }])
+      }
+    };
   }
   if (chapterCount && chapter > chapterCount) {
     // The book table already carries chapterCount, so this is caught offline

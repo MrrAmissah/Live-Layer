@@ -118,10 +118,41 @@ describe('parseScriptureReference — refuses rather than reinterprets', () => {
     expect(problemOf('John 3:18-16')).toBe('verse-inverted');
   });
 
+  it('reads a bare number as a verse in a one-chapter book', () => {
+    /**
+     * `Jude 3` is how every Bible names that verse, and reading the number as a
+     * chapter rejected it as out of range. `Jude 1` is the same convention:
+     * verified against the provider, it returns one verse and echoes `Jude 1:1`,
+     * so treating it as a whole chapter put `Jude 1` in the readout over a single
+     * verse of text.
+     */
+    expect(canonical('Jude 3')).toBe('Jude 1:3');
+    expect(canonical('Jude 1')).toBe('Jude 1:1');
+    expect(canonical('Obadiah 15')).toBe('Obadiah 1:15');
+    expect(canonical('Philemon 6')).toBe('Philemon 1:6');
+    expect(canonical('2 John 4')).toBe('2 John 1:4');
+    expect(canonical('3 John 2')).toBe('3 John 1:2');
+  });
+
+  it('leaves an explicit verse in a one-chapter book alone', () => {
+    // `Jude 1:3` already says what it means; only a bare number is rewritten.
+    expect(canonical('Jude 1:3')).toBe('Jude 1:3');
+    expect(canonical('Jude 1:1-25')).toBe('Jude 1:1-25');
+    expect(canonical('Obadiah 1:15,17')).toBe('Obadiah 1:15,17');
+  });
+
+  it('still bounds multi-chapter books by their real chapter count', () => {
+    // The one-chapter rule must not leak into books that have chapters.
+    expect(problemOf('John 22')).toBe('chapter-out-of-range');
+    expect(canonical('John 21')).toBe('John 21');
+  });
+
   it('validates the chapter offline against the bundled chapter counts', () => {
     expect(problemOf('John 999:1')).toBe('chapter-out-of-range');
     expect(problemOf('John 22')).toBe('chapter-out-of-range'); // John has 21
-    expect(problemOf('Obadiah 2')).toBe('chapter-out-of-range'); // Obadiah has 1
+    // Obadiah is NOT in this list: it has one chapter, so `Obadiah 2` is verse 2,
+    // not an out-of-range chapter. An explicit chapter 2 is still refused below.
+    expect(problemOf('Obadiah 2:1')).toBe('chapter-out-of-range');
     expect(problemOf('John 0')).toBe('chapter-out-of-range');
     expect(canonical('John 21')).toBe('John 21'); // the boundary itself is valid
     expect(canonical('Psalms 150')).toBe('Psalms 150');
@@ -193,8 +224,10 @@ describe('parseScriptureReference — refuses rather than reinterprets', () => {
 
   it('resolves every canonical book name and every alias to itself', () => {
     // A silent alias collision would make one book unreachable by its own abbreviation.
-    for (const input of ['Genesis', 'Revelation', 'Song of Songs', '1 Kings', '2 Chronicles', 'Philemon']) {
+    for (const input of ['Genesis', 'Revelation', 'Song of Songs', '1 Kings', '2 Chronicles']) {
       expect(canonical(`${input} 1`)).toBe(`${input} 1`);
     }
+    // Philemon is one-chapter, so its bare number is a verse — see the rule above.
+    expect(canonical('Philemon 1')).toBe('Philemon 1:1');
   });
 });
