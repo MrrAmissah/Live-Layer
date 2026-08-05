@@ -46,8 +46,6 @@ export default function ControlPage() {
   const [lastTakenAt, setLastTakenAt] = useState<number | null>(null);
   // A command is in flight. The ref guards against duplicate submissions from
   // repeated clicks (state alone updates too late); the state drives the UI.
-  // Why the last Take was refused on content grounds, surfaced to the operator.
-  const [notReadyReason, setNotReadyReason] = useState('');
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   // Narrow contexts (OBS Custom Browser Dock, tablets, small windows) get the
@@ -85,11 +83,18 @@ export default function ControlPage() {
      */
     const readiness = resolveGraphicReadiness(instance.templateId, instance.values);
     if (!readiness.ready) {
+      /**
+       * Defence in depth, and deliberately silent HERE. Every surface that offers
+       * a Take now states the reason itself and disables the control — the main
+       * button from `useLiveTakeContext`, each queue row from its own item. This
+       * gate exists so the publish path is safe even if a future surface forgets,
+       * not to be the thing that explains it. The state it used to set was
+       * rendered nowhere, which is what made a queue-row Take do nothing without
+       * saying why (issue #22).
+       */
       setLastAction('idle');
-      setNotReadyReason(readiness.reason);
       return false;
     }
-    setNotReadyReason('');
 
     const { markProgramShowing, markProgramFailed } = useLiveLayerStore.getState();
     const message = createMessage('SHOW_GRAPHIC', instance);

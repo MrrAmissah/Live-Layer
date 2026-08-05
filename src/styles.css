@@ -8165,3 +8165,15 @@ body.gfx-transparent {
   color: #f5c77e;
   max-width: 30ch;
 }
+
+/* Why a queued item cannot air. Amber, like the main Take's blocked note: an
+   unfinished graphic is something to complete, not an outage to recover from.
+   See lib/graphicReadiness.ts and issue #22. */
+.control-root .qq-item__blocked {
+  flex-basis: 100%;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #f5c77e;
+}
+.control-root .qq-btn--take:disabled,
+.control-root .rail-qrow__take:disabled { opacity: 0.42; cursor: not-allowed; }

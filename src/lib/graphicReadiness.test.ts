@@ -197,3 +197,54 @@ describe('Preview and Take read the same rule', () => {
     expect(body).toMatch(/if \(!readiness\.ready\)[\s\S]{0,220}?return false;/);
   });
 });
+
+describe('a queue row that cannot air says so', () => {
+  /**
+   * Issue #22. The gate in `publishShow` worked — nothing aired and Program was
+   * untouched — but the reason lived in `ControlPage` state that nothing rendered.
+   * `LiveActions` shows its own reason from `useLiveTakeContext`, which describes
+   * the draft or the selected rundown item and never a queue row, and rows call
+   * `onTakeInstance` directly. So the row's Take silently did nothing.
+   */
+  const read = (p: string) => readFileSync(p, 'utf8');
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+  it('asks readiness per item, on both queue surfaces', () => {
+    // Per item, not once for the queue: a queue can hold a valid card and an
+    // incomplete one at the same time.
+    const panel = strip(read('src/components/control/QuickQueuePanel.tsx'));
+    expect(panel).toContain('function itemReadiness(item: GraphicInstance)');
+    expect(panel).toContain('resolveGraphicReadiness(item.templateId, item.values)');
+
+    const rail = strip(read('src/components/control/RailQueue.tsx'));
+    expect(rail).toContain('resolveGraphicReadiness(item.templateId, item.values)');
+  });
+
+  it('disables the row and carries the reason on both surfaces', () => {
+    const panel = strip(read('src/components/control/QuickQueuePanel.tsx'));
+    expect(panel).toContain('disabled={!itemReadiness(item).ready}');
+    expect(panel).toContain('title={itemReadiness(item).reason || undefined}');
+    expect(panel).toContain('aria-describedby');
+
+    // The compact rail row is an icon button with no room for visible text, so
+    // the reason has to reach the accessible name.
+    const rail = strip(read('src/components/control/RailQueue.tsx'));
+    expect(rail).toMatch(/disabled=\{!resolveGraphicReadiness\(item\.templateId, item\.values\)\.ready\}/);
+    expect(rail).toContain('Cannot take');
+  });
+
+  it('leaves no unrendered refusal state behind in ControlPage', () => {
+    // The dead state is the defect. `publishShow` still refuses — that is asserted
+    // by "gates the publish path before anything is sent or recorded" above — but
+    // it no longer pretends to report the reason.
+    const controlPage = read('src/app/ControlPage.tsx');
+    expect(controlPage).not.toContain('notReadyReason');
+    expect(controlPage).toContain('resolveGraphicReadiness');
+  });
+
+  it('still refuses an unready item if a row is ever clicked anyway', () => {
+    // The row being disabled is not the guarantee; the publish gate is.
+    expect(resolveGraphicReadiness(SCRIPTURE_TEMPLATE_ID, { reference: 'John 3:16' }).ready).toBe(false);
+    expect(resolveGraphicReadiness(SCRIPTURE_TEMPLATE_ID, VALID).ready).toBe(true);
+  });
+});
