@@ -114,15 +114,23 @@ describe('homophones and ambiguity', () => {
     expect(best('Matthew five ate')).toBe('Matthew 5:8');
   });
 
-  it('does not resolve "to" as two — that ambiguity is offered, not guessed', () => {
+  it('treats "too" as the range word it sounds like, not as a dropped token', () => {
     /**
-     * "John three to five" and "John three two five" are different references and
-     * the transcript cannot distinguish them. Treating `to` as a number would
-     * silently pick one, which is the whole failure mode this layer avoids.
+     * `too` was excluded from homophone resolution but never added to the range
+     * words, so it matched nothing and was skipped — "John three too five" became
+     * a single confident `John 3:5` with the middle number gone. It now behaves
+     * exactly like `to`.
      */
+    expect(cands('John three too five')).toEqual(cands('John three to five'));
+    expect(cands('John three too five').length).toBeGreaterThan(1);
+  });
+
+  it('offers more than one reading for a range utterance, including a chapter-only one', () => {
+    // Deliberately NOT asserting mere `length > 1`: two members of the same family
+    // would satisfy that while the property failed. These are distinct readings.
     const list = cands('John three to five');
-    expect(list.length).toBeGreaterThan(1);
     expect(list).toContain('John 3:5');
+    expect(list).toContain('John 3');
   });
 
   it('ranks readings deterministically — the same utterance always sorts the same', () => {
@@ -148,18 +156,90 @@ describe('malformed transcripts fail honestly', () => {
     expect(problemOf('   ')).toBe('empty');
   });
 
-  it('never returns a passage that does not exist', () => {
-    // The strict parser is the gate: John has 21 chapters, so 99 is refused here
-    // rather than becoming a provider 404 or, worse, a different passage.
+  it('never returns a CHAPTER that does not exist', () => {
+    /**
+     * Named precisely. The strict parser validates the chapter against the bundled
+     * counts, so John 99 is refused rather than becoming a provider 404 or a
+     * different passage. It does NOT validate verse numbers — no per-chapter verse
+     * data exists locally — so `Psalms 23:99` is still accepted and left to the
+     * provider to reject. Claiming otherwise here would be the test lying.
+     */
     expect(problemOf('John ninety nine one')).toBe('unresolvable');
     expect(problemOf('Obadiah chapter five verse one')).toBe('unresolvable');
   });
 
-  it('never silently substitutes an unrelated passage', () => {
-    // Every candidate must be a reading of what was actually said — the book named
-    // in the transcript, and numbers that appeared in it.
-    const list = cands('Psalm twenty three one to three');
-    for (const c of list) expect(c.startsWith('Psalms 23')).toBe(true);
+  it('never silently substitutes an unrelated BOOK, however the sentence is padded', () => {
+    /**
+     * The version of this test that only checked "Psalm twenty three one to three"
+     * was trivially true — one book, its own numbers. These are the inputs that
+     * actually broke it: `is` is an alias of Isaiah, `am` of Amos, and `Mark`,
+     * `Numbers`, `Job` and `Song` are ordinary English words. Scanning for the
+     * first match returned the wrong book with a single high-scored candidate and
+     * no hint that the real one had been spoken.
+     */
+    expect(best('This is John chapter three verse sixteen')).toBe('John 3:16');
+    expect(best('and it is written in John three sixteen')).toBe('John 3:16');
+    expect(best('I am reading Romans eight verse one')).toBe('Romans 8:1');
+    expect(best('let us mark this Romans twelve two')).toBe('Romans 12:2');
+    expect(best('numbers do not matter read John three sixteen')).toBe('John 3:16');
+    expect(best('his job is to preach Romans eight one')).toBe('Romans 8:1');
+    expect(best('our text is Psalm twenty three')).toBe('Psalms 23');
+    expect(best('the song we sang is Psalm one hundred')).toBe('Psalms 100');
+  });
+
+  it('reads "one hundred and N" as one number, not a chapter and a verse', () => {
+    /**
+     * `and` is a list separator, so it was splitting the hundreds compound and
+     * "Psalm one hundred and nineteen" became Psalms 100:19 — a REAL verse from
+     * the wrong chapter, which is why nothing downstream could catch it. Standard
+     * British and Ghanaian English, over the most-read book on this surface.
+     */
+    expect(best('Psalm one hundred and nineteen')).toBe('Psalms 119');
+    expect(best('Psalm one hundred and three')).toBe('Psalms 103');
+    expect(best('Psalm one hundred and twenty one')).toBe('Psalms 121');
+    expect(best('Psalm one hundred and thirty nine verse fourteen')).toBe('Psalms 139:14');
+    // The no-"and" form must keep working.
+    expect(best('Psalm one hundred nineteen one')).toBe('Psalms 119:1');
+  });
+
+  it('offers chapters separately when two are joined by "and"', () => {
+    // The list marker was recorded and then discarded, so "Genesis one and two"
+    // became Genesis 1:2 — again a real verse, silently.
+    const list = cands('Genesis one and two');
+    expect(list[0]).toBe('Genesis 1');
+    expect(list).toContain('Genesis 2');
+    expect(list).toContain('Genesis 1:2');
+  });
+
+  it('does not let quoted words after a reference invent a number', () => {
+    /**
+     * A preacher who says the reference and then starts quoting it handed the
+     * parser a phantom number: "Romans eight verse one, FOR there is therefore now
+     * no condemnation" ranked `Romans 8:1-4` above the `Romans 8:1` spoken.
+     * Homophones may only supply a number while the reference is incomplete.
+     */
+    expect(best('Romans eight verse one for there is therefore now no condemnation')).toBe('Romans 8:1');
+    expect(best('John three sixteen for God so loved the world')).toBe('John 3:16');
+    expect(best('Acts one eight for you shall receive power')).toBe('Acts 1:8');
+    // And the legitimate homophone still works.
+    expect(best('John three for')).toBe('John 3:4');
+  });
+
+  it('reads a chapter named before the book, in either order', () => {
+    // Ordinary pulpit phrasing. The locator only reads forward, so the chapter was
+    // dropped and "John 16" was offered as a confident single candidate.
+    expect(best('in the third chapter of John verse sixteen')).toBe('John 3:16');
+    expect(best('John the third chapter verse sixteen')).toBe('John 3:16');
+    expect(best('chapter three of John verse sixteen')).toBe('John 3:16');
+    expect(best('in the eighth chapter of Romans verse twenty eight')).toBe('Romans 8:28');
+  });
+
+  it('discloses numbers it could not represent', () => {
+    // Silent truncation reads as "understood you" when it did not.
+    const r = parseSpokenReference('Matthew five verse three and four and five');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.candidates[0].interpretation).toContain('ignoring');
   });
 });
 

@@ -81,6 +81,27 @@ describe('the state machine', () => {
     expect(state.status).toBe('candidates');
   });
 
+  it('cannot end up with a passage that belongs to a different candidate', () => {
+    /**
+     * The unsafe ORDER, which the resolve-then-select test could not see: select
+     * while a retrieval is in flight. The model clears the passage on selection,
+     * but the panel's generation ref was only bumped by `resolve` and by a new
+     * transcript — not by selecting — so the in-flight result landed on the new
+     * selection. On screen the highlighted chip said 2 Timothy while the passage
+     * block said 1 Timothy, and Accept applied the reading just moved away from.
+     *
+     * The model's half is asserted here; the panel's bump is asserted below.
+     */
+    let state = receiveTranscript('Timothy one seven');
+    state = beginResolving(state); // retrieval for candidate 0 is now in flight
+    state = selectCandidate(state, 1); // operator changes their mind
+    expect(state.passage).toBeNull();
+    expect(state.status).toBe('candidates');
+    // A late result for candidate 0 must not be acceptable against candidate 1.
+    expect(accept(state)).toBeNull();
+    expect(canAccept(state)).toBe(false);
+  });
+
   it('ignores an out-of-range selection', () => {
     const state = receiveTranscript('John three sixteen');
     expect(selectCandidate(state, 5)).toBe(state);
@@ -228,6 +249,30 @@ describe('the panel cannot air or stage on its own', () => {
     expect(code).toContain('onAccept(outcome.passage, translationId)');
     const workspace = readFileSync('src/app/workspaces/ScriptureWorkspace.tsx', 'utf8');
     expect(workspace).toContain('<VoiceAssistPreview onAccept={accept}');
+  });
+
+  it('invalidates an in-flight retrieval when the selection changes', () => {
+    // Without this the passage and the highlighted candidate can disagree.
+    const onClick = code.slice(code.indexOf('aria-pressed={index === state.selected}'));
+    const bumpAt = onClick.indexOf('generation.current += 1');
+    const selectAt = onClick.indexOf('selectCandidate(previous, index)');
+    expect(bumpAt).toBeGreaterThan(-1);
+    expect(selectAt).toBeGreaterThan(-1);
+    expect(bumpAt).toBeLessThan(selectAt);
+  });
+
+  it('cancels the hook on unmount, so a pending retrieval cannot repopulate the cache', () => {
+    /**
+     * `runScriptureLookup` consults `isCurrent()` BEFORE writing the cache, so a
+     * guard that only runs after the await is too late. `ScriptureLookupPanel`
+     * learned this; this panel owns a second hook instance and needs the same
+     * cleanup or leaving mid-retrieve then resetting local data repopulates the
+     * cache the reset just cleared.
+     */
+    expect(code).toContain('cancel } = useScriptureLookup()');
+    const cleanup = code.slice(code.indexOf('return () => {'));
+    expect(cleanup).toContain('unsubscribe()');
+    expect(cleanup).toContain('cancel()');
   });
 
   it('gates the accept button on the model, not just on the button', () => {

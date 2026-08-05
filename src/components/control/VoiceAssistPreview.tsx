@@ -38,7 +38,7 @@ interface Props {
 export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   const [state, setState] = useState<VoiceAssistState>(IDLE);
   const [draftTranscript, setDraftTranscript] = useState('');
-  const { lookup } = useScriptureLookup();
+  const { lookup, cancel } = useScriptureLookup();
   const source = defaultTranscriptSource;
 
   // Generation guard: a retrieval that resolves after the operator moved on must
@@ -50,8 +50,20 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       generation.current += 1;
       setState(receiveTranscript(transcript));
     });
-    return unsubscribe;
-  }, [source]);
+    return () => {
+      unsubscribe();
+      /**
+       * Cancel the request itself, not just its continuation. `runScriptureLookup`
+       * consults the hook's `isCurrent()` BEFORE writing the cache, so a guard
+       * that only runs after the await is too late: leaving this workspace mid-
+       * retrieve and then running "Reset all local data" let the pending response
+       * repopulate the cache the reset had just cleared. `ScriptureLookupPanel`
+       * learned this the same way; this panel owns a second hook instance and
+       * needs the same cleanup.
+       */
+      cancel();
+    };
+  }, [source, cancel]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -124,7 +136,17 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
               type="button"
               className={`voice-cand${index === state.selected ? ' voice-cand--active' : ''}`}
               aria-pressed={index === state.selected}
-              onClick={() => setState((previous) => selectCandidate(previous, index))}
+              onClick={() => {
+                /**
+                 * Bump the generation, or a retrieval already in flight for the
+                 * PREVIOUS candidate lands afterwards and is written onto this
+                 * one — leaving the highlighted chip saying 2 Timothy while the
+                 * passage block says 1 Timothy, and Accept applying the reading
+                 * the operator had just moved away from.
+                 */
+                generation.current += 1;
+                setState((previous) => selectCandidate(previous, index));
+              }}
             >
               <span className="voice-cand__ref">{candidate.reference.canonical}</span>
               {/* Why this reading — the operator is choosing between interpretations,

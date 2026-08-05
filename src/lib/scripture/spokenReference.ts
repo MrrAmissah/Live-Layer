@@ -61,6 +61,17 @@ const UNITS: Record<string, number> = {
   nineteen: 19
 };
 
+/**
+ * Ordinal forms, because a chapter is often named as one: "the third chapter",
+ * "the eighth chapter of Romans". Without these the ordinal was invisible to the
+ * locator and the chapter was dropped, leaving a confident wrong reading.
+ */
+const ORDINALS: Record<string, number> = {
+  first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8,
+  ninth: 9, tenth: 10, eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14,
+  fifteenth: 15, sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20
+};
+
 const TENS: Record<string, number> = {
   twenty: 20,
   thirty: 30,
@@ -96,7 +107,7 @@ const HOMOPHONE_NUMBERS: Record<string, number> = {
 };
 
 /** Words that mark a verse range rather than a number. */
-const RANGE_WORDS = new Set(['to', 'through', 'thru', 'until', 'til', 'dash', 'hyphen']);
+const RANGE_WORDS = new Set(['to', 'too', 'through', 'thru', 'until', 'til', 'dash', 'hyphen']);
 /** Words that separate discontinuous verses. */
 const LIST_WORDS = new Set(['and', 'comma', 'plus']);
 /** Words that carry no reference meaning and are dropped. */
@@ -162,7 +173,7 @@ function tokenize(transcript: string): string[] {
  * Collapse a run of number words into a value: `twenty three` → 23.
  * Returns the value and how many tokens it consumed.
  */
-function readNumber(tokens: string[], at: number): { value: number; used: number } | null {
+function readNumber(tokens: string[], at: number, foundSoFar = 0): { value: number; used: number } | null {
   const first = tokens[at];
   if (first === undefined) return null;
 
@@ -175,9 +186,18 @@ function readNumber(tokens: string[], at: number): { value: number; used: number
    * different references and the transcript cannot tell them apart. Treating it
    * as a number here would silently pick one.
    */
-  if (HOMOPHONE_NUMBERS[first] !== undefined && first !== 'to' && first !== 'too') {
+  /**
+   * Only while the reference is still incomplete. These words — `for`, `ate`,
+   * `won` — are ordinary English, and a preacher who says the reference and then
+   * begins QUOTING it ("Romans eight verse one, for there is therefore now no
+   * condemnation") was handing the parser a phantom fourth number, which ranked
+   * `Romans 8:1-4` above the `Romans 8:1` actually spoken.
+   */
+  if (foundSoFar < 2 && HOMOPHONE_NUMBERS[first] !== undefined && first !== 'to' && first !== 'too') {
     return { value: HOMOPHONE_NUMBERS[first], used: 1 };
   }
+
+  if (ORDINALS[first] !== undefined) return { value: ORDINALS[first], used: 1 };
 
   if (TENS[first] !== undefined) {
     const next = tokens[at + 1];
@@ -191,9 +211,16 @@ function readNumber(tokens: string[], at: number): { value: number; used: number
   if (UNITS[first] !== undefined) {
     // `one hundred` and beyond only matters for Psalms; handled as a pair.
     if (tokens[at + 1] === 'hundred') {
-      const after = readNumber(tokens, at + 2);
+      /**
+       * "one hundred AND nineteen" is standard British and Ghanaian English, and
+       * `and` is otherwise a list separator — so it was splitting the number and
+       * "Psalm one hundred and nineteen" became Psalms 100:19. A real verse from
+       * the wrong chapter, which the operator had nothing to catch it with.
+       */
+      const bridged = tokens[at + 2] === 'and' ? 1 : 0;
+      const after = readNumber(tokens, at + 2 + bridged);
       const base = UNITS[first] * 100;
-      if (after && after.value < 100) return { value: base + after.value, used: 2 + after.used };
+      if (after && after.value < 100) return { value: base + after.value, used: 2 + bridged + after.used };
       return { value: base, used: 2 };
     }
     return { value: UNITS[first], used: 1 };
@@ -231,59 +258,101 @@ interface BookMatch {
 }
 
 /**
- * Find the book anywhere in the utterance, not just at a fixed cursor.
+ * True when a number follows this book phrase, allowing filler between.
  *
- * Scanning beats cursor-walking because real speech is padded — "turn to the book
- * of John chapter three" put `to` (a range word, not filler) in front of the book
- * and stalled a cursor-based skip. A scan also naturally handles a leading ordinal.
+ * This is what separates a book the speaker NAMED from an English word that
+ * happens to be a book. `is` is an alias of Isaiah, `am` of Amos, and `Mark`,
+ * `Numbers`, `Job` and `Song` are ordinary words — so scanning for the first
+ * match turned "This is John chapter three verse sixteen" into **Isaiah 3:16**,
+ * with a single high-scored candidate and no hint that "John" was ever spoken.
+ * The worst possible failure for this surface: a confident wrong book.
+ *
+ * A reference is always followed by its numbers, so requiring that is a cheap and
+ * decisive discriminator: `is` in "this is John…" is followed by "john", while
+ * "John" is followed by "chapter three".
  */
-function findBook(tokens: string[]): BookMatch | null {
+function numberFollows(tokens: string[], from: number): boolean {
+  for (let i = from; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (readNumber(tokens, i, 0)) return true;
+    // Structural words may sit between the book and its numbers; anything else
+    // means the numbers are not this phrase's.
+    if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
+    return false;
+  }
+  return false;
+}
+
+interface BookMatch {
+  at: number;
+  used: number;
+  names: { name: string; penalty: number; note: string }[];
+}
+
+/** Every book phrase in the utterance, longest span first at each position. */
+function collectBookMatches(tokens: string[]): BookMatch[] {
+  const found: BookMatch[] = [];
   for (let at = 0; at < tokens.length; at += 1) {
     for (let span = Math.min(4, tokens.length - at); span >= 1; span -= 1) {
       const phrase = tokens.slice(at, at + span).join(' ');
       const hit = readBook(tokens, at, span);
       const siblings = numberedSiblings(phrase);
-
       if (!hit && !siblings.length) continue;
 
-      // An ordinal immediately before names which numbered book is meant.
       const previous = at > 0 ? tokens[at - 1] : undefined;
       const ordinal = previous !== undefined ? BOOK_ORDINALS[previous] : undefined;
-
       if (ordinal !== undefined) {
         const numbered = `${ordinal} ${phrase}`;
         const exact = BIBLE_BOOKS.find((book) => book.name.toLowerCase() === numbered);
         if (exact) {
-          return { at: at - 1, used: span + 1, names: [{ name: exact.name, penalty: 0, note: '' }] };
+          found.push({ at: at - 1, used: span + 1, names: [{ name: exact.name, penalty: 0, note: '' }] });
+          break;
         }
       }
 
       if (hit) {
-        /**
-         * A phrase that is a book in its own right is taken at its word. Offering
-         * "1 John" every time someone says "John" would bury the reading they
-         * meant under three they did not.
-         */
-        return { at, used: span, names: [{ name: hit, penalty: 0, note: '' }] };
+        // A phrase that is a book in its own right is taken at its word rather
+        // than expanded into its numbered siblings.
+        found.push({ at, used: span, names: [{ name: hit, penalty: 0, note: '' }] });
+      } else {
+        // A bare stem that is NOT a book is genuinely ambiguous; offer the family.
+        found.push({
+          at,
+          used: span,
+          names: siblings.map((name, index) => ({
+            name,
+            penalty: index * 4,
+            note: ` — "${name.slice(0, 1)}" was not spoken`
+          }))
+        });
       }
-
-      /**
-       * A bare stem that is NOT a book — "Timothy", "Corinthians", "Peter" — is
-       * genuinely ambiguous, and every family member is offered for the operator
-       * to choose between.
-       */
-      return {
-        at,
-        used: span,
-        names: siblings.map((name, index) => ({
-          name,
-          penalty: index * 4,
-          note: ` — "${name.slice(0, 1)}" was not spoken`
-        }))
-      };
+      break;
     }
   }
-  return null;
+  return found;
+}
+
+/**
+ * Choose the book the speaker meant.
+ *
+ * Prefers a match whose numbers immediately follow it, then the longest phrase,
+ * then the latest position — a reference tends to come after the preamble, and a
+ * longer phrase ("song of songs") beats a shorter one inside it. Falls back to the
+ * first match when nothing is followed by numbers, so "John" alone still reports
+ * no-numbers rather than no-book.
+ */
+function findBook(tokens: string[]): BookMatch | null {
+  const all = collectBookMatches(tokens);
+  if (!all.length) return null;
+
+  const withNumbers = all.filter((match) => numberFollows(tokens, match.at + match.used));
+  const pool = withNumbers.length ? withNumbers : all;
+
+  return pool.reduce((best, match) => {
+    if (match.used > best.used) return match;
+    if (match.used === best.used && match.at > best.at) return match;
+    return best;
+  }, pool[0]);
 }
 
 interface Locator {
@@ -326,7 +395,7 @@ function readLocator(tokens: string[], from: number): Locator {
       continue;
     }
 
-    const num = readNumber(tokens, i);
+    const num = readNumber(tokens, i, numbers.length);
     if (num) {
       if (pendingRange) rangeAfter.add(numbers.length - 1);
       if (pendingList) listAfter.add(numbers.length - 1);
@@ -357,6 +426,18 @@ function buildRawReferences(book: string, loc: Locator): { raw: string; why: str
   }
 
   if (numbers.length === 2) {
+    if (listAfter.has(0)) {
+      /**
+       * "Genesis one AND two" is two chapters. The marker was already recorded and
+       * then ignored, so it became Genesis 1:2 — a real verse, silently. Chapter
+       * ranges are not a thing this app can show, so each chapter is offered
+       * separately and the verse reading is kept as a lower-ranked possibility.
+       */
+      out.push({ raw: `${book} ${a}`, why: `chapter ${a} (of ${a} and ${b} — one graphic per chapter)`, score: 74 });
+      out.push({ raw: `${book} ${b}`, why: `chapter ${b} (of ${a} and ${b} — one graphic per chapter)`, score: 72 });
+      out.push({ raw: `${book} ${a}:${b}`, why: `chapter ${a}, verse ${b}`, score: 40 });
+      return out;
+    }
     if (rangeAfter.has(0)) {
       // "Psalm twenty three to twenty four" — chapters, or verses of one chapter.
       out.push({ raw: `${book} ${a}:${b}`, why: `chapter ${a}, verse ${b}`, score: 50 });
@@ -368,10 +449,13 @@ function buildRawReferences(book: string, loc: Locator): { raw: string; why: str
   }
 
   // Three or more numbers: chapter, then a verse range or list.
+  // Anything past the third number is not represented; say so rather than
+  // truncating in silence.
+  const dropped = numbers.length > 3 ? ` (ignoring ${numbers.slice(3).join(', ')})` : '';
   if (rangeAfter.has(1)) {
-    out.push({ raw: `${book} ${a}:${b}-${c}`, why: `chapter ${a}, verses ${b} to ${c}`, score: 92 });
+    out.push({ raw: `${book} ${a}:${b}-${c}`, why: `chapter ${a}, verses ${b} to ${c}${dropped}`, score: 92 });
   } else if (listAfter.has(1)) {
-    out.push({ raw: `${book} ${a}:${b},${c}`, why: `chapter ${a}, verses ${b} and ${c}`, score: 88 });
+    out.push({ raw: `${book} ${a}:${b},${c}`, why: `chapter ${a}, verses ${b} and ${c}${dropped}`, score: 88 });
   } else {
     // No spoken connector. Both readings are real; a range is the common one.
     out.push({ raw: `${book} ${a}:${b}-${c}`, why: `chapter ${a}, verses ${b} to ${c}`, score: 70 });
@@ -400,7 +484,32 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
   }
   const bookNames = match.names;
 
+  /**
+   * A chapter spoken BEFORE the book — "in the third chapter of John verse
+   * sixteen" — is ordinary pulpit phrasing, and the locator only reads forward, so
+   * the chapter was dropped and "John 16" was offered as a confident single
+   * candidate. Valid, and not what was said.
+   */
+  let preChapter: number | null = null;
+  const before = tokens.slice(0, match.at);
+  const chapterAt = before.lastIndexOf('chapter');
+  if (chapterAt >= 0) {
+    // Either order: "third chapter" and "chapter three" are both said.
+    const trailing = readNumber(before, chapterAt + 1, 0);
+    const leading = chapterAt > 0 ? readNumber(before, chapterAt - 1, 0) : null;
+    if (trailing && trailing.used === 1) preChapter = trailing.value;
+    else if (leading && leading.used === 1) preChapter = leading.value;
+    else if (chapterAt > 0 && BOOK_ORDINALS[before[chapterAt - 1]] !== undefined) {
+      preChapter = BOOK_ORDINALS[before[chapterAt - 1]];
+    }
+  }
+
   const locator = readLocator(tokens, match.at + match.used);
+  if (preChapter !== null) {
+    // The trailing numbers are verses, so the chapter goes in front of them.
+    locator.numbers = [preChapter, ...locator.numbers];
+    locator.explicit = true;
+  }
   if (!locator.numbers.length) {
     return fail('no-numbers', `Heard "${bookNames[0].name}" but no chapter or verse.`);
   }
@@ -462,7 +571,7 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
   if (!candidates.length) {
     return fail(
       'unresolvable',
-      `Heard "${bookNames[0].name}" with ${locator.numbers.join(', ')}, but that is not a passage that exists.`
+      `Heard "${bookNames[0].name}" with ${locator.numbers.map((n) => (Number.isSafeInteger(n) ? String(n) : 'a number too large to be a chapter')).join(', ')}, but that is not a passage that exists.`
     );
   }
 
