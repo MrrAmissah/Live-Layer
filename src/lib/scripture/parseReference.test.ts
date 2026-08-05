@@ -134,6 +134,26 @@ describe('parseScriptureReference — refuses rather than reinterprets', () => {
     expect(canonical('3 John 2')).toBe('3 John 1:2');
   });
 
+  it('reads a range or list without a chapter as verses in a one-chapter book', () => {
+    /**
+     * `Jude 3-5` and `Philemon 4,6` are ordinary references — there is no chapter
+     * to name. They do not match the `chapter[:verses]` shape at all, so before
+     * this they were rejected as malformed while the single-number form was
+     * already being handled.
+     */
+    expect(canonical('Jude 3-5')).toBe('Jude 1:3-5');
+    expect(canonical('Philemon 4,6')).toBe('Philemon 1:4,6');
+    expect(canonical('Obadiah 15-17')).toBe('Obadiah 1:15-17');
+    expect(canonical('2 John 4,6-8')).toBe('2 John 1:4,6-8');
+  });
+
+  it('still rejects nonsense in a one-chapter book rather than reinterpreting it', () => {
+    // The verse parser's honesty must survive the chapter-less shortcut.
+    expect(problemOf('Jude 3a')).toBe('verse-malformed');
+    expect(problemOf('Jude 5-3')).toBe('verse-inverted');
+    expect(problemOf('Jude 0')).toBe('verse-zero');
+  });
+
   it('leaves an explicit verse in a one-chapter book alone', () => {
     // `Jude 1:3` already says what it means; only a bare number is rewritten.
     expect(canonical('Jude 1:3')).toBe('Jude 1:3');
