@@ -170,6 +170,20 @@ export default function ScriptureLookupPanel({
     onPassage(found.result, found.fromCache);
   };
 
+  /**
+   * Editing the reference retires the previous failure.
+   *
+   * The error line is assertive and suppresses the typing hint, so after a failed
+   * lookup the operator typed a correction while an alert still described the
+   * reference they had just replaced — the loudest text on screen naming input
+   * that no longer existed. Clearing on the first keystroke also restores the
+   * live guidance for what they are typing now.
+   */
+  const changeQuery = (next: string) => {
+    if (status === 'error') reset();
+    onQueryChange(next);
+  };
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     void runLookup(query);
@@ -249,7 +263,7 @@ export default function ScriptureLookupPanel({
               aria-label="Scripture reference"
               autoComplete="off"
               spellCheck={false}
-              onChange={(event) => onQueryChange(event.target.value)}
+              onChange={(event) => changeQuery(event.target.value)}
             />
           </label>
           <label className="scripture-ws__field scripture-ws__field--translation">

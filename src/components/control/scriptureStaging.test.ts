@@ -181,6 +181,22 @@ describe('the staging notice tells the truth about how Take will behave', () => 
   });
 });
 
+describe('a stale error does not outlive the reference it described', () => {
+  it('clears the error when the operator edits the reference', () => {
+    /**
+     * The error line is assertive and suppresses the typing hint, so after a
+     * failed lookup the operator typed a correction while an alert still named
+     * the reference they had just replaced — the loudest text on screen
+     * describing input that no longer existed.
+     */
+    const code = stripComments(panel);
+    expect(code).toMatch(/const changeQuery = \(next: string\) => \{\s*if \(status === 'error'\) reset\(\);/);
+    // The input must use the wrapper, not the raw prop.
+    expect(code).toContain('onChange={(event) => changeQuery(event.target.value)}');
+    expect(code).not.toContain('onChange={(event) => onQueryChange(event.target.value)}');
+  });
+});
+
 describe('recents refresh on the action, not on the message', () => {
   it('keys the re-read on a counter, which two identical notices cannot collide', () => {
     /**
