@@ -6969,7 +6969,26 @@ body.gfx-transparent {
 
 /* --- setup page --------------------------------------------------------- */
 
-.control-root .setup-inner { max-width: 1080px; }
+/* /setup is a scrolling document, not a bounded studio frame: the base
+   `.control-inner` is the studio's full-bleed viewport shell (`margin: 0;
+   padding: 0`), which pinned the whole page to the left edge — 1080px of
+   content at x:0 with ~840px of raw background to the right at 1920w, and
+   text touching the viewport edge at dock widths. The command bar keeps the
+   full-bleed frame; `.setup-main` below carries the centred measure. */
+.control-root .setup-inner { height: auto; min-height: 100vh; }
+
+.control-root .setup-main {
+  width: 100%;
+  /* 1080px reading measure + the side gutters, so the content width is
+     unchanged from the old cap — it is just centred and padded now. */
+  max-width: 1148px;
+  margin-inline: auto;
+  padding: 28px 34px 72px;
+}
+
+@media (max-width: 720px) {
+  .control-root .setup-main { padding: 18px 16px 56px; }
+}
 
 .control-root .setup-grid {
   display: grid;
@@ -6979,11 +6998,11 @@ body.gfx-transparent {
 }
 
 @media (min-width: 900px) {
-  .control-root .setup-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); }
+  .control-root .setup-grid { grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 20px; }
 }
 
 .control-root .setup-col { display: flex; flex-direction: column; gap: 16px; }
-.control-root .setup-head { padding: 6px 2px 0; }
+.control-root .setup-head { margin: 0 0 22px; padding: 0 2px; }
 .control-root .setup-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; color: #f3f6fb; }
 .control-root .setup-lead { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: #8d9db4; max-width: 56ch; }
 .control-root .setup-body { display: flex; flex-direction: column; gap: 12px; }
@@ -7002,7 +7021,9 @@ body.gfx-transparent {
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
-.control-root .setup-url__value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: #7fe9f5; word-break: break-all; }
+/* Grows into the row's free space and breaks anywhere: long relay URLs
+   (`?relay=http%3A%2F%2F...`) wrap inside the pill instead of widening it. */
+.control-root .setup-url__value { flex: 1 1 220px; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5; color: #7fe9f5; word-break: break-all; overflow-wrap: anywhere; }
 .control-root .setup-url__actions { display: flex; gap: 6px; flex: none; }
 
 .control-root .setup-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 9px; }
