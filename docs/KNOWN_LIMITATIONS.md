@@ -33,8 +33,14 @@ deliberately narrow. These are honest constraints, not bugs.
 - **No cloud sync or accounts** — presets/brand live only in this browser's `localStorage`
   (clearing site data removes them).
 - **No native desktop installer** (Tauri/Electron) — browser + OBS only.
-- **Scripture lookup depends on a public provider** — WEB/KJV lookup is available,
-  but manual paste remains the fallback if the provider is offline or rate-limited.
+- **Scripture lookup depends on a public provider** — eleven public-domain
+  translations are available (WEB, KJV, ASV, BBE, Darby, DRA, WEBBE, OEB-US, OEB-CW,
+  YLT, Almeida) via bible-api.com. Manual paste remains the fallback if the provider
+  is offline or rate-limited. Copyrighted translations (NIV, ESV, NLT) are not
+  carried by this provider and are not available.
+- **Verse numbers are not validated.** Chapters are checked against bundled per-book
+  data, so `John 99:1` is refused — but there is no per-chapter verse data, so
+  `Psalms 23:99` is accepted and simply returns nothing from the provider.
 - **No visual layout builder** — beginner layout controls exist, but you can't drag/resize freely on screen.
 - **Rundown / queue mode is usable but not fully featured** —
   build in Library → Rundowns (R1+R2); operate from the **Live tab** queue (R3):
@@ -63,9 +69,31 @@ deliberately narrow. These are honest constraints, not bugs.
   not built yet. A pack made by a **newer** LiveLayer is blocked with a clear
   message.
 
+## Voice assist
+
+- **There is no microphone.** The voice assist panel interprets a **typed**
+  transcript. No audio is captured, no speech provider is contacted, no model is
+  installed, and no credential exists. See [ASR_EVALUATION.md](ASR_EVALUATION.md).
+- **Nothing it produces can reach air by itself.** It offers candidate references;
+  the operator retrieves, reviews the passage text, and accepts it into the ordinary
+  Scripture draft. Take is still a separate, deliberate press.
+- **Reference interpretation has known bounds**, recorded in
+  `src/lib/scripture/spokenReference.ts`: a reference list with no conjunction can
+  mis-segment ("Romans eight one John three sixteen" reads as Romans 8 and 1 John
+  3:16, because "one John" is a real book name); "Psalm one nineteen" reads as 1:19
+  rather than 119; stutters are not repaired; and a disfluency inside a reference
+  truncates it to the chapter.
+- **References spoken in Twi, Ga or Ewe are not interpreted.** Book names and number
+  words are English-only. Code-switched framing *around* an English reference works.
+- **No performance claim is made for live recognition**, because none has been
+  measured. Our own harness shows wrong-passage outcomes beginning around 5% word
+  error rate, which is below every published figure for the candidate models — which
+  is exactly why operator review is required rather than optional.
+
 ## Smaller caveats
 
-- **Three templates** ship today (lower third, scripture, announcement).
+- **Seven templates** ship today: preacher lower third, scripture card, announcement
+  banner, quote card, event banner, sermon title, and fullscreen message.
 - **No animation picker in the UI** — slide is the default; the `fade` crossfade is
   configured per template / via a per-instance override (exercised through the seed
   harness), not yet operator-selectable in `/control`.

@@ -54,7 +54,13 @@ as the compositor and keeps everything on your machine.
 - **Local assets** — upload logos and speaker headshots into same-origin IndexedDB,
   then reuse them in previews, presets, rundowns, and `/output`.
 - **People and scripture helpers** — speaker profiles, headshot/logo references,
-  book/chapter/verse picking, WEB/KJV lookup, and manual paste fallback.
+  book/chapter/verse picking, lookup across eleven public-domain translations
+  (WEB, KJV, ASV, BBE, Darby, DRA, WEBBE, OEB-US, OEB-CW, YLT, Almeida), and manual
+  paste fallback.
+- **Voice assist preview** — type what the preacher said and get ranked candidate
+  references to choose between. **No microphone, no speech provider, no model.**
+  Nothing reaches the graphic until you accept a reading, and nothing reaches air
+  until you press Take. See [`docs/ASR_EVALUATION.md`](docs/ASR_EVALUATION.md).
 - **Brand theming** — primary/accent colours, local logo references, and reset-to-template.
 - **Rundown queue** — build, edit, reorder, and operate an ordered set of graphic
   snapshots without changing `/output` until Take.
@@ -134,12 +140,13 @@ open <http://127.0.0.1:4173/seed-test.html>.
 - [QA checklist](docs/QA_CHECKLIST.md) · [Screenshot guide](docs/SCREENSHOT_GUIDE.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md) · [Roadmap](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Control UI/UX](docs/CONTROL_UI_UX.md) · [Design system](docs/DESIGN_SYSTEM.md) · [Template schema](docs/TEMPLATE_SCHEMA.md)
+- [Speech recognition evaluation](docs/ASR_EVALUATION.md) — DONDO audit, reference-outcome harness, benchmark plan (no provider selected)
 - [Network output architecture](docs/NETWORK_OUTPUT_ARCHITECTURE.md) · [NDI workflow](docs/NDI_WORKFLOW.md) · [Cloud architecture](docs/CLOUD_ARCHITECTURE.md) · [Template pack plan](docs/TEMPLATE_PACK_PLAN.md)
 
 ## Roadmap & limitations
 
 Honest about what's not here yet — local-first, single machine, manual OBS setup,
-no cloud/accounts, no visual builder. See [Known limitations](docs/KNOWN_LIMITATIONS.md)
+no cloud/accounts, no visual builder, no microphone or speech recognition. See [Known limitations](docs/KNOWN_LIMITATIONS.md)
 and the [Roadmap](docs/ROADMAP.md).
 
 ## License

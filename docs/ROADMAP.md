@@ -24,6 +24,17 @@ local presets, rundowns, and selected-rundown import/export. See
 - **Layout / size controls** — beginner-safe, safe-area-aware output sizing.
 - **Production QA pass** — `/setup` diagnostics, OBS production QA pack, regression guardrails verified ([`OBS_PRODUCTION_QA.md`](OBS_PRODUCTION_QA.md)).
 
+## Phase 3 — Scripture and voice assist (shipped locally)
+
+- **Scripture workspace** (`/control/scripture`) — reference → passage from eleven
+  public-domain translations, bounded recents, staged as an ordinary draft.
+- **Voice assist preview** — a **typed** transcript becomes ranked candidate
+  references for the operator to choose between. No microphone, no speech provider,
+  no model, no credentials. Nothing reaches air without review and a Take.
+- **Evaluation harness** — reference-outcome scoring (`src/lib/asr/`) that measures
+  whether an utterance yields the *right* passage, and separates a harmless refusal
+  from a harmful wrong answer.
+
 ## Next — content & confidence
 
 > Phase 2 is QA'd and OBS-ready. Rundown / queue mode is implemented for the
@@ -45,6 +56,13 @@ local presets, rundowns, and selected-rundown import/export. See
 
 ## Later — production scale
 
+- **Live speech recognition — evaluation stage only.** No provider is selected and
+  nothing captures audio. DONDO (Apache-2.0, 27 African language varieties) is the
+  leading candidate on licence and coverage grounds; the transcript port it would
+  plug into already ships. Before any live capture: run the Apple Silicon benchmark,
+  re-measure reference outcomes on real audio, and clear the stop conditions in
+  [ASR_EVALUATION.md](ASR_EVALUATION.md). Operator review stays regardless — the
+  harness shows wrong-passage outcomes begin below every published error rate.
 - **OBS WebSocket helper** — assist or automate adding the dock and Browser Source,
   and optionally trigger scene/source actions.
 - **Remote / tablet control hardening** — host-owned asset/library storage,
