@@ -74,9 +74,17 @@ describe('an in-flight lookup cannot outlive its translation', () => {
     expect(cleanupAt).toBeGreaterThan(-1);
     expect(cancelAt).toBeGreaterThan(cleanupAt);
 
-    // And `cancel` must invalidate the id, not merely reset rendered state.
-    const hook = readFileSync('src/hooks/useScriptureLookup.ts', 'utf8');
-    expect(stripComments(hook)).toMatch(/const cancel = \(\) => \{\s*requestId\.current \+= 1;\s*\}/);
+    /**
+     * And `cancel` must invalidate the id, not merely reset rendered state — and it
+     * must be memoised. Asserted separately from its wrapper, because pinning the
+     * exact arrow-function text made this test fail the moment `cancel` was
+     * correctly wrapped in `useCallback` (which it must be: an unstable identity in
+     * a caller's effect dependency array tears the effect down every render and
+     * cancels the request that is still in flight).
+     */
+    const hook = stripComments(readFileSync('src/hooks/useScriptureLookup.ts', 'utf8'));
+    expect(hook).toMatch(/const cancel = useCallback\(\(\) => \{\s*requestId\.current \+= 1;\s*\}, \[\]\)/);
+    expect(hook).not.toMatch(/const cancel = useCallback\([\s\S]{0,80}setState/);
   });
 
   it('does not write the shared draft after the panel is gone', () => {

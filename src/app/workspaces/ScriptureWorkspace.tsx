@@ -1,6 +1,7 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import WorkspacePanel from './WorkspacePanel';
 import ScriptureLookupPanel from '../../components/control/ScriptureLookupPanel';
+import VoiceAssistPreview from '../../components/control/VoiceAssistPreview';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useRundowns } from '../../hooks/useRundowns';
 import { rundownDestination, noActiveRundownMessage } from '../../components/control/rundownDestination';
@@ -184,6 +185,10 @@ export default function ScriptureWorkspace() {
         onDismissNotice={() => setNotice('')}
         currentGraphicReference={composing ? draftReference : ''}
       />
+      {/* Voice assist routes an accepted passage through the SAME `accept` handler
+          the typed lookup uses, so it writes the ordinary Scripture draft and
+          cannot reach Program by a path of its own. */}
+      <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} />
     </WorkspacePanel>
   );
 }
