@@ -7356,9 +7356,22 @@ body.gfx-transparent {
 @container dock (max-width: 290px) {
   .control-root .dock-program__glyph { width: 30px; height: 28px; }
 }
-.control-root .dock-program__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* Centred, not top-aligned. The identity BOX stays a fixed height so Take never
+   moves; the text inside packs together and centres. Reserving a fixed height on
+   each line instead left a one-line title sitting at the top of a 38px box and a
+   one-line subtitle at the top of a 34px box, so the slack showed up as gaps
+   between and below the text — "Ready / Rev. Ishmael K. Awotwe / Preacher Lower
+   Third" read as three widely separated lines. */
+.control-root .dock-program__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
 .control-root .dock-program__title {
-  height: 38px;
+  max-height: 38px;
   font-size: 15px;
   font-weight: 600;
   line-height: 19px;
@@ -7373,12 +7386,12 @@ body.gfx-transparent {
   overflow-wrap: anywhere;
 }
 .control-root .dock-program--compact .dock-program__title {
-  height: 19px;
+  max-height: 19px;
   font-size: 14px;
   -webkit-line-clamp: 1;
 }
 .control-root .dock-program__sub {
-  height: 34px;
+  max-height: 34px;
   font-size: 12.5px;
   line-height: 17px;
   color: #adb9c8;
@@ -7396,7 +7409,7 @@ body.gfx-transparent {
    the base vars + 17px (one sub line); kept as literals because a container
    cannot restyle itself from its own query. */
 @container dock (max-width: 290px) {
-  .control-root .dock-program__sub { height: 51px; -webkit-line-clamp: 3; }
+  .control-root .dock-program__sub { max-height: 51px; -webkit-line-clamp: 3; }
   .control-root .dock-program__identity { height: 109px; }
   .control-root .dock-program--compact .dock-program__identity { height: 90px; }
   .control-root .dock-program { min-height: 211px; }

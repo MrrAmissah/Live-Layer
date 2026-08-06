@@ -51,13 +51,32 @@ describe('the chrome variables are load-bearing', () => {
   });
 
   it('the strip cannot be resized by a status change — its text rows are fixed', () => {
-    // min-height alone would hold a floor but not a ceiling: a longer status
-    // sentence could still grow the strip. So the head row and both text rows
-    // carry hard heights, and the statuses only swap text inside them.
-    expect(css).toMatch(/\.dock-program__head\s*\{[^}]*height: 24px/);
-    expect(css).toMatch(/\.dock-program__title\s*\{[^}]*height: 38px/);
-    expect(css).toMatch(/\.dock-program__sub\s*\{[^}]*height: 34px/);
-    expect(css).toMatch(/\.dock-program__identity\s*\{[^}]*height: 92px/);
+    /**
+     * The BOX is what holds the strip still: the head row and the identity block
+     * carry hard heights, so no status sentence can grow the strip and move Take
+     * out from under the hand reaching for it.
+     */
+    expect(css).toMatch(/\.dock-program__head\s*\{[^}]*[^-]height: 24px/);
+    expect(css).toMatch(/\.dock-program__identity\s*\{[^}]*[^-]height: 92px/);
+
+    /**
+     * The TEXT ROWS reserve a ceiling, not a floor, and the column centres.
+     *
+     * They used to carry hard heights too, which held the strip still but left a
+     * one-line title sitting at the top of a 38px box and a one-line subtitle at
+     * the top of a 34px box — so the slack showed as gaps and "Ready / Rev.
+     * Ishmael K. Awotwe / Preacher Lower Third" read as three separated lines.
+     *
+     * Asserted as `max-height` and paired with an absence check, because
+     * `toMatch('height: 38px')` also matches `max-height: 38px` — the earlier
+     * version of this test could not tell the two apart and passed either way.
+     */
+    expect(css).toMatch(/\.dock-program__title\s*\{[^}]*max-height: 38px/);
+    expect(css).toMatch(/\.dock-program__sub\s*\{[^}]*max-height: 34px/);
+    expect(css).not.toMatch(/\.dock-program__title\s*\{[^}]*[^-]height: 38px/);
+    expect(css).not.toMatch(/\.dock-program__sub\s*\{[^}]*[^-]height: 34px/);
+    expect(css).toMatch(/\.dock-program__text\s*\{[^}]*justify-content: center/);
+
     // The old grow-to-fit variant machinery is gone.
     expect(css).not.toContain('.dock-program--tall');
     expect(css).not.toContain('.dock-program__meta');
@@ -98,7 +117,9 @@ describe('the 314×500 floor (the dock that had 24px of scroll)', () => {
     // never clipped to buy chrome back.
     const narrow = /@container dock \(max-width: 290px\)\s*\{([\s\S]*?)\n\}/g;
     const bands = [...css.matchAll(narrow)].map((match) => match[1]).join('\n');
-    expect(bands).toMatch(/\.dock-program__sub \{ height: 51px; -webkit-line-clamp: 3; \}/);
+    // `max-height`, matching the fixed-box/ceiling-row split above: the strip's
+    // 211px still holds, the row just stops adding slack when the text is short.
+    expect(bands).toMatch(/\.dock-program__sub \{ max-height: 51px; -webkit-line-clamp: 3; \}/);
     expect(bands).toMatch(/\.dock-program \{ min-height: 211px; \}/);
     // The reserved third line costs this band 17px, taking a 255×500 dock to
     // 38.6% scroll — deliberately below the 40% floor rather than clipping a
