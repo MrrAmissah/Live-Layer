@@ -1,4 +1,4 @@
-import { corruptTranscript, scoreCorpus, type UtteranceCase } from './referenceOutcome';
+import { corruptTranscript, corruptTranscriptDetailed, corruptWord, scoreCorpus, type UtteranceCase } from './referenceOutcome';
 import { corpusErrorRate } from './transcriptMetrics';
 
 /**
@@ -104,10 +104,14 @@ export const sensitivityCurve = (
 ): SensitivityPoint[] => injectionRates.map((rate) => measureSensitivity(corpus, rate, seedCount));
 
 /**
- * Which spoken tokens keep turning into wrong leading candidates.
+ * Which spoken tokens were corrupted in the runs that produced a wrong leading
+ * candidate.
  *
- * A rate says there is a problem; this says where. Counted over every seed so a
- * token that fails rarely still shows up.
+ * A rate says there is a problem; this says where to look. Read it as **frequency of
+ * involvement, not proof of causation**: several words are usually corrupted in the
+ * same run and all of them are counted, so a word that is merely common — `and` —
+ * can outrank a word that is decisive but rare. Establishing which token actually
+ * flipped an outcome needs single-word corruption, which `singleTokenCulprits` does.
  */
 export function misleadingTokens(
   corpus: UtteranceCase[],
@@ -118,17 +122,51 @@ export function misleadingTokens(
 
   for (let seed = 1; seed <= seedCount; seed += 1) {
     for (const testCase of corpus) {
-      const spoken = corruptTranscript(testCase.spoken, injectionRate, seed);
-      if (spoken === testCase.spoken) continue;
-      const [scored] = scoreCorpus([{ ...testCase, spoken }]).scored;
+      const { text, changed } = corruptTranscriptDetailed(testCase.spoken, injectionRate, seed);
+      if (!changed.length) continue;
+      const [scored] = scoreCorpus([{ ...testCase, spoken: text }]).scored;
       if (scored.outcome !== 'misleading-top') continue;
+      /**
+       * The corruption reports what it changed, per position. Diffing the two word
+       * lists instead compared MEMBERSHIP, so a word corrupted at one position was
+       * invisible whenever another copy survived — "twenty eight" → "twenty ate"
+       * attributed nothing at all, which is the one example the documentation uses.
+       */
+      for (const token of changed) tally.set(token, (tally.get(token) ?? 0) + 1);
+    }
+  }
 
-      // The words that changed are the ones responsible.
-      const before = testCase.spoken.toLowerCase().split(/\s+/);
-      const after = spoken.toLowerCase().split(/\s+/);
-      for (const word of before) {
-        if (!after.includes(word)) tally.set(word, (tally.get(word) ?? 0) + 1);
-      }
+  return [...tally.entries()]
+    .map(([token, count]) => ({ token, count }))
+    .sort((a, b) => b.count - a.count || a.token.localeCompare(b.token));
+}
+
+/**
+ * Which single corrupted word is enough, on its own, to flip an utterance to a wrong
+ * leading candidate.
+ *
+ * `misleadingTokens` counts involvement and is therefore skewed by how often a word
+ * appears: `and` leads that ranking because it is corrupted constantly, not because
+ * it is dangerous. This corrupts exactly ONE word position at a time, so a count here
+ * is a count of outcomes that word changed by itself — which is what "the tokens
+ * responsible" actually means.
+ */
+export function singleTokenCulprits(corpus: UtteranceCase[]): { token: string; count: number }[] {
+  const tally = new Map<string, number>();
+
+  for (const testCase of corpus) {
+    const words = testCase.spoken.split(/\s+/).filter(Boolean);
+    for (let position = 0; position < words.length; position += 1) {
+      // Corrupt this position and nothing else.
+      const single = words
+        .map((word, index) => (index === position ? corruptWord(word) : word))
+        .filter((word) => word !== null)
+        .join(' ');
+      if (single === testCase.spoken) continue;
+      const [scored] = scoreCorpus([{ ...testCase, spoken: single }]).scored;
+      if (scored.outcome !== 'misleading-top') continue;
+      const token = words[position].toLowerCase();
+      tally.set(token, (tally.get(token) ?? 0) + 1);
     }
   }
 

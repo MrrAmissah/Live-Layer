@@ -101,8 +101,9 @@ deliberately narrow. These are honest constraints, not bugs.
 
 ## Smaller caveats
 
-- **Seven templates** ship today: preacher lower third, scripture card, announcement
-  banner, quote card, event banner, sermon title, and fullscreen message.
+- **Eight templates** ship today: preacher lower third, performer lower third,
+  scripture card, announcement banner, quote card, event banner, sermon title, and
+  fullscreen message. The two lower thirds share a renderer and differ in fields.
 - **No animation picker in the UI** — slide is the default; the `fade` crossfade is
   configured per template / via a per-instance override (exercised through the seed
   harness), not yet operator-selectable in `/control`.

@@ -6,8 +6,14 @@ import {
   tokeniseWords,
   wordErrorRate
 } from './transcriptMetrics';
-import { corruptTranscript, scoreCorpus, scoreUtterance } from './referenceOutcome';
-import { measureSensitivity, misleadingTokens, sensitivityCurve } from './sensitivity';
+import {
+  corruptTranscript,
+  corruptTranscriptDetailed,
+  corruptWord,
+  scoreCorpus,
+  scoreUtterance
+} from './referenceOutcome';
+import { measureSensitivity, misleadingTokens, sensitivityCurve, singleTokenCulprits } from './sensitivity';
 import { CORPUS_GROUPS, MULTIPLE_REFERENCES, SERVICE_CORPUS } from './serviceCorpus';
 
 describe('error rates match the published definition', () => {
@@ -131,8 +137,146 @@ describe('every reference that was spoken is evaluated', () => {
     expect(ambiguous.groups).toHaveLength(1);
     expect(ambiguous.groups[0]).toEqual(['1 Timothy 1:7', '2 Timothy 1:7']);
 
-    // Treating the alternative as a second spoken passage must NOT pass.
-    expect(outcome('Timothy one seven', ['1 Timothy 1:7', '2 Timothy 1:7'])).toBe('incomplete');
+    // Treating the alternative as a second spoken passage must NOT pass. Both are
+    // present, so it is not an under-read — it is the grouping being wrong.
+    expect(outcome('Timothy one seven', ['1 Timothy 1:7', '2 Timothy 1:7'])).toBe('mis-grouped');
+  });
+
+  it('flags two passages packed into one group, and does not call it safe', () => {
+    /**
+     * The parser dedups canonicals globally, so a later group can lose every reading
+     * and be dropped — and then the second passage is presented as an alternative
+     * READING of the first. The operator is told one passage was named when two were,
+     * which is the mirror of the property grouping exists to protect. Filing it under
+     * `incomplete` would label it an under-read, and it is not.
+     */
+    const scored = scoreUtterance({
+      spoken: 'Timothy one seven and second Timothy one seven',
+      expected: [{ canonical: '1 Timothy 1:7' }, { canonical: '2 Timothy 1:7' }]
+    });
+    expect(scored.outcome).toBe('mis-grouped');
+    expect(scored.groups).toHaveLength(1);
+    expect(scored.missing, 'both passages ARE present — that is what makes it subtle').toEqual([]);
+    // And it must not count towards reachable, which is the "usable" measure.
+    expect(scoreCorpus([scored]).reachableRate).toBe(0);
+  });
+
+  it('holds a group to exactly the readings the case declares', () => {
+    /**
+     * `alternatives` used to be consulted only to excuse a wrong leading candidate,
+     * so it could widen acceptance and never restrict it: deleting it changed
+     * nothing, and padding it with fabricated entries changed nothing. It is now the
+     * place a fabricated READING is caught.
+     */
+    const declared = scoreUtterance({
+      spoken: 'Timothy one seven',
+      expected: [{ canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7'], leadMayBeAny: true }]
+    });
+    expect(declared.outcome).toBe('exact');
+
+    // A reading offered that the case never declared.
+    expect(
+      scoreUtterance({ spoken: 'Timothy one seven', expected: [{ canonical: '1 Timothy 1:7', alternatives: [] }] })
+        .outcome
+    ).toBe('misleading-top');
+
+    // A reading declared that is never offered — a padded expectation must fail too.
+    expect(
+      scoreUtterance({
+        spoken: 'John three sixteen',
+        expected: [{ canonical: 'John 3:16', alternatives: ['Romans 8:28'] }]
+      }).outcome
+    ).toBe('misleading-top');
+  });
+
+  it('does not record a ranking choice as speaker intent', () => {
+    /**
+     * A listener hearing bare "Timothy one seven" cannot prefer 1 or 2 Timothy, so
+     * either may lead. Without `leadMayBeAny` the corpus would certify the parser's
+     * own sibling ordering as what the speaker meant.
+     */
+    const either = (canonical: string) =>
+      scoreUtterance({
+        spoken: 'Timothy one seven',
+        expected: [
+          {
+            canonical,
+            alternatives: [canonical === '1 Timothy 1:7' ? '2 Timothy 1:7' : '1 Timothy 1:7'],
+            leadMayBeAny: true
+          }
+        ]
+      }).outcome;
+    expect(either('1 Timothy 1:7')).toBe('exact');
+    expect(either('2 Timothy 1:7')).toBe('exact');
+
+    // But an undecidable lead is not a licence for any passage at all.
+    expect(
+      scoreUtterance({
+        spoken: 'Timothy one seven',
+        expected: [{ canonical: 'Romans 8:1', alternatives: ['Titus 1:7'], leadMayBeAny: true }]
+      }).outcome
+    ).toBe('misleading-top');
+  });
+
+  it('scores an empty expectation exactly like null', () => {
+    // They mean the same thing and diverged once, so a correct refusal scored zero.
+    for (const expected of [null, [] as never[]]) {
+      const score = scoreCorpus([{ spoken: 'good morning church', expected }]);
+      expect(score.correct, JSON.stringify(expected)).toBe(1);
+      expect(score.correctRate).toBe(1);
+      expect(score.refused).toBe(1);
+
+      // And it must not be counted among the cases that DO name a passage, or it
+      // silently enlarges the denominator of every per-reference rate.
+      const mixed = scoreCorpus([
+        { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] },
+        { spoken: 'good morning church', expected }
+      ]);
+      expect(mixed.exactRate, JSON.stringify(expected)).toBe(1);
+      expect(mixed.reachableRate).toBe(1);
+    }
+  });
+
+  it('reports `offered` when a named passage is present but not leading', () => {
+    /**
+     * `offered` and `reachable` had no test at all, so several fields could be
+     * rewired without the suite noticing.
+     */
+    const scored = scoreUtterance({
+      spoken: 'Timothy one seven',
+      expected: [{ canonical: '2 Timothy 1:7', alternatives: ['1 Timothy 1:7'] }]
+    });
+    expect(scored.outcome).toBe('offered');
+    expect(scored.missing).toEqual([]);
+
+    const score = scoreCorpus([scored]);
+    expect(score.offered).toBe(1);
+    expect(score.exact).toBe(0);
+    // Reachable but not exact — that is the whole point of the distinction.
+    expect(score.reachableRate).toBe(1);
+    expect(score.exactRate).toBe(0);
+  });
+
+  it('separates reachable from exact, and excludes what cannot be reached', () => {
+    const mixed = scoreCorpus([
+      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] },
+      { spoken: 'Timothy one seven', expected: [{ canonical: '2 Timothy 1:7', alternatives: ['1 Timothy 1:7'] }] },
+      { spoken: 'John', expected: [{ canonical: 'John 3:16' }] }
+    ]);
+    expect(mixed.exactRate).toBeCloseTo(1 / 3, 5);
+    expect(mixed.reachableRate).toBeCloseTo(2 / 3, 5);
+  });
+
+  it('lists the cases behind a non-zero misleading rate', () => {
+    // Asserting only that the list is EMPTY on a clean corpus let it be hardcoded.
+    const score = scoreCorpus([
+      { spoken: 'John three sixteen', expected: [{ canonical: 'Romans 8:28' }] },
+      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] }
+    ]);
+    expect(score.misleadingTop).toBe(1);
+    expect(score.misleadingCases).toHaveLength(1);
+    expect(score.misleadingCases[0].tops).toEqual(['John 3:16']);
+    expect(score.misleadingTopRate).toBe(0.5);
   });
 
   it('treats any passage for a no-reference utterance as a wrong leading candidate', () => {
@@ -199,6 +343,21 @@ describe('the service corpus, on clean transcripts', () => {
     }
   });
 
+  it('declares ambiguity as ambiguity, so ranking is not recorded as intent', () => {
+    /**
+     * Structural, because the values alone cannot show it: dropping `leadMayBeAny`
+     * leaves the corpus passing while quietly asserting that the parser's sibling
+     * ordering is what the speaker meant.
+     */
+    for (const testCase of CORPUS_GROUPS['ambiguous families']) {
+      const ambiguous = (testCase.expected ?? []).filter((item) => (item.alternatives ?? []).length > 0);
+      expect(ambiguous.length, testCase.spoken).toBeGreaterThan(0);
+      for (const item of ambiguous) {
+        expect(item.leadMayBeAny, `${testCase.spoken}: ${item.canonical}`).toBe(true);
+      }
+    }
+  });
+
   it('actually states more than one reference in the multi-reference group', () => {
     /**
      * Presence anchor against regression to the vacuous contract: if these collapse
@@ -220,7 +379,8 @@ describe('parser sensitivity, over many seeds', () => {
    * error rate comes from synthetic corruption of hand-written text and is not
    * interchangeable with a WER measured over real recognition of real audio.
    */
-  const SEEDS = 100;
+  // Kept modest so the suite stays interactive; the documented table uses 100.
+  const SEEDS = 40;
 
   it('is deterministic, and different seeds give different corpora', () => {
     expect(corruptTranscript('John three sixteen and Romans eight one', 0.5, 7)).toBe(
@@ -306,12 +466,124 @@ describe('parser sensitivity, over many seeds', () => {
     }
   });
 
-  it('names the tokens responsible, because a rate is not actionable', () => {
-    const tokens = misleadingTokens(SERVICE_CORPUS, 0.3, 20);
+  it('attributes by position, not by membership', () => {
+    /**
+     * The failure the documentation uses as its example. Diffing the two word lists
+     * compares MEMBERSHIP, so corrupting the second `eight` in "twenty eight" was
+     * invisible because the first `eight` survived — and the flagship case
+     * attributed nothing at all.
+     */
+    const corruption = corruptTranscriptDetailed('let us read Romans eight twenty eight', 0.3, 2);
+    expect(corruption.text).toBe('let us read Romans eight twenty ate');
+    expect(corruption.changed).toEqual(['eight']);
+    expect(scoreUtterance({ spoken: corruption.text, expected: [{ canonical: 'Romans 8:28' }] }).tops).toEqual([
+      'Romans 8:20'
+    ]);
+
+    /**
+     * Scored on that ONE case, so the membership bug cannot be masked by other
+     * utterances where the same word happens to be unique. A diff-based attribution
+     * returns nothing at all here.
+     */
+    const single = SERVICE_CORPUS.filter((testCase) => testCase.spoken === 'let us read Romans eight twenty eight');
+    expect(single).toHaveLength(1);
+
+    /**
+     * Seeds 1-2 at 0.2 corrupt only the SECOND `eight`, so a copy of the word
+     * survives in the sentence. A membership diff therefore reports that nothing
+     * changed and attributes nothing — while the outcome is a wrong passage.
+     */
+    const blind = corruptTranscriptDetailed(single[0].spoken, 0.2, 2);
+    expect(blind.text).toBe('let us read Romans eight twenty ate');
+    expect(blind.text.split(' ')).toContain('eight'); // a copy survives
+    expect(blind.changed).toEqual(['eight']);
+    expect(misleadingTokens(single, 0.2, 2)).toEqual([{ token: 'eight', count: 1 }]);
+
+    const tokens = misleadingTokens(SERVICE_CORPUS, 0.3, 15);
     expect(tokens.length).toBeGreaterThan(3);
-    // Number words dominate — the errors that matter land on chapters and verses.
-    const top = tokens.slice(0, 8).map((entry) => entry.token);
-    expect(top.some((token) => ['one', 'two', 'three', 'eight', 'nine', 'ten'].includes(token))).toBe(true);
+    expect(tokens.map((entry) => entry.token)).toContain('eight');
+  });
+
+  it('separates how often a token is involved from whether it is to blame', () => {
+    /**
+     * `misleadingTokens` counts involvement, and several words are usually corrupted
+     * in the same run — so a merely COMMON word can outrank a decisive one. `and` is
+     * a function word and ranks near the top for that reason alone. Corrupting one
+     * position at a time is what actually establishes responsibility.
+     */
+    const causal = singleTokenCulprits(SERVICE_CORPUS);
+    expect(causal.length).toBeGreaterThan(3);
+    // Number words are what flip an outcome on their own.
+    const numberWords = ['one', 'two', 'three', 'six', 'eight', 'nine', 'ten'];
+    expect(numberWords).toContain(causal[0].token);
+    // Every culprit must be a word the corruption model can actually change.
+    for (const { token } of causal) {
+      expect(corruptWord(token), `${token} is not corruptible`).not.toBe(token);
+    }
+
+    /**
+     * And it must be selective: only positions whose corruption actually flips the
+     * outcome count. Without that filter every corruptible position is tallied, and
+     * the list stops meaning "responsible" — it becomes an inventory of the
+     * corruption model.
+     */
+    let corruptible = 0;
+    for (const testCase of SERVICE_CORPUS) {
+      for (const word of testCase.spoken.split(/\s+/)) if (corruptWord(word) !== word) corruptible += 1;
+    }
+    const culpritPositions = causal.reduce((sum, entry) => sum + entry.count, 0);
+    expect(culpritPositions).toBeGreaterThan(0);
+    expect(culpritPositions, 'a culprit list this large is just the corruption model').toBeLessThan(
+      corruptible / 3
+    );
+    // Function words are droppable and constantly corrupted, yet flip nothing alone.
+    for (const { token } of causal) {
+      expect(['the', 'of', 'in', 'to', 'a', 'me', 'with', 'my', 'is', 'it', 'us']).not.toContain(token);
+    }
+  });
+
+  it('reports the safe outcomes per seed, not just the failures', () => {
+    // meanExact / meanRefused / minWer had no assertion, so they could be rewired.
+    const clean = measureSensitivity(SERVICE_CORPUS, 0, 3);
+    expect(clean.meanExact).toBe(scoreCorpus(SERVICE_CORPUS).exact);
+    expect(clean.meanRefused).toBe(scoreCorpus(SERVICE_CORPUS).refused);
+    expect(clean.minWer).toBe(0);
+    expect(clean.maxWer).toBe(0);
+
+    const noisy = measureSensitivity(SERVICE_CORPUS, 0.5, 10);
+    expect(noisy.meanExact).toBeLessThan(clean.meanExact);
+    expect(noisy.minWer).toBeGreaterThan(0);
+    expect(noisy.minWer).toBeLessThan(noisy.maxWer);
+  });
+
+  it('counts a seed with exactly one failure', () => {
+    /**
+     * The share is over seeds with AT LEAST ONE misleading top. A boundary of "more
+     * than one" would silently drop the single-failure seeds, which at low injection
+     * rates are most of them.
+     */
+    const point = measureSensitivity(SERVICE_CORPUS, 0.05, SEEDS);
+    const perSeed = Array.from({ length: SEEDS }, (_, index) => index + 1).map((seed) => {
+      const corrupted = SERVICE_CORPUS.map((testCase) => ({
+        ...testCase,
+        spoken: corruptTranscript(testCase.spoken, 0.05, seed)
+      }));
+      return scoreCorpus(corrupted).misleadingTop;
+    });
+    const exactlyOne = perSeed.filter((count) => count === 1).length;
+    const atLeastOne = perSeed.filter((count) => count >= 1).length;
+    expect(exactlyOne, 'this rate must produce single-failure seeds to be a real test').toBeGreaterThan(0);
+    // Exactly the seeds with at least one — not "more than one", which would drop
+    // every single-failure seed, and at low rates those are most of them.
+    expect(Math.round(point.seedsWithMisleadingShare * SEEDS)).toBe(atLeastOne);
+  });
+
+  it('models deletions as well as substitutions', () => {
+    // The documented model is confusions AND function-word deletion; only the first
+    // was pinned, so the deletion branch could be removed unnoticed.
+    const deleted = corruptTranscriptDetailed('turn with me to the book of John three sixteen', 1, 3);
+    expect(deleted.text.split(' ').length).toBeLessThan(10);
+    expect(deleted.changed).toContain('the');
   });
 
   it('keeps refusing the utterances that name no passage, even when garbled', () => {

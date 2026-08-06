@@ -19,7 +19,7 @@ it averages together are not comparable:
 
 | Outcome | What the operator sees | Cost |
 | --- | --- | --- |
-| **Refused** | "Couldn't find a Bible book in …" | They type the reference. A moment lost. |
+| **Refused** | An honest failure — no book found, no chapter or verse heard, or a passage that does not exist | They type the reference. A moment lost. |
 | **Misleading-top** | A real, plausible passage that is **not** the one named, offered first | A wrong answer presented first. It reaches air only if the operator accepts it unread. |
 
 The metric is called `misleading-top`, not "harmful", because the name has to be
@@ -61,7 +61,7 @@ that must resolve nothing.
 
 **It is hand-authored representative test material, not observed real-service
 speech.** No recordings and no transcripts of real services are in this repository
-(§6). The Twi and Ga words appear as *framing around English references* — "medaase,
+(§7). The Twi and Ga words appear as *framing around English references* — "medaase,
 now turn to Luke four eighteen" — which exercises the parser's tolerance of
 non-English words nearby. **It is not a Twi or Ga ASR benchmark**, and nothing here
 measures recognition of a reference spoken in a Ghanaian language; that needs a
@@ -85,20 +85,40 @@ characterise how this parser behaves as transcription degrades:
 | Injected | Median WER (min–max) | Seeds with ≥1 misleading-top | Mean | Worst | Mean exact | Mean refused |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0% | 0.0% (0.0–0.0) | **0%** | 0.00 | 0 | 42.0 | 11.0 |
-| 5% | 1.9% (0.3–4.0) | **65%** | 0.98 | 4 | 40.9 | 11.1 |
-| 10% | 4.0% (1.3–6.1) | **94%** | 2.11 | 6 | 39.7 | 11.2 |
-| 20% | 7.7% (4.3–10.9) | **99%** | 4.02 | 9 | 37.5 | 11.4 |
-| 30% | 11.4% (7.4–14.9) | **100%** | 5.53 | 12 | 35.9 | 11.6 |
-| 50% | 19.1% (14.9–23.7) | **100%** | 9.14 | 13 | 31.8 | 12.0 |
+| 5% | 1.9% (0.3–4.0) | **63%** | 0.94 | 4 | 40.9 | 11.1 |
+| 10% | 4.0% (1.3–6.1) | **92%** | 2.02 | 6 | 39.7 | 11.2 |
+| 20% | 7.7% (4.3–10.9) | **99%** | 3.84 | 8 | 37.5 | 11.4 |
+| 30% | 11.4% (7.4–14.9) | **100%** | 5.26 | 11 | 35.9 | 11.6 |
+| 50% | 19.1% (14.9–23.7) | **100%** | 8.65 | 12 | 31.8 | 12.0 |
+
+Produced with `measureSensitivity(SERVICE_CORPUS, rate, 100)`. It is fully seeded, so
+the table reproduces exactly; the test suite runs a smaller seed count to stay
+interactive.
 
 Reported as a *share of seeds* rather than an average: if one run in a hundred
 produces a wrong leading candidate, "0.01 mean" reads like nothing and "1% of runs"
 reads like what it is. The spread between min and max at a single injection level is
 also why one seed is not a result.
 
-The tokens responsible, counted across seeds at 30%: `and`, `one`, `eight`, `three`,
-`ten`, `nine`, `six`, `for`. They are almost all number words — the errors that matter
-land on chapters and verses, which is the intuition this makes concrete.
+### Which tokens are actually to blame
+
+Two different questions, and conflating them produced a misleading answer in an
+earlier draft.
+
+**Involvement** — words corrupted in runs that ended badly, at 30% over 100 seeds:
+`eight` (171), `one` (146), `and` (133), `three` (120), `ten` (85), `nine` (50),
+`six` (38), `two` (28). Several words are usually corrupted in the same run and all
+of them are counted, so this is skewed by how *often* a word appears.
+
+**Causation** — corrupt exactly one word position and see whether that alone flips the
+outcome: `eight` (4), `one` (4), `and` (3), `ten` (3), `nine` (2), `three` (2),
+`six` (1), `two` (1). Twenty positions across the whole corpus, out of 145 corruptible
+ones. Every culprit is a number word except `and`, which matters because it separates
+a verse list from a second reference.
+
+The earlier draft reported only the involvement list, ranked `and` first, and called
+them "the tokens responsible" — `and` led that ranking because it is corrupted
+constantly, not because it is decisive.
 
 ### What this does and does not establish
 
@@ -128,8 +148,10 @@ product decision the rest of this document is built on.
 
 ## 3. DONDO: what the sources actually say
 
-All facts below are from the paper, the Hugging Face organisation, and Khaya AI's own
-pages. Nothing is inferred.
+The **facts** below are from the paper, the Hugging Face organisation, and Khaya AI's
+own pages. Where this document draws a conclusion from them — which checkpoint suits
+our use, why English behaves as it does — it is marked as our reading, not the
+paper's.
 
 **Paper.** Azunre, P., Ibrahim, N., Budu, J., Adu-Gyamfi, L. *DONDO: Open w2v-BERT
 Speech-Recognition Base Models for African Languages* (subtitle: *Democratizing Oral
@@ -173,13 +195,17 @@ an optional third step at 5e-7 for the East/Southern African family.
 | Monolingual | — | 16.9 | 5.38 | 4.5 | 30.1 | 8.5 | 9.7 | 12.6 | 15.75 |
 | Multilingual | **11.4** | 27.4 | 8.78 | 6.57 | 13.4 | 3.64 | 16.0 | 20.8 | 14.7 |
 
-Two things to note for our use. **African English is the worst column** at 27.4% —
-and English is the language in which references are actually spoken at PPC. And the
-multilingual model is *worse* at English than the monolingual `en` model (16.9%),
-because English acts as a shared column across every regional family. If DONDO were
-used here, the English monolingual checkpoint is the better starting point for
-reference recognition, with the multilingual model relevant only if references are
-spoken in Twi or Ga.
+The `Avg` column is the paper's own figure and is not the mean of the eight cells
+shown, which is higher — reproduce it from the paper rather than from this table.
+
+**Our reading of this, not the paper's:** African English is the worst column in the
+multilingual row at 27.4% (in the monolingual row Fante is worse, at 30.1), and
+English is the language in which references are actually spoken at PPC. The
+multilingual model is also worse at English than the monolingual `en` model at 16.9%.
+The paper notes English is a shared column across every regional family; we take that
+to mean the English monolingual checkpoint would be the better starting point for
+reference recognition here, with a multilingual model relevant only if references are
+spoken in Twi or Ga. That is an inference and would need measuring.
 
 The model card's language ids are a **global** map, not per-model indices — Adangme 0,
 Akuapem Twi 1, Asante Twi 2, Ewe 5, African English 6, Fante 7, French 8, Ga 9, Nzema

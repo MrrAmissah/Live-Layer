@@ -53,10 +53,12 @@ export const CODE_SWITCHED_FRAMING: UtteranceCase[] = [
 ];
 
 /**
- * The critical group. A number spoken while QUOTING or preaching is not a
- * reference, and offering one here is the failure this whole layer exists to
- * prevent — `expected: null` means "resolve nothing, or resolve only the chapter
- * that was actually named".
+ * The critical group. A number spoken while QUOTING or preaching is not a reference,
+ * and offering one here is the failure this whole layer exists to prevent.
+ *
+ * `expected: null` means resolve NOTHING — any group at all is a wrong leading
+ * candidate. Where a chapter genuinely was named before the quotation began, the case
+ * states that chapter explicitly instead.
  */
 export const QUOTED_AND_NARRATIVE: UtteranceCase[] = [
   { spoken: 'Jesus fed five thousand men that day', expected: null },
@@ -145,32 +147,46 @@ export const MULTIPLE_REFERENCES: UtteranceCase[] = [
 
 /**
  * One reference with more than one legitimate reading. Distinct from two spoken
- * passages: the alternatives belong to the SAME group, and if they ever split into
- * two groups the operator is being told two passages were named when one was.
+ * passages: the readings belong to the SAME group, and if they ever split into two
+ * groups the operator is told two passages were named when one was.
+ *
+ * `leadMayBeAny` is set because a listener hearing bare "Timothy one seven" has no
+ * basis to prefer 1 or 2 Timothy. Naming one of them as what the speaker meant would
+ * record the parser's own sibling ordering as human intent and then score it `exact`
+ * — the corpus certifying the implementation. What is genuinely required is that both
+ * readings are offered, together, in one group; which one sorts first is a ranking
+ * choice, not a fact about the utterance.
  */
 export const AMBIGUOUS_FAMILY: UtteranceCase[] = [
   {
     spoken: 'Timothy one seven',
-    expected: [{ canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7'] }],
-    note: 'one reference, two readings'
+    expected: [{ canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7'], leadMayBeAny: true }],
+    note: 'one reference, two readings, neither preferable from the transcript'
   },
   {
     spoken: 'John three sixteen and Timothy one seven',
     expected: [
       { canonical: 'John 3:16' },
-      { canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7'] }
+      { canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7'], leadMayBeAny: true }
     ],
     note: 'a definite passage followed by an ambiguous one'
   }
 ];
 
-/** Utterances that should fail rather than guess. */
+/**
+ * Utterances that should resolve nothing.
+ *
+ * Two different reasons are collected here and the distinction is worth stating,
+ * because `expected: null` reads as "names no passage" and only the first three do.
+ * The last two DO name a passage — an impossible one — and the required behaviour is
+ * the same: refuse rather than degrade it into a neighbouring verse that exists.
+ */
 export const SHOULD_REFUSE: UtteranceCase[] = [
   { spoken: 'good morning church', expected: null },
   { spoken: 'this is a message about faith', expected: null },
-  { spoken: 'John ninety nine one', expected: null, note: 'chapter does not exist' },
-  { spoken: 'Romans ninety nine one', expected: null },
-  { spoken: 'let us pray', expected: null }
+  { spoken: 'let us pray', expected: null },
+  { spoken: 'John ninety nine one', expected: null, note: 'names a chapter that does not exist' },
+  { spoken: 'Romans ninety nine one', expected: null, note: 'names a chapter that does not exist' }
 ];
 
 export const SERVICE_CORPUS: UtteranceCase[] = [
