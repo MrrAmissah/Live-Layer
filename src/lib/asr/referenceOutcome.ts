@@ -70,17 +70,17 @@ export interface ExpectedReference {
   /** The canonical the speaker meant; leads its group unless `leadMayBeAny`. */
   canonical: string;
   /**
-   * The OTHER readings this group may contain — and, when given, the only other
-   * readings it may contain.
+   * The OTHER readings this group may contain — and the ONLY other readings it may
+   * contain. **Required**, with `[]` meaning the group must hold the canonical alone.
    *
-   * Load-bearing, not documentation. It was previously consulted only to excuse a
-   * wrong leading candidate, so it could widen acceptance and never restrict it:
-   * deleting it from a case changed nothing, and adding fabricated entries changed
-   * nothing. A group offering a reading nobody declared now fails, which is what
-   * makes this the place a fabricated *reading* is caught (a fabricated *group* is
-   * caught separately).
+   * Required rather than optional because optional meant "skip the check". A case
+   * written the ordinary way, `{ canonical: 'John 3:16' }`, declared nothing, so the
+   * group's contents went unvalidated and a fabricated reading beside the right one
+   * scored `exact` — or, leading, scored `offered`. The harness could see an invented
+   * *group* and not an invented *reading*, while claiming both were checked. Making
+   * the field mandatory is what removes "unspecified" as a state.
    */
-  alternatives?: string[];
+  alternatives: string[];
   /**
    * The transcript genuinely cannot say which reading was meant, so any of
    * `canonical` or `alternatives` may lead.
@@ -107,8 +107,15 @@ export interface UtteranceCase {
 
 export interface ScoredUtterance extends UtteranceCase {
   outcome: ReferenceOutcome;
-  /** True when the utterance named nothing, so a refusal is the correct answer. */
-  namesNothing: boolean;
+  /**
+   * True when the correct answer is to resolve nothing.
+   *
+   * Named for the required RESULT, not the utterance: it covers both "no passage was
+   * named" and "a passage was named that cannot exist". Calling it `namesNothing`
+   * claimed a distinction the type deliberately does not make — `John ninety nine
+   * one` does name a passage, it just names an impossible one.
+   */
+  expectsNoResult: boolean;
   /** One entry per group the parser produced: that group's ranked canonicals. */
   groups: string[][];
   /** Leading canonical of each group, in order. */
@@ -122,6 +129,91 @@ export interface ScoredUtterance extends UtteranceCase {
 const canonicalsOf = (expected: ExpectedReference[] | null): string[] =>
   (expected ?? []).map((item) => item.canonical);
 
+/**
+ * The scoring rule, over group contents alone.
+ *
+ * Separated from `scoreUtterance` so it can be exercised with group shapes the parser
+ * does not currently produce — a reading in the wrong group, a duplicated group — but
+ * which the rule must still classify correctly. Testing only through the parser meant
+ * two branches could be deleted with the suite staying green, because nothing the
+ * parser emits today reaches them.
+ */
+export function classifyGroups(groups: string[][], expected: ExpectedReference[]): ReferenceOutcome {
+  const tops = groups.map((group) => group[0]);
+  const wanted = expected.map((item) => item.canonical);
+  const everywhere = groups.flat();
+  const missing = wanted.filter((canonical) => !everywhere.includes(canonical));
+
+  if (expected.length === 0) return groups.length === 0 ? 'refused' : 'misleading-top';
+  if (groups.length === 0) return 'refused';
+
+  /**
+   * A reading offered that NO expectation declares, anywhere in the utterance.
+   * Position-independent and checked first: it is the one signal meaning a passage
+   * was invented rather than merely misplaced, and a differing group count must not
+   * mask it.
+   */
+  const declaredAnywhere = new Set(expected.flatMap((item) => [item.canonical, ...item.alternatives]));
+  if (everywhere.some((canonical) => !declaredAnywhere.has(canonical))) return 'misleading-top';
+
+  // A group for a passage that was never spoken.
+  if (groups.length > expected.length) return 'misleading-top';
+
+  if (groups.length < expected.length) {
+    /**
+     * Every named passage came back, but packed into fewer groups than were spoken,
+     * so a second passage is presented as an alternative READING of the first. Not an
+     * under-read and not safe: the operator is told one passage was named when two
+     * were, the mirror of the property grouping exists to protect.
+     */
+    return missing.length ? 'incomplete' : 'mis-grouped';
+  }
+
+  /**
+   * Each group against its own declared set, in BOTH directions and for EVERY group —
+   * not only where alternatives happened to be non-empty. This is where a fabricated
+   * or misplaced READING is caught inside an otherwise correct structure.
+   */
+  const contentMismatch = groups.some((group, index) => {
+    const declared = [expected[index].canonical, ...expected[index].alternatives];
+    const offeredSet = new Set(group);
+    const allowed = new Set(declared);
+    return (
+      group.some((canonical) => !allowed.has(canonical)) ||
+      declared.some((canonical) => !offeredSet.has(canonical))
+    );
+  });
+
+  const leadsHere = (index: number) =>
+    expected[index].leadMayBeAny
+      ? [expected[index].canonical, ...expected[index].alternatives].includes(tops[index])
+      : tops[index] === expected[index].canonical;
+  const leadsInOrder = expected.every((_, index) => leadsHere(index));
+
+  const sortedJoin = (values: string[]) => [...values].sort().join('|');
+  const readingsIntact =
+    sortedJoin(everywhere) === sortedJoin(expected.flatMap((item) => [item.canonical, ...item.alternatives]));
+
+  /**
+   * Same passages, wrong sequence. Checked before the per-position content comparison:
+   * once the groups have moved, comparing group *i* against expectation *i* compares
+   * two unrelated references and reports mismatches that are an artefact of the
+   * reordering rather than a fabrication.
+   */
+  if (readingsIntact && sortedJoin(tops) === sortedJoin(wanted) && !leadsInOrder) return 'out-of-order';
+
+  if (contentMismatch) return 'misleading-top';
+  if (leadsInOrder) return 'exact';
+
+  /**
+   * Contents exactly as declared and the groups line up, but a declared alternative
+   * leads where the canonical was expected. A ranking miss the operator recovers in
+   * one click — distinct from a group leading with something that is not a legitimate
+   * reading of that reference at all.
+   */
+  return 'offered';
+}
+
 export function scoreUtterance(testCase: UtteranceCase): ScoredUtterance {
   const parsed = parseSpokenReference(testCase.spoken);
   const groups = parsed.ok
@@ -132,111 +224,20 @@ export function scoreUtterance(testCase: UtteranceCase): ScoredUtterance {
   const wanted = expected.map((item) => item.canonical);
   const everywhere = groups.flat();
   const missing = wanted.filter((canonical) => !everywhere.includes(canonical));
+  const expectsNoResult = expected.length === 0;
 
-  // An empty list and `null` mean the same thing and must score the same way; they
-  // diverged once, so a correct refusal scored zero for one of the two spellings.
-  const namesNothing = expected.length === 0;
-  const base = { ...testCase, groups, tops, missing, namesNothing };
+  const declaredAnywhere = new Set(expected.flatMap((item) => [item.canonical, ...item.alternatives]));
+  const unexpected = expectsNoResult ? tops : everywhere.filter((c) => !declaredAnywhere.has(c));
 
-  if (namesNothing) {
-    return {
-      ...base,
-      unexpected: tops,
-      outcome: groups.length === 0 ? 'refused' : 'misleading-top'
-    };
-  }
-
-  if (groups.length === 0) {
-    return { ...base, unexpected: [], outcome: 'refused' };
-  }
-
-  /**
-   * A group leads with a canonical that is not the one named at this position — or
-   * there are MORE groups than references spoken, so a passage was invented.
-   */
-  const unexpected = tops.filter((top, index) => {
-    const here = expected[index];
-    if (!here) return true; // a group with no reference behind it
-    if (top === here.canonical) return false;
-    /**
-     * The lead is wrong, but is the right passage *in this group*? If it is, this is
-     * a ranking miss the operator recovers with one click (`offered`); if it is not,
-     * the group leads with a passage that is simply not the one named. Collapsing
-     * both into one outcome made `offered` unreachable — a dead outcome is as
-     * misleading as a dead field, and it hid the difference between "second on the
-     * list" and "not on the list at all".
-     *
-     * `leadMayBeAny` needs no clause here: if an allowed alternative leads then the
-     * canonical is in the same group, so this test already passes it through. A
-     * second condition saying the same thing could be deleted without any test
-     * noticing, which is how a redundant guard becomes a false reassurance.
-     */
-    return !groups[index].includes(here.canonical);
-  });
-
-  /**
-   * A reading offered inside a group that the case never declared. This is where a
-   * fabricated *reading* is caught; a fabricated *group* is caught above. Checked
-   * only when the case declares alternatives, so a case that says nothing about a
-   * group's contents is not silently held to "exactly one reading".
-   */
-  const contentMismatch = groups.flatMap((group, index) => {
-    const here = expected[index];
-    if (!here || here.alternatives === undefined) return [];
-    const declared = [here.canonical, ...here.alternatives];
-    const offered = new Set(group);
-    const allowed = new Set(declared);
-    return [
-      // Offered but never declared — a fabricated reading.
-      ...group.filter((canonical) => !allowed.has(canonical)),
-      // Declared but never offered — the expectation is wrong, which must also fail,
-      // or an alternatives list could be padded with anything and still pass.
-      ...declared.filter((canonical) => !offered.has(canonical))
-    ];
-  });
-
-  const sameLength = wanted.length === tops.length;
-  const outcome: ReferenceOutcome = (() => {
-    const leadsHere = (index: number) => {
-      const here = expected[index];
-      return here.leadMayBeAny
-        ? [here.canonical, ...(here.alternatives ?? [])].includes(tops[index])
-        : tops[index] === here.canonical;
-    };
-
-    // Everything leading correctly, position by position, and every group's contents
-    // exactly as declared.
-    if (sameLength && !contentMismatch.length && expected.every((_, index) => leadsHere(index))) return 'exact';
-
-    /**
-     * The same passages in the wrong sequence, checked BEFORE the positional test.
-     * Every group leads with something genuinely spoken, so nothing was invented —
-     * reporting that as a wrong leading candidate would put a sequencing defect in
-     * the same bucket as a fabricated verse. It still fails: the operator reads them
-     * in the order they were said.
-     */
-    if (sameLength && !contentMismatch.length && [...wanted].sort().join('|') === [...tops].sort().join('|')) {
-      return 'out-of-order';
-    }
-
-    if (unexpected.length) return 'misleading-top';
-    // A group whose declared contents do not match what was offered.
-    if (contentMismatch.length) return 'misleading-top';
-
-    /**
-     * Every named passage came back, but packed into fewer groups than were spoken —
-     * so a second passage is presented as an alternative READING of the first. This
-     * is not an under-read and is not safe: the operator is told one passage was
-     * named when two were, which is the mirror image of the property grouping exists
-     * to protect. It gets its own outcome rather than being filed under `incomplete`.
-     */
-    if (!missing.length && groups.length < wanted.length) return 'mis-grouped';
-
-    if (groups.length < wanted.length || missing.length) return 'incomplete';
-    return 'offered';
-  })();
-
-  return { ...base, unexpected, outcome };
+  return {
+    ...testCase,
+    groups,
+    tops,
+    missing,
+    expectsNoResult,
+    unexpected,
+    outcome: classifyGroups(groups, expected)
+  };
 }
 
 export interface CorpusScore {
@@ -274,8 +275,8 @@ export function scoreCorpus(cases: UtteranceCase[]): CorpusScore {
   const misleadingTop = count('misleading-top');
 
   // Rates over the wrong denominator are how a corpus lies.
-  const naming = scored.filter((item) => !item.namesNothing);
-  const correct = exact + scored.filter((item) => item.namesNothing && item.outcome === 'refused').length;
+  const naming = scored.filter((item) => !item.expectsNoResult);
+  const correct = exact + scored.filter((item) => item.expectsNoResult && item.outcome === 'refused').length;
   /**
    * Reachable means the operator could get to every named passage: all of them are
    * on screen, and the grouping still says how many passages were heard. A wrong

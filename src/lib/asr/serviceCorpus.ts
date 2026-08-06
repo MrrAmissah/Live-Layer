@@ -21,35 +21,35 @@ import type { UtteranceCase } from './referenceOutcome';
  */
 
 export const COMPLETE_REFERENCES: UtteranceCase[] = [
-  { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] },
-  { spoken: 'turn with me to John chapter three verse sixteen', expected: [{ canonical: 'John 3:16' }] },
-  { spoken: 'let us read Romans eight twenty eight', expected: [{ canonical: 'Romans 8:28' }] },
-  { spoken: 'First Corinthians thirteen four to seven', expected: [{ canonical: '1 Corinthians 13:4-7' }] },
-  { spoken: 'second Timothy one seven', expected: [{ canonical: '2 Timothy 1:7' }] },
-  { spoken: 'Psalm twenty three one', expected: [{ canonical: 'Psalms 23:1' }] },
-  { spoken: 'Psalm one hundred and nineteen one oh five', expected: [{ canonical: 'Psalms 119:105' }] },
-  { spoken: 'Matthew twenty eight nineteen and twenty', expected: [{ canonical: 'Matthew 28:19-20' }] },
-  { spoken: 'Isaiah forty one ten', expected: [{ canonical: 'Isaiah 41:10' }] },
-  { spoken: 'Philippians four thirteen', expected: [{ canonical: 'Philippians 4:13' }] },
-  { spoken: 'Jeremiah twenty nine eleven', expected: [{ canonical: 'Jeremiah 29:11' }] },
-  { spoken: 'Proverbs three five and six', expected: [{ canonical: 'Proverbs 3:5-6' }] },
-  { spoken: 'the book of Jude verse three', expected: [{ canonical: 'Jude 1:3' }] },
-  { spoken: 'Obadiah verse fifteen', expected: [{ canonical: 'Obadiah 1:15' }] },
-  { spoken: 'the first book of Kings chapter eight verse one', expected: [{ canonical: '1 Kings 8:1' }] },
-  { spoken: 'in the third chapter of John verse sixteen', expected: [{ canonical: 'John 3:16' }] },
-  { spoken: 'Habakkuk two four', expected: [{ canonical: 'Habakkuk 2:4' }] },
-  { spoken: 'Ephesians two eight to nine', expected: [{ canonical: 'Ephesians 2:8-9' }] }
+  { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
+  { spoken: 'turn with me to John chapter three verse sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
+  { spoken: 'let us read Romans eight twenty eight', expected: [{ canonical: 'Romans 8:28', alternatives: [] }] },
+  { spoken: 'First Corinthians thirteen four to seven', expected: [{ canonical: '1 Corinthians 13:4-7', alternatives: [] }] },
+  { spoken: 'second Timothy one seven', expected: [{ canonical: '2 Timothy 1:7', alternatives: [] }] },
+  { spoken: 'Psalm twenty three one', expected: [{ canonical: 'Psalms 23:1', alternatives: [] }] },
+  { spoken: 'Psalm one hundred and nineteen one oh five', expected: [{ canonical: 'Psalms 119:105', alternatives: [] }] },
+  { spoken: 'Matthew twenty eight nineteen and twenty', expected: [{ canonical: 'Matthew 28:19-20', alternatives: [] }] },
+  { spoken: 'Isaiah forty one ten', expected: [{ canonical: 'Isaiah 41:10', alternatives: [] }] },
+  { spoken: 'Philippians four thirteen', expected: [{ canonical: 'Philippians 4:13', alternatives: [] }] },
+  { spoken: 'Jeremiah twenty nine eleven', expected: [{ canonical: 'Jeremiah 29:11', alternatives: [] }] },
+  { spoken: 'Proverbs three five and six', expected: [{ canonical: 'Proverbs 3:5-6', alternatives: [] }] },
+  { spoken: 'the book of Jude verse three', expected: [{ canonical: 'Jude 1:3', alternatives: [] }] },
+  { spoken: 'Obadiah verse fifteen', expected: [{ canonical: 'Obadiah 1:15', alternatives: [] }] },
+  { spoken: 'the first book of Kings chapter eight verse one', expected: [{ canonical: '1 Kings 8:1', alternatives: [] }] },
+  { spoken: 'in the third chapter of John verse sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
+  { spoken: 'Habakkuk two four', expected: [{ canonical: 'Habakkuk 2:4', alternatives: [] }] },
+  { spoken: 'Ephesians two eight to nine', expected: [{ canonical: 'Ephesians 2:8-9', alternatives: [] }] }
 ];
 
 /** Ghanaian-English and Twi/Ga framing around an English reference. */
 export const CODE_SWITCHED_FRAMING: UtteranceCase[] = [
-  { spoken: 'please open your Bibles to John three sixteen', expected: [{ canonical: 'John 3:16' }] },
-  { spoken: 'church let us go to Romans eight one', expected: [{ canonical: 'Romans 8:1' }] },
-  { spoken: 'somebody say amen, Psalm twenty seven one', expected: [{ canonical: 'Psalms 27:1' }] },
-  { spoken: 'we are reading from Ephesians six ten this morning', expected: [{ canonical: 'Ephesians 6:10' }] },
-  { spoken: 'medaase, now turn to Luke four eighteen', expected: [{ canonical: 'Luke 4:18' }], note: 'Twi thanks before the reference' },
-  { spoken: 'Awurade is good, Psalm one hundred four', expected: [{ canonical: 'Psalms 104' }], note: 'Twi for Lord' },
-  { spoken: 'oyiwaladonn, Genesis one one', expected: [{ canonical: 'Genesis 1:1' }], note: 'Ga praise before the reference' }
+  { spoken: 'please open your Bibles to John three sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
+  { spoken: 'church let us go to Romans eight one', expected: [{ canonical: 'Romans 8:1', alternatives: [] }] },
+  { spoken: 'somebody say amen, Psalm twenty seven one', expected: [{ canonical: 'Psalms 27:1', alternatives: [] }] },
+  { spoken: 'we are reading from Ephesians six ten this morning', expected: [{ canonical: 'Ephesians 6:10', alternatives: [] }] },
+  { spoken: 'medaase, now turn to Luke four eighteen', expected: [{ canonical: 'Luke 4:18', alternatives: [] }], note: 'Twi thanks before the reference' },
+  { spoken: 'Awurade is good, Psalm one hundred four', expected: [{ canonical: 'Psalms 104', alternatives: [] }], note: 'Twi for Lord' },
+  { spoken: 'oyiwaladonn, Genesis one one', expected: [{ canonical: 'Genesis 1:1', alternatives: [] }], note: 'Ga praise before the reference' }
 ];
 
 /**
@@ -67,21 +67,21 @@ export const QUOTED_AND_NARRATIVE: UtteranceCase[] = [
   { spoken: 'we have been in this church for twenty five years', expected: null },
   { spoken: 'the offering will be counted after the second service', expected: null },
   { spoken: 'God created the heavens and the earth in six days', expected: null },
-  { spoken: 'Acts two there were about three thousand souls added', expected: [{ canonical: 'Acts 2' }], note: 'chapter named, then quoted numbers' },
-  { spoken: 'John six Jesus fed five thousand men', expected: [{ canonical: 'John 6' }] },
+  { spoken: 'Acts two there were about three thousand souls added', expected: [{ canonical: 'Acts 2', alternatives: [] }], note: 'chapter named, then quoted numbers' },
+  { spoken: 'John six Jesus fed five thousand men', expected: [{ canonical: 'John 6', alternatives: [] }] },
   {
     spoken: 'Mark ten it is easier for a camel to go through the eye of a needle',
-    expected: [{ canonical: 'Mark 10' }],
+    expected: [{ canonical: 'Mark 10', alternatives: [] }],
     note: '"for" is a number homophone and must not become verse 4'
   },
   {
     spoken: 'Romans eight verse one for there is therefore now no condemnation',
-    expected: [{ canonical: 'Romans 8:1' }],
+    expected: [{ canonical: 'Romans 8:1', alternatives: [] }],
     note: 'complete reference, then the quotation begins with a homophone'
   },
   {
     spoken: 'John three sixteen for God so loved the world that he gave his only Son',
-    expected: [{ canonical: 'John 3:16' }]
+    expected: [{ canonical: 'John 3:16', alternatives: [] }]
   }
 ];
 
@@ -97,50 +97,50 @@ export const QUOTED_AND_NARRATIVE: UtteranceCase[] = [
 export const MULTIPLE_REFERENCES: UtteranceCase[] = [
   {
     spoken: 'John three sixteen and Romans eight twenty eight',
-    expected: [{ canonical: 'John 3:16' }, { canonical: 'Romans 8:28' }]
+    expected: [{ canonical: 'John 3:16', alternatives: [] }, { canonical: 'Romans 8:28', alternatives: [] }]
   },
   {
     spoken: 'John three sixteen and Romans eight twenty eight then Psalm twenty three one',
-    expected: [{ canonical: 'John 3:16' }, { canonical: 'Romans 8:28' }, { canonical: 'Psalms 23:1' }],
+    expected: [{ canonical: 'John 3:16', alternatives: [] }, { canonical: 'Romans 8:28', alternatives: [] }, { canonical: 'Psalms 23:1', alternatives: [] }],
     note: 'three references'
   },
   {
     spoken: 'John chapter three and Romans chapter eight',
-    expected: [{ canonical: 'John 3' }, { canonical: 'Romans 8' }],
+    expected: [{ canonical: 'John 3', alternatives: [] }, { canonical: 'Romans 8', alternatives: [] }],
     note: 'the backward pre-chapter scan must not give Romans 3:8'
   },
   {
     spoken: 'John chapter three verse sixteen and Romans eight one',
-    expected: [{ canonical: 'John 3:16' }, { canonical: 'Romans 8:1' }]
+    expected: [{ canonical: 'John 3:16', alternatives: [] }, { canonical: 'Romans 8:1', alternatives: [] }]
   },
   {
     spoken: 'John three sixteen and in the third chapter of Romans verse one',
-    expected: [{ canonical: 'John 3:16' }, { canonical: 'Romans 3:1' }],
+    expected: [{ canonical: 'John 3:16', alternatives: [] }, { canonical: 'Romans 3:1', alternatives: [] }],
     note: 'a chapter spoken before its own book still reaches it'
   },
   {
     spoken: 'John three sixteen for God so loved the world and Romans eight one',
-    expected: [{ canonical: 'John 3:16' }, { canonical: 'Romans 8:1' }],
+    expected: [{ canonical: 'John 3:16', alternatives: [] }, { canonical: 'Romans 8:1', alternatives: [] }],
     note: 'quotation between two references'
   },
   {
     spoken: 'John three sixteen and John three eighteen',
-    expected: [{ canonical: 'John 3:16' }, { canonical: 'John 3:18' }],
+    expected: [{ canonical: 'John 3:16', alternatives: [] }, { canonical: 'John 3:18', alternatives: [] }],
     note: 'same book twice, two distinct passages'
   },
   {
     spoken: 'John three sixteen and John three sixteen',
-    expected: [{ canonical: 'John 3:16' }],
+    expected: [{ canonical: 'John 3:16', alternatives: [] }],
     note: 'a repeated passage collapses to one, per the parser contract'
   },
   {
     spoken: 'John three sixteen and eighteen',
-    expected: [{ canonical: 'John 3:16,18' }],
+    expected: [{ canonical: 'John 3:16,18', alternatives: [] }],
     note: 'ONE discontinuous reference, not two passages'
   },
   {
     spoken: 'John three sixteen and also in Romans',
-    expected: [{ canonical: 'John 3:16' }],
+    expected: [{ canonical: 'John 3:16', alternatives: [] }],
     note: 'a bare mention is not a passage and must not become a second group'
   }
 ];
@@ -166,7 +166,7 @@ export const AMBIGUOUS_FAMILY: UtteranceCase[] = [
   {
     spoken: 'John three sixteen and Timothy one seven',
     expected: [
-      { canonical: 'John 3:16' },
+      { canonical: 'John 3:16', alternatives: [] },
       { canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7'], leadMayBeAny: true }
     ],
     note: 'a definite passage followed by an ambiguous one'

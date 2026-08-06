@@ -7,6 +7,7 @@ import {
   wordErrorRate
 } from './transcriptMetrics';
 import {
+  classifyGroups,
   corruptTranscript,
   corruptTranscriptDetailed,
   corruptWord,
@@ -69,7 +70,7 @@ describe('every reference that was spoken is evaluated', () => {
   const outcome = (spoken: string, expected: string[] | null) =>
     scoreUtterance({
       spoken,
-      expected: expected === null ? null : expected.map((canonical) => ({ canonical }))
+      expected: expected === null ? null : expected.map((canonical) => ({ canonical, alternatives: [] }))
     }).outcome;
 
   it('accepts two correct references in the order spoken', () => {
@@ -152,13 +153,53 @@ describe('every reference that was spoken is evaluated', () => {
      */
     const scored = scoreUtterance({
       spoken: 'Timothy one seven and second Timothy one seven',
-      expected: [{ canonical: '1 Timothy 1:7' }, { canonical: '2 Timothy 1:7' }]
+      expected: [{ canonical: '1 Timothy 1:7', alternatives: [] }, { canonical: '2 Timothy 1:7', alternatives: [] }]
     });
     expect(scored.outcome).toBe('mis-grouped');
     expect(scored.groups).toHaveLength(1);
     expect(scored.missing, 'both passages ARE present — that is what makes it subtle').toEqual([]);
     // And it must not count towards reachable, which is the "usable" measure.
     expect(scoreCorpus([scored]).reachableRate).toBe(0);
+  });
+
+  it('requires every group to hold exactly the declared readings', () => {
+    /**
+     * `alternatives` was optional, and optional meant "skip the check". A case written
+     * the ordinary way — `{ canonical: 'John 3:16' }` — declared nothing, so the
+     * group's contents went unvalidated: a fabricated reading sitting beside the right
+     * one scored `exact`, and one sitting ahead of it scored `offered`. The harness
+     * could see an invented GROUP and not an invented READING while claiming both.
+     *
+     * The field is mandatory now, so there is no unspecified state to skip.
+     */
+    const outcomeOf = (expected: { canonical: string; alternatives: string[]; leadMayBeAny?: boolean }[]) =>
+      scoreUtterance({ spoken: 'Timothy one seven', expected }).outcome;
+
+    // The real group is ['1 Timothy 1:7', '2 Timothy 1:7'].
+    // 1. An undeclared reading BEHIND a correct lead.
+    expect(outcomeOf([{ canonical: '1 Timothy 1:7', alternatives: [] }])).toBe('misleading-top');
+    // 2. An undeclared reading LEADING, with the canonical behind it.
+    expect(outcomeOf([{ canonical: '2 Timothy 1:7', alternatives: [] }])).toBe('misleading-top');
+    // 3/4. A declared reading absent, and an undeclared one present.
+    expect(outcomeOf([{ canonical: '1 Timothy 1:7', alternatives: ['3 John 1:7'] }])).toBe('misleading-top');
+    expect(
+      outcomeOf([{ canonical: '1 Timothy 1:7', alternatives: ['2 Timothy 1:7', '3 John 1:7'] }])
+    ).toBe('misleading-top');
+    // 5. A declared alternative leading is a ranking miss, not a fabrication.
+    expect(outcomeOf([{ canonical: '2 Timothy 1:7', alternatives: ['1 Timothy 1:7'] }])).toBe('offered');
+    // 6. Unless the transcript genuinely cannot decide which should lead.
+    expect(
+      outcomeOf([{ canonical: '2 Timothy 1:7', alternatives: ['1 Timothy 1:7'], leadMayBeAny: true }])
+    ).toBe('exact');
+
+    // And the check applies to an unambiguous group too, not only a declared-plural one.
+    expect(
+      scoreUtterance({
+        spoken: 'John three sixteen',
+        expected: [{ canonical: 'John 3:16', alternatives: ['Romans 8:28'] }]
+      }).outcome,
+      'a declared reading that is never offered must fail'
+    ).toBe('misleading-top');
   });
 
   it('holds a group to exactly the readings the case declares', () => {
@@ -229,7 +270,7 @@ describe('every reference that was spoken is evaluated', () => {
       // And it must not be counted among the cases that DO name a passage, or it
       // silently enlarges the denominator of every per-reference rate.
       const mixed = scoreCorpus([
-        { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] },
+        { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
         { spoken: 'good morning church', expected }
       ]);
       expect(mixed.exactRate, JSON.stringify(expected)).toBe(1);
@@ -259,9 +300,9 @@ describe('every reference that was spoken is evaluated', () => {
 
   it('separates reachable from exact, and excludes what cannot be reached', () => {
     const mixed = scoreCorpus([
-      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] },
+      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
       { spoken: 'Timothy one seven', expected: [{ canonical: '2 Timothy 1:7', alternatives: ['1 Timothy 1:7'] }] },
-      { spoken: 'John', expected: [{ canonical: 'John 3:16' }] }
+      { spoken: 'John', expected: [{ canonical: 'John 3:16', alternatives: [] }] }
     ]);
     expect(mixed.exactRate).toBeCloseTo(1 / 3, 5);
     expect(mixed.reachableRate).toBeCloseTo(2 / 3, 5);
@@ -270,8 +311,8 @@ describe('every reference that was spoken is evaluated', () => {
   it('lists the cases behind a non-zero misleading rate', () => {
     // Asserting only that the list is EMPTY on a clean corpus let it be hardcoded.
     const score = scoreCorpus([
-      { spoken: 'John three sixteen', expected: [{ canonical: 'Romans 8:28' }] },
-      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] }
+      { spoken: 'John three sixteen', expected: [{ canonical: 'Romans 8:28', alternatives: [] }] },
+      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] }
     ]);
     expect(score.misleadingTop).toBe(1);
     expect(score.misleadingCases).toHaveLength(1);
@@ -286,7 +327,7 @@ describe('every reference that was spoken is evaluated', () => {
 
   it('scores refusals against the right denominator', () => {
     const score = scoreCorpus([
-      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16' }] },
+      { spoken: 'John three sixteen', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
       { spoken: 'good morning church', expected: null }
     ]);
     expect(score.correct).toBe(2);
@@ -295,7 +336,7 @@ describe('every reference that was spoken is evaluated', () => {
 
     // The symmetric error: a refusal is only correct when nothing was named.
     const missed = scoreCorpus([
-      { spoken: 'John', expected: [{ canonical: 'John 3:16' }] },
+      { spoken: 'John', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
       { spoken: 'good morning church', expected: null }
     ]);
     expect(missed.refused).toBe(2);
@@ -304,11 +345,53 @@ describe('every reference that was spoken is evaluated', () => {
 
     // The degenerate case a naive metric would reward: resolve nothing, ever.
     const silent = scoreCorpus([
-      { spoken: 'John', expected: [{ canonical: 'John 3:16' }] },
-      { spoken: 'Romans', expected: [{ canonical: 'Romans 8:1' }] }
+      { spoken: 'John', expected: [{ canonical: 'John 3:16', alternatives: [] }] },
+      { spoken: 'Romans', expected: [{ canonical: 'Romans 8:1', alternatives: [] }] }
     ]);
     expect(silent.correct).toBe(0);
     expect(silent.correctRate).toBe(0);
+  });
+});
+
+describe('the scoring rule, on group shapes the parser cannot currently produce', () => {
+  /**
+   * Exercised directly, because two branches were unreachable through the parser and
+   * could be deleted with the suite staying green. A rule that is only ever tested on
+   * the inputs one caller happens to emit is untested for everything else, and this
+   * rule exists to catch outputs that do not exist yet.
+   */
+  const only = (canonical: string) => ({ canonical, alternatives: [] });
+
+  it('catches a declared reading sitting in the WRONG group', () => {
+    // Both readings are declared somewhere, so the position-independent check passes
+    // and only the per-group comparison can see this.
+    expect(classifyGroups([['A', 'B'], ['B']], [only('A'), only('B')])).toBe('misleading-top');
+    expect(classifyGroups([['A'], ['B']], [only('A'), only('B')])).toBe('exact');
+  });
+
+  it('catches a duplicated group of otherwise legitimate readings', () => {
+    expect(classifyGroups([['A'], ['A']], [only('A')])).toBe('misleading-top');
+    expect(classifyGroups([['A'], ['B']], [only('A')])).toBe('misleading-top');
+  });
+
+  it('separates every outcome on synthetic shapes', () => {
+    expect(classifyGroups([], [only('A')])).toBe('refused');
+    expect(classifyGroups([], [])).toBe('refused');
+    expect(classifyGroups([['A']], [])).toBe('misleading-top');
+    expect(classifyGroups([['Z']], [only('A')])).toBe('misleading-top');
+    expect(classifyGroups([['B'], ['A']], [only('A'), only('B')])).toBe('out-of-order');
+    expect(classifyGroups([['A', 'B']], [only('A'), only('B')])).toBe('mis-grouped');
+    expect(classifyGroups([['A']], [only('A'), only('B')])).toBe('incomplete');
+    expect(classifyGroups([['B', 'A']], [{ canonical: 'A', alternatives: ['B'] }])).toBe('offered');
+    expect(classifyGroups([['B', 'A']], [{ canonical: 'A', alternatives: ['B'], leadMayBeAny: true }])).toBe(
+      'exact'
+    );
+  });
+
+  it('requires the declared set exactly, in both directions', () => {
+    expect(classifyGroups([['A', 'B']], [only('A')])).toBe('misleading-top'); // undeclared present
+    expect(classifyGroups([['A']], [{ canonical: 'A', alternatives: ['B'] }])).toBe('misleading-top'); // declared absent
+    expect(classifyGroups([['A', 'B']], [{ canonical: 'A', alternatives: ['B'] }])).toBe('exact');
   });
 });
 
@@ -354,6 +437,20 @@ describe('the service corpus, on clean transcripts', () => {
       expect(ambiguous.length, testCase.spoken).toBeGreaterThan(0);
       for (const item of ambiguous) {
         expect(item.leadMayBeAny, `${testCase.spoken}: ${item.canonical}`).toBe(true);
+      }
+    }
+  });
+
+  it('declares a reading set for every expectation in the corpus', () => {
+    // Structural: `alternatives` is required by the type, but a corpus could still
+    // drift to declaring `[]` everywhere and stop exercising the multi-reading path.
+    const multiReading = SERVICE_CORPUS.flatMap((testCase) => testCase.expected ?? []).filter(
+      (item) => item.alternatives.length > 0
+    );
+    expect(multiReading.length).toBeGreaterThan(0);
+    for (const testCase of SERVICE_CORPUS) {
+      for (const item of testCase.expected ?? []) {
+        expect(Array.isArray(item.alternatives), `${testCase.spoken}: ${item.canonical}`).toBe(true);
       }
     }
   });
@@ -476,7 +573,7 @@ describe('parser sensitivity, over many seeds', () => {
     const corruption = corruptTranscriptDetailed('let us read Romans eight twenty eight', 0.3, 2);
     expect(corruption.text).toBe('let us read Romans eight twenty ate');
     expect(corruption.changed).toEqual(['eight']);
-    expect(scoreUtterance({ spoken: corruption.text, expected: [{ canonical: 'Romans 8:28' }] }).tops).toEqual([
+    expect(scoreUtterance({ spoken: corruption.text, expected: [{ canonical: 'Romans 8:28', alternatives: [] }] }).tops).toEqual([
       'Romans 8:20'
     ]);
 
@@ -513,9 +610,13 @@ describe('parser sensitivity, over many seeds', () => {
      */
     const causal = singleTokenCulprits(SERVICE_CORPUS);
     expect(causal.length).toBeGreaterThan(3);
-    // Number words are what flip an outcome on their own.
-    const numberWords = ['one', 'two', 'three', 'six', 'eight', 'nine', 'ten'];
-    expect(numberWords).toContain(causal[0].token);
+    /**
+     * What flips an outcome alone is a number word, or `and` — which is not noise
+     * here: it is the token separating a verse list from a second reference, so
+     * corrupting it changes how many passages were heard.
+     */
+    const referenceCritical = ['one', 'two', 'three', 'six', 'eight', 'nine', 'ten', 'and'];
+    expect(referenceCritical).toContain(causal[0].token);
     // Every culprit must be a word the corruption model can actually change.
     for (const { token } of causal) {
       expect(corruptWord(token), `${token} is not corruptible`).not.toBe(token);
@@ -536,9 +637,15 @@ describe('parser sensitivity, over many seeds', () => {
     expect(culpritPositions, 'a culprit list this large is just the corruption model').toBeLessThan(
       corruptible / 3
     );
-    // Function words are droppable and constantly corrupted, yet flip nothing alone.
+    /**
+     * Words with no reference role at all must never be culprits. `and`, `to` and
+     * `of` are deliberately NOT on this list even though they are function words —
+     * `and` separates a verse list from a second reference, `to` marks a verse range,
+     * and `of` carries "the third chapter OF Romans". Corrupting those genuinely
+     * changes which passage was named, which is the distinction the list should draw.
+     */
     for (const { token } of causal) {
-      expect(['the', 'of', 'in', 'to', 'a', 'me', 'with', 'my', 'is', 'it', 'us']).not.toContain(token);
+      expect(['the', 'a', 'me', 'with', 'my', 'is', 'it', 'us', 'read', 'let']).not.toContain(token);
     }
   });
 

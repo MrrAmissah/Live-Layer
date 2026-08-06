@@ -38,13 +38,24 @@ cannot see that difference, because it weights every word the same.
 
 So the harness measures **reference outcome**, not transcription accuracy.
 
-It scores against **every reference the utterance named, in order**, using the
-parser's groups rather than a flat candidate list — only the grouping distinguishes
-*two passages* from *two readings of one passage*. An earlier version expected a
-single canonical string, which made the multi-reference cases vacuous after the first
-passage: the second could be missing, misparsed or replaced by a different real verse
-and the case still passed. Outcomes are `exact`, `offered`, `out-of-order`,
-`incomplete`, `refused` and `misleading-top`.
+It scores against **every reference the utterance named, in order, and every reading
+offered for each of them**, using the parser's groups rather than a flat candidate
+list — only the grouping distinguishes *two passages* from *two readings of one
+passage*.
+
+Each expectation declares its complete reading set, `[]` meaning "the canonical
+alone". Two earlier versions were weaker and both were wrong in the same way: one
+expected a single canonical string, so multi-reference cases were vacuous after the
+first passage; the next made the reading set optional, so an ordinary expectation
+declared nothing and a fabricated reading beside the right one scored `exact`. The
+harness could see an invented *group* and not an invented *reading*, while claiming
+both were checked.
+
+Outcomes: `exact`, `offered` (a declared alternative leads — a ranking miss),
+`out-of-order`, `incomplete`, `mis-grouped` (two passages packed into one group),
+`refused`, and `misleading-top`. The rule is also exported as `classifyGroups` and
+tested on group shapes the parser cannot currently produce, because a rule tested only
+on today's outputs is untested for the outputs it exists to catch.
 
 Code: `src/lib/asr/referenceOutcome.ts`, `transcriptMetrics.ts`, `sensitivity.ts`,
 `serviceCorpus.ts`. Tests: `src/lib/asr/asrEvaluation.test.ts`. It runs in the
