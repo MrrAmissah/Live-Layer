@@ -54,7 +54,13 @@ as the compositor and keeps everything on your machine.
 - **Local assets** — upload logos and speaker headshots into same-origin IndexedDB,
   then reuse them in previews, presets, rundowns, and `/output`.
 - **People and scripture helpers** — speaker profiles, headshot/logo references,
-  book/chapter/verse picking, WEB/KJV lookup, and manual paste fallback.
+  book/chapter/verse picking, lookup across eleven public-domain translations
+  (WEB, KJV, ASV, BBE, Darby, DRA, WEBBE, OEB-US, OEB-CW, YLT, Almeida), and manual
+  paste fallback.
+- **Voice assist preview** — type what the preacher said and get ranked candidate
+  references to choose between. **No microphone, no speech provider, no model.**
+  Nothing reaches the graphic until you accept a reading, and nothing reaches air
+  until you press Take. See [`docs/ASR_EVALUATION.md`](docs/ASR_EVALUATION.md).
 - **Brand theming** — primary/accent colours, local logo references, and reset-to-template.
 - **Rundown queue** — build, edit, reorder, and operate an ordered set of graphic
   snapshots without changing `/output` until Take.
@@ -69,21 +75,34 @@ as the compositor and keeps everything on your machine.
 - **React 18** + **TypeScript** (strict)
 - **Vite 5** (dev server + build)
 - **Zustand** for control-surface state; **Zod** for stored-data validation
-- **react-router-dom** for the `/control`, `/output`, `/setup` routes
+- **react-router-dom** for the `/control` workspaces and the `/output`, `/setup` routes
 - **Tailwind CSS 3** + a hand-authored CSS design system (`src/styles.css`)
 - **Archivo** variable font for the broadcast type
 - Cross-surface messaging via **BroadcastChannel** (with a `localStorage` fallback)
 
 ## Architecture (in brief)
 
-A single-page app with three routes and no backend:
+A single-page app with no backend of its own, and an **optional** local relay process
+for multi-device control:
 
 - **`/output`** renders only the active graphic on a transparent body. Graphics are
   authored in absolute 1920×1080 pixels on a `GraphicStage` that scales uniformly to
   the Browser Source, so composition is identical at any size.
-- **`/control`** sends `SHOW_GRAPHIC` / `CLEAR_ALL` messages over `BroadcastChannel`;
-  `/output` listens and animates in/out. A `localStorage` mirror lets `/output`
-  restore the last graphic on refresh.
+- **`/control`** is a layout route with four workspaces — **Studio**, **Scripture**,
+  **Rundown** and **Library** — plus `/setup`, an OBS onboarding helper. One page owns
+  the messaging channel and both Take paths, so there is a single command owner
+  however the surface is laid out.
+- Control sends `SHOW_GRAPHIC` / `CLEAR_ALL` over **BroadcastChannel**; `/output`
+  listens and animates in/out. A `localStorage` mirror lets `/output` restore the last
+  graphic on refresh.
+- **Optional LAN relay.** Start `npm run lan:relay` and pass `?relay=<url>` to carry
+  those same commands to a second machine or a tablet. The relay is **transport only**
+  — it forwards messages. Uploaded assets, People, Saved Graphics, rundowns and
+  presets stay in the browser that created them and do **not** travel through it.
+  Clearing a stored relay needs an explicit `?relay=off`.
+- Messaging is **one-way**: control publishes, output renders. Relay readiness means
+  the relay answered and identified itself — it is **not** an acknowledgement that
+  `/output` displayed anything, and the Program state models that honestly.
 - State lives in a **Zustand** store; presets, brand overrides, and recents persist to
   `localStorage` (validated with **Zod** on read).
 
@@ -134,12 +153,13 @@ open <http://127.0.0.1:4173/seed-test.html>.
 - [QA checklist](docs/QA_CHECKLIST.md) · [Screenshot guide](docs/SCREENSHOT_GUIDE.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md) · [Roadmap](docs/ROADMAP.md)
 - [Architecture](docs/ARCHITECTURE.md) · [Control UI/UX](docs/CONTROL_UI_UX.md) · [Design system](docs/DESIGN_SYSTEM.md) · [Template schema](docs/TEMPLATE_SCHEMA.md)
+- [Speech recognition evaluation](docs/ASR_EVALUATION.md) — DONDO audit, reference-outcome harness, benchmark plan (no provider selected)
 - [Network output architecture](docs/NETWORK_OUTPUT_ARCHITECTURE.md) · [NDI workflow](docs/NDI_WORKFLOW.md) · [Cloud architecture](docs/CLOUD_ARCHITECTURE.md) · [Template pack plan](docs/TEMPLATE_PACK_PLAN.md)
 
 ## Roadmap & limitations
 
-Honest about what's not here yet — local-first, single machine, manual OBS setup,
-no cloud/accounts, no visual builder. See [Known limitations](docs/KNOWN_LIMITATIONS.md)
+Honest about what's not here yet — local-first, manual OBS setup,
+no cloud/accounts, no visual builder, no microphone or speech recognition. See [Known limitations](docs/KNOWN_LIMITATIONS.md)
 and the [Roadmap](docs/ROADMAP.md).
 
 ## License
