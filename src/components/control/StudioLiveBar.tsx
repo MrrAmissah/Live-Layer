@@ -1,5 +1,7 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { describeProgramStatus } from '../../lib/programStatus';
+import { programClockMs } from '../../lib/programClock';
+import { useTicks } from '../../hooks/useTicks';
 import LiveActions from './LiveActions';
 
 interface StudioLiveBarProps {
@@ -28,7 +30,11 @@ interface StudioLiveBarProps {
  */
 export default function StudioLiveBar({ onTake, onClear, sending = false }: StudioLiveBarProps) {
   const program = useLiveLayerStore((state) => state.program);
-  const status = describeProgramStatus(program);
+  const output = useLiveLayerStore((state) => state.outputStatus);
+  // Same cadence rule as every Program surface: awake while `showing`, so a
+  // confirmed reading can fall to UNVERIFIED when the heartbeat goes stale.
+  const now = useTicks(programClockMs(program, Date.now()));
+  const status = describeProgramStatus(program, output, now);
 
   return (
     <div className="studio-livebar">

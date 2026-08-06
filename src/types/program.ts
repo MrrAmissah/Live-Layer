@@ -11,13 +11,19 @@ import type { GraphicInstance } from './graphics';
  *   status       — what we are trying to show right now
  *   confirmation — whether output has acknowledged it
  *
- * Until an output acknowledgement exists (a later production-hardening stage —
- * see ARCHITECTURE.md), a published command is `status: 'showing'` +
- * `confirmation: 'unconfirmed'`. We never
- * present a confident, acknowledged live state purely because a message was
- * published — the control client does not yet know the graphic reached output.
+ * A published command starts as `status: 'showing'` + `confirmation:
+ * 'unconfirmed'`. Confirmation flips to `'confirmed'` in exactly one place —
+ * `lib/programSync.ts`, when an OUTPUT_APPLIED whose `commandId` matches this
+ * record arrives (see ARCHITECTURE.md). We never present an acknowledged state
+ * purely because a message was published, and a matched acknowledgement still
+ * says only "the output PAGE applied it" — whether an OBS source is actively
+ * compositing it is a separate, staleness-guarded reading (OutputStatusState).
+ *
+ * `'clearing'` is the same honesty applied to Clear: the command went out, but
+ * nothing has confirmed the graphic is gone, so Program may not claim `clear`
+ * until an OUTPUT_CLEARED for the matching commandId arrives.
  */
-export type ProgramStatus = 'clear' | 'showing' | 'recovering' | 'failed';
+export type ProgramStatus = 'clear' | 'showing' | 'clearing' | 'recovering' | 'failed';
 
 export type ProgramConfirmation = 'unconfirmed' | 'confirmed';
 
@@ -39,6 +45,28 @@ export interface ProgramState {
   snapshot: GraphicInstance | null;
   takenAt: number | null;
   clearedAt: number | null;
+  /** When the matching OUTPUT_APPLIED arrived (receiver clock). Null while unconfirmed. */
+  appliedAt: number | null;
+  /** Output received the matching command but could not render it. */
+  outputFailure: { reason: string; at: number } | null;
+}
+
+/**
+ * The control side's latest reading OF the output page itself — command-
+ * independent, deliberately outside ProgramState, and never persisted: a
+ * heartbeat from a previous session proves nothing about this one.
+ *
+ * `sourceActive`/`sourceVisible` are the host binding's words (OBS Browser
+ * Source active/visible), `null` when no binding reported. `lastSeenAt` is the
+ * RECEIVER's clock at the moment any output event arrived, so staleness
+ * (`lib/outputPresence.ts`) compares like with like and machine clock skew
+ * cannot latch a dead output as fresh.
+ */
+export interface OutputStatusState {
+  outputId: string;
+  sourceActive: boolean | null;
+  sourceVisible: boolean | null;
+  lastSeenAt: number;
 }
 
 export const CLEAR_PROGRAM_STATE: ProgramState = {
@@ -51,5 +79,7 @@ export const CLEAR_PROGRAM_STATE: ProgramState = {
   sourceId: null,
   snapshot: null,
   takenAt: null,
-  clearedAt: null
+  clearedAt: null,
+  appliedAt: null,
+  outputFailure: null
 };

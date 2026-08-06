@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createRealtimeChannel, loadLastRealtimeMessage } from '../lib/realtime';
+import { createOutputChannel, loadLastRealtimeMessage } from '../lib/outputChannel';
+import { createOutputEvent, getOutputSessionId, sendOutputEvent } from '../lib/outputAck';
+import { subscribeObsSourceState } from '../lib/obsSource';
+import { OUTPUT_HEARTBEAT_MS } from '../lib/outputPresence';
 import { templateRegistry, templateRendererMap } from '../components/templates/registry';
 import GraphicStage from '../components/graphics/GraphicStage';
 import { GFX_OUT_MS, resolveAnimationVariant } from '../components/graphics/stage';
@@ -64,13 +67,49 @@ export default function OutputPage() {
       };
     };
 
+    /**
+     * Acknowledgements are REPORTS, sent fire-and-forget through
+     * `lib/outputAck.ts` — they can carry only OUTPUT_* events, never a
+     * command, and a dead relay costs nothing on the render path.
+     *
+     * OUTPUT_APPLIED's commit point: the command parsed (the channel already
+     * validated it), its assets resolved — or the documented fallback of
+     * rendering without them was selected — and the graphic was handed to
+     * React state for rendering. A superseded request (a newer SHOW arrived
+     * while assets loaded) is never acknowledged: it was not applied.
+     */
     const applyMessage = (message: RealtimeMessage) => {
       if (message.type === 'SHOW_GRAPHIC') {
         const graphic = message.payload as GraphicInstance;
+        const ackApplied = () =>
+          sendOutputEvent(
+            createOutputEvent('OUTPUT_APPLIED', {
+              commandId: message.id,
+              outputId: getOutputSessionId(),
+              graphicId: graphic.id,
+              templateId: graphic.templateId
+            })
+          );
+        // A template this build cannot render is a real failure the operator
+        // must hear about — the output stays transparent for this graphic.
+        if (!templateRendererMap[graphic.templateId]) {
+          sendOutputEvent(
+            createOutputEvent('OUTPUT_FAILED', {
+              commandId: message.id,
+              outputId: getOutputSessionId(),
+              graphicId: graphic.id,
+              reason: `Template "${graphic.templateId}" is not available in this build`
+            })
+          );
+          return;
+        }
         const elapsed = Date.now() - message.timestamp;
         if (graphic.durationSeconds > 0 && elapsed >= graphic.durationSeconds * 1000) {
           setShowing(false);
           setActiveGraphic(null);
+          // Applied per the command's own auto-hide semantics: the graphic's
+          // window had already passed, so committing "nothing" IS honouring it.
+          ackApplied();
           return;
         }
         const requestId = showRequestId.current + 1;
@@ -81,20 +120,32 @@ export default function OutputPage() {
             if (showRequestId.current !== requestId) return;
             setActiveGraphic(prepared);
             setShowing(true);
+            ackApplied();
           })
           .catch(() => {
             if (showRequestId.current !== requestId) return;
+            // Documented fallback: render without the resolved assets rather
+            // than dropping the graphic. Applied, minus its images.
             setActiveGraphic(graphic);
             setShowing(true);
+            ackApplied();
           });
       }
       if (message.type === 'HIDE_GRAPHIC' || message.type === 'CLEAR_ALL') {
         showRequestId.current += 1;
         setShowing(false);
+        sendOutputEvent(
+          createOutputEvent('OUTPUT_CLEARED', {
+            commandId: message.id,
+            outputId: getOutputSessionId()
+          })
+        );
       }
+      // OUTPUT_* events (including this page's own, echoed back by the
+      // transports) carry no rendering instruction and fall through untouched.
     };
 
-    const channel = createRealtimeChannel(applyMessage);
+    const channel = createOutputChannel(applyMessage);
     const last = loadLastRealtimeMessage();
     if (last?.type === 'SHOW_GRAPHIC') {
       applyMessage(last);
@@ -106,6 +157,39 @@ export default function OutputPage() {
         window.clearTimeout(hideTimer.current);
       }
       revokeResolvedAssets();
+    };
+  }, []);
+
+  /**
+   * Presence heartbeat + host-source state. OUTPUT_STATUS goes out immediately,
+   * on every accepted OBS Browser binding event (`window.obsstudio`, see
+   * `lib/obsSource.ts`), and then every OUTPUT_HEARTBEAT_MS — deliberately slow;
+   * this page shares a CPU with an encoder. When the page dies the heartbeats
+   * stop, and controls derive UNVERIFIED from the silence (`outputPresence`).
+   * Without the binding, `sourceActive` stays null: hosted-by-OBS is the only
+   * thing that can claim an OBS source state.
+   */
+  useEffect(() => {
+    const source = { sourceActive: null as boolean | null, sourceVisible: null as boolean | null };
+    const sendStatus = () =>
+      sendOutputEvent(
+        createOutputEvent('OUTPUT_STATUS', {
+          outputId: getOutputSessionId(),
+          sourceActive: source.sourceActive,
+          sourceVisible: source.sourceVisible
+        })
+      );
+    // The subscription emits the initial (unknown) state synchronously, which
+    // doubles as the "output page is here" first heartbeat.
+    const unsubscribe = subscribeObsSourceState((state) => {
+      source.sourceActive = state.sourceActive;
+      source.sourceVisible = state.sourceVisible;
+      sendStatus();
+    });
+    const timer = window.setInterval(sendStatus, OUTPUT_HEARTBEAT_MS);
+    return () => {
+      unsubscribe();
+      window.clearInterval(timer);
     };
   }, []);
 

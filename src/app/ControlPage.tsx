@@ -54,7 +54,19 @@ export default function ControlPage() {
   const isStudio = useMediaQuery('(min-width: 1024px)');
 
   useEffect(() => {
-    channelRef.current = createRealtimeChannel(() => undefined);
+    /**
+     * Inbound messages are Program state, not noise. A dock in OBS and a studio
+     * in the system browser are different browser processes with separate
+     * localStorage, so the only way they agree on "what is on air" is by
+     * hearing each other's commands — and output's acknowledgements — over
+     * this channel. What each message MEANS is a tested pure rule
+     * (`lib/programSync.ts`); the store applies it. Own commands are dropped
+     * at the transport by id, and the reducer is idempotent for replays, so a
+     * relay echo can never double-apply a Take.
+     */
+    channelRef.current = createRealtimeChannel((message) =>
+      useLiveLayerStore.getState().applyRealtimeMessage(message)
+    );
     return () => {
       channelRef.current?.close();
       channelRef.current = null;
@@ -114,9 +126,16 @@ export default function ControlPage() {
     return outcome.addRecent && outcome.advanceLiveCursor;
   };
 
-  /** Publish CLEAR_ALL. Same rule: a missing channel is a failure, not a clear. */
-  const publishClear = async (): Promise<boolean> =>
-    resolveClearOutcome(await publishCommand(channelRef.current, createMessage('CLEAR_ALL', {}))).markClear;
+  /**
+   * Publish CLEAR_ALL. Same rule: a missing channel is a failure, not a clear.
+   * Returns the command id so Program can wait for the MATCHING OUTPUT_CLEARED
+   * — a clear is pending (`clearing`), never an instant "nothing on air".
+   */
+  const publishClear = async (): Promise<string | null> => {
+    const message = createMessage('CLEAR_ALL', {});
+    const result = await publishCommand(channelRef.current, message);
+    return resolveClearOutcome(result).markClear ? message.id : null;
+  };
 
   /** Serialises operator commands: one in flight at a time, so a slow relay
    *  cannot produce duplicate Takes from repeated clicks. */
@@ -162,8 +181,9 @@ export default function ControlPage() {
 
   const onClear = () =>
     runCommand(async () => {
-      if (!(await publishClear())) return; // nothing published — Program stays as it was
-      useLiveLayerStore.getState().markProgramClear();
+      const commandId = await publishClear();
+      if (!commandId) return; // nothing published — Program stays as it was
+      useLiveLayerStore.getState().markProgramClearing({ commandId });
       setLastAction('cleared');
       // In rundown mode, Clear also drops the live cursor (does not mark done).
       const activeRundownId = getActiveRundownId();

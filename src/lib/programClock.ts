@@ -19,9 +19,17 @@ import type { ProgramState } from '../types/program';
  * time, at the cadence that copy actually needs.
  *
  *  - `showing`  — renders MM:SS, so every second, for as long as it shows.
+ *                 The same tick is what lets a confirmed OUTPUT READY / OUTPUT
+ *                 ACTIVE reading fall to UNVERIFIED when the output heartbeat
+ *                 goes stale: staleness is derived from `now` at render time
+ *                 (`describeProgramStatus`), so the surface must be awake.
  *  - `clear`    — renders "12s ago / 3m ago", so every second for the first
  *                 minute and every minute after that, when only whole minutes
  *                 are displayed.
+ *  - `clearing` — "Clearing — awaiting output" is static and claims nothing
+ *                 that staleness could invalidate; the transition to `clear`
+ *                 arrives as a store update (OUTPUT_CLEARED), not as time.
+ *                 No timer.
  *  - `recovering`, `failed` — no time is rendered. No timer.
  *
  * `now` is a parameter rather than a `Date.now()` call so the decision is a pure
@@ -38,6 +46,6 @@ export function programClockMs(program: ProgramState, now: number): number {
     if (program.clearedAt === null) return 0; // "Ready — nothing on air" never changes
     return now - program.clearedAt >= CLOCK_COARSE_MS ? CLOCK_COARSE_MS : CLOCK_FINE_MS;
   }
-  // recovering / failed: the copy is static, so nothing needs waking up.
+  // clearing / recovering / failed: the copy is static, so nothing needs waking up.
   return 0;
 }

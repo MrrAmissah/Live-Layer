@@ -7455,6 +7455,8 @@ body.gfx-transparent {
   text-overflow: ellipsis;
 }
 .control-root .dock-program__chip[data-status='showing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
+/* Pending clear: a command in flight, same treatment as a pending show. */
+.control-root .dock-program__chip[data-status='clearing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
 .control-root .dock-program__chip[data-status='recovering'] { background: rgba(148, 163, 184, 0.14); color: #b9c4d4; }
 .control-root .dock-program__chip[data-status='failed'] { background: var(--ll-danger-surface); color: #ff7a76; border: 1px solid var(--ll-danger-edge); }
 .control-root .dock-program__chip[data-status='clear'] { background: rgba(148, 163, 184, 0.1); color: #9aa7ba; }
@@ -8379,6 +8381,8 @@ body.gfx-transparent {
 .control-root .program-rail__status-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ll-muted-2); }
 .control-root .program-rail__status--showing { color: var(--ll-warn); }
 .control-root .program-rail__status--showing .program-rail__status-dot { background: var(--ll-warn); }
+.control-root .program-rail__status--clearing { color: var(--ll-warn); }
+.control-root .program-rail__status--clearing .program-rail__status-dot { background: var(--ll-warn); }
 .control-root .program-rail__status--recovering { color: var(--ll-warn); }
 .control-root .program-rail__status--recovering .program-rail__status-dot { background: var(--ll-warn); }
 .control-root .program-rail__status--failed { color: var(--ll-danger); }
@@ -8391,6 +8395,7 @@ body.gfx-transparent {
   box-shadow: inset 3px 0 0 var(--ll-muted-3);
 }
 .control-root .program-card--showing { box-shadow: inset 3px 0 0 var(--ll-warn); }
+.control-root .program-card--clearing { box-shadow: inset 3px 0 0 var(--ll-warn); }
 .control-root .program-card--recovering { box-shadow: inset 3px 0 0 var(--ll-warn); }
 .control-root .program-card--failed { box-shadow: inset 3px 0 0 var(--ll-danger); }
 .control-root .program-card__row { display: flex; align-items: center; justify-content: space-between; }
@@ -8399,6 +8404,8 @@ body.gfx-transparent {
 .control-root .program-card__badge-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ll-muted-3); }
 .control-root .program-card--showing .program-card__badge { color: var(--ll-warn); }
 .control-root .program-card--showing .program-card__badge-dot { background: var(--ll-warn); }
+.control-root .program-card--clearing .program-card__badge { color: var(--ll-warn); }
+.control-root .program-card--clearing .program-card__badge-dot { background: var(--ll-warn); }
 .control-root .program-card--recovering .program-card__badge { color: var(--ll-warn); }
 .control-root .program-card--recovering .program-card__badge-dot { background: var(--ll-warn); }
 .control-root .program-card--failed .program-card__badge { color: var(--ll-danger); }

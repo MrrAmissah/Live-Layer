@@ -121,13 +121,34 @@ export interface GraphicInstance {
  */
 export type QuickQueueItem = GraphicInstance & { revision: number };
 
-export type RealtimeMessageType =
+/**
+ * The protocol is DIRECTIONAL, and the split below is the contract:
+ *
+ *  - Control command types are constructed only by the control surface
+ *    (`lib/realtime.ts#createMessage`) and consumed by `/output`.
+ *  - Output event types are constructed only by `/output`
+ *    (`lib/outputAck.ts#createOutputEvent`) and consumed by control clients.
+ *
+ * `/output` REPORTS what it did; it can never command. `scripts/
+ * check-output-isolation.mjs` enforces the construction side of this at build
+ * time, so keep the two unions separate — a helper typed against the whole
+ * `RealtimeMessage['type']` would quietly hand each side the other's verbs.
+ */
+export type ControlCommandType =
   | 'SHOW_GRAPHIC'
   | 'HIDE_GRAPHIC'
   | 'CLEAR_ALL'
   | 'UPDATE_PREVIEW'
   | 'LOAD_PRESET'
   | 'SET_THEME';
+
+export type OutputEventType =
+  | 'OUTPUT_APPLIED'
+  | 'OUTPUT_CLEARED'
+  | 'OUTPUT_FAILED'
+  | 'OUTPUT_STATUS';
+
+export type RealtimeMessageType = ControlCommandType | OutputEventType;
 
 export interface ShowGraphicMessage {
   id: string;
@@ -171,10 +192,80 @@ export interface SetThemeMessage {
   timestamp: number;
 }
 
-export type RealtimeMessage =
+export type ControlCommandMessage =
   | ShowGraphicMessage
   | HideGraphicMessage
   | ClearAllMessage
   | UpdatePreviewMessage
   | LoadPresetMessage
   | SetThemeMessage;
+
+/**
+ * Output acknowledged that a SHOW command was parsed, its assets were prepared
+ * (or the documented no-asset fallback selected), and the graphic was committed
+ * for rendering. `commandId` is the realtime message id of the SHOW it answers —
+ * a control client may only flip its Program confirmation when this matches the
+ * command it is currently tracking; a stale ack must confirm nothing.
+ */
+export interface OutputAppliedMessage {
+  id: string;
+  type: 'OUTPUT_APPLIED';
+  payload: {
+    commandId: string;
+    /** Session id of the output page that applied it (fresh per page load). */
+    outputId: string;
+    /** GraphicInstance.id that was committed. */
+    graphicId: string;
+    templateId?: string;
+  };
+  timestamp: number;
+}
+
+/** Output committed a CLEAR/HIDE — nothing of that command remains on air. */
+export interface OutputClearedMessage {
+  id: string;
+  type: 'OUTPUT_CLEARED';
+  payload: {
+    commandId: string;
+    outputId: string;
+  };
+  timestamp: number;
+}
+
+/** Output received the command but could not render it. */
+export interface OutputFailedMessage {
+  id: string;
+  type: 'OUTPUT_FAILED';
+  payload: {
+    commandId: string;
+    outputId: string;
+    graphicId?: string;
+    /** Operator-facing reason, e.g. "Template not available in this build". */
+    reason: string;
+  };
+  timestamp: number;
+}
+
+/**
+ * Low-frequency heartbeat + host-source state, provider-neutral. `sourceActive`
+ * is `null` when no host binding exists (a plain browser tab) — absence of a
+ * binding is UNKNOWN, never a claim either way.
+ */
+export interface OutputStatusMessage {
+  id: string;
+  type: 'OUTPUT_STATUS';
+  payload: {
+    outputId: string;
+    sourceActive: boolean | null;
+    sourceVisible: boolean | null;
+  };
+  timestamp: number;
+}
+
+export type OutputEventMessage =
+  | OutputAppliedMessage
+  | OutputClearedMessage
+  | OutputFailedMessage
+  | OutputStatusMessage;
+
+export type RealtimeMessage = ControlCommandMessage | OutputEventMessage;
