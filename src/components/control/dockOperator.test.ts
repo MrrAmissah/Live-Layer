@@ -89,10 +89,15 @@ describe('the Program strip is honest', () => {
     }
   });
 
-  it('words the 1920×1080 row as the authoring canvas, not a measured output', () => {
-    expect(files.strip).toContain('1920 × 1080');
-    expect(files.strip).toContain('Canvas');
-    expect(files.strip).not.toContain('Output resolution');
+  it('dropped the meta grid but kept the disclosures (stage 2b)', () => {
+    // "Status: …" duplicated the chip and "Canvas 1920 × 1080" printed a
+    // constant — 60px of chrome carrying no information. Gone.
+    expect(files.strip).not.toContain('1920 × 1080');
+    expect(files.strip).not.toContain('__meta');
+    expect(files.strip).not.toContain('__rule');
+    // The honest sentences are the reason the strip is trustworthy — they stay.
+    expect(files.strip).toContain('Reloaded — can’t confirm what output is showing');
+    expect(files.strip).toContain('Command didn’t send — output may still show the previous graphic');
   });
 
   it('drives the status chip colour off the real status, never hardcoded green', () => {
@@ -100,6 +105,56 @@ describe('the Program strip is honest', () => {
     const chipRules = css.match(/\.dock-program__chip\[data-status='\w+'\]/g) ?? [];
     // All four Program statuses have their own treatment.
     expect(new Set(chipRules).size).toBe(4);
+  });
+});
+
+describe('the header event switcher (stage 2b)', () => {
+  it('routes every pack change through the shared destructive-switch guard', () => {
+    // A pack switch re-seeds the draft and can destroy unsaved edits. The
+    // header dropdown is one tap away, so it MUST go through the same
+    // usePackSwitchGuard as the studio's CommandBar — and never call
+    // setActivePack itself, which would bypass the confirmation.
+    expect(files.header).toContain('usePackSwitchGuard');
+    expect(files.header).toMatch(/requestPackChange\(event\.target\.value\)/);
+    expect(stripComments(files.header)).not.toContain('setActivePack');
+  });
+
+  it('replaced the event block rather than duplicating it', () => {
+    // The 56px full-bleed EVENT block is gone from the header, and the
+    // footer's copy of the pack name went with it.
+    expect(files.header).not.toContain('dock-event');
+    expect(files.footer).not.toContain('getPack');
+    expect(files.footer).not.toContain('__pack');
+  });
+
+  it('polls the relay once in the shell and shares it with header and footer', () => {
+    // Header dot and footer line are the same reading — two useRelayStatus
+    // mounts would double the probe traffic against the relay.
+    expect(files.shell).toContain('useRelayStatus()');
+    expect(files.header).not.toContain('useRelayStatus(');
+    expect(files.footer).not.toContain('useRelayStatus(');
+    expect(files.shell).toContain('<DockHeader relay={relay} />');
+    expect(files.shell).toContain('<DockFooter relay={relay} />');
+  });
+});
+
+describe('the compact-strip preference (stage 2b)', () => {
+  it('is honoured by the strip and persisted under a livelayer key', () => {
+    // The strip reads the flag NOW so stage 3's More-tab toggle cannot ship
+    // dead (the exact failure mode that got the mockup's toggle cut in
+    // stage 1: a control wired to nothing).
+    expect(files.strip).toContain('useDockPrefs');
+    expect(files.strip).toContain('compactProgramStrip');
+    expect(files.strip).toContain('dock-program--compact');
+    const storage = read('src/lib/storage.ts');
+    expect(storage).toContain("dockPrefs: 'livelayer.dockPrefs'");
+    // Strict opt-in: a malformed record must fall back to the regular strip.
+    expect(storage).toContain('raw.compactProgramStrip === true');
+  });
+
+  it('is no longer a per-tab variant — one strip geometry on every tab', () => {
+    expect(files.shell).not.toContain('variant=');
+    expect(files.strip).not.toMatch(/'tall'/);
   });
 });
 
@@ -135,7 +190,11 @@ describe('the blocked-Take reason survives (issue #22)', () => {
     // computed, and not gated on anything else.
     expect(liveActions).toMatch(/\{notReadyReason \? \(\s*<p className="live-actions__blocked"/);
     expect(liveActions).toMatch(/\{notReadyReason\}/);
-    // And the dock grid gives the reason its own full-width row.
+    // And the dock grid gives the reason its own full-width row BELOW the
+    // buttons (grid-row 2): the reason may appear and disappear, and under
+    // the buttons is the one place it can do that without moving Take out
+    // from under the operator's pointer (stage 2b fixed-height contract).
+    expect(css).toMatch(/\.dock-program__actions \.live-actions__blocked\s*\{[^}]*grid-row: 2/);
     expect(css).toMatch(/\.dock-program__actions \.live-actions__blocked\s*\{[^}]*grid-column: 1 \/ -1/);
   });
 });

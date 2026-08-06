@@ -7118,6 +7118,19 @@ body.gfx-transparent {
   --dk-edge-card: rgba(148, 163, 184, 0.1);
   --dk-edge-control: rgba(148, 163, 184, 0.14);
   --dk-rule: rgba(148, 163, 184, 0.16);
+  /* Chrome geometry (stage 2b). These variables are LOAD-BEARING: every fixed
+     row consumes its var, and dockChrome.test.ts sums them to assert the
+     scroll area keeps at least 40% of a 314×500 dock. Changing a row's height
+     without updating its var breaks the rule that reads it; changing the var
+     re-runs the floor math. The strip values are the border-box worst case
+     across all four Program statuses — head row 24 + identity 92 + actions 40
+     + two 8px gaps + 10px padding + 1px borders. */
+  --dock-header-h: 44px;
+  --dock-tabbar-h: 40px;
+  --dock-strip-h: 194px;
+  --dock-strip-h-compact: 167px;
+  --dock-strip-margin: 10px;
+  --dock-footer-h: 36px;
   /* Flat body — the studio's radial/linear gradient stack does not apply. */
   background: var(--dk-body);
 }
@@ -7132,23 +7145,26 @@ body.gfx-transparent {
   /* Named container so the narrow-dock rules below key off the DOCK's own width,
      not the viewport. An OBS Custom Browser Dock is resized by dragging its edge
      inside the OBS window, so the viewport media query never fires — the panel
-     just gets narrower. Saved dock widths on this machine go down to 255px. */
-  container: dock / inline-size;
+     just gets narrower. Saved dock widths on this machine go down to 255px.
+     `size` (not `inline-size`) since stage 2b: the footer/header-relay swap
+     queries dock HEIGHT too. Safe because .dock has a definite 100dvh height. */
+  container: dock / size;
 }
 
-/* --- header (44px): mark + product name. No ✕ (nothing to close in a dock),
-   no ⋮ (no menu exists yet — the More tab will own utilities). --- */
+/* --- header: mark + product name + event switcher + relay dot. The old 56px
+   full-bleed EVENT block folded in here as a real switcher (stage 2b). No ✕
+   (nothing to close in a dock), no ⋮ (no menu exists yet — the More tab will
+   own utilities). --- */
 .control-root .dock-header {
   flex: none;
-  height: 44px;
+  height: var(--dock-header-h);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 16px;
+  gap: 10px;
+  padding: 0 12px 0 16px;
   border-bottom: 1px solid var(--dk-rule);
 }
-.control-root .dock-header__brand { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.control-root .dock-header__brand { display: inline-flex; flex: 1; align-items: center; gap: 10px; min-width: 0; }
 .control-root .dock-header__mark { display: inline-flex; flex: none; color: var(--ll-blue); }
 .control-root .dock-header__title {
   font-size: 15px;
@@ -7158,32 +7174,66 @@ body.gfx-transparent {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* --- event block (48px, full bleed): which production's look is loaded --- */
-.control-root .dock-event {
+/* Event switcher — the same guarded <select> pattern as the studio CommandBar,
+   restyled to the dock's flat control language. */
+.control-root .dock-header__event {
+  position: relative;
   flex: none;
-  min-height: 48px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  padding: 6px 16px;
-  border-bottom: 1px solid var(--dk-rule);
+  display: inline-flex;
+  align-items: center;
+  max-width: 55%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  background: var(--dk-raised);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+  color: #9da8bc;
+  cursor: pointer;
 }
-.control-root .dock-event .ll-kicker { color: #9da8bc; }
-.control-root .dock-event__name {
-  font-size: 15px;
+.control-root .dock-header__event:hover { border-color: rgba(148, 163, 184, 0.3); }
+.control-root .dock-header__event .ll-icon { flex: none; margin-left: 4px; pointer-events: none; }
+.control-root .dock-header__select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
   font-weight: 550;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
+.control-root .dock-header__select:focus-visible { outline: none; }
+.control-root .dock-header__event:focus-within { border-color: var(--ll-blue); }
+/* Below 340px the mark alone carries the brand — the event name is the readout
+   an operator actually needs, so the wordmark yields first. */
+@container dock (max-width: 340px) {
+  .control-root .dock-header__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .control-root .dock-header__event { max-width: none; flex: 1; justify-content: space-between; }
+}
+/* Transport dot — same five states and colours as the footer readout; the
+   label and detail live in aria-label/title. Visible only when the footer is
+   hidden (see the height container queries at the footer rules), except in a
+   browser without height container queries, where BOTH stay visible: a
+   duplicated transport readout is safe, a missing one is not. */
+.control-root .dock-header__relay { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; }
+.control-root .dock-header__dot { width: 9px; height: 9px; border-radius: 50%; background: #8f9bad; }
+.control-root .dock-header__relay[data-connection='ready'] .dock-header__dot,
+.control-root .dock-header__relay[data-connection='local'] .dock-header__dot { background: var(--ll-live); }
+.control-root .dock-header__relay[data-connection='not-relay'] .dock-header__dot,
+.control-root .dock-header__relay[data-connection='unreachable'] .dock-header__dot { background: #f5c77e; }
 
 /* --- tab bar (40px, flat, equal cells, 1px dividers between tabs only) --- */
 .control-root .dock-tabbar {
   flex: none;
-  height: 40px;
+  height: var(--dock-tabbar-h);
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--dk-rule);
@@ -7233,54 +7283,64 @@ body.gfx-transparent {
 .control-root .dock-tab[data-tone='config'][aria-current] { border-bottom-color: var(--ll-blue); color: var(--ll-blue); }
 
 /* --- Program strip: pinned between tabs and the scrolling tab content, so
-   Take/Clear and the honest Program record are on every tab. --- */
+   Take/Clear and the honest Program record are on every tab.
+
+   ONE HEIGHT, EVERY STATUS, EVERY TAB (stage 2b). A strip that grows or
+   shrinks when the status flips moves Take out from under the operator's hand
+   right after they press it — the same defect class as the TAKE LIVE wrap
+   fixed in 55186b5. So: min-height comes from --dock-strip-h, and every
+   internal row is fixed — a 24px head row, a 92px identity block whose title
+   and sub reserve their worst-case lines, and 40px actions. The four Program
+   statuses only swap text inside those boxes. The blocked-Take reason is the
+   one sanctioned growth (it is not a Program status), and it renders BELOW
+   the buttons so Take/Clear still do not move. */
 .control-root .dock-program {
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 10px 10px 0;
+  gap: 8px;
+  min-height: var(--dock-strip-h);
+  margin: var(--dock-strip-margin) var(--dock-strip-margin) 0;
   padding: 10px;
   background: var(--dk-card);
   border: 1px solid var(--dk-edge-card);
   border-radius: 6px;
 }
+.control-root .dock-program--compact {
+  min-height: var(--dock-strip-h-compact);
+  padding: 8px;
+}
 .control-root .dock-program .ll-kicker { color: #9fadc0; }
 
-.control-root .dock-program__identity {
+/* Head row: the section label and the status chip share one fixed 24px row.
+   Giving the chip this slot (instead of a seat inside the identity row) is
+   what freed the title/sub columns at 255px AND made the chip's position
+   identical at every width — the old ≤420px chip-on-its-own-row grid is gone. */
+.control-root .dock-program__head {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 57px;
-  padding: 10px;
+  justify-content: space-between;
+  gap: 10px;
+  height: 24px;
+}
+
+.control-root .dock-program__identity {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 92px;
+  padding: 8px 10px;
   background: var(--dk-raised);
   border: 1px solid var(--dk-edge-control);
   border-radius: 5px;
 }
-
-/* Narrow dock: give the text the width instead of the chip.
-   Measured against this machine's own saved OBS dock widths (255/275/300/314):
-   at 255px the identity row spent 158 of 233 usable pixels on the glyph, the gaps
-   and the status chip, leaving 75px for the title — which rendered as "La s…" and
-   a subtitle of "Rel oad e…". The Program record and its honest caveat are the two
-   readouts in this dock that must survive any width; an unreadable disclosure is
-   the same as no disclosure. So the chip takes its own row and the glyph shrinks. */
-@container dock (max-width: 420px) {
-  .control-root .dock-program__identity {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 7px 10px;
-  }
-  .control-root .dock-program__glyph { width: 32px; height: 30px; }
-  .control-root .dock-program__text { grid-column: 2; }
-  .control-root .dock-program__chip { grid-column: 1 / -1; justify-self: start; }
-}
-.control-root .dock-program--compact .dock-program__identity { min-height: 46px; padding: 7px 10px; }
+.control-root .dock-program--compact .dock-program__identity { height: 73px; padding: 8px 10px; }
 .control-root .dock-program__glyph {
   flex: none;
-  width: 44px;
-  height: 38px;
+  width: 40px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7289,49 +7349,78 @@ body.gfx-transparent {
   border: 1px solid var(--dk-edge-control);
   border-radius: 4px;
 }
-.control-root .dock-program--compact .dock-program__glyph { width: 36px; height: 32px; }
+.control-root .dock-program--compact .dock-program__glyph { width: 34px; height: 30px; }
+/* At the narrowest saved OBS widths the glyph yields its width to the text —
+   the Program record and its caveat are the two readouts that must survive
+   any width; an unreadable disclosure is the same as no disclosure. */
+@container dock (max-width: 290px) {
+  .control-root .dock-program__glyph { width: 30px; height: 28px; }
+}
 .control-root .dock-program__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .control-root .dock-program__title {
-  font-size: 16px;
+  height: 38px;
+  font-size: 15px;
   font-weight: 600;
+  line-height: 19px;
   color: #fff;
-  /* Two lines, then ellipsise. Which graphic was last sent is the single most
-     important readout here; a one-line clamp loses the verse reference itself. */
+  /* Two lines RESERVED, then ellipsise — fixed height, not a grow-to-fit
+     clamp. Which graphic was last sent is the single most important readout
+     here; a one-line clamp loses the verse reference itself. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-.control-root .dock-program--compact .dock-program__title { font-size: 14px; }
+.control-root .dock-program--compact .dock-program__title {
+  height: 19px;
+  font-size: 14px;
+  -webkit-line-clamp: 1;
+}
 .control-root .dock-program__sub {
-  font-size: 13px;
+  height: 34px;
+  font-size: 12.5px;
+  line-height: 17px;
   color: #adb9c8;
-  /* The recovery caveat is a sentence, not a label — it wraps. It was being cut
-     at every dock width up to 440px, which hid exactly the words that say the
-     app cannot confirm what output is showing. */
+  /* The recovery caveat is a sentence, not a label — two lines RESERVED. It
+     was once cut at every dock width up to 440px, which hid exactly the words
+     that say the app cannot confirm what output is showing. */
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-.control-root .dock-program--compact .dock-program__sub { font-size: 12px; }
+/* Below 290px the failed-send sentence needs a third line — reserve it (and
+   grow the strip to match) rather than clip a disclosure. The min-heights are
+   the base vars + 17px (one sub line); kept as literals because a container
+   cannot restyle itself from its own query. */
+@container dock (max-width: 290px) {
+  .control-root .dock-program__sub { height: 51px; -webkit-line-clamp: 3; }
+  .control-root .dock-program__identity { height: 109px; }
+  .control-root .dock-program--compact .dock-program__identity { height: 90px; }
+  .control-root .dock-program { min-height: 211px; }
+  .control-root .dock-program--compact { min-height: 184px; }
+}
 
 /* Status chip — tinted, colour driven by the REAL Program status, never a
    hardcoded green. The clock is real (program.takenAt); the words come from
    lib/programStatus.ts. */
 .control-root .dock-program__chip {
   flex: none;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-radius: 4px;
   font-size: 12.5px;
   font-weight: 700;
+  line-height: 16px;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .control-root .dock-program__chip[data-status='showing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
 .control-root .dock-program__chip[data-status='recovering'] { background: rgba(148, 163, 184, 0.14); color: #b9c4d4; }
@@ -7339,21 +7428,17 @@ body.gfx-transparent {
 .control-root .dock-program__chip[data-status='clear'] { background: rgba(148, 163, 184, 0.1); color: #9aa7ba; }
 .control-root .dock-program__clock { margin-left: 5px; font-weight: 600; }
 
-/* Meta grid (tall variant): the authoring canvas spec and the honest status
-   phrase. There is deliberately no fps and no measured output resolution —
-   the app has no source for either. */
-.control-root .dock-program__meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 0 2px; }
-.control-root .dock-program__cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.control-root .dock-program__cell--end { align-items: flex-end; text-align: right; }
-.control-root .dock-program__label { font-size: 13px; color: #adb8c6; }
-.control-root .dock-program__value { font-size: 13px; color: #e8edf4; }
-.control-root .dock-program__value[data-status='showing'] { color: var(--ll-live-text); }
-.control-root .dock-program__value[data-status='failed'] { color: var(--ll-danger); }
+/* (The tall variant's meta grid is gone — "Status" duplicated the chip and
+   "Canvas 1920 × 1080" printed a constant. The honest status phrase lives in
+   the chip; there is still no fps and no measured output resolution anywhere,
+   because the app has no source for either.) */
 
-.control-root .dock-program__rule { margin: 0; border: 0; border-top: 1px solid var(--dk-rule); }
-
-/* Take/Clear — equal 50/50 row; the blocked-Take reason spans above them. */
-.control-root .dock-program__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* Take/Clear — equal 50/50 row, pinned to the strip's bottom edge so the
+   buttons sit in the same place even if content above ever mis-measures. The
+   blocked-Take reason spans BELOW them (grid row 2): it may appear and
+   disappear, and underneath is the one place it can do that without moving
+   Take out from under the operator's pointer. */
+.control-root .dock-program__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-top: auto; }
 /* "TAKE LIVE" wrapped onto two lines below ~360px, which changed the button
    height and pushed the card taller mid-service. Tighten rather than wrap. */
 @container dock (max-width: 360px) {
@@ -7366,7 +7451,7 @@ body.gfx-transparent {
     letter-spacing: 0.02em;
   }
 }
-.control-root .dock-program__actions .live-actions__blocked { grid-column: 1 / -1; margin: 0; }
+.control-root .dock-program__actions .live-actions__blocked { grid-row: 2; grid-column: 1 / -1; margin: 0; }
 .control-root .dock-program__take {
   min-height: 40px;
   gap: 8px;
@@ -7401,6 +7486,10 @@ body.gfx-transparent {
   border: 1px solid var(--dk-edge-control);
 }
 .control-root .dock-program__clear:hover { background: #1a222a; border-color: rgba(148, 163, 184, 0.24); }
+/* Compact preference trims the action row too — 36px stays comfortably above
+   touch-target minimums while buying back 4px of chrome. */
+.control-root .dock-program--compact .dock-program__take,
+.control-root .dock-program--compact .dock-program__clear { min-height: 36px; }
 
 /* --- scrolling tab content --- */
 .control-root .dock-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
@@ -7529,10 +7618,11 @@ body.gfx-transparent {
 .control-root .dock-coming { align-items: flex-start; gap: 6px; }
 .control-root .dock-coming__note { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #e6ebf2; }
 
-/* --- footer (44px): transport truth left, active pack right --- */
+/* --- footer: transport truth, spelled out. Slimmed 44 → 36px in stage 2b and
+   relieved of the pack name (that lives in the header's event switcher now). --- */
 .control-root .dock-footer {
   flex: none;
-  height: 44px;
+  height: var(--dock-footer-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7549,7 +7639,21 @@ body.gfx-transparent {
 .control-root .dock-footer__relay[data-connection='local'] .dock-footer__dot { background: var(--ll-live); }
 .control-root .dock-footer__relay[data-connection='not-relay'] .dock-footer__dot,
 .control-root .dock-footer__relay[data-connection='unreachable'] .dock-footer__dot { background: #f5c77e; }
-.control-root .dock-footer__pack { flex: none; max-width: 45%; font-size: 13px; font-weight: 550; color: #cdd6e4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-footer__detail { flex: 1; min-width: 0; font-size: 12px; color: #8f9bad; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Footer/header-relay swap. On a short dock a 36px footer is chrome the scroll
+   area cannot spare, and its one remaining readout — transport state — fits in
+   the header dot. 548px is measured, not round: fixed chrome with the footer is
+   290 + 37, and 327 / 0.6 ≈ 545 is where the scroll area would dip below 40% of
+   dock height, so the footer yields just above that. The two queries are exact
+   complements: exactly one transport readout is visible at any height, and a
+   browser without height container queries shows both (safe, never silent). */
+@container dock (max-height: 547px) {
+  .control-root .dock-footer { display: none; }
+}
+@container dock (min-height: 548px) {
+  .control-root .dock-header__relay { display: none; }
+}
 
 /* == dock: queue tab == (stage 2) */
 
