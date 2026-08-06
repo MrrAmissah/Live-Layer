@@ -98,10 +98,15 @@ export function receiveTranscript(transcript: string): VoiceAssistState {
     // Pre-selecting the top reading is a convenience for the eye, NOT a decision:
     // `review` still requires retrieval and `accepted` still requires a press.
     selected: 0,
-    message:
-      parsed.candidates.length > 1
-        ? `${parsed.candidates.length} readings — choose one.`
-        : `Heard ${parsed.candidates[0].reference.canonical}.`
+    /**
+     * The parser's own wording, not a second one built here. Duplicating it drifted:
+     * this branch counted candidates and said "2 readings — choose one" for
+     * "John three sixteen and Romans eight twenty eight", which tells the operator
+     * one of the two is a mishearing. Both were said. Competing readings of one
+     * reference and two separate passages are different situations and the parser is
+     * the only thing that knows which it found.
+     */
+    message: parsed.message
   };
 }
 

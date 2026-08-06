@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ScriptureLookupResult } from '../types/scripture';
 import { defaultScriptureProvider } from '../lib/scripture/providers';
 import { getCachedScripture, saveCachedScripture } from '../lib/scripture/scriptureCache';
@@ -22,6 +22,16 @@ function isOnline() {
  * React binding for `runScriptureLookup`. The rule — parse, cache, fetch, discard
  * stale, then write — lives in that module so it can be tested with interleaved
  * requests; all this owns is the request counter and the rendered state.
+ *
+ * `lookup`, `reset` and `cancel` are memoised with no dependencies. That is not
+ * tidiness — an unstable `cancel` is a live bug for any caller that puts it in an
+ * effect dependency array, because the effect then tears down on EVERY render and
+ * its cleanup calls `cancel()`. Since `lookup` sets loading state before awaiting,
+ * that re-render happens while the request is in flight, so `cancel()` bumps the
+ * request id, `isCurrent()` goes false, and the lookup resolves 'stale' — the
+ * passage never arrives and the operator is told retrieval failed. All three close
+ * over only a ref and a setState, both stable, so an empty dependency list is
+ * correct rather than merely convenient.
  */
 export function useScriptureLookup() {
   const [state, setState] = useState<LookupState>({ status: 'idle' });
@@ -39,7 +49,7 @@ export function useScriptureLookup() {
    * one, which is the "previous result reading as a current success" this
    * surface is otherwise careful to avoid.
    */
-  const lookup = async (
+  const lookup = useCallback(async (
     reference: string,
     translation: string
   ): Promise<{ result: ScriptureLookupResult; fromCache: boolean } | null> => {
@@ -76,12 +86,12 @@ export function useScriptureLookup() {
         setState({ status: 'error', message: outcome.failure.message, failure: outcome.failure.kind });
         return null;
     }
-  };
+  }, []);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     requestId.current += 1;
     setState({ status: 'idle' });
-  };
+  }, []);
 
   /**
    * Invalidate the in-flight request without touching rendered state.
@@ -94,9 +104,9 @@ export function useScriptureLookup() {
    * "Reset all local data" let the pending response repopulate the cache the
    * reset had just cleared. Bumping the id here makes that write not happen.
    */
-  const cancel = () => {
+  const cancel = useCallback(() => {
     requestId.current += 1;
-  };
+  }, []);
 
   return {
     provider: defaultScriptureProvider,

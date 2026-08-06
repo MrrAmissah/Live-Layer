@@ -51,6 +51,8 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   // not repopulate the panel. Same rule as the typed lookup path.
   const generation = useRef(0);
   const [stream, setStream] = useState<TranscriptStreamState>(EMPTY_STREAM);
+  // The reducer's input, so applying an event never depends on render timing.
+  const streamRef = useRef<TranscriptStreamState>(EMPTY_STREAM);
 
   useEffect(() => {
     const unsubscribe = source.subscribe((event) => {
@@ -60,14 +62,19 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
        * speaker had not finished saying is exactly the kind of confident-wrong the
        * rest of this work removes.
        */
-      setStream((previous) => {
-        const update = applyTranscriptEvent(previous, event);
-        if (update.finalText !== null) {
-          generation.current += 1;
-          setState(receiveTranscript(update.finalText));
-        }
-        return update.state;
-      });
+      /**
+       * The reduction happens against a ref, not inside a `setStream` updater.
+       * An updater that also calls `setState` and bumps a ref is not pure, and React
+       * is free to run it more than once for one event — under StrictMode it does,
+       * which would interpret the same utterance twice.
+       */
+      const update = applyTranscriptEvent(streamRef.current, event);
+      streamRef.current = update.state;
+      setStream(update.state);
+      if (update.finalText !== null) {
+        generation.current += 1;
+        setState(receiveTranscript(update.finalText));
+      }
     });
     return () => {
       unsubscribe();
@@ -91,6 +98,11 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
      * `start`/`stop` only on a live one — the union makes the invalid combinations
      * unrepresentable, so the call site has to say which kind it is holding rather
      * than hoping a method is there.
+     *
+     * What the union does NOT do is make this component handle a live source: there
+     * is no capture UI here, and registering one as the default would make Interpret
+     * inert. Only a manual source exists today, and adding a live one is a change to
+     * this panel as well as to the port.
      */
     if (isLiveSource(source)) return;
     source.submit(draftTranscript);

@@ -270,18 +270,37 @@ describe('more than one reference in one transcript', () => {
 
   it('drops a book mention that has no numbers of its own', () => {
     /**
-     * Honest about WHICH mechanism holds this. Mutating the anchoring filter
-     * (`numberFollows` when choosing spans) does NOT break these — the hard
-     * boundary at the next book plus the empty-locator skip already do, because a
-     * bare mention has no numbers between it and the next book. The filter is
-     * defence in depth here; its load-bearing use is book SELECTION, proven by the
-     * wrong-book test above (mutating `findBook` to return the first match turns
-     * that red).
+     * Honest about WHICH mechanism holds this. Mutating the anchoring filter does
+     * NOT break these — the hard boundary at the next book plus the empty-locator
+     * skip already do, because a bare mention has no numbers between it and the next
+     * book. The filter's own observable effect is on the FAILURE message, pinned by
+     * the test below; an earlier version of this comment claimed the wrong-book test
+     * proved it, which was simply untrue.
      */
     expect(groups('John three sixteen and also in Romans')).toEqual([['John 3:16']]);
     expect(groups('in John and Romans eight twenty eight')).toEqual([['Romans 8:28']]);
     expect(groups('Romans and John three sixteen')).toEqual([['John 3:16']]);
     expect(groups('John three sixteen Romans')).toEqual([['John 3:16']]);
+  });
+
+  it('blames the book that actually carried the numbers', () => {
+    /**
+     * What the anchoring filter is really for. When nothing resolves, the operator
+     * is told which book was heard — and without the filter a bare mention wins that
+     * slot, so "in John and Romans ninety nine one" reported a problem with JOHN.
+     * Sending the operator to check the wrong book during a service is its own kind
+     * of confidently wrong.
+     */
+    for (const text of [
+      'in John and Romans ninety nine one',
+      'turn to John then Romans ninety nine one'
+    ]) {
+      const r = parseSpokenReference(text);
+      expect(r.ok, text).toBe(false);
+      if (r.ok) continue;
+      expect(r.message, text).toContain('Romans');
+      expect(r.message, text).not.toContain('John');
+    }
   });
 
   it('confines each locator to its own span, which is what stops numbers crossing', () => {
@@ -347,6 +366,48 @@ describe('more than one reference in one transcript', () => {
     ]);
   });
 
+  it('a chapter spoken before its book cannot be taken from the reference before it', () => {
+    /**
+     * The other half of the boundary, and the one the forward clamp missed.
+     * `resolveSpan` scans BACKWARDS for "the third chapter of Romans", and that scan
+     * used to start at the end of the previous book's NAME — so in "John chapter
+     * three and Romans chapter eight" the Romans span looked back over "chapter
+     * three" and offered Romans 3:8. John's chapter number wearing Romans' name,
+     * and Romans 3:8 is a verse that really exists.
+     */
+    expect(groups('John chapter three and Romans chapter eight')).toEqual([['John 3'], ['Romans 8']]);
+    expect(groups('John chapter three verse sixteen and Romans eight one')).toEqual([['John 3:16'], ['Romans 8:1']]);
+    expect(groups('John chapter three verse sixteen and Romans chapter eight verse one')).toEqual([
+      ['John 3:16'],
+      ['Romans 8:1']
+    ]);
+    // With no separator at all, the modifiers stay with the reference that had them
+    // rather than being moved on a guess.
+    expect(groups('John chapter three Romans chapter eight')).toEqual([['John 3'], ['Romans 8']]);
+    // No candidate anywhere may be the cross-contaminated reading.
+    for (const text of [
+      'John chapter three and Romans chapter eight',
+      'John chapter three verse sixteen and Romans eight one'
+    ]) {
+      const r = parseSpokenReference(text);
+      expect(r.ok).toBe(true);
+      if (!r.ok) continue;
+      expect(r.candidates.map((c) => c.reference.canonical), text).not.toContain('Romans 3:8');
+    }
+  });
+
+  it('still lets a reference keep a chapter spoken before its own book', () => {
+    // The boundary must not be so tight that it severs a legitimate pre-modifier.
+    expect(groups('John three sixteen and in the third chapter of Romans verse one')).toEqual([
+      ['John 3:16'],
+      ['Romans 3:1']
+    ]);
+    expect(groups('the third chapter of John verse sixteen and Romans eight one')).toEqual([
+      ['John 3:16'],
+      ['Romans 8:1']
+    ]);
+  });
+
   it('says how many passages were heard', () => {
     const one = parseSpokenReference('John three sixteen');
     const two = parseSpokenReference('John three sixteen and Romans eight twenty eight');
@@ -354,6 +415,161 @@ describe('more than one reference in one transcript', () => {
     expect(two.ok && two.message).toContain('2 passages');
   });
 });
+
+describe('a spoken zero is a digit, not noise', () => {
+  const first = (t: string): string => {
+    const r = parseSpokenReference(t);
+    if (!r.ok) throw new Error(`expected candidates for "${t}", got ${r.problem}`);
+    return r.candidates[0].reference.canonical;
+  };
+
+  it('reads "one oh five" as 105', () => {
+    /**
+     * Psalm 119:105 is among the most-quoted verses there is, and dropping the "oh"
+     * as noise read it as 1 and 5 — offering Psalms 119:1-5, a real passage that is
+     * not what was said.
+     */
+    expect(first('Psalm one hundred and nineteen one oh five')).toBe('Psalms 119:105');
+    expect(first('Psalm one oh three')).toBe('Psalms 103');
+    expect(first('Psalm one oh three verse one')).toBe('Psalms 103:1');
+  });
+
+  it('stops the digit run after one zero group, so the verse survives', () => {
+    // Consuming every digit in reach made this 1051, which is not a chapter.
+    expect(first('Psalm one oh five one')).toBe('Psalms 105:1');
+  });
+
+  it('falls back to reading the zero as a pause when the digits do not exist', () => {
+    /**
+     * The digit reading must never LOSE a passage the looser reading would have
+     * found. "John three oh five" as 305 does not exist, so 3:5 is offered instead
+     * — and the interpretation says which reading it is, because the operator is
+     * the one deciding.
+     */
+    const r = parseSpokenReference('John three oh five');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.candidates[0].reference.canonical).toBe('John 3:5');
+    expect(r.candidates[0].interpretation).toContain('pause');
+  });
+
+  it('does not turn ordinary spoken numbers into concatenations', () => {
+    // The zero-word requirement is the whole guard: no "oh", no digit reading.
+    expect(first('John three sixteen')).toBe('John 3:16');
+    expect(first('Psalm twenty three one')).toBe('Psalms 23:1');
+    expect(first('Psalm one hundred and nineteen one')).toBe('Psalms 119:1');
+    expect(first('Matthew twenty eight nineteen and twenty')).toBe('Matthew 28:19-20');
+    // A leading interjection is still just noise.
+    expect(first('oh John three sixteen')).toBe('John 3:16');
+  });
+});
+
+describe('quoted scripture cannot donate its numbers to the reference', () => {
+  const canon = (t: string): string => {
+    const r = parseSpokenReference(t);
+    return r.ok ? r.candidates.map((c) => c.reference.canonical).join(' | ') : `FAIL:${r.problem}`;
+  };
+
+  it('stops the locator where the reference stops', () => {
+    /**
+     * A preacher names the reference and then reads it aloud. The locator used to
+     * skip unrecognised words and keep scanning, so the QUOTED verse handed its
+     * numbers to the reference that introduced it — each of these came back as a
+     * single confident reading with no alternative offered.
+     */
+    expect(canon('Acts two there were about three thousand souls added')).toBe('Acts 2');
+    expect(canon('John six Jesus fed five thousand men')).toBe('John 6');
+    expect(canon('Genesis one God created the heavens in six days')).toBe('Genesis 1');
+    expect(canon('Luke fifteen the father had two sons')).toBe('Luke 15');
+    // A homophone in the quotation, where only the chapter had landed — the
+    // `foundSoFar` gate does not cover this one, which its comment used to imply.
+    expect(canon('Mark ten it is easier for a camel to go through the eye of a needle')).toBe('Mark 10');
+  });
+
+  it('still reads a complete reference followed by its quotation', () => {
+    expect(canon('John three sixteen for God so loved the world')).toBe('John 3:16');
+    expect(canon('Romans eight verse one for there is therefore now no condemnation')).toBe('Romans 8:1');
+    expect(canon('John three sixteen for God so loved the world and Romans eight one')).toBe('John 3:16 | Romans 8:1');
+    expect(canon('turn with me to John three sixteen and also Romans eight one')).toBe('John 3:16 | Romans 8:1');
+  });
+
+  it('does not stop before the reference has begun', () => {
+    // Ordinary words BEFORE the first number must not end the scan.
+    expect(canon('John chapter three verse sixteen')).toBe('John 3:16');
+    expect(canon('in the third chapter of John verse sixteen')).toBe('John 3:16');
+  });
+});
+
+describe('the explanation matches the reference it labels', () => {
+  const why = (t: string): string => {
+    const r = parseSpokenReference(t);
+    if (!r.ok) throw new Error(`expected candidates for "${t}"`);
+    return r.candidates[0].interpretation;
+  };
+
+  it('calls a one-chapter book’s number a verse, because that is what it is', () => {
+    /**
+     * The strict parser reads a bare number in a one-chapter book as a verse, so
+     * "Jude three" is Jude 1:3 — but the explanation said "chapter 3" right beside
+     * it. The explanation is the only thing telling the operator why a reading was
+     * offered; contradicting the canonical makes it worse than nothing.
+     */
+    expect(why('Jude three')).toContain('verse 3');
+    expect(why('Jude three')).not.toContain('chapter 3');
+    expect(why('Obadiah fifteen')).toContain('verse 15');
+    expect(why('Philemon six')).toContain('verse 6');
+    // And two numbers are two verses, not two chapters of a one-chapter book.
+    const jude = parseSpokenReference('Jude verse twenty four and twenty five');
+    expect(jude.ok).toBe(true);
+    if (jude.ok) {
+      expect(jude.candidates[0].reference.canonical).toBe('Jude 1:24-25');
+      expect(jude.candidates[0].interpretation).not.toContain('per chapter');
+    }
+  });
+
+  it('does not claim a number "was not spoken" when it was', () => {
+    /**
+     * "the first book of Kings" is ordinary formal phrasing. The ordinal sits three
+     * tokens back, so it was missed — producing a spurious 1 Kings/2 Kings ambiguity
+     * AND the note `"1" was not spoken` about a word the speaker had just said.
+     */
+    for (const [text, expected] of [
+      ['the first book of Kings chapter eight verse one', '1 Kings 8:1'],
+      ['the second book of Samuel seven one', '2 Samuel 7:1']
+    ] as const) {
+      const r = parseSpokenReference(text);
+      expect(r.ok, text).toBe(true);
+      if (!r.ok) continue;
+      expect(r.candidates.map((c) => c.reference.canonical), text).toEqual([expected]);
+      expect(r.candidates[0].interpretation, text).not.toContain('was not spoken');
+    }
+    // The genuinely ambiguous case still says so.
+    const bare = parseSpokenReference('Timothy one seven');
+    expect(bare.ok && bare.candidates[0].interpretation).toContain('was not spoken');
+    // And an ordinal that belongs to a locator is not stolen for the book name.
+    expect(canonOf('chapter three of John')).toBe('John 3');
+  });
+
+  it('admits every number it drops, on every branch', () => {
+    /**
+     * `dropped` was applied to the two branches with a spoken connector and not to
+     * the one without — so "Matthew five three four five six" read as "verses 3 to 4"
+     * and the 5 and the 6 vanished from the branch whose whole job is to say what it
+     * is ignoring.
+     */
+    const r = parseSpokenReference('Matthew five three four five six');
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.candidates[0].interpretation).toContain('ignoring 5, 6');
+    expect(r.candidates[1].interpretation).toContain('ignoring 4, 5, 6');
+    for (const c of r.candidates) expect(c.interpretation).toMatch(/ignoring/);
+  });
+});
+
+function canonOf(text: string): string {
+  const r = parseSpokenReference(text);
+  return r.ok ? r.candidates.map((c) => c.reference.canonical).join(' | ') : `FAIL:${r.problem}`;
+}
 
 describe('the strict parser is not weakened', () => {
   it('does not re-implement or bypass parseScriptureReference', () => {

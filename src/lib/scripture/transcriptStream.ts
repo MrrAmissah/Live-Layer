@@ -10,15 +10,36 @@ import type { TranscriptEvent } from './transcriptSource';
  *
  *  1. **An interim guess must never be interpreted as a reference.** It is a moving
  *     target; parsing it would offer a passage the speaker had not finished saying.
- *  2. **A stale revision must never replace a newer one.** A lower sequence in the
- *     same segment, or an older segment arriving after a newer one has settled, is
- *     out of date by definition.
+ *  2. **A stale revision must never replace a newer one.** That means two things,
+ *     and an earlier version of this module only enforced the first: a lower
+ *     sequence *within* a segment, AND any event for an *older segment* once a newer
+ *     one has been seen. Because `sequence` is only monotonic within a segment
+ *     (`TranscriptEvent.sequence`), comparing sequences across segments is
+ *     meaningless — so segments are ordered by when they first arrived, and an
+ *     event for an older one is refused whether or not it had settled. Without that,
+ *     "s1 interim, s2 interim, s1 final" released s1's text and the operator was
+ *     offered the passage from the utterance *before* the one being spoken.
  *  3. **Stopping must be immediate and final.** Once stopped, events already in
  *     flight are not the operator's intent and are dropped.
  *
  * Interim text is still *shown* — it is what makes a live source feel responsive —
  * but only `finalText` is ever handed to the parser.
+ *
+ * The one bound worth stating plainly: segment memory is capped (`SEGMENT_MEMORY`).
+ * A straggler for a segment evicted from that window is indistinguishable from a
+ * genuinely new utterance, because segment ids are opaque, so it is treated as new.
+ * That needs the cap's worth of newer utterances to arrive first, but it is a real
+ * limit rather than a guarantee.
  */
+
+interface SegmentRecord {
+  id: string;
+  /** Arrival rank. Higher means more recent; this is the cross-segment ordering. */
+  order: number;
+  /** Highest sequence seen for this segment. */
+  sequence: number;
+  settled: boolean;
+}
 
 export interface TranscriptStreamState {
   /** The segment currently being revised, or null before anything arrives. */
@@ -29,8 +50,10 @@ export interface TranscriptStreamState {
   text: string;
   /** True once the current segment has settled. */
   isFinal: boolean;
-  /** Segments already settled, so an older one cannot reopen. */
-  settled: string[];
+  /** Recently seen segments, newest first, so an older one cannot supersede. */
+  history: SegmentRecord[];
+  /** Highest arrival rank issued so far. */
+  order: number;
   /** True after `stop()`; every later event is ignored. */
   stopped: boolean;
 }
@@ -40,12 +63,13 @@ export const EMPTY_STREAM: TranscriptStreamState = {
   sequence: -1,
   text: '',
   isFinal: false,
-  settled: [],
+  history: [],
+  order: 0,
   stopped: false
 };
 
 /** Bounded so a long service cannot grow this without limit. */
-const SETTLED_MEMORY = 32;
+const SEGMENT_MEMORY = 64;
 
 export interface TranscriptStreamUpdate {
   state: TranscriptStreamState;
@@ -55,7 +79,7 @@ export interface TranscriptStreamUpdate {
    */
   finalText: string | null;
   /** Why an event was ignored. Empty when it was applied. */
-  ignored: '' | 'stopped' | 'stale-sequence' | 'settled-segment';
+  ignored: '' | 'stopped' | 'stale-sequence' | 'settled-segment' | 'stale-segment';
 }
 
 export function applyTranscriptEvent(
@@ -66,24 +90,46 @@ export function applyTranscriptEvent(
     return { state, finalText: null, ignored: 'stopped' };
   }
 
-  // A segment that already settled cannot be revised or reopened.
-  if (state.settled.includes(event.segmentId)) {
-    return { state, finalText: null, ignored: 'settled-segment' };
+  const known = state.history.find((entry) => entry.id === event.segmentId);
+
+  if (known) {
+    // A segment that already settled cannot be revised or reopened.
+    if (known.settled) {
+      return { state, finalText: null, ignored: 'settled-segment' };
+    }
+    if (event.sequence <= known.sequence) {
+      return { state, finalText: null, ignored: 'stale-sequence' };
+    }
+    /**
+     * Still open, but a newer utterance has started since. Its sequence says
+     * nothing about this one's, so recency is decided by arrival order — otherwise
+     * a slow final for the previous sentence lands on top of the current one.
+     */
+    if (known.order < state.order) {
+      return { state, finalText: null, ignored: 'stale-segment' };
+    }
   }
 
-  const sameSegment = state.segmentId === event.segmentId;
-  if (sameSegment && event.sequence <= state.sequence) {
-    return { state, finalText: null, ignored: 'stale-sequence' };
-  }
+  const order = known ? known.order : state.order + 1;
+  const record: SegmentRecord = {
+    id: event.segmentId,
+    order,
+    sequence: event.sequence,
+    settled: event.isFinal
+  };
 
-  const settled = event.isFinal ? [event.segmentId, ...state.settled].slice(0, SETTLED_MEMORY) : state.settled;
+  const history = [record, ...state.history.filter((entry) => entry.id !== event.segmentId)].slice(
+    0,
+    SEGMENT_MEMORY
+  );
 
   const next: TranscriptStreamState = {
     segmentId: event.segmentId,
     sequence: event.sequence,
     text: event.text,
     isFinal: event.isFinal,
-    settled,
+    history,
+    order: Math.max(order, state.order),
     stopped: false
   };
 
@@ -93,7 +139,7 @@ export function applyTranscriptEvent(
 
 /** Stop listening. Later events are ignored rather than raced. */
 export function stopTranscriptStream(state: TranscriptStreamState): TranscriptStreamState {
-  return { ...state, stopped: true, isFinal: false };
+  return { ...state, stopped: true };
 }
 
 export function resetTranscriptStream(): TranscriptStreamState {

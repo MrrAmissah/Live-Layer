@@ -13,6 +13,7 @@ import {
   selectCandidate,
   type VoiceAssistState
 } from './voiceAssist';
+import { parseSpokenReference } from './spokenReference';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { CLEAR_PROGRAM_STATE } from '../../types/program';
 import type { ScriptureLookupResult } from '../../types/scripture';
@@ -114,6 +115,83 @@ describe('the state machine', () => {
     expect(state.status).toBe('provider-unavailable');
     expect(state.passage).toBeNull();
     expect(state.transcript).toBe('John three sixteen');
+  });
+});
+
+describe('the retrieval the panel depends on can actually complete', () => {
+  /**
+   * A wiring bug node tests cannot reach, so it is pinned by inspection.
+   *
+   * `VoiceAssistPreview` puts the hook's `cancel` in an effect dependency array so
+   * that leaving the workspace mid-retrieve invalidates the request. When `cancel`
+   * was a fresh closure each render, that effect tore down on EVERY render — and
+   * because `lookup` sets loading state before awaiting, the teardown fired while
+   * the request was in flight, bumped the request id, and made the lookup resolve
+   * 'stale'. The passage never arrived; the panel said "Could not retrieve that
+   * passage" every single time. Retrieve, the panel's whole purpose, never worked.
+   *
+   * Unwrapping any of these useCallbacks brings that back, silently.
+   */
+  const hook = readFileSync('src/hooks/useScriptureLookup.ts', 'utf8');
+
+  it('returns callbacks with stable identity across renders', () => {
+    // Presence anchor: if the hook is renamed or restructured, fail loudly rather
+    // than silently asserting nothing.
+    expect(hook).toContain('export function useScriptureLookup()');
+    expect(hook).toContain("import { useCallback");
+
+    for (const name of ['lookup', 'reset', 'cancel']) {
+      expect(hook, `${name} must be memoised`).toMatch(
+        new RegExp(`const ${name} = useCallback\\(`)
+      );
+    }
+    // Memoised with no dependencies — anything else reintroduces the churn.
+    expect(hook.match(/\}, \[\]\)/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+  });
+
+  it('keeps the panel effect cleaning up on unmount only', () => {
+    const panel = readFileSync('src/components/control/VoiceAssistPreview.tsx', 'utf8');
+    const cleanup = panel.slice(panel.indexOf('return () => {'), panel.indexOf('}, [source, cancel]'));
+    expect(cleanup).toContain('unsubscribe()');
+    expect(cleanup).toContain('cancel()');
+  });
+});
+
+describe('the operator is told which situation they are in', () => {
+  it('distinguishes two passages heard from two readings of one reference', () => {
+    /**
+     * These are different problems and must not share wording. Two readings means
+     * one of them is a mishearing and picking wrong airs the wrong verse. Two
+     * passages means both were said and the operator is choosing what to show now.
+     * The message previously counted candidates, so both said "readings".
+     */
+    const two = receiveTranscript('John three sixteen and Romans eight twenty eight');
+    expect(two.candidates.map((c) => c.reference.canonical)).toEqual(['John 3:16', 'Romans 8:28']);
+    expect(two.message).toContain('2 passages');
+    expect(two.message).not.toContain('readings');
+
+    const ambiguous = receiveTranscript('Timothy one seven');
+    expect(ambiguous.candidates.length).toBeGreaterThan(1);
+    expect(ambiguous.message).toContain('readings');
+    expect(ambiguous.message).not.toContain('passages');
+
+    const single = receiveTranscript('John three sixteen');
+    expect(single.message).toBe('Heard John 3:16.');
+  });
+
+  it('takes its wording from the parser rather than rebuilding it', () => {
+    // A second copy of this wording is what drifted. Pin them together.
+    for (const text of [
+      'John three sixteen',
+      'Timothy one seven',
+      'John three sixteen and Romans eight twenty eight',
+      'Psalm one hundred and nineteen one'
+    ]) {
+      const parsed = parseSpokenReference(text);
+      expect(parsed.ok, text).toBe(true);
+      if (!parsed.ok) continue;
+      expect(receiveTranscript(text).message, text).toBe(parsed.message);
+    }
   });
 });
 

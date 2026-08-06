@@ -86,6 +86,43 @@ describe('a stale segment cannot replace a newer final', () => {
     expect(straggler.state.text).toBe('second');
   });
 
+  it('refuses a still-OPEN older segment once a newer utterance has started', () => {
+    /**
+     * The case a per-segment sequence check cannot see. Both segments are open, so
+     * neither has settled; `sequence` is only monotonic WITHIN a segment, so s1's 7
+     * says nothing about s2's 0. Only arrival order can tell which utterance is
+     * current — and without it "s1 interim, s2 interim, s1 final" released s1 and
+     * the operator was offered the passage from the sentence before the one being
+     * spoken. Ordinary recogniser behaviour, not an adversarial order.
+     */
+    let state = applyTranscriptEvent(EMPTY_STREAM, ev({ segmentId: 's1', sequence: 0, isFinal: false, text: 's1' })).state;
+    state = applyTranscriptEvent(state, ev({ segmentId: 's2', sequence: 0, isFinal: false, text: 's2' })).state;
+
+    const late = applyTranscriptEvent(state, ev({ segmentId: 's1', sequence: 7, isFinal: true, text: 'stale s1' }));
+    expect(late.finalText).toBeNull();
+    expect(late.ignored).toBe('stale-segment');
+    expect(late.state.text).toBe('s2');
+
+    // The current segment is still perfectly revisable.
+    const settles = applyTranscriptEvent(state, ev({ segmentId: 's2', sequence: 1, isFinal: true, text: 's2 final' }));
+    expect(settles.finalText).toBe('s2 final');
+  });
+
+  it('remembers each segment’s own sequence, not one shared counter', () => {
+    /**
+     * A single scalar `sequence` belonged to whichever segment arrived last, so
+     * interleaving reset it: s1 reached 5, s2 started at 0, and a stale s1 revision
+     * at 2 then looked NEWER than the 0 on record and was applied.
+     */
+    let state = applyTranscriptEvent(EMPTY_STREAM, ev({ segmentId: 's1', sequence: 5, isFinal: false, text: 's1 newer' })).state;
+    state = applyTranscriptEvent(state, ev({ segmentId: 's2', sequence: 0, isFinal: false, text: 's2' })).state;
+
+    const late = applyTranscriptEvent(state, ev({ segmentId: 's1', sequence: 2, isFinal: true, text: 's1 older' }));
+    expect(late.finalText).toBeNull();
+    expect(late.ignored).toBe('stale-sequence');
+    expect(late.state.text).toBe('s2');
+  });
+
   it('accepts a genuinely new segment', () => {
     const state = applyTranscriptEvent(EMPTY_STREAM, ev({ segmentId: 's1', isFinal: true })).state;
     const next = applyTranscriptEvent(state, ev({ segmentId: 's2', sequence: 0, isFinal: true, text: 'Romans eight one' }));
@@ -204,7 +241,7 @@ describe('no capture, ASR, AI or credentials enter this boundary', () => {
     // The boundary is types and a Set; nothing to install.
     const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
     for (const name of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
-      expect(name).not.toMatch(/whisper|deepgram|assembly|speech|asr|openai|anthropic/i);
+      expect(name).not.toMatch(/whisper|deepgram|assembly|speech|asr|openai|anthropic|vosk|gladia|soniox|rev-ai|riva|coqui|wav2vec|dondo/i);
     }
   });
 });
