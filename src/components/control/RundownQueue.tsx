@@ -1,16 +1,26 @@
+import { useState } from 'react';
 import { useRundowns } from '../../hooks/useRundowns';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 import { getQueueCursors } from '../../lib/rundown/rundownStore';
+import { describeGraphic } from '../../lib/graphicTitle';
+import { Icon } from '../../lib/icons';
 
 /**
- * Live-tab rundown operation (R3). Select / Previous / Next + a compact list with
- * LIVE (activeItemId) and done indicators. Take and Clear are the sticky bar /
- * action-deck buttons (mode-aware), not duplicated here — so there is one Take.
+ * Live-tab rundown queue (dock). Row click selects; Previous/Next step the
+ * selection; LIVE marks the item we last COMMANDED (activeItemId) — the one
+ * on-air claim the app can make, because it is a record of our own command,
+ * not an output acknowledgement. Take and Clear are the Program strip's
+ * buttons (mode-aware), never duplicated here — so there is one Take.
  * Nothing here posts a realtime message; only ControlPage's Take/Clear do.
+ *
+ * Reordering is an explicit mode with per-row up/down — deliberately NOT a
+ * drag handle, because the store can only swap adjacent items
+ * (`moveItem(±1)`) and a handle promises drop-anywhere it cannot deliver.
  */
 export default function RundownQueue() {
   const rd = useRundowns();
   const { activeItemId } = useLiveTakeContext();
+  const [reordering, setReordering] = useState(false);
   const rundown = rd.activeRundown;
   if (!rundown) return null;
 
@@ -26,72 +36,121 @@ export default function RundownQueue() {
   };
 
   return (
-    <div className="rd-queue">
-      <div className="rd-queue__head">
-        <span className="ll-kicker">Rundown queue</span>
-        <span className="rd-queue__name" title={rundown.name}>{rundown.name}</span>
+    <section className="dock-card dock-queue">
+      <div className="dock-card__head">
+        <span className="ll-kicker">Queue{items.length > 0 ? ` (${items.length})` : ''}</span>
+        <span className="dock-card__meta" title={rundown.name}>{rundown.name}</span>
+        {items.length > 1 ? (
+          <button
+            type="button"
+            className="dock-card__action"
+            aria-pressed={reordering}
+            onClick={() => setReordering((value) => !value)}
+          >
+            {reordering ? 'Done' : 'Reorder'}
+          </button>
+        ) : null}
       </div>
 
-      {/* Dock-only surface: the dock keeps its Library tab, so this destination
-          is still correct here. The studio names its Rundown workspace instead. */}
+      {/* Dock-only surface: the dock keeps its rundown manager under Library
+          for now, so this destination is still the documented one. The Queue
+          tab takes ownership of this in the next stage. */}
       {items.length === 0 ? (
-        <p className="field__hint">No items yet — add some in Library → Rundowns.</p>
+        <p className="dock-card__hint">No items yet — add some in Library → Rundowns.</p>
       ) : !selected ? (
-        <div className="rd-queue__empty">
-          <p className="field__hint">No item selected.</p>
+        <div className="dock-queue__empty">
+          <p className="dock-card__hint">No item selected.</p>
           <button type="button" className="btn btn--secondary btn--sm" onClick={() => rd.setSelectedItem(items[0].id)}>
             Select first item
           </button>
         </div>
-      ) : (
-        <p className="rd-queue__summary">
-          <span><span className="rd-queue__lbl">Selected</span> {selected.title}</span>
-          <span><span className="rd-queue__lbl">Next</span> {nextItem ? nextItem.title : '—'}</span>
-        </p>
-      )}
-
-      <div className="rd-queue__nav">
-        <button type="button" className="btn btn--secondary btn--sm" onClick={onPrev} disabled={!prevItem} aria-label="Select previous rundown item">◀ Previous</button>
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          onClick={onNext}
-          disabled={items.length === 0 || (selectedIndex >= 0 && selectedIndex === items.length - 1)}
-          aria-label="Select next rundown item"
-        >
-          Next ▶
-        </button>
-      </div>
+      ) : null}
 
       {items.length > 0 ? (
-        <ul className="rd-q-list">
+        <ol className="dock-queue__list">
           {items.map((item, index) => {
             const isLive = item.id === activeItemId;
+            const meta = describeGraphic(item.graphic);
             return (
               <li
                 key={item.id}
-                className={`rd-q-item ${item.id === rundown.selectedItemId ? 'rd-q-item--selected' : ''} ${item.done ? 'rd-q-item--done' : ''}`}
+                className="dock-queue__row"
+                data-selected={item.id === rundown.selectedItemId || undefined}
+                data-done={item.done || undefined}
               >
-                <button type="button" className="rd-q-item__main" onClick={() => rd.setSelectedItem(item.id)}>
-                  <span className="rd-item__order" aria-hidden>{index + 1}</span>
-                  <span className="rd-q-item__title">{item.title}</span>
-                  {isLive ? <span className="rd-live">LIVE</span> : null}
-                </button>
                 <button
                   type="button"
-                  className={`rd-icon ${item.done ? 'rd-icon--on' : ''}`}
-                  onClick={() => rd.toggleDone(item.id)}
-                  aria-pressed={item.done}
-                  aria-label={item.done ? `Mark ${item.title} not done` : `Mark ${item.title} done`}
-                  title={item.done ? 'Mark not done' : 'Mark done'}
+                  className="dock-queue__main"
+                  onClick={() => rd.setSelectedItem(item.id)}
+                  aria-current={item.id === rundown.selectedItemId ? 'true' : undefined}
                 >
-                  ✓
+                  <span className="dock-queue__index" aria-hidden>{index + 1}</span>
+                  <span className="dock-queue__glyph" aria-hidden>
+                    <Icon name={meta.icon} size={15} />
+                  </span>
+                  <span className="dock-queue__text">
+                    <span className="dock-queue__title">{item.title}</span>
+                    <span className="dock-queue__sub">{meta.typeLabel}</span>
+                  </span>
                 </button>
+                <span className="dock-queue__cluster">
+                  {isLive ? <span className="rd-live">LIVE</span> : null}
+                  {reordering ? (
+                    <>
+                      <button
+                        type="button"
+                        className="dock-queue__move"
+                        onClick={() => rd.moveItemUp(item.id)}
+                        disabled={index === 0}
+                        aria-label={`Move ${item.title} up`}
+                      >
+                        <Icon name="chevronUp" size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className="dock-queue__move"
+                        onClick={() => rd.moveItemDown(item.id)}
+                        disabled={index === items.length - 1}
+                        aria-label={`Move ${item.title} down`}
+                      >
+                        <Icon name="chevronDown" size={13} />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`rd-icon ${item.done ? 'rd-icon--on' : ''}`}
+                      onClick={() => rd.toggleDone(item.id)}
+                      aria-pressed={item.done}
+                      aria-label={item.done ? `Mark ${item.title} not done` : `Mark ${item.title} done`}
+                      title={item.done ? 'Mark not done' : 'Mark done'}
+                    >
+                      ✓
+                    </button>
+                  )}
+                </span>
               </li>
             );
           })}
-        </ul>
+        </ol>
       ) : null}
-    </div>
+
+      {items.length > 0 ? (
+        <div className="dock-queue__nav">
+          <button type="button" className="btn btn--secondary btn--sm" onClick={onPrev} disabled={!prevItem} aria-label="Select previous rundown item">
+            ◀ Previous
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={onNext}
+            disabled={items.length === 0 || (selectedIndex >= 0 && selectedIndex === items.length - 1)}
+            aria-label="Select next rundown item"
+          >
+            Next ▶
+          </button>
+        </div>
+      ) : null}
+    </section>
   );
 }

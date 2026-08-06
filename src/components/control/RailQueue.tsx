@@ -1,28 +1,18 @@
 import { useState } from 'react';
 import { resolveGraphicReadiness } from '../../lib/graphicReadiness';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
-import { templateRegistry } from '../templates/registry';
-import { describeTemplate } from '../../lib/templateMeta';
+// One title rule for every queue/preset/program surface — see graphicTitle.ts.
+import { graphicTitle, describeGraphic } from '../../lib/graphicTitle';
 import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 import QuickQueuePanel from './QuickQueuePanel';
 
-const templateById = new Map(templateRegistry.map((t) => [t.id, t]));
 const COMPACT_COUNT = 4;
 
-function itemLabel(item: GraphicInstance): string {
-  if (item.presetName?.trim()) return item.presetName;
-  const t = templateById.get(item.templateId);
-  const primary = t?.primaryField;
-  return (primary ? item.values[primary] : '') || item.values.name || t?.name || item.templateId;
-}
-function typeName(templateId: string): string {
-  return describeTemplate(templateById.get(templateId), templateId).label;
-}
+const itemLabel = (item: GraphicInstance): string => graphicTitle(item);
+
 function draftLabel(state: ReturnType<typeof useLiveLayerStore.getState>): string {
-  const t = templateById.get(state.currentTemplateId);
-  const primary = t?.primaryField;
-  return (primary ? state.draftValues[primary] : '') || state.draftValues.name || t?.name || state.currentTemplateId;
+  return graphicTitle({ templateId: state.currentTemplateId, values: state.draftValues });
 }
 
 /**
@@ -91,8 +81,8 @@ export default function RailQueue({
               <span className="rail-qrow__body">
                 <span className="rail-qrow__name">{itemLabel(item)}</span>
                 <span className="rail-qrow__type">
-                  <Icon name={describeTemplate(templateById.get(item.templateId), item.templateId).icon} size={12} />
-                  {typeName(item.templateId)}
+                  <Icon name={describeGraphic(item).icon} size={12} />
+                  {describeGraphic(item).typeLabel}
                 </span>
               </span>
               {/* Same per-item rule as the full queue panel. This compact row is

@@ -56,7 +56,7 @@ export default function LiveActions({ onTake, onClear, sending = false, surface,
       : 'Take live';
 
   return (
-    <div className={dock ? 'dock-livebar__actions' : 'live-actions'}>
+    <div className={dock ? 'dock-program__actions' : 'live-actions'}>
       {/* A disabled Take with no stated reason is its own failure mid-service:
           the operator presses, nothing happens, and they debug the app instead
           of the graphic. `title` and `aria-describedby` both carry it, so the
@@ -68,7 +68,7 @@ export default function LiveActions({ onTake, onClear, sending = false, surface,
       ) : null}
       <button
         type="button"
-        className={dock ? 'take-btn dock-livebar__take' : 'take-btn'}
+        className={dock ? 'take-btn dock-program__take' : 'take-btn'}
         data-state={dock ? lastAction : undefined}
         onClick={onTake}
         disabled={takeDisabled || sending}
@@ -76,16 +76,19 @@ export default function LiveActions({ onTake, onClear, sending = false, surface,
         title={notReadyReason || undefined}
         aria-describedby={notReadyReason ? `take-blocked-${surface}` : undefined}
       >
-        {dock ? null : <Icon name="broadcast" size={17} />}
+        <Icon name="broadcast" size={dock ? 15 : 17} />
         {sending ? 'Sending…' : takeText}
       </button>
       <button
         type="button"
-        className={dock ? 'clear-btn dock-livebar__clear' : 'clear-btn'}
+        className={dock ? 'clear-btn dock-program__clear' : 'clear-btn'}
         onClick={onClear}
         disabled={sending}
         aria-busy={sending || undefined}
       >
+        {/* Circle-slash, deliberately not a trash can: Clear removes what is on
+            the output, it deletes nothing. */}
+        {dock ? <Icon name="clear" size={15} /> : null}
         {sending ? 'Sending…' : dock ? 'Clear' : 'Clear graphic'}
       </button>
     </div>

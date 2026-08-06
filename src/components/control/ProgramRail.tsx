@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 import { describeProgramStatus } from '../../lib/programStatus';
+// Shared with the dock's Program strip — one title rule, one clock.
+import { graphicTitle } from '../../lib/graphicTitle';
+import { useTicks, elapsed, ago } from '../../hooks/useTicks';
 import LiveActions from './LiveActions';
 import type { GraphicInstance } from '../../types/graphics';
 import type { ProgramState } from '../../types/program';
@@ -14,44 +16,8 @@ import StudioRundownPanel from './StudioRundownPanel';
 
 const templateById = new Map(templateRegistry.map((t) => [t.id, t]));
 
-function graphicLabel(snapshot: GraphicInstance): string {
-  const template = templateById.get(snapshot.templateId);
-  const primary = template?.primaryField;
-  return (
-    snapshot.presetName?.trim() ||
-    (primary ? snapshot.values[primary] : '') ||
-    snapshot.values.name ||
-    template?.name ||
-    snapshot.templateId
-  );
-}
 function templateName(templateId: string | null): string {
   return (templateId && templateById.get(templateId)?.name) || '';
-}
-
-/**
- * Re-render clock for the elapsed/ago readouts. `intervalMs` of 0 disables it.
- * Callers step down to a coarser interval once second-level precision stops
- * being meaningful, so an idle rail isn't waking every second forever.
- */
-function useTicks(intervalMs: number): number {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!intervalMs) return;
-    const timer = window.setInterval(() => setTick((n) => n + 1), intervalMs);
-    return () => window.clearInterval(timer);
-  }, [intervalMs]);
-  return Date.now();
-}
-function elapsed(from: number, now: number): string {
-  const s = Math.max(0, Math.floor((now - from) / 1000));
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-}
-function ago(from: number, now: number): string {
-  const s = Math.max(0, Math.floor((now - from) / 1000));
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  return `${Math.floor(s / 3600)}h ago`;
 }
 
 /**
@@ -86,7 +52,7 @@ function OutputCard({ program }: { program: ProgramState }) {
       <div className="program-card__detail">
         {program.status === 'showing' && program.snapshot ? (
           <>
-            <span className="program-card__identity">{graphicLabel(program.snapshot)}</span>
+            <span className="program-card__identity">{graphicTitle(program.snapshot)}</span>
             <span className="program-card__sub">
               {templateName(program.templateId)}
               {program.takenAt ? <> · sent {elapsed(program.takenAt, now)} ago</> : null}
@@ -94,12 +60,12 @@ function OutputCard({ program }: { program: ProgramState }) {
           </>
         ) : program.status === 'recovering' && program.snapshot ? (
           <>
-            <span className="program-card__identity">Last on air: {graphicLabel(program.snapshot)}</span>
+            <span className="program-card__identity">Last on air: {graphicTitle(program.snapshot)}</span>
             <span className="program-card__sub">Reloaded — can’t confirm what output is showing</span>
           </>
         ) : program.status === 'failed' && program.snapshot ? (
           <>
-            <span className="program-card__identity">{graphicLabel(program.snapshot)}</span>
+            <span className="program-card__identity">{graphicTitle(program.snapshot)}</span>
             {/* Never claims output is empty: a failed publish leaves whatever
                 was already on air untouched. */}
             <span className="program-card__sub">

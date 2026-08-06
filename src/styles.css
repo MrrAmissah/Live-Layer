@@ -5259,6 +5259,16 @@ body.gfx-transparent {
   --ll-select: #2f6df6;
   --ll-select-soft: rgba(47, 109, 246, 0.12);
   --ll-select-edge: rgba(47, 109, 246, 0.55);
+  /* Dock-redesign accents (Dock-*.png mockups). --ll-blue is an INDICATOR blue
+     for text/icons/underlines — lighter than the --ll-select fill blue above,
+     which stays the colour of selected surfaces. */
+  --ll-blue: #2f95f8;
+  --ll-blue-rail: #1fa5fa;
+  --ll-live-soft: rgba(34, 197, 94, 0.14);
+  --ll-live-text: #35e04d;
+  --ll-tab-inactive: #a3acbd;
+  --ll-danger-surface: rgba(253, 56, 55, 0.12);
+  --ll-danger-edge: rgba(253, 56, 55, 0.4);
   position: relative;
   min-height: 100vh;
   background:
@@ -6827,36 +6837,16 @@ body.gfx-transparent {
 .control-root .rd-icon--on { color: #7ef0a8; border-color: rgba(54, 226, 122, 0.4); background: rgba(54, 226, 122, 0.1); }
 .control-root .rd-icon--danger:hover { color: #fca5a5; border-color: rgba(244, 63, 94, 0.4); }
 
-/* --- rundown queue (R3 live operation) --- */
-.control-root .rd-queue { display: flex; flex-direction: column; gap: 9px; padding: 11px; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.18); background: rgba(34, 211, 238, 0.035); }
-.control-root .rd-queue__head { display: flex; align-items: baseline; gap: 8px; }
-.control-root .rd-queue__name { font-size: 13px; font-weight: 700; color: #eef2f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.control-root .rd-queue__empty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.control-root .rd-queue__summary { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: #cdd6e4; }
+/* --- rundown labels shared by studio panels / import preview --- */
 .control-root .rd-queue__lbl { display: inline-block; min-width: 58px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7e95; }
-.control-root .rd-queue__nav { display: flex; gap: 8px; }
-.control-root .rd-queue__nav .btn { flex: 1; }
 
-.control-root .rd-q-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
-.control-root .rd-q-item { display: flex; align-items: center; gap: 6px; }
-.control-root .rd-q-item__main {
-  flex: 1; min-width: 0;
-  display: flex; align-items: center; gap: 9px;
-  padding: 7px 9px; border-radius: 10px; text-align: left;
-  background: #0a0f18; border: 1px solid rgba(148, 163, 184, 0.12);
-  cursor: pointer; transition: border-color 0.14s ease, background-color 0.14s ease;
-}
-.control-root .rd-q-item__main:hover { border-color: rgba(148, 163, 184, 0.26); }
-.control-root .rd-q-item--selected .rd-q-item__main { border-color: rgba(34, 211, 238, 0.55); background: linear-gradient(180deg, rgba(34, 211, 238, 0.1), rgba(34, 211, 238, 0.02)); }
-.control-root .rd-q-item__title { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: #eef2f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.control-root .rd-q-item--done .rd-q-item__title { color: #7f8da3; text-decoration: line-through; }
-
+/* "The item we last commanded" — per-row marker, allowed vocabulary (unlike a
+   Program-level LIVE claim): it records our own command, not an output ack. */
 .control-root .rd-live {
-  flex: none; padding: 2px 7px; border-radius: 5px;
+  flex: none; padding: 2px 7px; border-radius: 4px;
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em;
   color: #7ef0a8; background: rgba(54, 226, 122, 0.12); border: 1px solid rgba(54, 226, 122, 0.4);
 }
-.control-root .rd-q-item--selected .rd-live { color: #021016; }
 
 /* disabled Take (rundown active, nothing selected) */
 .control-root .take-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: grayscale(0.4); }
@@ -7099,12 +7089,38 @@ body.gfx-transparent {
 .control-root .diag-network code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #7fe9f5; }
 
 /* ==========================================================================
-   CONTROL SURFACE — dock-first operator flow (narrow / OBS Custom Browser Dock)
-   A fixed-height app frame: sticky status + tabs on top, one scrolling step in
-   the middle, sticky Take/Clear pinned at the bottom. One step shows at a time.
+   CONTROL SURFACE — dock operator shell (narrow / OBS Custom Browser Dock)
+   Redesigned to the Dock-*.png mockups: flat #11171d body, three luminance
+   layers with 1px borders and NO shadows, 4–6px radii, a four-tab bar with a
+   semantic tone split (live=green underline, config=blue), the Program strip
+   pinned under the tabs, and a transport/pack footer. Cyan is retired inside
+   the dock; the studio and /output keep their own palettes.
    ========================================================================== */
 
-.control-root--dock { height: 100vh; height: 100dvh; overflow: hidden; }
+.control-root--dock {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  /* Dock-scoped token overrides: mockup grass-green and red-orange replace the
+     surface-wide mint/rose ONLY here (a global change would restyle the studio
+     and /output). Elevation is luminance + 1px border — no shadows. */
+  --ll-live: #22bb44;
+  --ll-danger: #fd3837;
+  --ll-shadow-panel: none;
+  --ll-radius-panel: 6px;
+  /* Layer steps (mockup-measured). */
+  --dk-body: #11171d;
+  --dk-card: #141a21;
+  --dk-raised: #151b22;
+  --dk-raised-2: #181e26;
+  --dk-recessed: #13181e;
+  --dk-row: #0f161c;
+  --dk-edge-card: rgba(148, 163, 184, 0.1);
+  --dk-edge-control: rgba(148, 163, 184, 0.14);
+  --dk-rule: rgba(148, 163, 184, 0.16);
+  /* Flat body — the studio's radial/linear gradient stack does not apply. */
+  background: var(--dk-body);
+}
 
 .control-root .dock {
   display: flex;
@@ -7115,124 +7131,396 @@ body.gfx-transparent {
   margin: 0 auto;
 }
 
-/* --- sticky status bar --- */
-.control-root .dock-status {
-  position: relative;
-  overflow: hidden;
+/* --- header (44px): mark + product name. No ✕ (nothing to close in a dock),
+   no ⋮ (no menu exists yet — the More tab will own utilities). --- */
+.control-root .dock-header {
   flex: none;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--ll-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.05), transparent 48%),
-    var(--ll-panel);
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--dk-rule);
+}
+.control-root .dock-header__brand { display: inline-flex; align-items: center; gap: 12px; min-width: 0; }
+.control-root .dock-header__mark { display: inline-flex; flex: none; color: var(--ll-blue); }
+.control-root .dock-header__title {
+  font-size: 15px;
+  font-weight: 550;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.control-root .dock-status::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.42), transparent 62%);
-  pointer-events: none;
+/* --- event block (48px, full bleed): which production's look is loaded --- */
+.control-root .dock-event {
+  flex: none;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--dk-rule);
+}
+.control-root .dock-event .ll-kicker { color: #9da8bc; }
+.control-root .dock-event__name {
+  font-size: 15px;
+  font-weight: 550;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.control-root .dock-status__id { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.control-root .dock-status__logo { display: inline-flex; align-items: center; gap: 8px; flex: none; color: var(--ll-text-strong); }
-.control-root .dock-status__logo-mark { width: 30px; height: 30px; padding: 5px; border-radius: 8px; background: linear-gradient(160deg, rgba(34, 211, 238, 0.18), rgba(34, 211, 238, 0.02)); border: 1px solid rgba(34, 211, 238, 0.3); filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.4)); }
-.control-root .dock-status__logo-copy { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
-.control-root .dock-status__logo-name { font-size: 11.5px; font-weight: 850; letter-spacing: 0.13em; text-transform: uppercase; }
-.control-root .dock-status__logo-sub { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; color: var(--ll-muted-2); }
-.control-root .dock-status__local { flex: none; display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #7f9c86; background: rgba(54, 226, 122, 0.08); border: 1px solid rgba(54, 226, 122, 0.2); }
-.control-root .dock-status__template { min-width: 0; padding-left: 10px; border-left: 1px solid rgba(148, 163, 184, 0.18); font-size: 13px; font-weight: 600; color: #cdd6e4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.control-root .dock-status__pill { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid; }
-.control-root .dock-status__pill-dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
-.control-root .dock-status__pill--ready { color: #9aa7ba; border-color: rgba(148, 163, 184, 0.22); background: rgba(255, 255, 255, 0.03); }
-.control-root .dock-status__pill--live { color: #7ef0a8; border-color: rgba(54, 226, 122, 0.35); background: rgba(54, 226, 122, 0.08); }
-.control-root .dock-status__pill--live .dock-status__pill-dot { background: #36e27a; box-shadow: 0 0 8px #36e27a; animation: ll-pulse 1.6s ease-in-out infinite; }
-.control-root .dock-status__pill--cleared { color: #a5b4fc; border-color: rgba(165, 180, 252, 0.32); background: rgba(165, 180, 252, 0.07); }
-
-/* --- tab bar --- */
-.control-root .dock-tabs { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--ll-border-soft); background: var(--ll-bg-2); overflow-x: auto; scrollbar-width: none; }
-.control-root .dock-tabs::-webkit-scrollbar { display: none; }
-.control-root .dock-tabs__divider { flex: none; width: 1px; align-self: stretch; margin: 5px 3px; background: rgba(148, 163, 184, 0.16); }
-
+/* --- tab bar (40px, flat, equal cells, 1px dividers between tabs only) --- */
+.control-root .dock-tabbar {
+  flex: none;
+  height: 40px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--dk-rule);
+}
 .control-root .dock-tab {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 0 4px;
   white-space: nowrap;
-  padding: 9px 10px;
-  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  /* The active indicator: a 2px underline across the FULL cell. */
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ll-tab-inactive);
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-tab + .dock-tab { border-left: 1px solid var(--dk-rule); }
+.control-root .dock-tab:hover { color: #dfe6f0; }
+.control-root .dock-tab .ll-icon { flex: none; }
+.control-root .dock-tab__label { overflow: hidden; text-overflow: ellipsis; }
+/* Tone split is SEMANTIC (see DockTabBar.tsx): live tabs get the green
+   underline while label and icon stay white — green never recolours text;
+   config tabs turn fully blue. */
+.control-root .dock-tab[aria-current] { font-weight: 600; color: #fff; }
+.control-root .dock-tab[data-tone='live'][aria-current] { border-bottom-color: var(--ll-live); }
+.control-root .dock-tab[data-tone='config'][aria-current] { border-bottom-color: var(--ll-blue); color: var(--ll-blue); }
+
+/* --- Program strip: pinned between tabs and the scrolling tab content, so
+   Take/Clear and the honest Program record are on every tab. --- */
+.control-root .dock-program {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 10px 0;
+  padding: 10px;
+  background: var(--dk-card);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 6px;
+}
+.control-root .dock-program .ll-kicker { color: #9fadc0; }
+
+.control-root .dock-program__identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 57px;
+  padding: 10px;
+  background: var(--dk-raised);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+}
+.control-root .dock-program--compact .dock-program__identity { min-height: 46px; padding: 7px 10px; }
+.control-root .dock-program__glyph {
+  flex: none;
+  width: 44px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #aebccb;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+}
+.control-root .dock-program--compact .dock-program__glyph { width: 36px; height: 32px; }
+.control-root .dock-program__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.control-root .dock-program__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-program--compact .dock-program__title { font-size: 14px; }
+.control-root .dock-program__sub {
+  font-size: 13px;
+  color: #adb9c8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-program--compact .dock-program__sub { font-size: 12px; }
+
+/* Status chip — tinted, colour driven by the REAL Program status, never a
+   hardcoded green. The clock is real (program.takenAt); the words come from
+   lib/programStatus.ts. */
+.control-root .dock-program__chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.control-root .dock-program__chip[data-status='showing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
+.control-root .dock-program__chip[data-status='recovering'] { background: rgba(148, 163, 184, 0.14); color: #b9c4d4; }
+.control-root .dock-program__chip[data-status='failed'] { background: var(--ll-danger-surface); color: #ff7a76; border: 1px solid var(--ll-danger-edge); }
+.control-root .dock-program__chip[data-status='clear'] { background: rgba(148, 163, 184, 0.1); color: #9aa7ba; }
+.control-root .dock-program__clock { margin-left: 5px; font-weight: 600; }
+
+/* Meta grid (tall variant): the authoring canvas spec and the honest status
+   phrase. There is deliberately no fps and no measured output resolution —
+   the app has no source for either. */
+.control-root .dock-program__meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 0 2px; }
+.control-root .dock-program__cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.control-root .dock-program__cell--end { align-items: flex-end; text-align: right; }
+.control-root .dock-program__label { font-size: 13px; color: #adb8c6; }
+.control-root .dock-program__value { font-size: 13px; color: #e8edf4; }
+.control-root .dock-program__value[data-status='showing'] { color: var(--ll-live-text); }
+.control-root .dock-program__value[data-status='failed'] { color: var(--ll-danger); }
+
+.control-root .dock-program__rule { margin: 0; border: 0; border-top: 1px solid var(--dk-rule); }
+
+/* Take/Clear — equal 50/50 row; the blocked-Take reason spans above them. */
+.control-root .dock-program__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.control-root .dock-program__actions .live-actions__blocked { grid-column: 1 / -1; margin: 0; }
+.control-root .dock-program__take {
+  min-height: 40px;
+  gap: 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #06130a;
+  background: var(--ll-live);
+  border: 1px solid rgba(34, 187, 68, 0.7);
+  box-shadow: none;
+}
+.control-root .dock-program__take:hover { transform: none; box-shadow: none; filter: brightness(1.07); }
+/* "Update live" state keeps the solid green — the status chip carries state. */
+.control-root .dock-program__take[data-state='taken'] {
+  color: #06130a;
+  background: var(--ll-live);
+  border-color: rgba(34, 187, 68, 0.7);
+  box-shadow: none;
+}
+.control-root .dock-program__take[data-state='taken']:hover { box-shadow: none; filter: brightness(1.07); }
+.control-root .dock-program__take:disabled { box-shadow: none; }
+.control-root .dock-program__clear {
+  min-height: 40px;
+  gap: 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #e6eaf0;
+  background: #151c22;
+  border: 1px solid var(--dk-edge-control);
+}
+.control-root .dock-program__clear:hover { background: #1a222a; border-color: rgba(148, 163, 184, 0.24); }
+
+/* --- scrolling tab content --- */
+.control-root .dock-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
+.control-root .dock-tabpane { display: flex; flex-direction: column; gap: 10px; }
+
+/* Section card pattern: 1px edge, 6px radius, 10px inset, kicker INSIDE. */
+.control-root .dock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--dk-card);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 6px;
+}
+.control-root .dock-card__head { display: flex; align-items: center; gap: 10px; min-height: 18px; }
+.control-root .dock-card__head .ll-kicker { flex: none; color: #9fadc0; }
+.control-root .dock-card__meta {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 12.5px;
+  color: #8f9bad;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-card__action {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
   font-size: 12.5px;
   font-weight: 600;
-  color: #8d9db4;
-  background: transparent;
-  border: 1px solid transparent;
+  color: var(--ll-blue);
   cursor: pointer;
-  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
 }
+.control-root .dock-card__action:hover { text-decoration: underline; }
+.control-root .dock-card__hint { margin: 0; font-size: 13px; line-height: 1.5; color: #8f9bad; }
 
-.control-root .dock-tab--secondary { flex: 0 1 auto; padding: 9px 12px; font-size: 11.5px; font-weight: 500; color: #66748a; }
-.control-root .dock-tab:hover { color: #dfe6f0; background: rgba(255, 255, 255, 0.03); }
-.control-root .dock-tab--active { color: #021016; background: linear-gradient(135deg, var(--ll-accent), var(--ll-accent-strong)); border-color: rgba(34, 211, 238, 0.5); }
-.control-root .dock-tab__step { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: #cdd6e4; background: rgba(148, 163, 184, 0.18); }
-.control-root .dock-tab--active .dock-tab__step { color: #021016; background: rgba(2, 16, 22, 0.22); }
+/* Live tab: the production monitor card. */
+.control-root .dock-next__monitor { border-radius: 5px; overflow: hidden; }
 
-/* --- scrolling step area --- */
-.control-root .dock-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px; }
+/* Live-tab queue rows: index → type glyph → title/sub → LIVE/done/reorder. */
+.control-root .dock-queue__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-queue__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 6px 8px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 5px;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-queue__row:hover { border-color: var(--dk-edge-control); }
+/* Selected row: 3px left rail + lifted surface. */
+.control-root .dock-queue__row[data-selected] { background: #0f1b28; border-color: rgba(31, 165, 250, 0.35); }
+.control-root .dock-queue__row[data-selected]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+  background: var(--ll-blue-rail);
+}
+.control-root .dock-queue__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.control-root .dock-queue__index { flex: none; width: 18px; font-size: 13px; color: #8f9bad; text-align: center; }
+.control-root .dock-queue__glyph {
+  flex: none;
+  width: 31px;
+  height: 31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #bcc8d6;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+}
+.control-root .dock-queue__text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.control-root .dock-queue__title { font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-queue__sub { font-size: 12px; color: #8f9bad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-queue__row[data-done] .dock-queue__title { color: #8f9bad; text-decoration: line-through; }
+.control-root .dock-queue__cluster { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+/* Explicit up/down, NOT a drag handle: the store swaps adjacent items only,
+   and a handle would promise drop-anywhere reordering it cannot perform. */
+.control-root .dock-queue__move {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #cdd6e4;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.control-root .dock-queue__move:hover { border-color: rgba(148, 163, 184, 0.3); }
+.control-root .dock-queue__move:disabled { opacity: 0.35; cursor: default; }
+.control-root .dock-queue__empty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.control-root .dock-queue__nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Dock-green LIVE row marker (token override keeps studio mint elsewhere). */
+.control-root--dock .rd-live { color: var(--ll-live-text); background: var(--ll-live-soft); border-color: rgba(34, 187, 68, 0.45); }
+
+/* Placeholder tabs — honest, short. */
+.control-root .dock-coming { align-items: flex-start; gap: 6px; }
+.control-root .dock-coming__note { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #e6ebf2; }
+
+/* --- footer (44px): transport truth left, active pack right --- */
+.control-root .dock-footer {
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  margin-top: auto;
+  border-top: 1px solid var(--dk-rule);
+}
+.control-root .dock-footer__relay { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; color: #adb8c6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-footer__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #8f9bad; }
+/* `ready` and `local` are the two healthy transports; `not-relay` and
+   `unreachable` are amber (fixable misconfiguration), `checking` stays muted. */
+.control-root .dock-footer__relay[data-connection='ready'] .dock-footer__dot,
+.control-root .dock-footer__relay[data-connection='local'] .dock-footer__dot { background: var(--ll-live); }
+.control-root .dock-footer__relay[data-connection='not-relay'] .dock-footer__dot,
+.control-root .dock-footer__relay[data-connection='unreachable'] .dock-footer__dot { background: #f5c77e; }
+.control-root .dock-footer__pack { flex: none; max-width: 45%; font-size: 13px; font-weight: 550; color: #cdd6e4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* == dock: queue tab == (stage 2 builds here) */
+
+/* == dock: quick edit tab == (stage 3 builds here) */
+
+/* == dock: more tab == (stage 3 builds here) */
+
+/* --- legacy step wrappers (unmounted; awaiting stage 2/3 salvage). Cyan is
+   retired here too so nothing cyan can re-enter the dock if one remounts. --- */
 .control-root .step { display: flex; flex-direction: column; gap: 14px; }
 .control-root .step-intro { display: flex; flex-direction: column; gap: 4px; }
 .control-root .step-intro__title { margin: 0; display: flex; align-items: center; gap: 9px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: #f3f6fb; }
-.control-root .step-intro__num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; flex: none; font-size: 13px; font-weight: 800; color: #021016; background: linear-gradient(135deg, #22d3ee, #06b6d4); }
+.control-root .step-intro__num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; flex: none; font-size: 13px; font-weight: 800; color: #04101c; background: var(--ll-blue); }
 .control-root .step-intro__hint { margin: 0; font-size: 13px; line-height: 1.45; color: #8d9db4; }
 
 .control-root .step-next {
   align-self: stretch;
   margin-top: 2px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 700;
-  color: #cdeef7;
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.28);
+  color: #cfe4fb;
+  background: rgba(47, 149, 248, 0.1);
+  border: 1px solid rgba(47, 149, 248, 0.3);
   cursor: pointer;
   transition: background-color 0.14s ease, border-color 0.14s ease;
 }
 
-.control-root .step-next:hover { background: rgba(34, 211, 238, 0.14); border-color: rgba(34, 211, 238, 0.44); }
-
-/* --- sticky bottom live bar --- */
-.control-root .dock-livebar {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding: 11px 14px;
-  padding-bottom: calc(11px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--ll-border);
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.25)), var(--ll-panel);
-}
-
-.control-root .dock-livebar__meta { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.control-root .dock-livebar__hide { font-size: 11.5px; font-weight: 600; color: #6f7e95; }
-
-.control-root .dock-livebar__actions { display: flex; align-items: stretch; gap: 10px; }
-.control-root .dock-livebar__take { flex: 1 1 auto; padding: 15px; font-size: 16px; }
-.control-root .dock-livebar__clear { flex: none; width: auto; padding: 15px 18px; }
-
-/* When a graphic is live, nudge emphasis toward Clear (the likely next action)
-   without ever hiding or disabling Take. */
-.control-root .dock-livebar[data-state='taken'] .dock-livebar__take { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); filter: saturate(0.9); }
-.control-root .dock-livebar[data-state='taken'] .dock-livebar__clear { background: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.55); color: #fecdd3; font-weight: 700; }
+.control-root .step-next:hover { background: rgba(47, 149, 248, 0.16); border-color: rgba(47, 149, 248, 0.46); }
 
 /* --- step preview + inline reset link --- */
 .control-root .step-preview { width: 100%; }
@@ -8145,7 +8433,7 @@ body.gfx-transparent {
    surfaces; amber rather than red because it is an unfinished graphic, not a
    failure — the operator has something to complete, not something to recover. */
 .control-root .live-actions__blocked,
-.control-root .dock-livebar__actions .live-actions__blocked {
+.control-root .dock-program__actions .live-actions__blocked {
   margin: 0 0 7px;
   font-size: 11.5px;
   line-height: 1.45;

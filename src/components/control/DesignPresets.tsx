@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useEditTarget } from '../../hooks/useEditTarget';
-import { templateRegistry } from '../templates/registry';
-import { describeTemplate } from '../../lib/templateMeta';
+// One title rule for every queue/preset/program surface — see graphicTitle.ts.
+// (For an unnamed preset this now falls back to its primary-field value before
+// the template name, matching how the queue and Program describe the same
+// graphic.)
+import { graphicTitle, describeGraphic } from '../../lib/graphicTitle';
 import { defaultPresetName, resolvePresetName } from '../../lib/presetNaming';
 import { Icon } from '../../lib/icons';
 import type { GraphicInstance } from '../../types/graphics';
 
-const templateById = new Map(templateRegistry.map((t) => [t.id, t]));
 const COMPACT_COUNT = 4;
 
-function presetLabel(preset: GraphicInstance): string {
-  return preset.presetName?.trim() || describeTemplate(templateById.get(preset.templateId), preset.templateId).label;
-}
+const presetLabel = (preset: GraphicInstance): string => graphicTitle(preset);
 
 /** The compact list: the newest `count` presets, newest first. Presets are
  *  appended to the persisted array, so a just-saved one is last — reverse a
@@ -91,8 +91,8 @@ export default function DesignPresets({
               <span className="design-presets__body">
                 <span className="design-presets__name">{presetLabel(preset)}</span>
                 <span className="design-presets__type">
-                  <Icon name={describeTemplate(templateById.get(preset.templateId), preset.templateId).icon} size={11} />
-                  {describeTemplate(templateById.get(preset.templateId), preset.templateId).label}
+                  <Icon name={describeGraphic(preset).icon} size={11} />
+                  {describeGraphic(preset).typeLabel}
                 </span>
               </span>
               <button
