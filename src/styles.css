@@ -7129,6 +7129,11 @@ body.gfx-transparent {
   height: 100dvh;
   max-width: 720px;
   margin: 0 auto;
+  /* Named container so the narrow-dock rules below key off the DOCK's own width,
+     not the viewport. An OBS Custom Browser Dock is resized by dragging its edge
+     inside the OBS window, so the viewport media query never fires — the panel
+     just gets narrower. Saved dock widths on this machine go down to 255px. */
+  container: dock / inline-size;
 }
 
 /* --- header (44px): mark + product name. No ✕ (nothing to close in a dock),
@@ -7206,6 +7211,20 @@ body.gfx-transparent {
 .control-root .dock-tab:hover { color: #dfe6f0; }
 .control-root .dock-tab .ll-icon { flex: none; }
 .control-root .dock-tab__label { overflow: hidden; text-overflow: ellipsis; }
+/* Real OBS docks on this machine sit as narrow as 255px, where four labels plus
+   icons do not fit: "Queue" and "Quick Edit" both clipped. Tighten the cell
+   instead of truncating a navigation label. */
+@container dock (max-width: 360px) {
+  .control-root .dock-tab { gap: 5px; padding: 0 2px; font-size: 11px; }
+  .control-root .dock-tab .ll-icon { width: 13px; height: 13px; }
+}
+@container dock (max-width: 290px) {
+  /* Below this the icons carry the meaning on their own and the labels cannot fit
+     honestly at any size worth reading. */
+  .control-root .dock-tab { gap: 0; }
+  .control-root .dock-tab__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .control-root .dock-tab .ll-icon { width: 16px; height: 16px; }
+}
 /* Tone split is SEMANTIC (see DockTabBar.tsx): live tabs get the green
    underline while label and icon stay white — green never recolours text;
    config tabs turn fully blue. */
@@ -7238,6 +7257,25 @@ body.gfx-transparent {
   border: 1px solid var(--dk-edge-control);
   border-radius: 5px;
 }
+
+/* Narrow dock: give the text the width instead of the chip.
+   Measured against this machine's own saved OBS dock widths (255/275/300/314):
+   at 255px the identity row spent 158 of 233 usable pixels on the glyph, the gaps
+   and the status chip, leaving 75px for the title — which rendered as "La s…" and
+   a subtitle of "Rel oad e…". The Program record and its honest caveat are the two
+   readouts in this dock that must survive any width; an unreadable disclosure is
+   the same as no disclosure. So the chip takes its own row and the glyph shrinks. */
+@container dock (max-width: 420px) {
+  .control-root .dock-program__identity {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 7px 10px;
+  }
+  .control-root .dock-program__glyph { width: 32px; height: 30px; }
+  .control-root .dock-program__text { grid-column: 2; }
+  .control-root .dock-program__chip { grid-column: 1 / -1; justify-self: start; }
+}
 .control-root .dock-program--compact .dock-program__identity { min-height: 46px; padding: 7px 10px; }
 .control-root .dock-program__glyph {
   flex: none;
@@ -7257,17 +7295,26 @@ body.gfx-transparent {
   font-size: 16px;
   font-weight: 600;
   color: #fff;
-  white-space: nowrap;
+  /* Two lines, then ellipsise. Which graphic was last sent is the single most
+     important readout here; a one-line clamp loses the verse reference itself. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .control-root .dock-program--compact .dock-program__title { font-size: 14px; }
 .control-root .dock-program__sub {
   font-size: 13px;
   color: #adb9c8;
-  white-space: nowrap;
+  /* The recovery caveat is a sentence, not a label — it wraps. It was being cut
+     at every dock width up to 440px, which hid exactly the words that say the
+     app cannot confirm what output is showing. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .control-root .dock-program--compact .dock-program__sub { font-size: 12px; }
 
@@ -7307,6 +7354,18 @@ body.gfx-transparent {
 
 /* Take/Clear — equal 50/50 row; the blocked-Take reason spans above them. */
 .control-root .dock-program__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* "TAKE LIVE" wrapped onto two lines below ~360px, which changed the button
+   height and pushed the card taller mid-service. Tighten rather than wrap. */
+@container dock (max-width: 360px) {
+  .control-root .dock-program__actions .take-btn,
+  .control-root .dock-program__actions .clear-btn {
+    white-space: nowrap;
+    gap: 6px;
+    padding-inline: 8px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+}
 .control-root .dock-program__actions .live-actions__blocked { grid-column: 1 / -1; margin: 0; }
 .control-root .dock-program__take {
   min-height: 40px;
