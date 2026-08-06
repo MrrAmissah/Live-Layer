@@ -1,104 +1,186 @@
 import { parseSpokenReference } from '../scripture/spokenReference';
 
 /**
- * The metric that actually decides whether voice assist is safe to switch on.
+ * Scoring an utterance against **every reference it named**, in order.
  *
- * Word error rate is what ASR papers report, and it is the wrong question for this
- * app. What matters is whether the utterance produced the passage the preacher
- * named — and, far more importantly, whether it ever produced a DIFFERENT passage
- * that looks correct. Those two failures are not equally bad and must never be
- * averaged into one score:
+ * Word error rate is what ASR papers report and the wrong question for this app,
+ * because it averages failures that are not comparable. What matters is whether the
+ * passages the preacher named came back, and whether anything came back that they
+ * did not name.
  *
- *  - `exact`    the passage the preacher named is the top candidate. Success.
- *  - `offered`  it is present but not first. Usable — the operator picks it — but a
- *               ranking miss, and it costs seconds during a service.
- *  - `refused`  nothing was resolved. SAFE. The operator types the reference and the
- *               feature has cost them a moment, not their credibility.
- *  - `harmful`  a valid but different passage is the top candidate. This is the only
- *               outcome that can put wrong scripture on a screen in front of a
- *               congregation, and the target for it is zero, not "low".
+ * ## Why the expectation is a list
  *
- * A provider with a worse WER and no harmful outcomes is better than one with a
- * better WER that occasionally invents a plausible reference. That tradeoff is
- * invisible to WER and is the whole reason this module exists.
+ * The first version of this module expected a single canonical string. That made
+ * the multiple-reference group **vacuous after the first passage**: "John three
+ * sixteen and Romans eight twenty eight" expected only `John 3:16`, so the case
+ * passed whether Romans came back correctly, came back as the wrong verse, or never
+ * came back at all — while the summary reported "multiple references 5/5 correct".
+ * Multi-reference separation was one of the main safety fixes this harness exists to
+ * watch, and the harness was not watching it.
  *
- * Runs with no audio and no provider: it scores TRANSCRIPTS, so the corpus can be
- * written by hand today and replayed against a real recogniser's output later.
+ * The expectation is therefore the complete ordered result, evaluated against the
+ * parser's `groups` (one group per spoken reference, each with its own ranked
+ * readings) rather than the flattened candidate list, because only the grouping
+ * distinguishes *two passages* from *two readings of one passage*.
+ *
+ * ## What the outcomes mean
+ *
+ *  - `exact`           every named reference leads its own group, in the order spoken.
+ *  - `offered`         all present and correctly grouped, but something is not first.
+ *  - `out-of-order`    all present, wrong sequence. The operator reads them in order.
+ *  - `incomplete`      a named reference produced nothing. Under-read; safe.
+ *  - `refused`         nothing resolved at all. Safe — the operator types it.
+ *  - `misleading-top`  a wrong canonical LEADS a group, or a group appeared for a
+ *                      passage that was never spoken.
+ *
+ * ## `misleading-top` is a wrong leading candidate, not aired content
+ *
+ * Named precisely because nothing here reaches air on its own. The shipped flow is
+ * transcript → candidates → retrieval → operator review of the passage TEXT →
+ * acceptance into the draft → a separate Take. A misleading top candidate is a wrong
+ * answer presented first; it becomes a wrong verse on a screen only if the operator
+ * accepts it without reading it.
+ *
+ * That distinction sets two different bars, and they must not be conflated
+ * (`docs/ASR_EVALUATION.md`): for an **operator-reviewed assistant** this is a
+ * measured cost to be kept low and visible; for **automatic acceptance or Take** it
+ * is disqualifying, and a finite corpus with zero observed cases would still not
+ * establish the opposite.
+ *
+ * No provider, no audio, no model. It scores TRANSCRIPTS, so the corpus is written by
+ * hand today and replayed against a real recogniser's output later.
  */
 
-export type ReferenceOutcome = 'exact' | 'offered' | 'refused' | 'harmful';
+export type ReferenceOutcome =
+  | 'exact'
+  | 'offered'
+  | 'out-of-order'
+  | 'incomplete'
+  | 'refused'
+  | 'misleading-top';
+
+export interface ExpectedReference {
+  /** The canonical the speaker meant; must LEAD its group. */
+  canonical: string;
+  /**
+   * Other readings the parser may legitimately offer for this same reference —
+   * a genuine ambiguity such as `Timothy one seven`. Lower-ranked readings within a
+   * group are the ambiguity feature working, not fabrication; a *group* that was
+   * never spoken is fabrication.
+   */
+  alternatives?: string[];
+}
 
 export interface UtteranceCase {
   /** What was said, as a transcript. */
   spoken: string;
   /**
-   * The canonical reference the speaker meant, e.g. `John 3:16`, or null when the
-   * utterance names no passage at all and resolving anything would be wrong.
+   * Every reference named, in the order spoken. `null` means the utterance names no
+   * passage and resolving anything would be wrong.
    */
-  expected: string | null;
-  /** Free-text note on what this case is probing. */
+  expected: ExpectedReference[] | null;
   note?: string;
 }
 
 export interface ScoredUtterance extends UtteranceCase {
   outcome: ReferenceOutcome;
-  /** Every candidate offered, best first. */
-  offered: string[];
-  /** The top candidate, or null if nothing resolved. */
-  top: string | null;
-  /** Where `expected` appeared, or -1. */
-  rank: number;
+  /** One entry per group the parser produced: that group's ranked canonicals. */
+  groups: string[][];
+  /** Leading canonical of each group, in order. */
+  tops: string[];
+  /** Expected canonicals that appeared nowhere. */
+  missing: string[];
+  /** Leading canonicals that were not named at this position. */
+  unexpected: string[];
 }
+
+const canonicalsOf = (expected: ExpectedReference[] | null): string[] =>
+  (expected ?? []).map((item) => item.canonical);
 
 export function scoreUtterance(testCase: UtteranceCase): ScoredUtterance {
   const parsed = parseSpokenReference(testCase.spoken);
-  const offered = parsed.ok ? parsed.candidates.map((candidate) => candidate.reference.canonical) : [];
-  const top = offered[0] ?? null;
-  const rank = testCase.expected === null ? -1 : offered.indexOf(testCase.expected);
+  const groups = parsed.ok
+    ? parsed.groups.map((group) => group.candidates.map((candidate) => candidate.reference.canonical))
+    : [];
+  const tops = groups.map((group) => group[0]);
+  const wanted = canonicalsOf(testCase.expected);
+  const everywhere = groups.flat();
 
+  const missing = wanted.filter((canonical) => !everywhere.includes(canonical));
+  const base = { ...testCase, groups, tops, missing };
+
+  // An utterance that names nothing: resolving anything at all is the failure.
+  if (testCase.expected === null || wanted.length === 0) {
+    return {
+      ...base,
+      unexpected: tops,
+      outcome: groups.length === 0 ? 'refused' : 'misleading-top'
+    };
+  }
+
+  if (groups.length === 0) {
+    return { ...base, unexpected: [], outcome: 'refused' };
+  }
+
+  /**
+   * A group leads with a canonical that is not the one named at this position and
+   * is not one of that reference's own alternatives — or there are MORE groups than
+   * references spoken, so a passage was invented.
+   */
+  const unexpected = tops.filter((top, index) => {
+    const expectedHere = testCase.expected![index];
+    if (!expectedHere) return true; // a group with no reference behind it
+    if (top === expectedHere.canonical) return false;
+    return !(expectedHere.alternatives ?? []).includes(top);
+  });
+
+  const sameLength = wanted.length === tops.length;
   const outcome: ReferenceOutcome = (() => {
+    // Everything leading correctly, position by position.
+    if (sameLength && wanted.every((canonical, index) => tops[index] === canonical)) return 'exact';
+
     /**
-     * A case that names no passage is scored the other way round: resolving
-     * ANYTHING is harmful, because the operator is being offered scripture the
-     * preacher never asked for.
+     * The same passages in the wrong sequence, checked BEFORE the positional test.
+     * Every group leads with something that was genuinely spoken, so nothing was
+     * invented — reporting that as a wrong leading candidate would put a sequencing
+     * defect in the same bucket as a fabricated verse, and they are not the same
+     * problem. It still fails: the operator reads them in the order they were said.
      */
-    if (testCase.expected === null) return top === null ? 'refused' : 'harmful';
-    if (top === null) return 'refused';
-    if (top === testCase.expected) return 'exact';
-    if (rank > 0) return 'offered';
-    return 'harmful';
+    if (sameLength && [...wanted].sort().join('|') === [...tops].sort().join('|')) return 'out-of-order';
+
+    // A group leads with something not named at that position, or was invented.
+    if (unexpected.length) return 'misleading-top';
+    // Fewer groups than references named, or a named reference absent entirely.
+    if (groups.length < wanted.length || missing.length) return 'incomplete';
+    return 'offered';
   })();
 
-  return { ...testCase, outcome, offered, top, rank };
+  return { ...base, unexpected, outcome };
 }
 
 export interface CorpusScore {
   total: number;
   exact: number;
   offered: number;
+  outOfOrder: number;
+  incomplete: number;
   refused: number;
-  harmful: number;
+  misleadingTop: number;
   /**
-   * Cases that got the right answer, where "right" depends on what was asked.
-   *
-   * Kept separate from `exactRate` because a corpus mixes two different questions.
-   * For an utterance naming a passage, success is `exact`. For one naming none,
-   * success is `refused` — and counting those refusals as misses drags the headline
-   * number down for behaviour that is exactly correct, which is the sort of
-   * misleading aggregate this module exists to avoid.
+   * Cases that got the right answer, where "right" depends on what was asked: an
+   * `exact` result for an utterance naming passages, a `refused` result for one
+   * naming none. Counting correct refusals as misses would drag the headline down
+   * for behaviour that is exactly right.
    */
   correct: number;
   correctRate: number;
-  /** Of the cases that DO name a passage: fraction where it was first. */
+  /** Of the cases that DO name passages: fraction fully correct and in order. */
   exactRate: number;
-  /** Of the cases that DO name a passage: fraction where it was reachable at all. */
+  /** Of the cases that DO name passages: fraction with every reference reachable. */
   reachableRate: number;
-  /**
-   * Fraction where a WRONG passage led. The number that gates release. Every case
-   * contributing to it is listed in `harmfulCases` — a rate alone is not actionable.
-   */
-  harmfulRate: number;
-  harmfulCases: ScoredUtterance[];
+  /** Fraction of ALL cases where a wrong canonical led a group. */
+  misleadingTopRate: number;
+  misleadingCases: ScoredUtterance[];
   scored: ScoredUtterance[];
 }
 
@@ -107,44 +189,41 @@ export function scoreCorpus(cases: UtteranceCase[]): CorpusScore {
   const count = (outcome: ReferenceOutcome) => scored.filter((item) => item.outcome === outcome).length;
   const total = scored.length;
   const exact = count('exact');
-  const offered = count('offered');
-  const harmful = count('harmful');
+  const misleadingTop = count('misleading-top');
 
-  // Cases naming a passage are scored against `exact`; cases naming none are scored
-  // against `refused`. Rates over the wrong denominator are how a corpus lies.
-  const naming = scored.filter((item) => item.expected !== null);
+  // Rates over the wrong denominator are how a corpus lies.
+  const naming = scored.filter((item) => item.expected !== null && item.expected.length > 0);
   const correct = exact + scored.filter((item) => item.expected === null && item.outcome === 'refused').length;
-
+  const reachable = naming.filter((item) => item.missing.length === 0 && item.outcome !== 'misleading-top').length;
   const over = (value: number, denominator: number) => (denominator === 0 ? 0 : value / denominator);
 
   return {
     total,
     exact,
-    offered,
+    offered: count('offered'),
+    outOfOrder: count('out-of-order'),
+    incomplete: count('incomplete'),
     refused: count('refused'),
-    harmful,
+    misleadingTop,
     correct,
     correctRate: over(correct, total),
     exactRate: over(exact, naming.length),
-    reachableRate: over(exact + offered, naming.length),
-    harmfulRate: over(harmful, total),
-    harmfulCases: scored.filter((item) => item.outcome === 'harmful'),
+    reachableRate: over(reachable, naming.length),
+    misleadingTopRate: over(misleadingTop, total),
+    misleadingCases: scored.filter((item) => item.outcome === 'misleading-top'),
     scored
   };
 }
 
 /**
- * Deterministically damage a transcript the way a recogniser does, so reference
- * accuracy can be measured as a FUNCTION of word error rate before any model is
- * installed.
+ * Deterministically damage a transcript the way a recogniser does, so the parser's
+ * sensitivity can be characterised before any model is installed.
  *
- * This is a stand-in for real audio, and it is honest about being one: it applies
- * the documented confusions of English ASR (number homophones, dropped short
- * function words) at a fixed rate with a seeded sequence, so the same seed always
- * produces the same corruption. It cannot tell us DONDO's error rate. It can tell
- * us the shape of the curve — specifically whether errors turn into `harmful`
- * outcomes or into `refused` ones, which is a property of OUR parser and is exactly
- * what we can and should establish in advance.
+ * This is a **parser sensitivity experiment**, not an estimate of any provider's
+ * performance. It applies a fixed dictionary of English ASR confusions and function
+ * word deletions at a chosen rate. Its word error rate is measured against a
+ * synthetic corruption of hand-written text and is NOT interchangeable with a
+ * published WER measured over real recognition of real audio.
  */
 const ASR_CONFUSIONS: Record<string, string> = {
   two: 'to',
@@ -160,7 +239,6 @@ const ASR_CONFUSIONS: Record<string, string> = {
   ten: 'then',
   nine: 'night',
   verse: 'verses',
-  first: 'first',
   and: 'in'
 };
 
@@ -182,8 +260,7 @@ function textSeed(text: string, seed: number): number {
   /**
    * Without this, one seed produced the SAME roll sequence for every utterance, so
    * the same word positions were hit in all of them and the measured error rate sat
-   * flat across three different injection rates — a degradation curve that was not
-   * measuring degradation.
+   * flat across three different injection rates — a curve that measured nothing.
    */
   let hash = seed;
   for (let i = 0; i < text.length; i += 1) {

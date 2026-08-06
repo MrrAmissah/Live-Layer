@@ -5,10 +5,11 @@ deliberately narrow. These are honest constraints, not bugs.
 
 ## Workflow & deployment
 
-- **Local-first, single machine.** Everything runs in one browser context on one
-  computer. Control and output communicate via `BroadcastChannel` + `localStorage`,
-  so both surfaces must live in the **same browser/profile on the same machine**
-  (this is normal for an OBS dock + Browser Source on the operator's PC).
+- **Local-first.** Control and output communicate via `BroadcastChannel` +
+  `localStorage`, so those two surfaces must live in the **same browser/profile on
+  the same machine** (normal for an OBS dock + Browser Source on the operator's PC).
+  The optional LAN relay carries *commands* to a second device, but it is transport
+  only — see below — so the graphics machine remains the one that holds the data.
 - **You must keep the local dev server running.** There is no packaged app yet, so
   `npm run dev` (or a static host of `dist/`) has to stay up while you stream.
 - **Manual OBS setup.** You add the dock and the Browser Source yourself; there is
@@ -86,9 +87,17 @@ deliberately narrow. These are honest constraints, not bugs.
 - **References spoken in Twi, Ga or Ewe are not interpreted.** Book names and number
   words are English-only. Code-switched framing *around* an English reference works.
 - **No performance claim is made for live recognition**, because none has been
-  measured. Our own harness shows wrong-passage outcomes beginning around 5% word
-  error rate, which is below every published figure for the candidate models — which
-  is exactly why operator review is required rather than optional.
+  measured. What the harness measures is **parser sensitivity**: corrupting
+  hand-written transcripts with synthetic ASR-style errors makes wrong leading
+  candidates appear readily, and the errors responsible concentrate on number words.
+  That word error rate comes from synthetic corruption of invented sentences and is
+  **not interchangeable** with a provider's published WER, which comes from real
+  recognition of real audio. The defensible conclusion is that published WER alone
+  cannot justify unattended acceptance, not that any particular model fails at any
+  particular threshold. See [ASR_EVALUATION.md](ASR_EVALUATION.md).
+- **The evaluation corpus is hand-authored**, not recorded speech, and its Twi and Ga
+  words are framing around English references — it is **not** a Twi or Ga ASR
+  benchmark.
 
 ## Smaller caveats
 

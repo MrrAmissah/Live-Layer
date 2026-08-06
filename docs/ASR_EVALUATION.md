@@ -20,71 +20,109 @@ it averages together are not comparable:
 | Outcome | What the operator sees | Cost |
 | --- | --- | --- |
 | **Refused** | "Couldn't find a Bible book in …" | They type the reference. A moment lost. |
-| **Harmful** | A real, plausible passage that is **not** the one named | Wrong scripture on screen in front of a congregation. |
+| **Misleading-top** | A real, plausible passage that is **not** the one named, offered first | A wrong answer presented first. It reaches air only if the operator accepts it unread. |
 
-A transcript can be 27% wrong and still produce the right passage when the errors
-fall outside the reference. It can be 5% wrong and produce the wrong passage when the
-single error lands on a verse number — `twenty eight` heard as `twenty ate` is
-`Romans 8:20` instead of `Romans 8:28`, and both exist.
+The metric is called `misleading-top`, not "harmful", because the name has to be
+accurate about what happened. Nothing here airs on its own: the shipped flow is
+transcript → candidates → retrieval → **operator reads the passage text** → accepts
+into the draft → a separate **Take**. A wrong leading candidate is a wrong answer at
+the top of a list, not scripture on a screen.
 
-So the harness measures **reference outcome**, not transcription accuracy, and treats
-`harmful` as a release gate rather than a rate to optimise.
+That distinction sets two different bars, and §6 keeps them apart.
 
-Code: `src/lib/asr/referenceOutcome.ts`, `src/lib/asr/transcriptMetrics.ts`,
-`src/lib/asr/serviceCorpus.ts`. Tests: `src/lib/asr/asrEvaluation.test.ts`. It runs in
-the ordinary suite with no audio and no model.
+A transcript can be badly wrong overall and still produce the right passage when the
+errors fall outside the reference; it can be barely wrong and produce the wrong
+passage when the single error lands on a verse number — `twenty eight` heard as
+`twenty ate` is `Romans 8:20` instead of `Romans 8:28`, and both exist. Aggregate WER
+cannot see that difference, because it weights every word the same.
+
+So the harness measures **reference outcome**, not transcription accuracy.
+
+It scores against **every reference the utterance named, in order**, using the
+parser's groups rather than a flat candidate list — only the grouping distinguishes
+*two passages* from *two readings of one passage*. An earlier version expected a
+single canonical string, which made the multi-reference cases vacuous after the first
+passage: the second could be missing, misparsed or replaced by a different real verse
+and the case still passed. Outcomes are `exact`, `offered`, `out-of-order`,
+`incomplete`, `refused` and `misleading-top`.
+
+Code: `src/lib/asr/referenceOutcome.ts`, `transcriptMetrics.ts`, `sensitivity.ts`,
+`serviceCorpus.ts`. Tests: `src/lib/asr/asrEvaluation.test.ts`. It runs in the
+ordinary suite with no audio and no model.
 
 ---
 
 ## 2. What we measured (today, no model)
 
-A 46-utterance hand-written corpus of how references are spoken from a pulpit —
-complete references, Ghanaian-English and Twi/Ga code-switched framing, quoted
-numbers mid-sermon, several references in one breath, and utterances that must
-resolve nothing.
+A 53-utterance corpus of how references are spoken from a pulpit — complete
+references, Ghanaian-English and Twi/Ga code-switched framing, quoted numbers
+mid-sermon, several references in one breath, ambiguous book families, and utterances
+that must resolve nothing.
 
-**On clean transcripts: 46/46 correct, 0 harmful.**
+**It is hand-authored representative test material, not observed real-service
+speech.** No recordings and no transcripts of real services are in this repository
+(§6). The Twi and Ga words appear as *framing around English references* — "medaase,
+now turn to Luke four eighteen" — which exercises the parser's tolerance of
+non-English words nearby. **It is not a Twi or Ga ASR benchmark**, and nothing here
+measures recognition of a reference spoken in a Ghanaian language; that needs a
+native-speaker corpus and a per-language number grammar.
 
-| Group | Correct | Harmful |
+**On clean transcripts: 53/53 correct, 0 misleading-top.**
+
+| Group | Correct | Misleading-top |
 | --- | --- | --- |
 | Complete references | 18/18 | 0 |
 | Code-switched framing | 7/7 | 0 |
 | Quoted / narrative numbers | 11/11 | 0 |
-| Multiple references | 5/5 | 0 |
+| Multiple references (every passage checked) | 10/10 | 0 |
+| Ambiguous families | 2/2 | 0 |
 | Should refuse | 5/5 | 0 |
 
-Then the same corpus with deterministic, seeded transcription errors injected — the
-documented confusions of English ASR (number homophones, dropped function words) —
-to find *where the parser starts producing wrong passages*:
+Then the same corpus corrupted with a fixed dictionary of English ASR confusions and
+function-word deletions, **over 100 deterministic seeds per injection level**, to
+characterise how this parser behaves as transcription degrades:
 
-| Injected | Measured WER | Correct | Refused | **Harmful** |
-| --- | --- | --- | --- | --- |
-| 0% | 0.0% | 46 | 11 | **0** |
-| 5% | 1.9% | 46 | 11 | **0** |
-| 10% | 4.7% | 45 | 11 | **1** |
-| 20% | 8.5% | 43 | 11 | **2** |
-| 30% | 11.0% | 43 | 11 | **2** |
-| 50% | 17.6% | 36 | 13 | **7** |
+| Injected | Median WER (min–max) | Seeds with ≥1 misleading-top | Mean | Worst | Mean exact | Mean refused |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0% | 0.0% (0.0–0.0) | **0%** | 0.00 | 0 | 42.0 | 11.0 |
+| 5% | 1.9% (0.3–4.0) | **65%** | 0.98 | 4 | 40.9 | 11.1 |
+| 10% | 4.0% (1.3–6.1) | **94%** | 2.11 | 6 | 39.7 | 11.2 |
+| 20% | 7.7% (4.3–10.9) | **99%** | 4.02 | 9 | 37.5 | 11.4 |
+| 30% | 11.4% (7.4–14.9) | **100%** | 5.53 | 12 | 35.9 | 11.6 |
+| 50% | 19.1% (14.9–23.7) | **100%** | 9.14 | 13 | 31.8 | 12.0 |
 
-### The finding that matters
+Reported as a *share of seeds* rather than an average: if one run in a hundred
+produces a wrong leading candidate, "0.01 mean" reads like nothing and "1% of runs"
+reads like what it is. The spread between min and max at a single injection level is
+also why one seed is not a result.
 
-**The first wrong passage appears at roughly 5% word error rate.** DONDO's published
-African-English WER is **16.9%** (monolingual `en`) and **27.4%** in the Southern
-Ghana multilingual model — the one that covers the languages a PPC service uses. Both
-sit well above the point where our own corpus starts yielding real-but-wrong verses,
-and those published figures are on *read religious text*, which is an easier task than
-spontaneous preaching.
+The tokens responsible, counted across seeds at 30%: `and`, `one`, `eight`, `three`,
+`ten`, `nine`, `six`, `for`. They are almost all number words — the errors that matter
+land on chapters and verses, which is the intuition this makes concrete.
 
-This is a statement about the combination, not a criticism of the model. It means:
-**a general-purpose recogniser feeding this parser unattended is not currently a safe
-design, at any of the published numbers.** The operator-in-the-loop review step that
-PR #26 built is not a nicety to be optimised away later; it is what makes the feature
-viable at all. Any future "auto-take a recognised reference" idea has to clear this
-table first.
+### What this does and does not establish
 
-Caveat, stated plainly: the injected errors are a stand-in for real audio. They model
-the *shape* of ASR failure, not DONDO's actual behaviour. The curve is a property of
-our parser and is real; the specific WER at which DONDO would sit on it is unmeasured.
+**It establishes:** a small number of strategically placed transcript errors is enough
+to make this parser return a plausible but wrong leading passage, and those errors
+concentrate on number words. Refusals stay roughly flat while misleading tops climb,
+so degradation does *not* fail safe by itself.
+
+**It does not establish** anything about any speech provider. The word error rate above
+comes from synthetic corruption of hand-written sentences; a published WER comes from
+real recognition of real audio over that model's own test material. They share a name
+and are not interchangeable, and the DONDO paper itself warns that its in-domain
+figures should not be read as guarantees for other speech domains.
+
+### The conclusion
+
+> **Published WER alone cannot justify unattended acceptance.** Synthetic corruption
+> shows that even a low aggregate word error rate can contain reference-critical
+> errors, because the errors that change a passage are concentrated in a small number
+> of tokens. DONDO's actual position must be measured on real church audio using the
+> reference-outcome harness, not inferred from either number.
+
+This is why operator review is a requirement rather than a refinement, and it is the
+product decision the rest of this document is built on.
 
 ---
 
@@ -95,9 +133,11 @@ pages. Nothing is inferred.
 
 **Paper.** Azunre, P., Ibrahim, N., Budu, J., Adu-Gyamfi, L. *DONDO: Open w2v-BERT
 Speech-Recognition Base Models for African Languages* (subtitle: *Democratizing Oral
-Neural Dialect Ontology*). Khaya AI. arXiv:2607.21540v2 [cs.CL], 24 July 2026; dated
-28 July 2026. Contact `paul@khaya.ai`. Funded by the Huniki Federation; the
-acknowledgements thank Ghana-NLP, Algorine Research and Hugging Face.
+Neural Dialect Ontology*). Khaya AI, 2026. arXiv:2607.21540. Contact `paul@khaya.ai`.
+Funded by the Huniki Federation; the acknowledgements thank Ghana-NLP, Algorine
+Research and Hugging Face. (Version and submission dates are deliberately not pinned
+here — the listing and the manuscript carry different dates, and nothing in this
+assessment turns on which.)
 
 **What is released.** 21 monolingual and 5 regional multilingual models — 26
 checkpoints — covering **27 African language varieties** across Ghana, Sierra Leone,
@@ -157,11 +197,12 @@ scheme requires the user to specify the target language.
 Every one of those bites for our use case. A sermon is spontaneous, code-switched,
 often noisy, and delivered in a room with a PA system.
 
-### Not published anywhere we could find
+### Not found in the sources reviewed
 
-**No latency, real-time factor, or hardware benchmark** appears in the paper or on the
-model cards. Nothing about DONDO's speed on any machine is known to us. That is the
-whole reason for §5.
+**No latency, real-time factor, or hardware benchmark was found in the official paper
+or the model cards reviewed.** That is a statement about what was checked, not a claim
+that no such figure exists anywhere. Either way we have no basis for a speed claim,
+which is the whole reason for §5.
 
 ### Hosted alternative
 
@@ -272,13 +313,57 @@ Measure, per candidate checkpoint (`w2v-bert-en` first, then
 Then re-run §2's corpus against the real transcripts to get the true reference-outcome
 numbers, replacing the synthetic curve.
 
-**Stop conditions.** If RTF ≥ 1 on the production machine, or OBS drops frames, or
-harmful outcomes are non-zero on real audio, the feature does not ship as live capture.
-The typed transcript path stays and remains useful.
+**Stop conditions for live capture in any form.** If RTF ≥ 1 on the production
+machine, or OBS drops frames, or latency to final is longer than the preacher stays on
+the verse, live capture does not ship. The typed transcript path stays and remains
+useful.
 
 ---
 
-## 6. Recordings, consent, storage and deletion
+## 6. Two release gates, not one
+
+An earlier draft said any non-zero misleading-top result means live capture does not
+ship. That is the wrong rule: it would block an operator-reviewed assistant on the
+strength of a failure mode the review step exists to catch, while the same document
+argues that review is what makes the feature viable. A wrong leading candidate is
+serious and must be measured — but in the shipped flow it is a wrong answer the
+operator reads before accepting, not scripture on a screen.
+
+So there are two decisions, with different bars.
+
+### Gate A — operator-reviewed assist
+
+May be considered when **all** of these hold:
+
+- nothing stages, queues or airs automatically; acceptance is a press, and Take is a
+  second, separate press;
+- the candidate list shows alternatives and the reasoning for each reading, so the
+  operator can see *why* a passage was offered;
+- top-1 and top-k recall on **real church audio** are good enough to save time rather
+  than cost it;
+- the misleading-top rate on real audio is **measured and reported**, not assumed;
+- latency to final is short enough to be useful during a service;
+- operator testing shows wrong candidates are reliably noticed at the review step —
+  this is the control the gate depends on, so it has to be tested, not asserted;
+- typing remains immediately available and is never worse than it is today.
+
+Note what is *not* on this list: a zero misleading-top rate. Under review, that number
+is a cost to keep low and visible, not a veto.
+
+### Gate B — automatic acceptance, staging or Take
+
+**Out of scope, and not approvable from this evidence.** A finite corpus with zero
+observed misleading-top results would still not establish that auto-airing scripture
+is safe: absence of an observed failure in a hand-built corpus is not evidence of
+absence in a live service. If it is ever revisited it needs a different argument
+entirely — real audio at scale, a measured upper bound rather than a point estimate,
+and a rollback that does not depend on someone noticing.
+
+Program invariance and operator confirmation are unchanged by either gate.
+
+---
+
+## 7. Recordings, consent, storage and deletion
 
 Evaluating on real audio means recording people in a church. That is a matter of
 consent and dignity, not just data handling.
@@ -305,7 +390,7 @@ consent and dignity, not just data handling.
 
 ---
 
-## 7. Current state
+## 8. Current state
 
 | | |
 | --- | --- |
@@ -314,6 +399,7 @@ consent and dignity, not just data handling.
 | Provider-neutral transcript port | **Shipped** (PR #26) |
 | Evaluation harness and metrics | **Shipped** (this PR) |
 | DONDO audit against official sources | **Done** (this document) |
+| Release gates for reviewed vs unattended | **Defined** (§6) |
 | Microphone capture | **Not built.** Deliberately. |
 | A selected provider | **Not chosen.** |
 | Apple Silicon benchmark | **Not run.** §5 is a plan, not a result. |
