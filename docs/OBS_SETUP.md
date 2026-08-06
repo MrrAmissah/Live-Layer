@@ -36,9 +36,27 @@ port. Fix the port conflict before opening OBS.
 1. In OBS, add a new `Browser` source.
 2. Set the URL to `http://127.0.0.1:4173/output`.
 3. Set width to `1920` and height to `1080`.
-4. Enable `Shutdown source when not visible` if you want to save resources.
+4. Leave `Shutdown source when not visible` **unchecked** — see below.
 5. Make sure `Local file` is unchecked and `Control audio via OBS` is disabled.
 6. Ensure `Custom CSS` is empty.
+
+## Shutdown source when not visible
+
+Leave this **OFF** on the LiveLayer output source. It is a resource-saving option
+that costs you the two things the control surfaces rely on.
+
+- **OFF** — the output page stays loaded when the source is hidden, so it keeps
+  sending its heartbeat and reports the eye going off. The dock and studio show
+  **SOURCE HIDDEN · OBS source hidden**, which tells the operator exactly what to
+  fix.
+- **ON** — OBS unloads the whole page when the source is hidden. An unloaded page
+  sends nothing, so no visibility update ever arrives and the surfaces fall back
+  to **UNVERIFIED · Output status is stale** once the heartbeat goes quiet. That
+  is honest — nothing is being claimed that cannot be checked — but it cannot
+  tell you *why*, and it takes the staleness window to appear.
+
+`Refresh browser when scene becomes active` is fine to leave on: the output page
+restores the current graphic from the relay snapshot when it loads.
 
 ## Recommended settings
 
