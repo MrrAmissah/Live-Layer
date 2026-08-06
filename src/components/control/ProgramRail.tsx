@@ -6,6 +6,7 @@ import { describeProgramStatus } from '../../lib/programStatus';
 // Shared with the dock's Program strip — one title rule, one clock.
 import { graphicTitle } from '../../lib/graphicTitle';
 import { useTicks, elapsed, ago } from '../../hooks/useTicks';
+import { programClockMs } from '../../lib/programClock';
 import LiveActions from './LiveActions';
 import type { GraphicInstance } from '../../types/graphics';
 import type { ProgramState } from '../../types/program';
@@ -29,10 +30,10 @@ function OutputCard({ program }: { program: ProgramState }) {
   // The cleared readout is a live counter too — it used to freeze because the
   // clock only ran for on-air states. Both branches tick; each drops to a
   // one-minute cadence once it is only reporting whole minutes.
-  const since = program.status === 'clear' ? program.clearedAt : program.takenAt;
-  const needsClock = program.status === 'showing' || program.status === 'recovering' || program.status === 'clear';
-  const withinFirstMinute = since !== null && Date.now() - since < 60_000;
-  const now = useTicks(needsClock && since !== null ? (withinFirstMinute ? 1000 : 60_000) : 0);
+  // Shared cadence rule (`lib/programClock.ts`). This surface previously dropped
+  // to a minute after the first minute for `showing` too, while rendering
+  // "sent MM:SS ago" — so its seconds only moved once a minute.
+  const now = useTicks(programClockMs(program, Date.now()));
 
   const badge =
     program.status === 'showing'

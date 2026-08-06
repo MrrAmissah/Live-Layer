@@ -261,7 +261,7 @@ function QueueCard({
                   </span>
                 </button>
                 <span className="dock-qitem__cluster">
-                  {item.id === liveItemId ? <span className="rd-live">LIVE</span> : null}
+                  {item.id === liveItemId ? <span className="rd-sent">LAST SENT</span> : null}
                   <button
                     type="button"
                     className="dock-qitem__menu"

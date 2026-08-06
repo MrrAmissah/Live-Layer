@@ -92,7 +92,7 @@ export default function RundownQueue() {
                   </span>
                 </button>
                 <span className="dock-queue__cluster">
-                  {isLive ? <span className="rd-live">LIVE</span> : null}
+                  {isLive ? <span className="rd-sent">LAST SENT</span> : null}
                   {reordering ? (
                     <>
                       <button

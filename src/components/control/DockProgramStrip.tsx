@@ -3,6 +3,7 @@ import { useDockPrefs } from '../../store/useDockPrefs';
 import { describeProgramStatus } from '../../lib/programStatus';
 import { describeGraphic } from '../../lib/graphicTitle';
 import { useTicks, elapsed, ago } from '../../hooks/useTicks';
+import { programClockMs } from '../../lib/programClock';
 import { Icon, type IconName } from '../../lib/icons';
 import LiveActions from './LiveActions';
 import type { LastAction } from './StatusBadge';
@@ -50,11 +51,10 @@ export default function DockProgramStrip({ onTake, onClear, sending = false, las
   // Same clock policy as the studio's OutputCard: tick while a readout is
   // moving, and drop the cleared counter to a one-minute cadence once it only
   // reports whole minutes.
-  const since = program.status === 'clear' ? program.clearedAt : program.takenAt;
-  const needsClock =
-    program.status === 'showing' || program.status === 'recovering' || program.status === 'clear';
-  const coarse = program.status === 'clear' && since !== null && Date.now() - since >= 60_000;
-  const now = useTicks(needsClock && since !== null ? (coarse ? 60_000 : 1000) : 0);
+  // Cadence is the shared rule in `lib/programClock.ts`: only statuses whose
+  // visible copy changes with time wake anything up. `recovering` and `failed`
+  // render static text, so they get no interval at all.
+  const now = useTicks(programClockMs(program, Date.now()));
 
   const snapshotMeta = program.snapshot ? describeGraphic(program.snapshot) : null;
   // Clock on the chip only while SHOWING — same rule as the studio's OutputCard.

@@ -36,6 +36,38 @@ const queue = read('src/components/control/RundownQueue.tsx');
 const queueTab = read('src/components/control/DockQueueTab.tsx');
 const css = read('src/styles.css');
 
+describe('an item association is not an acknowledgement', () => {
+  /**
+   * `activeItemId` is the rundown item behind our last successful command. It is
+   * not output acknowledgement — messaging is one-way — so no dock surface may
+   * turn it into a claim that the item is on air.
+   */
+  const dockQueues = [
+    ['DockQueueTab', read('src/components/control/DockQueueTab.tsx')],
+    ['RundownQueue', read('src/components/control/RundownQueue.tsx')]
+  ] as const;
+
+  it('labels the marked row LAST SENT, never an on-air claim', () => {
+    for (const [name, source] of dockQueues) {
+      const code = stripComments(source);
+      expect(code, `${name} must mark the row`).toMatch(/rd-sent">LAST SENT</);
+      // The banned vocabulary, in the forms a JSX text node can take.
+      for (const claim of [/['"`>]LIVE\b/, /['"`>]ON AIR\b/i, /['"`>]On air\b/, /['"`>]PROGRAM</]) {
+        expect(code, `${name}: ${claim}`).not.toMatch(claim);
+      }
+    }
+  });
+
+  it('drives the marker from the item id, not from Program confirmation', () => {
+    // The marker must not be wired to a confirmation field — there is none to read.
+    for (const [name, source] of dockQueues) {
+      const code = stripComments(source);
+      expect(code, name).toMatch(/activeItemId|liveItemId|isLive/);
+      expect(code, `${name} must not read a confirmation`).not.toMatch(/confirmation/);
+    }
+  });
+});
+
 describe('the tab set', () => {
   it('is exactly the four expected ids, in order', () => {
     const ids = [...files.tabbar.matchAll(/\{ id: '(\w+)'/g)].map((match) => match[1]);
@@ -211,18 +243,27 @@ describe('the dock queue promises only what the store can do', () => {
 
   it('keeps the LIVE row marker meaning "the item we last commanded"', () => {
     expect(queue).toContain('activeItemId');
-    expect(queue).toMatch(/isLive \? <span className="rd-live">LIVE<\/span>/);
+    expect(queue).toMatch(/isLive \? <span className="rd-sent">LAST SENT<\/span>/);
   });
 });
 
 describe('the Queue tab (stage 2)', () => {
   it('renders LIVE only as the per-row command marker, and stays honest otherwise', () => {
     const code = stripComments(queueTab);
-    // The one allowed LIVE: the row marker recording our own last command…
-    expect(code).toContain('className="rd-live">LIVE<');
+    /**
+     * No carve-out any more. This used to allow one LIVE — the row marker for the
+     * item behind our last command — on the grounds that it meant something
+     * narrower than the Program strip's banned claim. That was the same
+     * unverifiable assertion in a smaller typeface: `activeItemId` records what we
+     * SENT, and an operator reading LIVE on a row has been told OBS confirmed it.
+     * The row now says LAST SENT, which stays true after a reload, through an
+     * unverified state, and while a previous item remains the last success.
+     */
+    expect(code).toContain('LAST SENT');
     expect(code).toContain('activeItemId');
-    // …and once it is removed, the same rule as every other dock file holds.
-    expect(code.replace('className="rd-live">LIVE<', '')).not.toMatch(/['"`>]LIVE\b/);
+    expect(code).not.toMatch(/['"`>]LIVE\b/);
+    expect(code).not.toMatch(/['"`>]ON AIR\b/i);
+    expect(code).not.toMatch(/['"`>]PROGRAM<\//);
     expect(code.toLowerCase()).not.toContain('fps');
     expect(code).not.toContain('Online');
     expect(code).not.toContain('OBS');
