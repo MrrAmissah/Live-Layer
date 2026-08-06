@@ -9,7 +9,8 @@ import {
   SAFE_TITLE,
   LOWER_THIRD_ZONE,
   LOWER_THIRD_FOCUS,
-  LOWER_THIRD_CROP
+  LOWER_THIRD_BARE_FALLBACK,
+  type StageRect
 } from './stage';
 
 /**
@@ -28,10 +29,18 @@ interface GraphicStageProps {
   /**
    * Preview-only focus crop. /output leaves this unset to preserve full-frame
    * rendering. `lower-third` is the monitor's 16:9 zoom+pan; `lower-third-bare`
-   * shows the SAME visible rect (LOWER_THIRD_CROP) fitted edge-to-edge into a
-   * box of the crop's own aspect — for frameless previews with no dead space.
+   * fits a stage rect edge-to-edge into a box of the rect's own aspect — for
+   * frameless previews with no dead space.
    */
   focus?: 'full' | 'lower-third' | 'lower-third-bare';
+  /**
+   * The stage rect the `lower-third-bare` focus frames — normally the
+   * measured content crop from TemplatePreview (contentCrop.ts), falling back
+   * to the zone-derived LOWER_THIRD_BARE_FALLBACK. Ignored by other focus
+   * modes; /output never sets it. Crop/scale/centre only — the stage's
+   * internal 1920x1080 geometry is untouched, so composition stays pixel-true.
+   */
+  bareCrop?: StageRect;
   /** Draw action-safe / title-safe / lower-third guide rectangles (debug + preview). */
   showSafeAreas?: boolean;
   children?: ReactNode;
@@ -69,17 +78,18 @@ function SafeAreaGuides() {
  * Shared by /output (transparent) and the control-surface preview
  * (simulated backdrop), so composition is pixel-true in both.
  */
-export default function GraphicStage({ theme, backdrop = 'transparent', focus = 'full', showSafeAreas = false, children }: GraphicStageProps) {
+export default function GraphicStage({ theme, backdrop = 'transparent', focus = 'full', bareCrop, showSafeAreas = false, children }: GraphicStageProps) {
   const { viewportRef, scale, offsetX, offsetY, width, height } = useStageScale<HTMLDivElement>();
   let transform: string;
   if (focus === 'lower-third-bare') {
-    // Fit LOWER_THIRD_CROP (the exact rect the monitor's zoom+pan shows) into
-    // the viewport, centred. When the box's aspect-ratio matches the crop's —
-    // TemplatePreview's bare frame sets exactly that — the crop fills it
-    // edge-to-edge: no bezel band above, no dead sub-stage band below.
-    const fit = Math.min(width / LOWER_THIRD_CROP.width, height / LOWER_THIRD_CROP.height) || 0;
-    const translateX = (width - LOWER_THIRD_CROP.width * fit) / 2 - LOWER_THIRD_CROP.x * fit;
-    const translateY = (height - LOWER_THIRD_CROP.height * fit) / 2 - LOWER_THIRD_CROP.y * fit;
+    // Fit the crop rect into the viewport, centred. When the box's
+    // aspect-ratio matches the crop's — TemplatePreview's bare frame sets
+    // exactly that — the crop fills it edge-to-edge: no empty stage above the
+    // graphic, no dead band below.
+    const crop = bareCrop ?? LOWER_THIRD_BARE_FALLBACK;
+    const fit = Math.min(width / crop.width, height / crop.height) || 0;
+    const translateX = (width - crop.width * fit) / 2 - crop.x * fit;
+    const translateY = (height - crop.height * fit) / 2 - crop.y * fit;
     transform = `translate(${translateX}px, ${translateY}px) scale(${fit})`;
   } else {
     const zoom = focus === 'lower-third' ? LOWER_THIRD_FOCUS.zoom : 1;

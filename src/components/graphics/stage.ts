@@ -42,23 +42,52 @@ export const LOWER_THIRD_ZONE = { x: SAFE_TITLE.x, top: 720, bottom: SAFE_TITLE.
  */
 export const LOWER_THIRD_FOCUS = { zoom: 1.38, panX: 40, panY: 520 } as const;
 
+/** An axis-aligned rect in stage (1080p px) coordinates. */
+export interface StageRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
- * The stage rect (1080p px) the lower-third focus actually shows — derived
- * from the zoom/pan above, never restated as literals, so the two cannot
- * drift apart. Under the focus transform a 16:9 screen's origin lands on
- * stage point (panX/zoom, panY/zoom) and spans STAGE_WIDTH/zoom across;
- * vertically the pan runs past the stage bottom (the stage overflow-hides
- * below 1080), so the visible height clips at STAGE_HEIGHT. Bare previews
- * (GraphicStage `focus="lower-third-bare"`) size their box to exactly this
- * rect — width/height ≈ 1.98:1 — instead of reserving an empty 16:9 frame.
- * The rect contains the whole LOWER_THIRD_ZONE band plus its decorative
- * allowance down to the frame edge (asserted in templatePreviewBare.test.ts).
+ * Breathing margin (stage px) the bare preview keeps around the measured
+ * graphic. The floor that stops the design sitting flush against the card
+ * edge; it also absorbs what layout measurement cannot see (pseudo-element
+ * caps, a few px of drop shadow). Deliberately small — the whole point of
+ * the bare frame is that the design, not empty stage, fills the box.
  */
-export const LOWER_THIRD_CROP = {
-  x: LOWER_THIRD_FOCUS.panX / LOWER_THIRD_FOCUS.zoom,
-  y: LOWER_THIRD_FOCUS.panY / LOWER_THIRD_FOCUS.zoom,
-  width: STAGE_WIDTH / LOWER_THIRD_FOCUS.zoom,
-  height: STAGE_HEIGHT - LOWER_THIRD_FOCUS.panY / LOWER_THIRD_FOCUS.zoom
+export const BARE_MARGIN = { x: 32, y: 16 } as const;
+
+/**
+ * Floor on the bare crop's size, derived from the stage. Guards against a
+ * degenerate measurement (a sliver of underbar, a lone stripe) producing a
+ * comically zoomed crop: the crop never frames less than a quarter of the
+ * stage width or a twelfth of its height.
+ */
+export const BARE_MIN_CROP = {
+  width: STAGE_WIDTH / 4,
+  height: STAGE_HEIGHT / 12
+} as const;
+
+/**
+ * The bare preview's starting/fallback crop for bottom-anchored graphics,
+ * derived from LOWER_THIRD_ZONE — NOT from the monitor calibration above.
+ * The monitor focus exists to give a 16:9 screen context and therefore shows
+ * 343 stage-px of empty sky above the band; a frameless preview wants the
+ * opposite, so its fallback frames the zone itself (margin allowance on the
+ * sides, decorative allowance down to the frame edge). In practice the bare
+ * preview measures the rendered graphic and fits THAT (contentCrop.ts); this
+ * rect is what it shows before the first measurement and if measurement
+ * ever fails.
+ */
+const bareFallbackInsetX = LOWER_THIRD_ZONE.x - BARE_MARGIN.x;
+const bareFallbackTop = LOWER_THIRD_ZONE.top - BARE_MARGIN.y;
+export const LOWER_THIRD_BARE_FALLBACK: StageRect = {
+  x: bareFallbackInsetX,
+  y: bareFallbackTop,
+  width: STAGE_WIDTH - bareFallbackInsetX - bareFallbackInsetX,
+  height: STAGE_HEIGHT - bareFallbackTop
 } as const;
 
 /**
