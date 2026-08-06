@@ -7,9 +7,10 @@ import { Icon } from '../../lib/icons';
 
 /**
  * Live-tab rundown queue (dock). Row click selects; Previous/Next step the
- * selection; LIVE marks the item we last COMMANDED (activeItemId) — the one
- * on-air claim the app can make, because it is a record of our own command,
- * not an output acknowledgement. Take and Clear are the Program strip's
+ * selection; LAST SENT marks the item behind our last successful command
+ * (`activeItemId`). That is deliberately not an on-air claim: messaging is
+ * one-way, so the app knows what it sent and never what output rendered.
+ * Take and Clear are the Program strip's
  * buttons (mode-aware), never duplicated here — so there is one Take.
  * Nothing here posts a realtime message; only ControlPage's Take/Clear do.
  *
@@ -67,7 +68,7 @@ export default function RundownQueue() {
       {items.length > 0 ? (
         <ol className="dock-queue__list">
           {items.map((item, index) => {
-            const isLive = item.id === activeItemId;
+            const isLastSent = item.id === activeItemId;
             const meta = describeGraphic(item.graphic);
             return (
               <li
@@ -92,7 +93,7 @@ export default function RundownQueue() {
                   </span>
                 </button>
                 <span className="dock-queue__cluster">
-                  {isLive ? <span className="rd-sent">LAST SENT</span> : null}
+                  {isLastSent ? <span className="rd-sent">LAST SENT</span> : null}
                   {reordering ? (
                     <>
                       <button

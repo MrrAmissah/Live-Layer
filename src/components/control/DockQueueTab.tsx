@@ -176,7 +176,7 @@ function QueueCard({
 
   const items = rundown.items;
   const { selected, selectedIndex } = getQueueCursors(rundown);
-  const liveItemId = rundown.activeItemId;
+  const lastSentItemId = rundown.activeItemId;
   const searching = query.trim().length > 0;
   const hits = filterRundownItems(items, query);
   const full = items.length >= MAX_ITEMS_PER_RUNDOWN;
@@ -261,7 +261,7 @@ function QueueCard({
                   </span>
                 </button>
                 <span className="dock-qitem__cluster">
-                  {item.id === liveItemId ? <span className="rd-sent">LAST SENT</span> : null}
+                  {item.id === lastSentItemId ? <span className="rd-sent">LAST SENT</span> : null}
                   <button
                     type="button"
                     className="dock-qitem__menu"

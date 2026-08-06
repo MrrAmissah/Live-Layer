@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest';
  *
  *  1. HONESTY. This app's messaging is one-way — control publishes, output
  *     renders, and no acknowledgement path exists. The dock therefore may not
- *     claim "LIVE" as a Program status, print an fps it has no source for,
+ *     claim "LIVE" anywhere — as a Program status or a queue-row badge — print
+ *     an fps it has no source for,
  *     report "Online", or name an OBS connection it cannot verify. Every
  *     status word must come from `lib/programStatus.ts`.
  *
@@ -30,8 +31,8 @@ const files = {
   editTab: read('src/components/control/DockQuickEditTab.tsx')
 };
 const liveActions = read('src/components/control/LiveActions.tsx');
-// Queue surfaces render the ALLOWED per-row LIVE marker (a record of our own
-// command), so they take the honesty checks separately — see below.
+// Queue surfaces render the per-row LAST SENT marker: a record of our own
+// last successful command, never an on-air claim.
 const queue = read('src/components/control/RundownQueue.tsx');
 const queueTab = read('src/components/control/DockQueueTab.tsx');
 const css = read('src/styles.css');
@@ -42,13 +43,36 @@ describe('an item association is not an acknowledgement', () => {
    * not output acknowledgement — messaging is one-way — so no dock surface may
    * turn it into a claim that the item is on air.
    */
-  const dockQueues = [
-    ['DockQueueTab', read('src/components/control/DockQueueTab.tsx')],
-    ['RundownQueue', read('src/components/control/RundownQueue.tsx')]
+  /**
+   * The studio's rundown card is in here deliberately. `activeItemId` is ONE
+   * stored value, so it must not mean "last sent" in the dock and "live" in the
+   * studio; that split is how a surface ends up asserting something the app
+   * cannot know, and it is the same defect whichever layout renders it.
+   */
+  const GUARDED = [
+    'src/components/control/DockQueueTab.tsx',
+    'src/components/control/RundownQueue.tsx',
+    'src/components/control/RundownItemCard.tsx'
   ] as const;
+  const queueSurfaces = GUARDED.map((path) => [path.split('/').pop()!, read(path)] as const);
+
+  it('guards every surface that renders the marker, not a hand-kept list', () => {
+    /**
+     * Without this, dropping a file from GUARDED silently un-guards it — the
+     * mutation that proved the point. The list must cover every control surface
+     * that renders the badge at all.
+     */
+    const dir = 'src/components/control';
+    const rendersBadge = readdirSync(dir)
+      .filter((name) => name.endsWith('.tsx'))
+      .filter((name) => read(`${dir}/${name}`).includes('rd-sent'))
+      .map((name) => `${dir}/${name}`);
+    expect(rendersBadge.length).toBeGreaterThan(0);
+    expect([...rendersBadge].sort()).toEqual([...GUARDED].sort());
+  });
 
   it('labels the marked row LAST SENT, never an on-air claim', () => {
-    for (const [name, source] of dockQueues) {
+    for (const [name, source] of queueSurfaces) {
       const code = stripComments(source);
       expect(code, `${name} must mark the row`).toMatch(/rd-sent">LAST SENT</);
       // The banned vocabulary, in the forms a JSX text node can take.
@@ -60,9 +84,9 @@ describe('an item association is not an acknowledgement', () => {
 
   it('drives the marker from the item id, not from Program confirmation', () => {
     // The marker must not be wired to a confirmation field — there is none to read.
-    for (const [name, source] of dockQueues) {
+    for (const [name, source] of queueSurfaces) {
       const code = stripComments(source);
-      expect(code, name).toMatch(/activeItemId|liveItemId|isLive/);
+      expect(code, name).toMatch(/activeItemId|lastSentItemId|isLastSent|lastSent/);
       expect(code, `${name} must not read a confirmation`).not.toMatch(/confirmation/);
     }
   });
@@ -105,8 +129,8 @@ describe('the Program strip is honest', () => {
   it('never claims what the app cannot know', () => {
     for (const [name, source] of Object.entries(files)) {
       const code = stripComments(source);
-      // No confident on-air claim. (The per-queue-row LIVE marker in
-      // RundownQueue is different and allowed: it records our own command.)
+      // No confident on-air claim anywhere — there is no longer an exception.
+      // The queue rows say LAST SENT, a record of our own command.
       expect(code, `${name}: LIVE`).not.toMatch(/['"`>]LIVE\b/);
       // No fps — the app has no fps source anywhere.
       expect(code.toLowerCase(), `${name}: fps`).not.toContain('fps');
@@ -241,14 +265,14 @@ describe('the dock queue promises only what the store can do', () => {
     expect(queue).not.toContain('draggable');
   });
 
-  it('keeps the LIVE row marker meaning "the item we last commanded"', () => {
+  it('marks the row behind our last command, without claiming it is on air', () => {
     expect(queue).toContain('activeItemId');
-    expect(queue).toMatch(/isLive \? <span className="rd-sent">LAST SENT<\/span>/);
+    expect(queue).toMatch(/isLastSent \? <span className="rd-sent">LAST SENT<\/span>/);
   });
 });
 
 describe('the Queue tab (stage 2)', () => {
-  it('renders LIVE only as the per-row command marker, and stays honest otherwise', () => {
+  it('stays honest about everything it cannot verify', () => {
     const code = stripComments(queueTab);
     /**
      * No carve-out any more. This used to allow one LIVE — the row marker for the

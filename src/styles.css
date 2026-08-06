@@ -6857,11 +6857,10 @@ body.gfx-transparent {
 
 /* "The item we last commanded" — per-row marker, allowed vocabulary (unlike a
    Program-level LIVE claim): it records our own command, not an output ack. */
-/* `rd-sent` is the dock's wording: the queue row records the item behind our
-   last successful command, which is not an acknowledgement that OBS rendered
-   it. `rd-live` remains for the studio's rundown card until that surface is
-   given the same treatment. */
-.control-root .rd-live,
+/* `rd-sent`: the queue row records the item behind our last successful command,
+   which is not an acknowledgement that OBS rendered it. Named for what it means
+   after `rd-live` was retired from both the dock and the studio rundown card —
+   one stored value, one meaning, on every surface. */
 .control-root .rd-sent {
   flex: none; padding: 2px 7px; border-radius: 4px;
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em;
@@ -7645,7 +7644,6 @@ body.gfx-transparent {
 .control-root .dock-queue__nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* Dock-green LIVE row marker (token override keeps studio mint elsewhere). */
-.control-root--dock .rd-live,
 .control-root--dock .rd-sent { color: var(--ll-live-text); background: var(--ll-live-soft); border-color: rgba(34, 187, 68, 0.45); }
 
 /* Placeholder tabs — honest, short. */
