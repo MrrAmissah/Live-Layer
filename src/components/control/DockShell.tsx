@@ -4,6 +4,8 @@ import DockHeader from './DockHeader';
 import DockTabBar, { type DockTab } from './DockTabBar';
 import DockProgramStrip from './DockProgramStrip';
 import DockLiveTab from './DockLiveTab';
+import DockQueueTab from './DockQueueTab';
+import DockQuickEditTab from './DockQuickEditTab';
 import DockFooter from './DockFooter';
 
 interface DockShellProps {
@@ -28,8 +30,8 @@ interface DockShellProps {
  * transport/pack footer at the bottom.
  *
  * Only the active tab mounts — an OBS dock shares CPU with an encoder, and a
- * GraphicStage render per hidden tab is a real cost. Queue, Quick Edit and
- * More are honest placeholders until the next build stages.
+ * GraphicStage render per hidden tab is a real cost. More is an honest
+ * placeholder until stage 3.
  */
 export default function DockShell({ onTake, onClear, lastAction, sending = false }: DockShellProps) {
   const [tab, setTab] = useState<DockTab>('live');
@@ -49,17 +51,12 @@ export default function DockShell({ onTake, onClear, lastAction, sending = false
         <div className="dock-scroll">
           {tab === 'live' ? <DockLiveTab /> : null}
           {tab === 'queue' ? (
-            <ComingSoon
-              title="Queue"
-              note="Queue building, search and reordering land here. For now, run an active rundown from the Live tab."
+            <DockQueueTab
+              onPreviewSelected={() => setTab('live')}
+              onEditSelected={() => setTab('edit')}
             />
           ) : null}
-          {tab === 'edit' ? (
-            <ComingSoon
-              title="Quick Edit"
-              note="Field editing lands here. Until then, edit content in the full studio at a wider window."
-            />
-          ) : null}
+          {tab === 'edit' ? <DockQuickEditTab onOpenQueue={() => setTab('queue')} /> : null}
           {tab === 'more' ? (
             <ComingSoon title="More" note="Utilities, preferences and diagnostics land here." />
           ) : null}

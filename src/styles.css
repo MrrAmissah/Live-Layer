@@ -7551,9 +7551,360 @@ body.gfx-transparent {
 .control-root .dock-footer__relay[data-connection='unreachable'] .dock-footer__dot { background: #f5c77e; }
 .control-root .dock-footer__pack { flex: none; max-width: 45%; font-size: 13px; font-weight: 550; color: #cdd6e4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* == dock: queue tab == (stage 2 builds here) */
+/* == dock: queue tab == (stage 2) */
 
-/* == dock: quick edit tab == (stage 3 builds here) */
+/* Rundown picker: pick/create the active rundown — the dock's only manager. */
+.control-root .dock-rdpick { display: flex; flex-direction: column; gap: 8px; }
+.control-root .dock-rdpick__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-rdpick__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 6px 10px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 5px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .dock-rdpick__row:hover { border-color: var(--dk-edge-control); }
+.control-root .dock-rdpick__row[aria-pressed='true'] { background: #0f1b28; border-color: rgba(31, 165, 250, 0.35); }
+.control-root .dock-rdpick__name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 550; color: #eef2f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-rdpick__count { flex: none; font-size: 12px; color: #8f9bad; white-space: nowrap; }
+.control-root .dock-rdpick__state { flex: none; font-size: 12px; font-weight: 600; color: var(--ll-blue); white-space: nowrap; }
+.control-root .dock-rdpick__row[aria-pressed='true'] .dock-rdpick__state { color: #9aa7ba; font-weight: 500; }
+.control-root .dock-rdpick__new { display: flex; gap: 8px; }
+.control-root .dock-rdpick__new .field__input { flex: 1; min-width: 0; }
+
+/* Queue head: + Add sits with the kicker/count; search takes its own row so
+   it survives 255px without squeezing the count into unreadability. */
+.control-root .dock-q__addbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cfe4fb;
+  background: rgba(47, 149, 248, 0.12);
+  border: 1px solid rgba(47, 149, 248, 0.32);
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-q__addbtn:hover,
+.control-root .dock-q__addbtn[aria-expanded='true'] { background: rgba(47, 149, 248, 0.2); border-color: rgba(47, 149, 248, 0.48); }
+
+.control-root .dock-q__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+  color: #8f9bad;
+}
+.control-root .dock-q__search:focus-within { border-color: rgba(47, 149, 248, 0.45); }
+.control-root .dock-q__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: #e8edf4;
+  font-size: 13px;
+  outline: none;
+}
+.control-root .dock-q__search input::placeholder { color: #6f7e95; }
+.control-root .dock-q__search input::-webkit-search-cancel-button { display: none; }
+.control-root .dock-q__clear {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: #9aa7ba;
+  font-size: 12px;
+  cursor: pointer;
+}
+.control-root .dock-q__clear:hover { color: #fff; background: rgba(148, 163, 184, 0.14); }
+
+/* Add disclosure: each row names exactly what it adds. */
+.control-root .dock-q__addpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+  background: var(--dk-raised);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+}
+.control-root .dock-q__addgroup { display: flex; flex-direction: column; gap: 6px; }
+.control-root .dock-q__addgroup .ll-kicker { color: #9fadc0; }
+.control-root .dock-q__addrow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 6px 10px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 4px;
+  color: #dfe6f0;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .dock-q__addrow:hover { border-color: var(--dk-edge-control); background: #121922; }
+.control-root .dock-q__addrow:disabled { opacity: 0.4; cursor: default; }
+.control-root .dock-q__addrow .ll-icon { flex: none; color: #9fadc0; }
+.control-root .dock-q__addrow .ll-icon:last-child { margin-left: auto; color: var(--ll-blue); }
+.control-root .dock-q__addrow-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The type may shrink (the TITLE is what identifies the row) — a rigid type
+   label ate the whole 255px row and left the title zero pixels. */
+.control-root .dock-q__addrow-type { flex: 0 1 auto; min-width: 0; font-size: 12px; color: #8f9bad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container dock (max-width: 340px) {
+  /* Below this the row cannot honestly show both; the group kicker and the
+     type are redundant for template rows, and draft/saved rows keep identity
+     in the title. */
+  .control-root .dock-q__addrow-type { display: none; }
+}
+
+/* Queue rows — taller than the Live tab's (title-first, no index chip);
+   the index moves into line 2 with the type. */
+.control-root .dock-q__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-qitem {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 60px;
+  padding: 8px 10px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 5px;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-qitem:hover { border-color: var(--dk-edge-control); }
+.control-root .dock-qitem[data-selected] { background: #0f1b28; border-color: rgba(31, 165, 250, 0.35); }
+.control-root .dock-qitem[data-selected]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+  background: var(--ll-blue-rail);
+}
+.control-root .dock-qitem__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.control-root .dock-qitem__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-qitem[data-done] .dock-qitem__title { color: #8f9bad; text-decoration: line-through; }
+.control-root .dock-qitem__sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8f9bad;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.control-root .dock-qitem__sub .ll-icon { flex: none; }
+/* The type shrinks with an ellipsis; the dot and queue position are rigid so
+   the running-order number survives 255px instead of clipping off the end. */
+.control-root .dock-qitem__type { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-qitem__dot { flex: none; color: #566276; }
+.control-root .dock-qitem__pos { flex: none; }
+.control-root .dock-qitem__cluster { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.control-root .dock-qitem__menu {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #9aa7ba;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .dock-qitem__menu:hover { color: #fff; border-color: var(--dk-edge-control); }
+.control-root .dock-qitem__menu[aria-expanded='true'] { color: #fff; background: var(--dk-recessed); border-color: var(--dk-edge-control); }
+
+/* Inline row-action strip (not a floating menu — see DockQueueTab). */
+.control-root .dock-qitem__actions {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dk-rule);
+}
+.control-root .dock-qitem__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 550;
+  color: #cdd6e4;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+.control-root .dock-qitem__act:hover { border-color: rgba(148, 163, 184, 0.3); color: #fff; }
+.control-root .dock-qitem__act:disabled { opacity: 0.35; cursor: default; }
+.control-root .dock-qitem__act--danger { color: #ff8f8c; border-color: var(--ll-danger-edge); }
+.control-root .dock-qitem__act--danger:hover { color: #ffb3b0; border-color: var(--ll-danger-edge); background: var(--ll-danger-surface); }
+
+/* Selected-action bar: Preview + Edit only — Take stays in the Program strip. */
+.control-root .dock-q__selbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dk-rule);
+}
+.control-root .dock-q__selinfo { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.control-root .dock-q__selinfo .ll-kicker { color: #9fadc0; }
+.control-root .dock-q__selname { font-size: 13.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-q__selacts { flex: none; display: flex; gap: 8px; }
+.control-root .dock-q__selacts .btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* 255px: the buttons take a full-width row rather than crushing the title. */
+@container dock (max-width: 340px) {
+  .control-root .dock-q__selacts { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+/* == dock: quick edit tab == (stage 2) */
+
+/* Editing header: blue kicker (config tone), title, type, queue-position chip. */
+.control-root .dock-e__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+}
+.control-root .dock-e__id { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.control-root .dock-e__kicker { color: var(--ll-blue); }
+.control-root .dock-e__title {
+  font-size: 17px;
+  font-weight: 650;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.control-root .dock-e__type { font-size: 12.5px; color: #8f9bad; }
+.control-root .dock-e__chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cfe4fb;
+  background: rgba(47, 149, 248, 0.1);
+  border: 1px solid rgba(47, 149, 248, 0.3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-e__chip:hover { background: rgba(47, 149, 248, 0.18); border-color: rgba(47, 149, 248, 0.46); }
+
+/* Preview-only notice row: the shared DraftPreviewNote + the studio link. */
+.control-root .dock-e__note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border-radius: 5px;
+  background: rgba(47, 149, 248, 0.08);
+  border: 1px solid rgba(47, 149, 248, 0.22);
+}
+.control-root .dock-e__note .draft-note { margin: 0; flex: 1 1 180px; min-width: 0; font-size: 12.5px; line-height: 1.45; color: #cfe4fb; }
+.control-root .dock-e__studio {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ll-blue);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.control-root .dock-e__studio:hover { text-decoration: underline; }
+
+.control-root .dock-e__gotoqueue { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Collapsible panels (Appearance / Layout): native details, card-styled. */
+.control-root .dock-panel { padding: 0; gap: 0; }
+.control-root .dock-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  list-style: none;
+  cursor: pointer;
+}
+.control-root .dock-panel__summary::-webkit-details-marker { display: none; }
+.control-root .dock-panel__summary .ll-kicker { color: #9fadc0; }
+.control-root .dock-panel__chev { margin-left: auto; color: #8f9bad; transition: transform 0.15s ease; }
+.control-root .dock-panel[open] .dock-panel__chev { transform: rotate(180deg); }
+.control-root .dock-panel__body { display: flex; flex-direction: column; gap: 14px; padding: 2px 10px 12px; }
+
+/* Palette row: the TWO brand swatches (Main/Accent) — colorText stays with
+   Design's "Reset palette" in the studio; see DockQuickEditTab.PaletteRow. */
+.control-root .dock-e__palette { display: flex; flex-direction: column; gap: 8px; }
+
+/* == dock: more tab == (stage 3 builds here) */
 
 /* == dock: more tab == (stage 3 builds here) */
 

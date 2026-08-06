@@ -52,11 +52,9 @@ export default function RundownQueue() {
         ) : null}
       </div>
 
-      {/* Dock-only surface: the dock keeps its rundown manager under Library
-          for now, so this destination is still the documented one. The Queue
-          tab takes ownership of this in the next stage. */}
+      {/* Dock-only surface: the Queue tab owns adding, so this points there. */}
       {items.length === 0 ? (
-        <p className="dock-card__hint">No items yet — add some in Library → Rundowns.</p>
+        <p className="dock-card__hint">No items yet — add some in the Queue tab.</p>
       ) : !selected ? (
         <div className="dock-queue__empty">
           <p className="dock-card__hint">No item selected.</p>

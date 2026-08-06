@@ -26,10 +26,14 @@ const files = {
   header: read('src/components/control/DockHeader.tsx'),
   footer: read('src/components/control/DockFooter.tsx'),
   strip: read('src/components/control/DockProgramStrip.tsx'),
-  liveTab: read('src/components/control/DockLiveTab.tsx')
+  liveTab: read('src/components/control/DockLiveTab.tsx'),
+  editTab: read('src/components/control/DockQuickEditTab.tsx')
 };
 const liveActions = read('src/components/control/LiveActions.tsx');
+// Queue surfaces render the ALLOWED per-row LIVE marker (a record of our own
+// command), so they take the honesty checks separately — see below.
 const queue = read('src/components/control/RundownQueue.tsx');
+const queueTab = read('src/components/control/DockQueueTab.tsx');
 const css = read('src/styles.css');
 
 describe('the tab set', () => {
@@ -117,8 +121,10 @@ describe('exactly one Take in the dock tree', () => {
       expect(source, name).not.toContain('<LiveActions');
       expect(source, name).not.toMatch(/className="take-btn/);
     }
-    expect(queue).not.toContain('<LiveActions');
-    expect(queue).not.toMatch(/className="take-btn/);
+    for (const [name, source] of Object.entries({ queue, queueTab })) {
+      expect(source, name).not.toContain('<LiveActions');
+      expect(source, name).not.toMatch(/className="take-btn/);
+    }
   });
 });
 
@@ -147,6 +153,108 @@ describe('the dock queue promises only what the store can do', () => {
   it('keeps the LIVE row marker meaning "the item we last commanded"', () => {
     expect(queue).toContain('activeItemId');
     expect(queue).toMatch(/isLive \? <span className="rd-live">LIVE<\/span>/);
+  });
+});
+
+describe('the Queue tab (stage 2)', () => {
+  it('renders LIVE only as the per-row command marker, and stays honest otherwise', () => {
+    const code = stripComments(queueTab);
+    // The one allowed LIVE: the row marker recording our own last command…
+    expect(code).toContain('className="rd-live">LIVE<');
+    expect(code).toContain('activeItemId');
+    // …and once it is removed, the same rule as every other dock file holds.
+    expect(code.replace('className="rd-live">LIVE<', '')).not.toMatch(/['"`>]LIVE\b/);
+    expect(code.toLowerCase()).not.toContain('fps');
+    expect(code).not.toContain('Online');
+    expect(code).not.toContain('OBS');
+    expect(code).not.toMatch(/['"`]Confirmed/);
+  });
+
+  it('gives the selected item Preview and Edit — and deliberately NO Take', () => {
+    // The mockup draws a TAKE in the selected-action bar; the Program strip
+    // already owns the dock's single Take, so none is built here.
+    expect(queueTab).toContain('onPreviewSelected');
+    expect(queueTab).toContain('onEditSelected');
+    expect(stripComments(queueTab)).not.toMatch(/['"`>]Take\b/i);
+  });
+
+  it('reorders with explicit ±1 moves, never a drag handle', () => {
+    expect(queueTab).toContain('moveItemUp');
+    expect(queueTab).toContain('moveItemDown');
+    expect(queueTab).not.toContain('draggable');
+    expect(queueTab).not.toContain('dragHandle');
+  });
+
+  it('searches through the shared filter (behaviour in dockQueueEdit.test.ts)', () => {
+    expect(queueTab).toContain('filterRundownItems(items, query)');
+  });
+
+  it('surfaces the item-cap refusal instead of swallowing it', () => {
+    // addItem returns undefined at MAX_ITEMS_PER_RUNDOWN; every add path
+    // routes its result through the guard, which says so out loud.
+    expect(queueTab).toContain('MAX_ITEMS_PER_RUNDOWN');
+    expect(queueTab).toContain('Rundown is full');
+    expect(stripComments(queueTab)).toMatch(/if \(!added\) flash\(/);
+  });
+
+  it('surfaces the rundown-cap refusal from the picker too', () => {
+    expect(queueTab).toContain('MAX_RUNDOWNS');
+    expect(stripComments(queueTab)).toMatch(/if \(!created\) \{/);
+  });
+});
+
+describe('the Quick Edit tab (stage 2)', () => {
+  const editCode = stripComments(files.editTab);
+
+  it('edits through useEditTarget only — the path that never touches Program', () => {
+    expect(files.editTab).toContain('useEditTarget');
+    expect(editCode).not.toContain('markProgram');
+    expect(editCode).not.toContain('publishCommand');
+    expect(editCode).not.toContain('SHOW_GRAPHIC');
+  });
+
+  it('builds no second Take and no fake buffered-save model', () => {
+    // The mockup's action row (Discard / Save to queue item / Save & Take) is
+    // omitted: writes persist as you type, so a Save/Discard would simulate a
+    // buffer that does not exist, and Save & Take would be a second Take.
+    expect(editCode).not.toContain('Save & Take');
+    expect(editCode).not.toContain('Save to queue item');
+    expect(editCode).not.toContain('Discard');
+    // The real model is stated instead.
+    expect(files.editTab).toContain('Changes save to this queue item as you type');
+  });
+
+  it('refuses to edit the hidden draft while a rundown is active with no selection', () => {
+    expect(editCode).toMatch(/rd\.activeRundown && !target\.isRundownItem/);
+    expect(files.editTab).toContain('No queue item selected');
+  });
+
+  it('ships the two brand swatches, not the mockup’s three', () => {
+    // colorText is Design's (see useBrandReset) — a third chip would either
+    // write a field Brand doesn't own or be decorative.
+    expect(editCode.match(/<Swatch/g)).toHaveLength(2);
+    expect(editCode).toContain('BRAND_SWATCHES.main');
+    expect(editCode).toContain('BRAND_SWATCHES.accent');
+    expect(editCode).not.toContain('colorText');
+  });
+
+  it('labels the reset for what it does — the pack-seed brand reset, not Design’s', () => {
+    expect(files.editTab).toContain('useBrandReset');
+    expect(files.editTab).toContain('Reset to pack colours');
+    expect(editCode).not.toContain('Reset palette');
+  });
+
+  it('reuses the shared preview-only notice verbatim', () => {
+    expect(files.editTab).toContain('<DraftPreviewNote />');
+    expect(read('src/components/control/DraftPreviewNote.tsx')).toContain(
+      'Editing updates preview only — changes go live when you press Take.'
+    );
+  });
+
+  it('keeps the studio link on the same origin with the query preserved', () => {
+    // A configured relay lives in the query; dropping it would hand the
+    // operator a studio that publishes nowhere.
+    expect(editCode).toContain('`/control/studio${location.search}`');
   });
 });
 
