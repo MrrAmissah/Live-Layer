@@ -37,6 +37,10 @@ import { parseScriptureReference, type CanonicalReference } from './parseReferen
  *   always means 119; for "John one nineteen" they almost always mean 1:19. Getting
  *   this right means offering both, ranked, rather than switching the guess.
  * - **Stutters are not repaired.** "John John three three sixteen" reads as 3:3-16.
+ * - **A disfluency inside a reference truncates it.** "John three um sixteen" reads
+ *   as John 3, because the locator stops at the first ordinary word once the
+ *   reference has begun. It fails safe — coarse, not wrong — and there is no
+ *   recogniser in this PR to emit one.
  */
 
 /** Ordinals that name a numbered book. */
@@ -181,10 +185,17 @@ export interface SpokenCandidate {
   score: number;
 }
 
-/** One reference heard in the transcript, with its own ranked readings. */
+/**
+ * One reference heard in the transcript, with its own ranked readings.
+ *
+ * Deliberately just the candidates. This carried a `heard` string — the transcript
+ * words the reference came from — documented as being "for the operator to check",
+ * and nothing consumed it. That is the same shape as the `explicit` scoring term
+ * removed in this PR: a field whose comment claims a purpose no consumer serves.
+ * When a group is actually rendered as its own block, the words it came from can be
+ * added back with the code that displays them.
+ */
 export interface SpokenReferenceGroup {
-  /** The transcript words this reference came from, for the operator to check. */
-  heard: string;
   candidates: SpokenCandidate[];
 }
 
@@ -861,9 +872,7 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
     });
     if (!fresh.length) continue;
 
-    // Everything attributed to this reference, including any modifier spoken
-    // before its book — that is what "heard" has to mean for it to be checkable.
-    groups.push({ heard: tokens.slice(spanStart, until).join(' '), candidates: fresh });
+    groups.push({ candidates: fresh });
   }
 
   if (!groups.length) {
