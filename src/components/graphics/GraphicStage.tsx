@@ -2,7 +2,15 @@ import type { ReactNode } from 'react';
 import type { TemplateTheme } from '../../types/graphics';
 import { useStageScale } from './useStageScale';
 import { themeToVars } from './themeVars';
-import { STAGE_WIDTH, STAGE_HEIGHT, SAFE_ACTION, SAFE_TITLE, LOWER_THIRD_ZONE } from './stage';
+import {
+  STAGE_WIDTH,
+  STAGE_HEIGHT,
+  SAFE_ACTION,
+  SAFE_TITLE,
+  LOWER_THIRD_ZONE,
+  LOWER_THIRD_FOCUS,
+  LOWER_THIRD_CROP
+} from './stage';
 
 /**
  * Backdrop the stage paints behind the graphic.
@@ -17,8 +25,13 @@ interface GraphicStageProps {
   theme?: Partial<TemplateTheme>;
   /** 'transparent' for /output (OBS); other modes paint a preview backdrop. */
   backdrop?: StageBackdrop;
-  /** Preview-only focus crop. /output leaves this unset to preserve full-frame rendering. */
-  focus?: 'full' | 'lower-third';
+  /**
+   * Preview-only focus crop. /output leaves this unset to preserve full-frame
+   * rendering. `lower-third` is the monitor's 16:9 zoom+pan; `lower-third-bare`
+   * shows the SAME visible rect (LOWER_THIRD_CROP) fitted edge-to-edge into a
+   * box of the crop's own aspect — for frameless previews with no dead space.
+   */
+  focus?: 'full' | 'lower-third' | 'lower-third-bare';
   /** Draw action-safe / title-safe / lower-third guide rectangles (debug + preview). */
   showSafeAreas?: boolean;
   children?: ReactNode;
@@ -57,10 +70,23 @@ function SafeAreaGuides() {
  * (simulated backdrop), so composition is pixel-true in both.
  */
 export default function GraphicStage({ theme, backdrop = 'transparent', focus = 'full', showSafeAreas = false, children }: GraphicStageProps) {
-  const { viewportRef, scale, offsetX, offsetY } = useStageScale<HTMLDivElement>();
-  const zoom = focus === 'lower-third' ? 1.38 : 1;
-  const translateX = focus === 'lower-third' ? offsetX - 40 * scale : offsetX;
-  const translateY = focus === 'lower-third' ? offsetY - 520 * scale : offsetY;
+  const { viewportRef, scale, offsetX, offsetY, width, height } = useStageScale<HTMLDivElement>();
+  let transform: string;
+  if (focus === 'lower-third-bare') {
+    // Fit LOWER_THIRD_CROP (the exact rect the monitor's zoom+pan shows) into
+    // the viewport, centred. When the box's aspect-ratio matches the crop's —
+    // TemplatePreview's bare frame sets exactly that — the crop fills it
+    // edge-to-edge: no bezel band above, no dead sub-stage band below.
+    const fit = Math.min(width / LOWER_THIRD_CROP.width, height / LOWER_THIRD_CROP.height) || 0;
+    const translateX = (width - LOWER_THIRD_CROP.width * fit) / 2 - LOWER_THIRD_CROP.x * fit;
+    const translateY = (height - LOWER_THIRD_CROP.height * fit) / 2 - LOWER_THIRD_CROP.y * fit;
+    transform = `translate(${translateX}px, ${translateY}px) scale(${fit})`;
+  } else {
+    const zoom = focus === 'lower-third' ? LOWER_THIRD_FOCUS.zoom : 1;
+    const translateX = focus === 'lower-third' ? offsetX - LOWER_THIRD_FOCUS.panX * scale : offsetX;
+    const translateY = focus === 'lower-third' ? offsetY - LOWER_THIRD_FOCUS.panY * scale : offsetY;
+    transform = `translate(${translateX}px, ${translateY}px) scale(${scale * zoom})`;
+  }
 
   return (
     <div ref={viewportRef} className={`gfx-viewport gfx-viewport--${focus}`}>
@@ -70,7 +96,7 @@ export default function GraphicStage({ theme, backdrop = 'transparent', focus = 
         style={{
           width: STAGE_WIDTH,
           height: STAGE_HEIGHT,
-          transform: `translate(${translateX}px, ${translateY}px) scale(${scale * zoom})`,
+          transform,
           ...themeToVars(theme)
         }}
       >

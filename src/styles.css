@@ -325,6 +325,21 @@ body {
   gap: 8px;
 }
 
+/* Bare preview frame (TemplatePreview frame="bare" — the dock's DRAFT /
+   SELECTED ITEM / EDITING cards): the graphic on a plain dark field, in a box
+   whose aspect-ratio is set inline from the stage constants (LOWER_THIRD_CROP
+   for lower thirds, 16:9 for full-frame graphics) so the frame fits the
+   design instead of reserving an empty monitor. Deliberately NO bezel, NO
+   tally, NO spec plate, and NO accent tint — the monitor chrome and its
+   ::before glow stay studio-only. */
+.tpl-bare {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #0a0c11;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
 /* ==========================================================================
    BROADCAST OUTPUT — gfx layer
    Fixed 1920x1080 stage. All gfx-* tokens are scoped to .gfx-stage so the

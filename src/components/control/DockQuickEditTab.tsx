@@ -94,6 +94,7 @@ export default function DockQuickEditTab({ onOpenQueue }: DockQuickEditTabProps)
           ) : null}
         </div>
         <EditTargetBanner />
+        {/* Bare frame — the graphic itself, not the studio monitor chrome. */}
         <div className="dock-next__monitor">
           <TemplatePreview
             templateId={target.templateId}
@@ -101,6 +102,7 @@ export default function DockQuickEditTab({ onOpenQueue }: DockQuickEditTabProps)
             theme={target.theme}
             layout={target.layout}
             showControls={false}
+            frame="bare"
           />
         </div>
         <div className="dock-e__note">

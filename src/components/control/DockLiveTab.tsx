@@ -31,6 +31,8 @@ export default function DockLiveTab() {
             {rundownActive ? headLabel : templateLabel(preview.templateId)}
           </span>
         </div>
+        {/* Bare frame: just the graphic, shaped to its own crop — the studio's
+            reference-monitor chrome wasted half this card at dock widths. */}
         <div className="dock-next__monitor">
           <TemplatePreview
             templateId={preview.templateId}
@@ -38,6 +40,7 @@ export default function DockLiveTab() {
             theme={preview.theme}
             layout={preview.layout}
             showControls={false}
+            frame="bare"
           />
         </div>
         {rundownActive ? null : <DurationControl />}

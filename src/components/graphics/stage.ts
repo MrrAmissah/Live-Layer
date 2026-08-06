@@ -35,6 +35,33 @@ export const SAFE_TITLE = { x: 160, top: 96, bottom: 120 } as const;
 export const LOWER_THIRD_ZONE = { x: SAFE_TITLE.x, top: 720, bottom: SAFE_TITLE.bottom } as const;
 
 /**
+ * Preview-only lower-third focus (GraphicStage `focus="lower-third"`): the
+ * preview zooms the stage and pans it left/up so the LOWER_THIRD_ZONE band
+ * fills a 16:9 monitor screen. /output never applies this — it is a judging
+ * aid, not part of the broadcast composition.
+ */
+export const LOWER_THIRD_FOCUS = { zoom: 1.38, panX: 40, panY: 520 } as const;
+
+/**
+ * The stage rect (1080p px) the lower-third focus actually shows — derived
+ * from the zoom/pan above, never restated as literals, so the two cannot
+ * drift apart. Under the focus transform a 16:9 screen's origin lands on
+ * stage point (panX/zoom, panY/zoom) and spans STAGE_WIDTH/zoom across;
+ * vertically the pan runs past the stage bottom (the stage overflow-hides
+ * below 1080), so the visible height clips at STAGE_HEIGHT. Bare previews
+ * (GraphicStage `focus="lower-third-bare"`) size their box to exactly this
+ * rect — width/height ≈ 1.98:1 — instead of reserving an empty 16:9 frame.
+ * The rect contains the whole LOWER_THIRD_ZONE band plus its decorative
+ * allowance down to the frame edge (asserted in templatePreviewBare.test.ts).
+ */
+export const LOWER_THIRD_CROP = {
+  x: LOWER_THIRD_FOCUS.panX / LOWER_THIRD_FOCUS.zoom,
+  y: LOWER_THIRD_FOCUS.panY / LOWER_THIRD_FOCUS.zoom,
+  width: STAGE_WIDTH / LOWER_THIRD_FOCUS.zoom,
+  height: STAGE_HEIGHT - LOWER_THIRD_FOCUS.panY / LOWER_THIRD_FOCUS.zoom
+} as const;
+
+/**
  * Outro duration for graphics leaving the stage, in ms.
  * The CSS exit transition under `.gfx-layer[data-state='out']` uses the same
  * value (300ms); OutputPage unmounts after GFX_OUT_MS + a small buffer.

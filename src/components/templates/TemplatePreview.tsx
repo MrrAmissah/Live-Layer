@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { templateRegistry, templateRendererMap } from './registry';
 import GraphicStage, { type StageBackdrop } from '../graphics/GraphicStage';
-import { resolveAnimationVariant } from '../graphics/stage';
+import { resolveAnimationVariant, LOWER_THIRD_CROP, STAGE_WIDTH, STAGE_HEIGHT } from '../graphics/stage';
 import { TemplateDefinition } from '../../types/graphics';
 import { useDynamicValues } from '../../hooks/useDynamicValues';
 import type { LayoutSettings } from '../../types/layout';
@@ -20,9 +20,19 @@ interface Props {
   /**
    * Optional note rendered in the integrated bottom strip, left of the format
    * spec (e.g. the "editing updates preview only" reassurance). Presentation
-   * only — never affects the GraphicStage render.
+   * only — never affects the GraphicStage render. Ignored by the bare frame,
+   * which renders no strip.
    */
   footer?: React.ReactNode;
+  /**
+   * `monitor` (default) wraps the stage in the studio's reference-monitor
+   * chrome — tally rail, 16:9 screen, spec plate. `bare` renders ONLY the
+   * graphic on a plain dark field, in a box shaped to the focus crop itself —
+   * the dock's cards use it so the design, not the monitor furniture, fills
+   * the narrow width. Both frames render the same GraphicStage, so the
+   * composition stays pixel-true to /output either way.
+   */
+  frame?: 'monitor' | 'bare';
 }
 
 const BACKDROPS: { id: Exclude<StageBackdrop, 'transparent'>; label: string }[] = [
@@ -49,12 +59,32 @@ function UnsupportedTemplateMessage({ templateId }: { templateId: string }) {
 }
 
 /**
+ * Frameless preview: the graphic and nothing else. Lower thirds get a box of
+ * LOWER_THIRD_CROP's own aspect (≈1.98:1 — derived in stage.ts from the focus
+ * zoom/pan, never hand-picked here) so the band fills the card; full-frame
+ * graphics (cards, banners, fullscreen) keep the stage's 16:9 because they
+ * genuinely use the frame. The backdrop is the plain dark field only — no
+ * bezel, no tally, no spec plate, no tint.
+ */
+function BarePreview({ focus, children }: { focus: 'full' | 'lower-third-bare'; children: React.ReactNode }) {
+  const aspect =
+    focus === 'lower-third-bare'
+      ? `${LOWER_THIRD_CROP.width} / ${LOWER_THIRD_CROP.height}`
+      : `${STAGE_WIDTH} / ${STAGE_HEIGHT}`;
+  return (
+    <div className="tpl-bare" style={{ aspectRatio: aspect }}>
+      {children}
+    </div>
+  );
+}
+
+/**
  * Production preview monitor. Renders through the same 1920x1080 GraphicStage
  * + renderer + theme used by /output. Lower-thirds use a preview-only focus crop
  * so operators can inspect the graphic without changing the full-frame output.
  * Backgrounds and safe-area guides are also preview-only judging aids.
  */
-export default function TemplatePreview({ templateId, values, theme, layout, showControls = true, footer }: Props) {
+export default function TemplatePreview({ templateId, values, theme, layout, showControls = true, footer, frame = 'monitor' }: Props) {
   const [backdrop, setBackdrop] = useState<Exclude<StageBackdrop, 'transparent'>>('neutral');
   const [showGuides, setShowGuides] = useState(false);
   const resolvedValues = useDynamicValues(values);
@@ -63,7 +93,38 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
   const Renderer = templateRendererMap[templateId];
   const mergedTheme = { ...(template?.theme ?? UNSUPPORTED_THEME), ...theme };
   const anim = resolveAnimationVariant(template?.animation);
-  const previewFocus = template?.category === 'Lower Third' ? 'lower-third' : 'full';
+  const isLowerThird = template?.category === 'Lower Third';
+
+  const stageLayer =
+    template && Renderer ? (
+      <div
+        key={templateId}
+        className="gfx-layer"
+        data-anim={anim}
+        data-state="in"
+        data-size={layout?.size}
+        data-position={layout?.position}
+        data-density={layout?.density}
+        data-safe-margin={layout?.safeMargin}
+      >
+        <Renderer values={resolvedValues} theme={mergedTheme} />
+      </div>
+    ) : (
+      <UnsupportedTemplateMessage templateId={templateId} />
+    );
+
+  if (frame === 'bare') {
+    const bareFocus = isLowerThird ? 'lower-third-bare' : 'full';
+    return (
+      <BarePreview focus={bareFocus}>
+        <GraphicStage theme={mergedTheme} backdrop="dark" focus={bareFocus}>
+          {stageLayer}
+        </GraphicStage>
+      </BarePreview>
+    );
+  }
+
+  const previewFocus = isLowerThird ? 'lower-third' : 'full';
 
   return (
     <div className="template-preview-shell animate-broadcast-enter">
@@ -100,22 +161,7 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
         </div>
         <div className="monitor-screen">
           <GraphicStage theme={mergedTheme} backdrop={backdrop} focus={previewFocus} showSafeAreas={showGuides}>
-            {template && Renderer ? (
-              <div
-                key={templateId}
-                className="gfx-layer"
-                data-anim={anim}
-                data-state="in"
-                data-size={layout?.size}
-                data-position={layout?.position}
-                data-density={layout?.density}
-                data-safe-margin={layout?.safeMargin}
-              >
-                <Renderer values={resolvedValues} theme={mergedTheme} />
-              </div>
-            ) : (
-              <UnsupportedTemplateMessage templateId={templateId} />
-            )}
+            {stageLayer}
           </GraphicStage>
         </div>
         <div className="monitor-bezel monitor-bezel--bottom">
