@@ -54,23 +54,53 @@ export function subscribeObsSourceState(
   // Without the binding there will never be an event to hear; stay UNKNOWN.
   if (!host || !host.obsstudio) return () => undefined;
 
-  const onActive = (event: Event) => {
-    const active = eventFlag(event, 'active');
-    if (active === null) return;
+  /**
+   * Emit only when a reading actually changes. Both the CustomEvent listeners
+   * and the legacy callbacks below can report the same transition, and the real
+   * OBS build — not the spec — is the compatibility target, so the two paths are
+   * allowed to overlap and this is what makes that safe.
+   */
+  const publish = () => onChange({ ...state });
+  const setActive = (active: boolean | null) => {
+    if (active === null || state.sourceActive === active) return;
     state.sourceActive = active;
-    onChange({ ...state });
+    publish();
   };
-  const onVisible = (event: Event) => {
-    const visible = eventFlag(event, 'visible');
-    if (visible === null) return;
+  const setVisible = (visible: boolean | null) => {
+    if (visible === null || state.sourceVisible === visible) return;
     state.sourceVisible = visible;
-    onChange({ ...state });
+    publish();
   };
+
+  const onActive = (event: Event) => setActive(eventFlag(event, 'active'));
+  const onVisible = (event: Event) => setVisible(eventFlag(event, 'visible'));
 
   host.addEventListener('obsSourceActiveChanged', onActive);
   host.addEventListener('obsSourceVisibleChanged', onVisible);
+
+  /**
+   * Legacy callbacks, installed defensively and only where nothing is already
+   * assigned — older obs-browser builds delivered these instead of the events.
+   * Assigning over an existing handler would break whoever owns it, so we do
+   * not; and because both paths funnel through the de-duplicating setters, a
+   * build that fires BOTH reports the transition once.
+   */
+  const binding = host.obsstudio as Record<string, unknown>;
+  const installedLegacy: string[] = [];
+  const legacy: [string, (flag: boolean | null) => void][] = [
+    ['onActiveChange', setActive],
+    ['onVisibilityChange', setVisible]
+  ];
+  for (const [key, apply] of legacy) {
+    if (binding[key] !== undefined) continue;
+    binding[key] = (flag: unknown) => apply(typeof flag === 'boolean' ? flag : null);
+    installedLegacy.push(key);
+  }
+
   return () => {
     host.removeEventListener('obsSourceActiveChanged', onActive);
     host.removeEventListener('obsSourceVisibleChanged', onVisible);
+    // Only remove what we installed; never clear a handler we did not set.
+    for (const key of installedLegacy) delete binding[key];
   };
 }

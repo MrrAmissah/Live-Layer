@@ -96,3 +96,69 @@ describe('with the binding', () => {
     expect(count()).toBe(0);
   });
 });
+
+describe('the legacy callback fallback', () => {
+  const hostWith = (binding: Record<string, unknown>) => {
+    const listeners = new Map<string, EventListener>();
+    return {
+      host: {
+        obsstudio: binding,
+        addEventListener: (t: string, l: EventListener) => listeners.set(t, l),
+        removeEventListener: (t: string) => listeners.delete(t)
+      } as never,
+      fire: (type: string, detail: unknown) =>
+        listeners.get(type)?.(Object.assign(new Event(type), { detail }) as Event)
+    };
+  };
+
+  it('reports a transition once when a build fires BOTH paths', () => {
+    /**
+     * Older obs-browser delivered callbacks; current builds dispatch events; the
+     * real OBS binary is the compatibility target, so both are wired. That is
+     * only safe because the setters de-duplicate — otherwise every eye toggle
+     * would publish twice and each publish is a relay POST.
+     */
+    const binding: Record<string, unknown> = {};
+    const { host, fire } = hostWith(binding);
+    const seen: unknown[] = [];
+    const stop = subscribeObsSourceState((s) => seen.push(s), host);
+    seen.length = 0; // drop the initial unknown emit
+
+    fire('obsSourceVisibleChanged', { visible: false });
+    (binding.onVisibilityChange as (f: boolean) => void)(false);
+
+    expect(seen).toEqual([{ sourceActive: null, sourceVisible: false }]);
+    stop();
+  });
+
+  it('never overwrites a handler someone else installed', () => {
+    const existing = () => undefined;
+    const binding: Record<string, unknown> = { onVisibilityChange: existing };
+    const { host } = hostWith(binding);
+    const stop = subscribeObsSourceState(() => undefined, host);
+    expect(binding.onVisibilityChange).toBe(existing);
+    stop();
+    // And cleanup leaves the foreign handler intact rather than deleting it.
+    expect(binding.onVisibilityChange).toBe(existing);
+  });
+
+  it('removes only the handlers it installed', () => {
+    const binding: Record<string, unknown> = {};
+    const { host } = hostWith(binding);
+    const stop = subscribeObsSourceState(() => undefined, host);
+    expect(typeof binding.onActiveChange).toBe('function');
+    stop();
+    expect('onActiveChange' in binding).toBe(false);
+  });
+
+  it('ignores a non-boolean from a legacy callback', () => {
+    const binding: Record<string, unknown> = {};
+    const { host } = hostWith(binding);
+    const seen: unknown[] = [];
+    const stop = subscribeObsSourceState((s) => seen.push(s), host);
+    seen.length = 0;
+    (binding.onActiveChange as (f: unknown) => void)('true');
+    expect(seen).toEqual([]);
+    stop();
+  });
+});

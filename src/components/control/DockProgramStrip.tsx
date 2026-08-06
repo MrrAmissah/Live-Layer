@@ -45,8 +45,8 @@ interface DockProgramStripProps {
  */
 export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction }: DockProgramStripProps) {
   const program = useLiveLayerStore((state) => state.program);
+  const output = useLiveLayerStore((state) => state.outputStatus);
   const compact = useDockPrefs((state) => state.compactProgramStrip);
-  const words = describeProgramStatus(program);
 
   // Same clock policy as the studio's OutputCard: tick while a readout is
   // moving, and drop the cleared counter to a one-minute cadence once it only
@@ -55,6 +55,12 @@ export default function DockProgramStrip({ onTake, onClear, sending = false, las
   // visible copy changes with time wake anything up. `recovering` and `failed`
   // render static text, so they get no interval at all.
   const now = useTicks(programClockMs(program, Date.now()));
+  // Both this strip and the studio's rail read the same function with the same
+  // arguments; neither may reach its own conclusion about a source reading. The
+  // tick is also what lets a confirmed claim DECAY — staleness is derived from
+  // `now`, so a surface that never ticked would leave OUTPUT ACTIVE latched
+  // after OBS closed.
+  const words = describeProgramStatus(program, output, now);
 
   const snapshotMeta = program.snapshot ? describeGraphic(program.snapshot) : null;
   // Clock on the chip only while SHOWING — same rule as the studio's OutputCard.

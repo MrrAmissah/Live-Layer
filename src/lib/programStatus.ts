@@ -13,6 +13,12 @@ import { outputPresence } from './outputPresence';
  *                       whether an OBS source is compositing that page.
  *  - OUTPUT ACTIVE    — additionally, the page's host binding reported the
  *                       source active, and that reading is fresh.
+ *  - SOURCE HIDDEN    — the page applied it and the source may even be active,
+ *                       but the host says it is hidden (the OBS eye is off), so
+ *                       nothing of it is reaching the scene. Checked BEFORE
+ *                       active, because a hidden source can still report
+ *                       `sourceActive: true` and calling that ACTIVE was the
+ *                       defect a real OBS test found.
  *  - SOURCE INACTIVE  — the page applied it, but the host says the source is
  *                       not active (hidden scene, disabled source).
  *  - UNVERIFIED       — we knew something once and can't verify it now
@@ -34,6 +40,7 @@ export interface ProgramStatusWords {
     | 'SENT'
     | 'OUTPUT READY'
     | 'OUTPUT ACTIVE'
+    | 'SOURCE HIDDEN'
     | 'SOURCE INACTIVE'
     | 'UNVERIFIED'
     | 'FAILED'
@@ -43,6 +50,7 @@ export interface ProgramStatusWords {
     | 'Awaiting output'
     | 'Output page applied the graphic'
     | 'OBS source active'
+    | 'OBS source hidden'
     | 'OBS source not active'
     | 'Output status is stale'
     | 'Output couldn’t render it'
@@ -72,11 +80,23 @@ export function describeProgramStatus(
       if (outputPresence(output, now) !== 'fresh') {
         return { pill: 'UNVERIFIED', phrase: 'Output status is stale' };
       }
-      if (output?.sourceActive === true) {
-        return { pill: 'OUTPUT ACTIVE', phrase: 'OBS source active' };
+      /**
+       * Visibility outranks activity. OBS reports these independently, and
+       * toggling the eye leaves `sourceActive: true` while `sourceVisible` goes
+       * false — so reading only `sourceActive` kept claiming OUTPUT ACTIVE for a
+       * source contributing nothing to the scene. A hidden source is named
+       * hidden rather than folded into "inactive", because those are different
+       * things for an operator to fix.
+       */
+      if (output?.sourceVisible === false) {
+        return { pill: 'SOURCE HIDDEN', phrase: 'OBS source hidden' };
       }
       if (output?.sourceActive === false) {
         return { pill: 'SOURCE INACTIVE', phrase: 'OBS source not active' };
+      }
+      if (output?.sourceActive === true) {
+        // Active, and visibility is either true or simply not reported.
+        return { pill: 'OUTPUT ACTIVE', phrase: 'OBS source active' };
       }
       // No host binding (plain browser tab): the page applied it; active
       // state is unknown and stays unclaimed.
