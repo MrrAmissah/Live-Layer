@@ -146,7 +146,7 @@ npm run start                  # http://127.0.0.1:4173 — same origin as npm ru
 ```
 
 **On the service machine** — copy over just `dist/` and `scripts/` (keeping them
-side by side) and run, with **only Node 18 or newer installed**, no `npm install`:
+side by side) and run, with **only Node 22 or newer installed**, no `npm install`:
 
 ```bash
 node scripts/serve-dist.mjs                 # 127.0.0.1:4173
@@ -159,9 +159,15 @@ full dev dependency tree, `scripts/serve-dist.mjs` has no dependencies at all �
 so `dist/` plus `scripts/` is a complete, runnable LiveLayer on a borrowed
 laptop twenty minutes before a service.
 
-**Node 18 is the floor** (the same one Vite 5 requires, so any machine that can
-produce a `dist/` can serve one). The server checks at start-up and says so
-rather than failing somewhere less obvious.
+**Node 22 is the floor**, and a current LTS (22 or 24) is what to install: Node
+18 and 20 are end-of-life, and this server can be told to listen on every
+interface of a hall's network. The server checks at start-up and says so rather
+than failing somewhere less obvious.
+
+Nothing it serves is cached beyond the page it is on — a corrected logo or
+graphic is always one refresh away, never pinned. It also refuses to follow a
+symlink out of `dist/`, so a stray link cannot expose a file from elsewhere on
+the machine to the LAN.
 
 It prints the exact `/control`, `/output` and `/setup` URLs to paste into OBS,
 and refuses to start on a port browsers block (an OBS Browser Source is

@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, symlink } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -156,11 +156,26 @@ async function withServer(run, options) {
   const dir = await makeBundle(options);
   let server;
   try {
+    if (options?.prepare) await options.prepare(dir);
     server = await start(dir, options?.args);
     await run(server, dir);
   } finally {
     if (server) await server.stop();
     await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Symlink creation is unprivileged on macOS and Linux but not always on
+ * Windows. Skip loudly there rather than quietly weakening what is being tested.
+ */
+async function canSymlink(dir) {
+  try {
+    await symlink(join(dir, 'dist'), join(dir, 'symlink-probe'));
+    await rm(join(dir, 'symlink-probe'), { force: true });
+    return true;
+  } catch (error) {
+    return error.code ?? 'unsupported';
   }
 }
 
@@ -269,6 +284,63 @@ test('path traversal cannot read outside dist', async () => {
   });
 });
 
+test('a symlink out of dist cannot be followed', async (t) => {
+  const probe = await mkdtemp(join(tmpdir(), 'livelayer-symlink-'));
+  const supported = await canSymlink(probe).finally(() => rm(probe, { recursive: true, force: true }));
+  if (supported !== true) {
+    t.skip(`this platform refused to create a symlink (${supported}) — the server rule is unchanged`);
+    return;
+  }
+
+  await withServer(async ({ base }, dir) => {
+    // The path string stays inside dist/ in every case here; only the resolved
+    // filesystem target leaves it.
+    for (const path of ['/exposed.txt', '/escape/secret.txt', '/escape/nested/deeper.txt']) {
+      const response = await fetch(`${base}${path}`);
+      const body = await response.text();
+      assert.equal(response.status, 404, `${path} must not be served`);
+      assert.doesNotMatch(body, /lives outside dist/, `${path} leaked a file outside dist`);
+      assert.doesNotMatch(body, /deeper secret/, `${path} leaked a file outside dist`);
+    }
+
+    // The real file beside them still serves, so this is containment, not a
+    // blanket refusal.
+    const ordinary = await fetch(`${base}/livelayer-mark.svg`);
+    assert.equal(ordinary.status, 200);
+    assert.equal(await ordinary.text(), MARK_SVG);
+  }, {
+    prepare: async (dir) => {
+      // A direct file symlink…
+      await symlink(join(dir, 'secret.txt'), join(dir, 'dist', 'exposed.txt'));
+      // …and a directory symlink, where the escape is a path component rather
+      // than the file itself.
+      await mkdir(join(dir, 'outside', 'nested'), { recursive: true });
+      await writeFile(join(dir, 'outside', 'secret.txt'), SECRET);
+      await writeFile(join(dir, 'outside', 'nested', 'deeper.txt'), 'deeper secret');
+      await symlink(join(dir, 'outside'), join(dir, 'dist', 'escape'));
+    }
+  });
+});
+
+test('a port already in use is refused with a clear message', async () => {
+  const port = await freePort();
+  const blocker = createServer();
+  await new Promise((resolve, reject) => {
+    blocker.on('error', reject);
+    blocker.listen(port, '127.0.0.1', resolve);
+  });
+  try {
+    await withBundle(async (dir) => {
+      const { code, stderr } = await startExpectingExit(dir, ['--port', String(port)]);
+      assert.equal(code, 1);
+      assert.match(stderr, /already in use/i);
+      assert.match(stderr, /--port \d+/, 'the error should name a port to try instead');
+    });
+  } finally {
+    await new Promise((resolve) => blocker.close(resolve));
+  }
+});
+
 test('only GET and HEAD are allowed', async () => {
   await withServer(async ({ base }) => {
     for (const method of ['POST', 'PUT', 'DELETE']) {
@@ -290,26 +362,22 @@ test('HEAD returns the headers with no body', async () => {
 
 // --- caching ----------------------------------------------------------------
 
-test('only content-hashed build output is cached immutably', async () => {
+test('nothing is cached beyond the page it is on', async () => {
   await withServer(async ({ base }) => {
-    const hashed = await fetch(`${base}/assets/index-B8pWpWbR.js`);
-    assert.equal(hashed.status, 200);
-    assert.equal(hashed.headers.get('cache-control'), 'public, max-age=31536000, immutable');
-
-    // Same directory, stable name: caching this for a year would strand a fix.
-    const stable = await fetch(`${base}/assets/brand-companylogo.png`);
-    assert.equal(stable.status, 200);
-    assert.equal(stable.headers.get('cache-control'), 'no-cache');
-
-    const fromPublic = await fetch(`${base}/livelayer-mark.svg`);
-    assert.equal(fromPublic.headers.get('cache-control'), 'no-cache');
+    // No file may be pinned, whatever its name or directory: the server cannot
+    // know which names are content-addressed, and a wrong guess strands a fix
+    // an operator just made.
+    for (const path of ['/assets/index-B8pWpWbR.js', '/assets/brand-companylogo.png', '/livelayer-mark.svg']) {
+      const response = await fetch(`${base}${path}`);
+      assert.equal(response.status, 200, `${path} should serve`);
+      assert.equal(response.headers.get('cache-control'), 'no-cache', `${path} must not be pinned`);
+    }
 
     const shell = await fetch(`${base}/control`);
     assert.equal(shell.headers.get('cache-control'), 'no-store');
 
     // A real HTML file takes a different code path from the client-route
-    // fallback above, and must not be pinned either — an operator refreshing
-    // to pick up a fix has to get the new one.
+    // fallback above, and must not be pinned either.
     const harness = await fetch(`${base}/seed-test.html`);
     assert.equal(harness.headers.get('cache-control'), 'no-store');
   });

@@ -28,19 +28,20 @@
  *  3. **Nothing a request can do may stop the server.** It is running during a
  *     service. A malformed URL from a LAN scanner must return 400, not take the
  *     graphics down between songs.
- *  4. **Only hashed names may be cached hard.** A year-long `immutable` on a
- *     stable filename strands the fix an operator just made.
+ *  4. **Nothing outlives the fix.** No file is cached beyond the page it is on,
+ *     so a corrected graphic is one refresh away, and a symlink inside `dist/`
+ *     cannot reach a file outside it.
  *
  * Usage:
  *   node scripts/serve-dist.mjs                 # 127.0.0.1:4173
  *   node scripts/serve-dist.mjs --host 0.0.0.0  # reachable from the LAN
  *   node scripts/serve-dist.mjs --port 5000
  *
- * Needs Node 18 or newer. Nothing else.
+ * Needs Node 22 or newer. Nothing else.
  */
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
-import { join, normalize, extname, basename, dirname, resolve, sep } from 'node:path';
+import { readFile, stat, realpath } from 'node:fs/promises';
+import { join, normalize, extname, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { networkInterfaces } from 'node:os';
 
@@ -48,15 +49,17 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(join(here, '..', 'dist'));
 
 /**
- * The floor is Node 18 — the same one Vite 5 requires, so nothing that can
- * produce a `dist/` is excluded by it. Saying it out loud beats letting an old
- * runtime fail somewhere less obvious on a machine nobody set up for this.
+ * The floor is Node 22, the oldest line still receiving security support in
+ * 2026 — 18 and 20 are both end-of-life. This process can be told to listen on
+ * every interface of a hall's network, which is not somewhere to run a runtime
+ * that stopped getting patches.
  */
-const MINIMUM_NODE_MAJOR = 18;
+const MINIMUM_NODE_MAJOR = 22;
 const nodeMajor = Number(process.versions.node.split('.')[0]);
 if (Number.isFinite(nodeMajor) && nodeMajor < MINIMUM_NODE_MAJOR) {
   console.error(`LiveLayer needs Node ${MINIMUM_NODE_MAJOR} or newer; this is Node ${process.versions.node}.`);
-  console.error('Install a current Node from https://nodejs.org and run this again.');
+  console.error('Node 18 and 20 are end-of-life. Install a current LTS from');
+  console.error('https://nodejs.org and run this again.');
   process.exit(1);
 }
 
@@ -110,11 +113,27 @@ const TYPES = {
   '.map': 'application/json; charset=utf-8'
 };
 
+/**
+ * The lexical check on the request path is not enough on its own: `stat` and
+ * `readFile` follow symbolic links, so a link inside `dist/` — a file, or a
+ * directory several levels up the requested path — names something outside it
+ * while the path string still looks contained. That matters here because
+ * `--host 0.0.0.0` deliberately puts this on a hall's network.
+ *
+ * So resolve the real filesystem path first, prove *that* is inside the real
+ * root, and read the resolved path rather than the requested one. `realpath`
+ * throws for anything that does not exist, which is the same `null` a missing
+ * file has always produced.
+ */
+const realRoot = await realpath(root).catch(() => root);
+
 async function readIfFile(path) {
   try {
-    const info = await stat(path);
+    const real = await realpath(path);
+    if (real !== realRoot && !real.startsWith(realRoot + sep)) return null;
+    const info = await stat(real);
     if (!info.isFile()) return null;
-    return await readFile(path);
+    return await readFile(real);
   } catch {
     return null;
   }
@@ -152,7 +171,7 @@ async function handle(req, res) {
   const body = rel === '/' || rel === '\\' ? null : await readIfFile(target);
 
   if (body) {
-    send(res, 200, TYPES[extension] ?? 'application/octet-stream', cacheFor(rel, extension), body);
+    send(res, 200, TYPES[extension] ?? 'application/octet-stream', cacheFor(extension), body);
     return;
   }
 
@@ -177,35 +196,16 @@ function send(res, status, type, cacheControl, body) {
 }
 
 /**
- * Only content-hashed build output may be cached for a year: its name changes
- * when its bytes change, so a stale copy is unreachable. Living under
- * `assets/` is not enough on its own — a stable-named file copied from
- * `public/assets/` would sit in the same directory, and an operator who fixes
- * a logo must not be served the old one until next year. So the filename has
- * to look like Rollup's `<name>-<hash><ext>` too, and anything this cannot
- * vouch for falls through to `no-cache`, which costs one local request.
+ * Nothing is cached for longer than the page it is on. A year-long `immutable`
+ * is only safe for a name that changes when its bytes do, and this process has
+ * no authoritative way to know which names those are — inferring it from the
+ * shape of a filename would eventually pin a hand-named graphic until 2027,
+ * which is the failure it was meant to prevent. Over a local network a
+ * re-fetch costs milliseconds; a stranded fix costs a service. If hard caching
+ * is ever worth it, a build manifest can say which files earned it.
  */
-function cacheFor(rel, extension) {
-  if (extension === '.html') return 'no-store';
-  const inAssets = rel.startsWith('/assets/') || rel.startsWith('\\assets\\');
-  return inAssets && isContentHashed(basename(rel))
-    ? 'public, max-age=31536000, immutable'
-    : 'no-cache';
-}
-
-/**
- * Rollup appends `-` and at least eight base64url characters (`index-B8pWpWbR.js`,
- * `inter-greek-wght-normal-CkhJZR-_.woff2`). A hand-written suffix reaches for
- * words instead, so requiring a digit or mixed case separates `-B8pWpWbR` from
- * `-companyname` without pretending to parse Vite's config.
- */
-function isContentHashed(fileName) {
-  const dot = fileName.lastIndexOf('.');
-  const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
-  if (stem.length < 9 || stem[stem.length - 9] !== '-') return false;
-  const hash = stem.slice(-8);
-  if (!/^[A-Za-z0-9_-]{8}$/.test(hash)) return false;
-  return /[0-9]/.test(hash) || (/[a-z]/.test(hash) && /[A-Z]/.test(hash));
+function cacheFor(extension) {
+  return extension === '.html' ? 'no-store' : 'no-cache';
 }
 
 const server = createServer((req, res) => {
