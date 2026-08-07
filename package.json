@@ -14,9 +14,13 @@
     "lan:relay": "node scripts/livelayer-lan-relay.mjs",
     "check:output-isolation": "node scripts/check-output-isolation.mjs",
     "smoke:routes": "node scripts/smoke-routes.mjs",
-    "verify": "npm run check:output-isolation && npm run test && npm run build",
+    "verify": "npm run check:output-isolation && npm run test && npm run test:server && npm run build",
     "test": "vitest run",
+    "test:server": "node --test scripts/serve-dist.test.mjs",
     "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.8",

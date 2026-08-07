@@ -7,7 +7,11 @@
  * service. This script has no dependencies at all, so a release archive of
  * `dist/` plus this file plus the relay script is a complete, runnable LiveLayer.
  *
- * Three details that a naive static server gets wrong and that break the app:
+ * Its behaviour is covered by `scripts/serve-dist.test.mjs` (`npm run test:server`),
+ * which spawns this file against a temporary `dist/` and asserts each point
+ * below. This file must never import that one.
+ *
+ * Four details that a naive static server gets wrong and that break the app:
  *
  *  1. **SPA fallback, but only for routes.** `/control/scripture`, `/output` and
  *     `/setup` are client routes with no file behind them, so they must return
@@ -24,20 +28,37 @@
  *  3. **Nothing a request can do may stop the server.** It is running during a
  *     service. A malformed URL from a LAN scanner must return 400, not take the
  *     graphics down between songs.
+ *  4. **Only hashed names may be cached hard.** A year-long `immutable` on a
+ *     stable filename strands the fix an operator just made.
  *
  * Usage:
  *   node scripts/serve-dist.mjs                 # 127.0.0.1:4173
  *   node scripts/serve-dist.mjs --host 0.0.0.0  # reachable from the LAN
  *   node scripts/serve-dist.mjs --port 5000
+ *
+ * Needs Node 18 or newer. Nothing else.
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { join, normalize, extname, dirname, resolve, sep } from 'node:path';
+import { join, normalize, extname, basename, dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { networkInterfaces } from 'node:os';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(join(here, '..', 'dist'));
+
+/**
+ * The floor is Node 18 — the same one Vite 5 requires, so nothing that can
+ * produce a `dist/` is excluded by it. Saying it out loud beats letting an old
+ * runtime fail somewhere less obvious on a machine nobody set up for this.
+ */
+const MINIMUM_NODE_MAJOR = 18;
+const nodeMajor = Number(process.versions.node.split('.')[0]);
+if (Number.isFinite(nodeMajor) && nodeMajor < MINIMUM_NODE_MAJOR) {
+  console.error(`LiveLayer needs Node ${MINIMUM_NODE_MAJOR} or newer; this is Node ${process.versions.node}.`);
+  console.error('Install a current Node from https://nodejs.org and run this again.');
+  process.exit(1);
+}
 
 const arg = (name, fallback) => {
   const at = process.argv.indexOf(`--${name}`);
@@ -115,7 +136,11 @@ async function handle(req, res) {
     return;
   }
 
-  // Normalise and refuse to escape the served directory.
+  // `url.pathname` is always absolute, and normalising an absolute path drops
+  // any `..` that would climb past its root — so this is what actually stops
+  // traversal. The containment check below is a backstop for a future change
+  // to how `rel` is derived; it is unreachable from request input today, which
+  // is why removing it does not change any test's outcome.
   const rel = normalize(pathname).replace(/^(\.\.[/\\])+/, '');
   const target = resolve(join(root, rel));
   if (target !== root && !target.startsWith(root + sep)) {
@@ -152,15 +177,35 @@ function send(res, status, type, cacheControl, body) {
 }
 
 /**
- * Only Vite's `assets/` output carries a content hash in the filename, so only
- * it may be cached hard. Files copied verbatim from `public/` keep their names,
- * and an operator who fixes a logo must not be served the old one for a year.
+ * Only content-hashed build output may be cached for a year: its name changes
+ * when its bytes change, so a stale copy is unreachable. Living under
+ * `assets/` is not enough on its own — a stable-named file copied from
+ * `public/assets/` would sit in the same directory, and an operator who fixes
+ * a logo must not be served the old one until next year. So the filename has
+ * to look like Rollup's `<name>-<hash><ext>` too, and anything this cannot
+ * vouch for falls through to `no-cache`, which costs one local request.
  */
 function cacheFor(rel, extension) {
   if (extension === '.html') return 'no-store';
-  return rel.startsWith('/assets/') || rel.startsWith('\\assets\\')
+  const inAssets = rel.startsWith('/assets/') || rel.startsWith('\\assets\\');
+  return inAssets && isContentHashed(basename(rel))
     ? 'public, max-age=31536000, immutable'
     : 'no-cache';
+}
+
+/**
+ * Rollup appends `-` and at least eight base64url characters (`index-B8pWpWbR.js`,
+ * `inter-greek-wght-normal-CkhJZR-_.woff2`). A hand-written suffix reaches for
+ * words instead, so requiring a digit or mixed case separates `-B8pWpWbR` from
+ * `-companyname` without pretending to parse Vite's config.
+ */
+function isContentHashed(fileName) {
+  const dot = fileName.lastIndexOf('.');
+  const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+  if (stem.length < 9 || stem[stem.length - 9] !== '-') return false;
+  const hash = stem.slice(-8);
+  if (!/^[A-Za-z0-9_-]{8}$/.test(hash)) return false;
+  return /[0-9]/.test(hash) || (/[a-z]/.test(hash) && /[A-Z]/.test(hash));
 }
 
 const server = createServer((req, res) => {
@@ -172,13 +217,9 @@ const server = createServer((req, res) => {
 });
 
 server.listen(port, host, () => {
-  const shown = host === '0.0.0.0' ? lanAddress() ?? '127.0.0.1' : host;
-  const base = `http://${shown}:${port}`;
-  console.log('LiveLayer is serving.\n');
-  console.log(`  Control (OBS Custom Browser Dock)  ${base}/control`);
-  console.log(`  Output  (OBS Browser Source)       ${base}/output`);
-  console.log(`  Setup / diagnostics                ${base}/setup\n`);
-  console.log('Both OBS entries must use this exact address and port — mixing');
+  if (host === '0.0.0.0') announceEveryAddress();
+  else announceOneAddress(host);
+  console.log('Both OBS entries must use the same address and port — mixing');
   console.log('localhost and 127.0.0.1 silently breaks Take.\n');
   if (host !== '0.0.0.0') console.log('For a second machine: --host 0.0.0.0, and run the relay too.');
   console.log('Stop with Ctrl+C.');
@@ -192,11 +233,45 @@ server.on('error', (error) => {
   throw error;
 });
 
-function lanAddress() {
-  for (const list of Object.values(networkInterfaces())) {
+function announceOneAddress(address) {
+  const base = `http://${address}:${port}`;
+  console.log('LiveLayer is serving.\n');
+  console.log(`  Control (OBS Custom Browser Dock)  ${base}/control`);
+  console.log(`  Output  (OBS Browser Source)       ${base}/output`);
+  console.log(`  Setup / diagnostics                ${base}/setup\n`);
+}
+
+/**
+ * A laptop in a hall usually has several IPv4 addresses — Wi-Fi, Ethernet, a
+ * VPN, a virtualisation adapter — and which one the controller tablet can
+ * reach is not something this process can know. Naming one would be a guess
+ * that reads as fact, so list them all and say plainly that only one will work.
+ */
+function announceEveryAddress() {
+  const found = lanAddresses();
+  console.log(`LiveLayer is serving on every interface, port ${port}.\n`);
+  console.log('Use ONE address below — the same one for the dock, the Browser');
+  console.log('Source and the relay — then add /control, /output or /setup:\n');
+  for (const { name, address } of found) {
+    console.log(`  ${name.padEnd(12)} http://${address}:${port}`);
+  }
+  console.log(`  ${'this machine'.padEnd(12)} http://127.0.0.1:${port}\n`);
+  if (found.length === 0) {
+    console.log('No LAN address was found, so only this machine can reach it.');
+    console.log('Check Wi-Fi or Ethernet if a second device is meant to connect.\n');
+  } else if (found.length > 1) {
+    console.log('Several are listed because this machine has several adapters.');
+    console.log('Only the one on the controller\'s network will work — if the');
+    console.log('first fails to load there, try the next.\n');
+  }
+}
+
+function lanAddresses() {
+  const found = [];
+  for (const [name, list] of Object.entries(networkInterfaces())) {
     for (const net of list ?? []) {
-      if (net.family === 'IPv4' && !net.internal) return net.address;
+      if (net.family === 'IPv4' && !net.internal) found.push({ name, address: net.address });
     }
   }
-  return null;
+  return found;
 }

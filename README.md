@@ -124,7 +124,10 @@ npm run dev        # Vite dev server on http://127.0.0.1:4173
 - Output: <http://127.0.0.1:4173/output>
 - Setup helper: <http://127.0.0.1:4173/setup>
 - Build: `npm run build` (runs `tsc` then `vite build`)
-- Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard, production build)
+- Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard,
+  unit tests, portable-server integration tests, production build)
+- Portable server only: `npm run test:server` (spawns the real server against a
+  temporary `dist/` fixture; uses Node's built-in test runner, no extra dependency)
 - Route smoke: with a server running, `npm run smoke:routes` (point it elsewhere with
   `LIVELAYER_SMOKE_URL=http://127.0.0.1:4188`)
 - LAN beta: `npm run dev:lan` plus `npm run lan:relay`, then open matching
@@ -143,7 +146,7 @@ npm run start                  # http://127.0.0.1:4173 — same origin as npm ru
 ```
 
 **On the service machine** — copy over just `dist/` and `scripts/` (keeping them
-side by side) and run, with **only Node installed**, no `npm install`:
+side by side) and run, with **only Node 18 or newer installed**, no `npm install`:
 
 ```bash
 node scripts/serve-dist.mjs                 # 127.0.0.1:4173
@@ -155,6 +158,10 @@ node scripts/serve-dist.mjs --host 0.0.0.0  # reachable from the LAN
 full dev dependency tree, `scripts/serve-dist.mjs` has no dependencies at all —
 so `dist/` plus `scripts/` is a complete, runnable LiveLayer on a borrowed
 laptop twenty minutes before a service.
+
+**Node 18 is the floor** (the same one Vite 5 requires, so any machine that can
+produce a `dist/` can serve one). The server checks at start-up and says so
+rather than failing somewhere less obvious.
 
 It prints the exact `/control`, `/output` and `/setup` URLs to paste into OBS,
 and refuses to start on a port browsers block (an OBS Browser Source is
@@ -174,8 +181,14 @@ node scripts/livelayer-lan-relay.mjs
 ```
 
 With the repo installed, those are `npm run start:lan` and `npm run lan:relay`.
-The server prints the LAN address to use; open `/setup` there to copy the
-matching `?relay=` control and output URLs.
+
+A laptop in a hall usually has several IPv4 addresses (Wi-Fi, Ethernet, VPN,
+virtualisation), and which one the controller device can reach is not something
+the server can know — so `--host 0.0.0.0` lists every candidate with its
+interface name instead of picking one and calling it the answer. Use **one** of
+them for the dock, the Browser Source and the relay; if the first does not load
+on the other device, try the next. Then open `/setup` on that address to copy
+the matching `?relay=` control and output URLs.
 
 ## OBS setup
 
