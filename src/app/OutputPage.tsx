@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createOutputChannel, loadLastRealtimeMessage } from '../lib/outputChannel';
 import { createOutputEvent, getOutputSessionId, sendOutputEvent } from '../lib/outputAck';
-import { subscribeObsSourceState } from '../lib/obsSource';
+import { subscribeObsSourceState, type ObsBridgeDiagnostics } from '../lib/obsSource';
 import { OUTPUT_HEARTBEAT_MS } from '../lib/outputPresence';
 import { templateRegistry, templateRendererMap } from '../components/templates/registry';
 import GraphicStage from '../components/graphics/GraphicStage';
@@ -17,6 +17,11 @@ const FALLBACK_THEME: TemplateTheme = {
 };
 const EMPTY_VALUES: Record<string, string> = {};
 
+/** `not seen` is a different answer from `false`, and the difference is the diagnosis. */
+function eventLabel(flag: boolean | null | undefined): string {
+  return flag === null || flag === undefined ? 'not seen' : String(flag);
+}
+
 export default function OutputPage() {
   const [activeGraphic, setActiveGraphic] = useState<GraphicInstance | null>(null);
   const [showing, setShowing] = useState(false);
@@ -24,6 +29,11 @@ export default function OutputPage() {
   const resolvedAssetUrls = useRef<string[]>([]);
   const showRequestId = useRef(0);
   const debugMode = useMemo(() => new URLSearchParams(window.location.search).get('debug') === '1', []);
+  // Display-only, and only under ?debug=1. Nothing here reaches Program truth,
+  // OUTPUT_STATUS, or the relay — it exists so one screenshot of the real
+  // Browser Source says which bridge is delivering, instead of another blind
+  // code-and-test cycle.
+  const [bridge, setBridge] = useState<ObsBridgeDiagnostics | null>(null);
 
   const revokeResolvedAssets = () => {
     resolvedAssetUrls.current.forEach((url) => URL.revokeObjectURL(url));
@@ -181,11 +191,17 @@ export default function OutputPage() {
       );
     // The subscription emits the initial (unknown) state synchronously, which
     // doubles as the "output page is here" first heartbeat.
-    const unsubscribe = subscribeObsSourceState((state) => {
-      source.sourceActive = state.sourceActive;
-      source.sourceVisible = state.sourceVisible;
-      sendStatus();
-    });
+    const unsubscribe = subscribeObsSourceState(
+      (state) => {
+        source.sourceActive = state.sourceActive;
+        source.sourceVisible = state.sourceVisible;
+        sendStatus();
+      },
+      undefined,
+      // `debugMode` is read once from the URL and never changes for this page,
+      // so this effect stays mount-once.
+      debugMode ? setBridge : undefined
+    );
     const timer = window.setInterval(sendStatus, OUTPUT_HEARTBEAT_MS);
     return () => {
       unsubscribe();
@@ -260,6 +276,11 @@ export default function OutputPage() {
           <div>Template: {activeGraphic?.templateId ?? 'none'}</div>
           <div>Duration: {activeGraphic?.durationSeconds ?? 0}s</div>
           <div>{showing ? 'Visible' : 'Hidden'}</div>
+          <div>OBS binding: {bridge?.binding ?? 'waiting'}</div>
+          <div>OBS plugin: {bridge?.pluginVersion ?? 'unknown'}</div>
+          <div>active event: {eventLabel(bridge?.activeEvent)}</div>
+          <div>visible event: {eventLabel(bridge?.visibleEvent)}</div>
+          <div>last event path: {bridge?.lastPath ?? 'none'}</div>
         </div>
       ) : null}
     </div>
