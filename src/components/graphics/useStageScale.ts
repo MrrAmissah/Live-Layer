@@ -5,6 +5,9 @@ interface StageScale {
   scale: number;
   offsetX: number;
   offsetY: number;
+  /** Measured viewport size (px) — lets focus modes fit an arbitrary crop rect. */
+  width: number;
+  height: number;
 }
 
 /**
@@ -15,7 +18,14 @@ interface StageScale {
  */
 export function useStageScale<T extends HTMLElement>() {
   const viewportRef = useRef<T | null>(null);
-  const [stageScale, setStageScale] = useState<StageScale>({ scale: 1, offsetX: 0, offsetY: 0 });
+  const [stageScale, setStageScale] = useState<StageScale>({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    // Pre-measure defaults stay consistent with scale 1 (a 1920x1080 viewport).
+    width: STAGE_WIDTH,
+    height: STAGE_HEIGHT
+  });
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -27,7 +37,9 @@ export function useStageScale<T extends HTMLElement>() {
       setStageScale({
         scale,
         offsetX: (rect.width - STAGE_WIDTH * scale) / 2,
-        offsetY: (rect.height - STAGE_HEIGHT * scale) / 2
+        offsetY: (rect.height - STAGE_HEIGHT * scale) / 2,
+        width: rect.width,
+        height: rect.height
       });
     };
 

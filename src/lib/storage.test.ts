@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadProgram, saveProgram, loadQuickQueue, saveQuickQueue } from './storage';
+import { loadProgram, saveProgram, loadQuickQueue, saveQuickQueue, loadDockPrefs, saveDockPrefs } from './storage';
 import { CLEAR_PROGRAM_STATE, type ProgramState } from '../types/program';
 import type { GraphicInstance, QuickQueueItem } from '../types/graphics';
 
@@ -150,5 +150,22 @@ describe('quick-queue revision normalization', () => {
     const item: QuickQueueItem = { ...makeInstance({ id: 'q-1' }), revision: 4 };
     saveQuickQueue([item]);
     expect(loadQuickQueue()[0].revision).toBe(4);
+  });
+});
+
+describe('dock preferences (stage 2b)', () => {
+  it('round-trips the compact-strip flag', () => {
+    expect(loadDockPrefs().compactProgramStrip).toBe(false);
+    saveDockPrefs({ compactProgramStrip: true });
+    expect(loadDockPrefs().compactProgramStrip).toBe(true);
+  });
+
+  it('reads anything but an explicit true as the regular strip', () => {
+    // The preference shrinks the operator's primary readout, so a malformed
+    // or truthy-but-not-boolean record must never read as an opt-in.
+    for (const raw of ['not json{', '"compact"', '[]', '{"compactProgramStrip":"yes"}', '{"compactProgramStrip":1}', 'null']) {
+      localStorage.setItem('livelayer.dockPrefs', raw);
+      expect(loadDockPrefs().compactProgramStrip, raw).toBe(false);
+    }
   });
 });

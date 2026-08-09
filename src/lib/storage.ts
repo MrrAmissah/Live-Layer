@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   scriptureRecents: 'livelayer.scriptureRecents',
+  dockPrefs: 'livelayer.dockPrefs',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
@@ -267,6 +268,27 @@ export function saveExplicitBrandKeys(keys: Iterable<ExplicitBrandKey>) {
     STORAGE_KEYS.brandExplicit,
     EXPLICIT_BRAND_KEYS.filter((key) => chosen.has(key))
   );
+}
+
+/**
+ * Operator preferences for the dock surface only. Stage 2b: the Program strip
+ * honours `compactProgramStrip`; the toggle that writes it ships with the More
+ * tab in stage 3 — the flag is real first so the control can never be dead.
+ * Lives in STORAGE_KEYS so "Reset all local data" clears it with everything else.
+ */
+export interface DockPrefs {
+  compactProgramStrip: boolean;
+}
+
+export function loadDockPrefs(): DockPrefs {
+  const raw = safeReadJson(STORAGE_KEYS.dockPrefs);
+  // Strict `=== true`: a malformed or legacy record must read as the default
+  // (regular strip), never as an accidental opt-in.
+  return { compactProgramStrip: isRecord(raw) && raw.compactProgramStrip === true };
+}
+
+export function saveDockPrefs(prefs: DockPrefs) {
+  safeWrite(STORAGE_KEYS.dockPrefs, prefs);
 }
 
 export function clearAllData() {

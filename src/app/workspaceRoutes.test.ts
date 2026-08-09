@@ -67,16 +67,17 @@ describe('workspace routing', () => {
      * special case, and rendering it ahead of the dock fallback would push the
      * desktop workspace into a ~380px tab strip.
      *
-     * The dock already reaches scripture by its own route: Edit step →
-     * scripture-card → `ScriptureReferencePicker`, which inherits the strict
-     * parser and the error taxonomy this PR adds. A sixth tab would duplicate the
-     * desktop product and break the numbered 1-2-3 beginner path.
+     * The dock's scripture entry point is the Quick Edit tab (a placeholder
+     * until that stage lands — the redesigned dock never grows a scripture
+     * ROUTE; it reaches scripture-card through the editor's own picker, which
+     * inherits the strict parser and the error taxonomy).
      */
-    const tabs = read('src/components/control/DockTabs.tsx');
+    const tabs = read('src/components/control/DockTabBar.tsx');
     const dock = read('src/components/control/DockShell.tsx');
-    // Presence anchor: the dock's own tab set is still here and still five.
+    // Presence anchor: the dock's own tab set is still here and now four
+    // (the operator redesign: Live · Queue · Quick Edit · More).
     expect(tabs).toContain('DockTab');
-    expect(tabs).toContain('templates');
+    expect(tabs).toContain("'live'");
     expect(tabs.toLowerCase()).not.toContain('scripture');
     expect(dock.toLowerCase()).not.toContain('scripture');
     // And the dock still renders no outlet, which is what makes the above true.
@@ -128,7 +129,9 @@ describe('one command owner', () => {
 describe('live actions are one implementation', () => {
   const liveActions = read('src/components/control/LiveActions.tsx');
   const rail = read('src/components/control/ProgramRail.tsx');
-  const dockBar = read('src/components/control/StickyLiveBar.tsx');
+  // The dock's one live-actions surface is now the pinned Program strip
+  // (it replaced StickyLiveBar in the operator redesign).
+  const dockBar = read('src/components/control/DockProgramStrip.tsx');
   const studioBar = read('src/components/control/StudioLiveBar.tsx');
 
   it('has every surface render the shared component', () => {

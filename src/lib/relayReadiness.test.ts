@@ -98,11 +98,20 @@ describe('only ready or local can accept a command', () => {
 
 describe('the header cannot say connected for a non-relay', () => {
   it('has no label that claims a connection, and one label per state', () => {
-    const bar = readFileSync('src/components/control/CommandBar.tsx', 'utf8');
+    // The label map moved into relayReadiness.ts when the dock footer became a
+    // second consumer — one shared vocabulary instead of a copy per surface.
+    const labels = readFileSync('src/lib/relayReadiness.ts', 'utf8');
     // The old wording is gone; `ready` is the only positive claim.
-    expect(bar).not.toContain("'Relay connected'");
-    expect(bar).toContain("ready: 'Relay ready'");
-    expect(bar).toContain("'not-relay': 'Not a relay'");
+    expect(labels).not.toContain("'Relay connected'");
+    expect(labels).toContain("ready: 'Relay ready'");
+    expect(labels).toContain("'not-relay': 'Not a relay'");
+    // Both surfaces render the shared map, and neither reintroduces its own.
+    const bar = readFileSync('src/components/control/CommandBar.tsx', 'utf8');
+    const dockFooter = readFileSync('src/components/control/DockFooter.tsx', 'utf8');
+    for (const source of [bar, dockFooter]) {
+      expect(source).toContain('RELAY_LABEL');
+      expect(source).not.toContain("'Relay connected'");
+    }
     // Presence anchor: the reason is rendered, not just computed.
     expect(bar).toContain('relay.detail');
   });

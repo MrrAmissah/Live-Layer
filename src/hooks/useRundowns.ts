@@ -3,6 +3,8 @@ import type { GraphicInstance } from '../types/graphics';
 import type { Rundown, RundownItem, RundownItemSource, RundownStoreState } from '../types/rundown';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import * as store from '../lib/rundown/rundownStore';
+import { templateRegistry } from '../components/templates/registry';
+import { createDraftValues } from '../lib/draftSeed';
 
 /**
  * Reactive wrapper over the rundown store. Change notification lives in the store
@@ -29,6 +31,33 @@ function buildDraftInstance(): GraphicInstance {
     },
     personId: values.personId,
     durationSeconds: state.durationSeconds,
+    createdAt: ts,
+    updatedAt: ts
+  };
+}
+
+/**
+ * A fresh, pack-seeded graphic for a template — the same seed a new draft gets
+ * (registry defaults + explicit brand colours + active pack), so an item added
+ * from the dock's Queue tab looks exactly like one started in the studio.
+ */
+function buildTemplateInstance(templateId: string): GraphicInstance {
+  const state = useLiveLayerStore.getState();
+  const template = templateRegistry.find((entry) => entry.id === templateId);
+  const values = createDraftValues(templateId, state.activePackId, state.brandTheme, state.explicitBrandKeys);
+  const ts = new Date().toISOString();
+  return {
+    id: `${Date.now()}`,
+    templateId,
+    values,
+    theme: { ...state.brandTheme },
+    layout: {},
+    assetRefs: {
+      ...(values.headshotAssetId ? { headshot: values.headshotAssetId } : {}),
+      ...(values.logoAssetId ? { logo: values.logoAssetId } : {})
+    },
+    personId: values.personId,
+    durationSeconds: template?.defaultDurationSeconds ?? 6,
     createdAt: ts,
     updatedAt: ts
   };
@@ -77,6 +106,26 @@ export function useRundowns() {
             graphic: buildDraftInstance(),
             title: options.title,
             source: options.source ?? { type: 'draft' }
+          })
+        ) ?? null
+      );
+    },
+    /**
+     * Add a fresh, pack-seeded item for a template (dock Queue tab's "+ Add").
+     * Titled with the TEMPLATE name, not `deriveItemTitle` — the seed carries
+     * the template's sample copy, and titling a brand-new item with sample
+     * content would make placeholder text read as prepared content in the
+     * queue. Returns null at the item cap so the caller can say so.
+     */
+    addTemplateToRundown: (templateId: string): RundownItem | null => {
+      if (!activeRundownId) return null;
+      const template = templateRegistry.find((entry) => entry.id === templateId);
+      return (
+        run(() =>
+          store.addItem(activeRundownId, {
+            graphic: buildTemplateInstance(templateId),
+            title: template?.name,
+            source: { type: 'manual' }
           })
         ) ?? null
       );

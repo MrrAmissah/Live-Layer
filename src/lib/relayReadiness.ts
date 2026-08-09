@@ -34,6 +34,21 @@ export type RelayConnection =
   /** Configured and nothing usable answered. */
   | 'unreachable';
 
+/**
+ * The five states as operator words — shared by the studio CommandBar and the
+ * dock footer so the vocabulary cannot fork. Never flatten these to a binary
+ * "connected": `local` is the healthy default (same-browser output, no relay),
+ * and `not-relay` is a distinct misconfiguration (something answered `/health`
+ * but it is not a relay — usually the app's own port).
+ */
+export const RELAY_LABEL: Record<RelayConnection, string> = {
+  ready: 'Relay ready',
+  'not-relay': 'Not a relay',
+  unreachable: 'Relay unreachable',
+  checking: 'Checking relay…',
+  local: 'Local output'
+};
+
 /** Everything the classifier needs, so it can be tested without a network. */
 export interface RelayProbe {
   /** True for a 2xx. */

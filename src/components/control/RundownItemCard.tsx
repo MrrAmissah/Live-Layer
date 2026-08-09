@@ -10,8 +10,12 @@ interface Props {
   index: number;
   count: number;
   selected: boolean;
-  /** True when this item is the live (activeItemId) one — shows a LIVE badge. */
-  live?: boolean;
+  /**
+   * True when this item is the one behind our last successful command
+   * (`activeItemId`). It is NOT an acknowledgement that output rendered it —
+   * messaging is one-way — so the badge reads LAST SENT, matching the dock.
+   */
+  lastSent?: boolean;
   onSelect: () => void;
   onToggleDone: () => void;
   onMoveUp: () => void;
@@ -30,7 +34,7 @@ export default function RundownItemCard({
   index,
   count,
   selected,
-  live = false,
+  lastSent = false,
   onSelect,
   onToggleDone,
   onMoveUp,
@@ -46,7 +50,7 @@ export default function RundownItemCard({
           <span className="rd-item__title">{item.title}</span>
           <span className="rd-item__meta">{templateName(item.graphic.templateId)}</span>
         </span>
-        {live ? <span className="rd-live">LIVE</span> : null}
+        {lastSent ? <span className="rd-sent">LAST SENT</span> : null}
       </button>
       <span className="rd-item__actions">
         <button

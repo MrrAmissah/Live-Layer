@@ -325,6 +325,21 @@ body {
   gap: 8px;
 }
 
+/* Bare preview frame (TemplatePreview frame="bare" — the dock's DRAFT /
+   SELECTED ITEM / EDITING cards): the graphic on a plain dark field, in a box
+   whose aspect-ratio is set inline from the measured content crop
+   (contentCrop.ts for lower thirds, 16:9 for full-frame graphics) so the
+   frame fits the design instead of reserving an empty monitor. Deliberately NO bezel, NO
+   tally, NO spec plate, and NO accent tint — the monitor chrome and its
+   ::before glow stay studio-only. */
+.tpl-bare {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #0a0c11;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
 /* ==========================================================================
    BROADCAST OUTPUT — gfx layer
    Fixed 1920x1080 stage. All gfx-* tokens are scoped to .gfx-stage so the
@@ -5259,6 +5274,16 @@ body.gfx-transparent {
   --ll-select: #2f6df6;
   --ll-select-soft: rgba(47, 109, 246, 0.12);
   --ll-select-edge: rgba(47, 109, 246, 0.55);
+  /* Dock-redesign accents (Dock-*.png mockups). --ll-blue is an INDICATOR blue
+     for text/icons/underlines — lighter than the --ll-select fill blue above,
+     which stays the colour of selected surfaces. */
+  --ll-blue: #2f95f8;
+  --ll-blue-rail: #1fa5fa;
+  --ll-live-soft: rgba(34, 197, 94, 0.14);
+  --ll-live-text: #35e04d;
+  --ll-tab-inactive: #a3acbd;
+  --ll-danger-surface: rgba(253, 56, 55, 0.12);
+  --ll-danger-edge: rgba(253, 56, 55, 0.4);
   position: relative;
   min-height: 100vh;
   background:
@@ -6827,36 +6852,20 @@ body.gfx-transparent {
 .control-root .rd-icon--on { color: #7ef0a8; border-color: rgba(54, 226, 122, 0.4); background: rgba(54, 226, 122, 0.1); }
 .control-root .rd-icon--danger:hover { color: #fca5a5; border-color: rgba(244, 63, 94, 0.4); }
 
-/* --- rundown queue (R3 live operation) --- */
-.control-root .rd-queue { display: flex; flex-direction: column; gap: 9px; padding: 11px; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.18); background: rgba(34, 211, 238, 0.035); }
-.control-root .rd-queue__head { display: flex; align-items: baseline; gap: 8px; }
-.control-root .rd-queue__name { font-size: 13px; font-weight: 700; color: #eef2f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.control-root .rd-queue__empty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.control-root .rd-queue__summary { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: #cdd6e4; }
+/* --- rundown labels shared by studio panels / import preview --- */
 .control-root .rd-queue__lbl { display: inline-block; min-width: 58px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6f7e95; }
-.control-root .rd-queue__nav { display: flex; gap: 8px; }
-.control-root .rd-queue__nav .btn { flex: 1; }
 
-.control-root .rd-q-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
-.control-root .rd-q-item { display: flex; align-items: center; gap: 6px; }
-.control-root .rd-q-item__main {
-  flex: 1; min-width: 0;
-  display: flex; align-items: center; gap: 9px;
-  padding: 7px 9px; border-radius: 10px; text-align: left;
-  background: #0a0f18; border: 1px solid rgba(148, 163, 184, 0.12);
-  cursor: pointer; transition: border-color 0.14s ease, background-color 0.14s ease;
-}
-.control-root .rd-q-item__main:hover { border-color: rgba(148, 163, 184, 0.26); }
-.control-root .rd-q-item--selected .rd-q-item__main { border-color: rgba(34, 211, 238, 0.55); background: linear-gradient(180deg, rgba(34, 211, 238, 0.1), rgba(34, 211, 238, 0.02)); }
-.control-root .rd-q-item__title { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: #eef2f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.control-root .rd-q-item--done .rd-q-item__title { color: #7f8da3; text-decoration: line-through; }
-
-.control-root .rd-live {
-  flex: none; padding: 2px 7px; border-radius: 5px;
+/* "The item we last commanded" — per-row marker, allowed vocabulary (unlike a
+   Program-level LIVE claim): it records our own command, not an output ack. */
+/* `rd-sent`: the queue row records the item behind our last successful command,
+   which is not an acknowledgement that OBS rendered it. Named for what it means
+   after `rd-live` was retired from both the dock and the studio rundown card —
+   one stored value, one meaning, on every surface. */
+.control-root .rd-sent {
+  flex: none; padding: 2px 7px; border-radius: 4px;
   font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em;
   color: #7ef0a8; background: rgba(54, 226, 122, 0.12); border: 1px solid rgba(54, 226, 122, 0.4);
 }
-.control-root .rd-q-item--selected .rd-live { color: #021016; }
 
 /* disabled Take (rundown active, nothing selected) */
 .control-root .take-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; filter: grayscale(0.4); }
@@ -7099,12 +7108,51 @@ body.gfx-transparent {
 .control-root .diag-network code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #7fe9f5; }
 
 /* ==========================================================================
-   CONTROL SURFACE — dock-first operator flow (narrow / OBS Custom Browser Dock)
-   A fixed-height app frame: sticky status + tabs on top, one scrolling step in
-   the middle, sticky Take/Clear pinned at the bottom. One step shows at a time.
+   CONTROL SURFACE — dock operator shell (narrow / OBS Custom Browser Dock)
+   Redesigned to the Dock-*.png mockups: flat #11171d body, three luminance
+   layers with 1px borders and NO shadows, 4–6px radii, a four-tab bar with a
+   semantic tone split (live=green underline, config=blue), the Program strip
+   pinned under the tabs, and a transport/pack footer. Cyan is retired inside
+   the dock; the studio and /output keep their own palettes.
    ========================================================================== */
 
-.control-root--dock { height: 100vh; height: 100dvh; overflow: hidden; }
+.control-root--dock {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  /* Dock-scoped token overrides: mockup grass-green and red-orange replace the
+     surface-wide mint/rose ONLY here (a global change would restyle the studio
+     and /output). Elevation is luminance + 1px border — no shadows. */
+  --ll-live: #22bb44;
+  --ll-danger: #fd3837;
+  --ll-shadow-panel: none;
+  --ll-radius-panel: 6px;
+  /* Layer steps (mockup-measured). */
+  --dk-body: #11171d;
+  --dk-card: #141a21;
+  --dk-raised: #151b22;
+  --dk-raised-2: #181e26;
+  --dk-recessed: #13181e;
+  --dk-row: #0f161c;
+  --dk-edge-card: rgba(148, 163, 184, 0.1);
+  --dk-edge-control: rgba(148, 163, 184, 0.14);
+  --dk-rule: rgba(148, 163, 184, 0.16);
+  /* Chrome geometry (stage 2b). These variables are LOAD-BEARING: every fixed
+     row consumes its var, and dockChrome.test.ts sums them to assert the
+     scroll area keeps at least 40% of a 314×500 dock. Changing a row's height
+     without updating its var breaks the rule that reads it; changing the var
+     re-runs the floor math. The strip values are the border-box worst case
+     across all four Program statuses — head row 24 + identity 92 + actions 40
+     + two 8px gaps + 10px padding + 1px borders. */
+  --dock-header-h: 44px;
+  --dock-tabbar-h: 40px;
+  --dock-strip-h: 194px;
+  --dock-strip-h-compact: 167px;
+  --dock-strip-margin: 10px;
+  --dock-footer-h: 36px;
+  /* Flat body — the studio's radial/linear gradient stack does not apply. */
+  background: var(--dk-body);
+}
 
 .control-root .dock {
   display: flex;
@@ -7113,126 +7161,912 @@ body.gfx-transparent {
   height: 100dvh;
   max-width: 720px;
   margin: 0 auto;
+  /* Named container so the narrow-dock rules below key off the DOCK's own width,
+     not the viewport. An OBS Custom Browser Dock is resized by dragging its edge
+     inside the OBS window, so the viewport media query never fires — the panel
+     just gets narrower. Saved dock widths on this machine go down to 255px.
+     `size` (not `inline-size`) since stage 2b: the footer/header-relay swap
+     queries dock HEIGHT too. Safe because .dock has a definite 100dvh height. */
+  container: dock / size;
 }
 
-/* --- sticky status bar --- */
-.control-root .dock-status {
-  position: relative;
+/* --- header: mark + product name + event switcher + relay dot. The old 56px
+   full-bleed EVENT block folded in here as a real switcher (stage 2b). No ✕
+   (nothing to close in a dock), no ⋮ (no menu exists yet — the More tab will
+   own utilities). --- */
+.control-root .dock-header {
+  flex: none;
+  height: var(--dock-header-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--dk-rule);
+}
+.control-root .dock-header__brand { display: inline-flex; flex: 1; align-items: center; gap: 10px; min-width: 0; }
+.control-root .dock-header__mark { display: inline-flex; flex: none; color: var(--ll-blue); }
+.control-root .dock-header__title {
+  font-size: 15px;
+  font-weight: 550;
+  color: #fff;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Event switcher — the same guarded <select> pattern as the studio CommandBar,
+   restyled to the dock's flat control language. */
+.control-root .dock-header__event {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  max-width: 55%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  background: var(--dk-raised);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+  color: #9da8bc;
+  cursor: pointer;
+}
+.control-root .dock-header__event:hover { border-color: rgba(148, 163, 184, 0.3); }
+.control-root .dock-header__event .ll-icon { flex: none; margin-left: 4px; pointer-events: none; }
+.control-root .dock-header__select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.control-root .dock-header__select:focus-visible { outline: none; }
+.control-root .dock-header__event:focus-within { border-color: var(--ll-blue); }
+/* Below 340px the mark alone carries the brand — the event name is the readout
+   an operator actually needs, so the wordmark yields first. */
+@container dock (max-width: 340px) {
+  .control-root .dock-header__title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .control-root .dock-header__event { max-width: none; flex: 1; justify-content: space-between; }
+}
+/* Transport dot — same five states and colours as the footer readout; the
+   label and detail live in aria-label/title. Visible only when the footer is
+   hidden (see the height container queries at the footer rules), except in a
+   browser without height container queries, where BOTH stay visible: a
+   duplicated transport readout is safe, a missing one is not. */
+.control-root .dock-header__relay { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; }
+.control-root .dock-header__dot { width: 9px; height: 9px; border-radius: 50%; background: #8f9bad; }
+.control-root .dock-header__relay[data-connection='ready'] .dock-header__dot,
+.control-root .dock-header__relay[data-connection='local'] .dock-header__dot { background: var(--ll-live); }
+.control-root .dock-header__relay[data-connection='not-relay'] .dock-header__dot,
+.control-root .dock-header__relay[data-connection='unreachable'] .dock-header__dot { background: #f5c77e; }
+
+/* --- tab bar (40px, flat, equal cells, 1px dividers between tabs only) --- */
+.control-root .dock-tabbar {
+  flex: none;
+  height: var(--dock-tabbar-h);
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--dk-rule);
+}
+.control-root .dock-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 4px;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  /* The active indicator: a 2px underline across the FULL cell. */
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ll-tab-inactive);
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-tab + .dock-tab { border-left: 1px solid var(--dk-rule); }
+.control-root .dock-tab:hover { color: #dfe6f0; }
+.control-root .dock-tab .ll-icon { flex: none; }
+.control-root .dock-tab__label { overflow: hidden; text-overflow: ellipsis; }
+/* Real OBS docks on this machine sit as narrow as 255px, where four labels plus
+   icons do not fit: "Queue" and "Quick Edit" both clipped. Tighten the cell
+   instead of truncating a navigation label. */
+@container dock (max-width: 360px) {
+  .control-root .dock-tab { gap: 5px; padding: 0 2px; font-size: 11px; }
+  .control-root .dock-tab .ll-icon { width: 13px; height: 13px; }
+}
+@container dock (max-width: 290px) {
+  /* Below this the icons carry the meaning on their own and the labels cannot fit
+     honestly at any size worth reading. */
+  .control-root .dock-tab { gap: 0; }
+  .control-root .dock-tab__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .control-root .dock-tab .ll-icon { width: 16px; height: 16px; }
+}
+/* Tone split is SEMANTIC (see DockTabBar.tsx): live tabs get the green
+   underline while label and icon stay white — green never recolours text;
+   config tabs turn fully blue. */
+.control-root .dock-tab[aria-current] { font-weight: 600; color: #fff; }
+.control-root .dock-tab[data-tone='live'][aria-current] { border-bottom-color: var(--ll-live); }
+.control-root .dock-tab[data-tone='config'][aria-current] { border-bottom-color: var(--ll-blue); color: var(--ll-blue); }
+
+/* --- Program strip: pinned between tabs and the scrolling tab content, so
+   Take/Clear and the honest Program record are on every tab.
+
+   ONE HEIGHT, EVERY STATUS, EVERY TAB (stage 2b). A strip that grows or
+   shrinks when the status flips moves Take out from under the operator's hand
+   right after they press it — the same defect class as the TAKE LIVE wrap
+   fixed in 55186b5. So: min-height comes from --dock-strip-h, and every
+   internal row is fixed — a 24px head row, a 92px identity block whose title
+   and sub reserve their worst-case lines, and 40px actions. The four Program
+   statuses only swap text inside those boxes. The blocked-Take reason is the
+   one sanctioned growth (it is not a Program status), and it renders BELOW
+   the buttons so Take/Clear still do not move. */
+.control-root .dock-program {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: var(--dock-strip-h);
+  margin: var(--dock-strip-margin) var(--dock-strip-margin) 0;
+  padding: 10px;
+  background: var(--dk-card);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 6px;
+}
+.control-root .dock-program--compact {
+  min-height: var(--dock-strip-h-compact);
+  padding: 8px;
+}
+.control-root .dock-program .ll-kicker { color: #9fadc0; }
+
+/* Head row: the section label and the status chip share one fixed 24px row.
+   Giving the chip this slot (instead of a seat inside the identity row) is
+   what freed the title/sub columns at 255px AND made the chip's position
+   identical at every width — the old ≤420px chip-on-its-own-row grid is gone. */
+.control-root .dock-program__head {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--ll-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.028), transparent),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.05), transparent 48%),
-    var(--ll-panel);
+  height: 24px;
 }
 
-.control-root .dock-status::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.42), transparent 62%);
-  pointer-events: none;
+.control-root .dock-program__identity {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 92px;
+  padding: 8px 10px;
+  background: var(--dk-raised);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
 }
-
-.control-root .dock-status__id { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.control-root .dock-status__logo { display: inline-flex; align-items: center; gap: 8px; flex: none; color: var(--ll-text-strong); }
-.control-root .dock-status__logo-mark { width: 30px; height: 30px; padding: 5px; border-radius: 8px; background: linear-gradient(160deg, rgba(34, 211, 238, 0.18), rgba(34, 211, 238, 0.02)); border: 1px solid rgba(34, 211, 238, 0.3); filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.4)); }
-.control-root .dock-status__logo-copy { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
-.control-root .dock-status__logo-name { font-size: 11.5px; font-weight: 850; letter-spacing: 0.13em; text-transform: uppercase; }
-.control-root .dock-status__logo-sub { font-size: 10px; font-weight: 600; letter-spacing: 0.04em; color: var(--ll-muted-2); }
-.control-root .dock-status__local { flex: none; display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #7f9c86; background: rgba(54, 226, 122, 0.08); border: 1px solid rgba(54, 226, 122, 0.2); }
-.control-root .dock-status__template { min-width: 0; padding-left: 10px; border-left: 1px solid rgba(148, 163, 184, 0.18); font-size: 13px; font-weight: 600; color: #cdd6e4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.control-root .dock-status__pill { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; border: 1px solid; }
-.control-root .dock-status__pill-dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
-.control-root .dock-status__pill--ready { color: #9aa7ba; border-color: rgba(148, 163, 184, 0.22); background: rgba(255, 255, 255, 0.03); }
-.control-root .dock-status__pill--live { color: #7ef0a8; border-color: rgba(54, 226, 122, 0.35); background: rgba(54, 226, 122, 0.08); }
-.control-root .dock-status__pill--live .dock-status__pill-dot { background: #36e27a; box-shadow: 0 0 8px #36e27a; animation: ll-pulse 1.6s ease-in-out infinite; }
-.control-root .dock-status__pill--cleared { color: #a5b4fc; border-color: rgba(165, 180, 252, 0.32); background: rgba(165, 180, 252, 0.07); }
-
-/* --- tab bar --- */
-.control-root .dock-tabs { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--ll-border-soft); background: var(--ll-bg-2); overflow-x: auto; scrollbar-width: none; }
-.control-root .dock-tabs::-webkit-scrollbar { display: none; }
-.control-root .dock-tabs__divider { flex: none; width: 1px; align-self: stretch; margin: 5px 3px; background: rgba(148, 163, 184, 0.16); }
-
-.control-root .dock-tab {
-  flex: 1 1 auto;
+.control-root .dock-program--compact .dock-program__identity { height: 73px; padding: 8px 10px; }
+.control-root .dock-program__glyph {
+  flex: none;
+  width: 40px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-  padding: 9px 10px;
-  border-radius: 8px;
-  font-size: 12.5px;
+  color: #aebccb;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+}
+.control-root .dock-program--compact .dock-program__glyph { width: 34px; height: 30px; }
+/* At the narrowest saved OBS widths the glyph yields its width to the text —
+   the Program record and its caveat are the two readouts that must survive
+   any width; an unreadable disclosure is the same as no disclosure. */
+@container dock (max-width: 290px) {
+  .control-root .dock-program__glyph { width: 30px; height: 28px; }
+}
+/* Centred, not top-aligned. The identity BOX stays a fixed height so Take never
+   moves; the text inside packs together and centres. Reserving a fixed height on
+   each line instead left a one-line title sitting at the top of a 38px box and a
+   one-line subtitle at the top of a 34px box, so the slack showed up as gaps
+   between and below the text — "Ready / Rev. Ishmael K. Awotwe / Preacher Lower
+   Third" read as three widely separated lines. */
+.control-root .dock-program__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.control-root .dock-program__title {
+  max-height: 38px;
+  font-size: 15px;
   font-weight: 600;
-  color: #8d9db4;
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+  line-height: 19px;
+  color: #fff;
+  /* Two lines RESERVED, then ellipsise — fixed height, not a grow-to-fit
+     clamp. Which graphic was last sent is the single most important readout
+     here; a one-line clamp loses the verse reference itself. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.control-root .dock-program--compact .dock-program__title {
+  max-height: 19px;
+  font-size: 14px;
+  -webkit-line-clamp: 1;
+}
+.control-root .dock-program__sub {
+  max-height: 34px;
+  font-size: 12.5px;
+  line-height: 17px;
+  color: #adb9c8;
+  /* The recovery caveat is a sentence, not a label — two lines RESERVED. It
+     was once cut at every dock width up to 440px, which hid exactly the words
+     that say the app cannot confirm what output is showing. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* Below 290px the failed-send sentence needs a third line — reserve it (and
+   grow the strip to match) rather than clip a disclosure. The min-heights are
+   the base vars + 17px (one sub line); kept as literals because a container
+   cannot restyle itself from its own query. */
+@container dock (max-width: 290px) {
+  .control-root .dock-program__sub { max-height: 51px; -webkit-line-clamp: 3; }
+  .control-root .dock-program__identity { height: 109px; }
+  .control-root .dock-program--compact .dock-program__identity { height: 90px; }
+  .control-root .dock-program { min-height: 211px; }
+  .control-root .dock-program--compact { min-height: 184px; }
 }
 
-.control-root .dock-tab--secondary { flex: 0 1 auto; padding: 9px 12px; font-size: 11.5px; font-weight: 500; color: #66748a; }
-.control-root .dock-tab:hover { color: #dfe6f0; background: rgba(255, 255, 255, 0.03); }
-.control-root .dock-tab--active { color: #021016; background: linear-gradient(135deg, var(--ll-accent), var(--ll-accent-strong)); border-color: rgba(34, 211, 238, 0.5); }
-.control-root .dock-tab__step { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: #cdd6e4; background: rgba(148, 163, 184, 0.18); }
-.control-root .dock-tab--active .dock-tab__step { color: #021016; background: rgba(2, 16, 22, 0.22); }
+/* Status chip — tinted, colour driven by the REAL Program status, never a
+   hardcoded green. The clock is real (program.takenAt); the words come from
+   lib/programStatus.ts. */
+.control-root .dock-program__chip {
+  flex: none;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-program__chip[data-status='showing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
+.control-root .dock-program__chip[data-status='recovering'] { background: rgba(148, 163, 184, 0.14); color: #b9c4d4; }
+.control-root .dock-program__chip[data-status='failed'] { background: var(--ll-danger-surface); color: #ff7a76; border: 1px solid var(--ll-danger-edge); }
+.control-root .dock-program__chip[data-status='clear'] { background: rgba(148, 163, 184, 0.1); color: #9aa7ba; }
+.control-root .dock-program__clock { margin-left: 5px; font-weight: 600; }
 
-/* --- scrolling step area --- */
-.control-root .dock-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px; }
+/* (The tall variant's meta grid is gone — "Status" duplicated the chip and
+   "Canvas 1920 × 1080" printed a constant. The honest status phrase lives in
+   the chip; there is still no fps and no measured output resolution anywhere,
+   because the app has no source for either.) */
+
+/* Take/Clear — equal 50/50 row, pinned to the strip's bottom edge so the
+   buttons sit in the same place even if content above ever mis-measures. The
+   blocked-Take reason spans BELOW them (grid row 2): it may appear and
+   disappear, and underneath is the one place it can do that without moving
+   Take out from under the operator's pointer. */
+.control-root .dock-program__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-top: auto; }
+/* "TAKE LIVE" wrapped onto two lines below ~360px, which changed the button
+   height and pushed the card taller mid-service. Tighten rather than wrap. */
+@container dock (max-width: 360px) {
+  .control-root .dock-program__actions .take-btn,
+  .control-root .dock-program__actions .clear-btn {
+    white-space: nowrap;
+    gap: 6px;
+    padding-inline: 8px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+}
+.control-root .dock-program__actions .live-actions__blocked { grid-row: 2; grid-column: 1 / -1; margin: 0; }
+.control-root .dock-program__take {
+  min-height: 40px;
+  gap: 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #06130a;
+  background: var(--ll-live);
+  border: 1px solid rgba(34, 187, 68, 0.7);
+  box-shadow: none;
+}
+.control-root .dock-program__take:hover { transform: none; box-shadow: none; filter: brightness(1.07); }
+/* "Update live" state keeps the solid green — the status chip carries state. */
+.control-root .dock-program__take[data-state='taken'] {
+  color: #06130a;
+  background: var(--ll-live);
+  border-color: rgba(34, 187, 68, 0.7);
+  box-shadow: none;
+}
+.control-root .dock-program__take[data-state='taken']:hover { box-shadow: none; filter: brightness(1.07); }
+.control-root .dock-program__take:disabled { box-shadow: none; }
+.control-root .dock-program__clear {
+  min-height: 40px;
+  gap: 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #e6eaf0;
+  background: #151c22;
+  border: 1px solid var(--dk-edge-control);
+}
+.control-root .dock-program__clear:hover { background: #1a222a; border-color: rgba(148, 163, 184, 0.24); }
+/* Compact preference trims the action row too — 36px stays comfortably above
+   touch-target minimums while buying back 4px of chrome. */
+.control-root .dock-program--compact .dock-program__take,
+.control-root .dock-program--compact .dock-program__clear { min-height: 36px; }
+
+/* --- scrolling tab content --- */
+.control-root .dock-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
+.control-root .dock-tabpane { display: flex; flex-direction: column; gap: 10px; }
+
+/* Section card pattern: 1px edge, 6px radius, 10px inset, kicker INSIDE. */
+.control-root .dock-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--dk-card);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 6px;
+}
+.control-root .dock-card__head { display: flex; align-items: center; gap: 10px; min-height: 18px; }
+.control-root .dock-card__head .ll-kicker { flex: none; color: #9fadc0; }
+.control-root .dock-card__meta {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 12.5px;
+  color: #8f9bad;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-card__action {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ll-blue);
+  cursor: pointer;
+}
+.control-root .dock-card__action:hover { text-decoration: underline; }
+.control-root .dock-card__hint { margin: 0; font-size: 13px; line-height: 1.5; color: #8f9bad; }
+
+/* Live tab: the production monitor card. */
+.control-root .dock-next__monitor { border-radius: 5px; overflow: hidden; }
+
+/* Live-tab queue rows: index → type glyph → title/sub → LIVE/done/reorder. */
+.control-root .dock-queue__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-queue__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 6px 8px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 5px;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-queue__row:hover { border-color: var(--dk-edge-control); }
+/* Selected row: 3px left rail + lifted surface. */
+.control-root .dock-queue__row[data-selected] { background: #0f1b28; border-color: rgba(31, 165, 250, 0.35); }
+.control-root .dock-queue__row[data-selected]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+  background: var(--ll-blue-rail);
+}
+.control-root .dock-queue__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.control-root .dock-queue__index { flex: none; width: 18px; font-size: 13px; color: #8f9bad; text-align: center; }
+.control-root .dock-queue__glyph {
+  flex: none;
+  width: 31px;
+  height: 31px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #bcc8d6;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+}
+.control-root .dock-queue__text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.control-root .dock-queue__title { font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-queue__sub { font-size: 12px; color: #8f9bad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-queue__row[data-done] .dock-queue__title { color: #8f9bad; text-decoration: line-through; }
+.control-root .dock-queue__cluster { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+/* Explicit up/down, NOT a drag handle: the store swaps adjacent items only,
+   and a handle would promise drop-anywhere reordering it cannot perform. */
+.control-root .dock-queue__move {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #cdd6e4;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.control-root .dock-queue__move:hover { border-color: rgba(148, 163, 184, 0.3); }
+.control-root .dock-queue__move:disabled { opacity: 0.35; cursor: default; }
+.control-root .dock-queue__empty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.control-root .dock-queue__nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* Dock-green LIVE row marker (token override keeps studio mint elsewhere). */
+.control-root--dock .rd-sent { color: var(--ll-live-text); background: var(--ll-live-soft); border-color: rgba(34, 187, 68, 0.45); }
+
+/* Placeholder tabs — honest, short. */
+.control-root .dock-coming { align-items: flex-start; gap: 6px; }
+.control-root .dock-coming__note { margin: 2px 0 0; font-size: 14px; font-weight: 600; color: #e6ebf2; }
+
+/* --- footer: transport truth, spelled out. Slimmed 44 → 36px in stage 2b and
+   relieved of the pack name (that lives in the header's event switcher now). --- */
+.control-root .dock-footer {
+  flex: none;
+  height: var(--dock-footer-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  margin-top: auto;
+  border-top: 1px solid var(--dk-rule);
+}
+.control-root .dock-footer__relay { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; color: #adb8c6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-footer__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #8f9bad; }
+/* `ready` and `local` are the two healthy transports; `not-relay` and
+   `unreachable` are amber (fixable misconfiguration), `checking` stays muted. */
+.control-root .dock-footer__relay[data-connection='ready'] .dock-footer__dot,
+.control-root .dock-footer__relay[data-connection='local'] .dock-footer__dot { background: var(--ll-live); }
+.control-root .dock-footer__relay[data-connection='not-relay'] .dock-footer__dot,
+.control-root .dock-footer__relay[data-connection='unreachable'] .dock-footer__dot { background: #f5c77e; }
+.control-root .dock-footer__detail { flex: 1; min-width: 0; font-size: 12px; color: #8f9bad; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Footer/header-relay swap. On a short dock a 36px footer is chrome the scroll
+   area cannot spare, and its one remaining readout — transport state — fits in
+   the header dot. 548px is measured, not round: fixed chrome with the footer is
+   290 + 37, and 327 / 0.6 ≈ 545 is where the scroll area would dip below 40% of
+   dock height, so the footer yields just above that. The two queries are exact
+   complements: exactly one transport readout is visible at any height, and a
+   browser without height container queries shows both (safe, never silent). */
+@container dock (max-height: 547px) {
+  .control-root .dock-footer { display: none; }
+}
+@container dock (min-height: 548px) {
+  .control-root .dock-header__relay { display: none; }
+}
+
+/* == dock: queue tab == (stage 2) */
+
+/* Rundown picker: pick/create the active rundown — the dock's only manager. */
+.control-root .dock-rdpick { display: flex; flex-direction: column; gap: 8px; }
+.control-root .dock-rdpick__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-rdpick__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 6px 10px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 5px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .dock-rdpick__row:hover { border-color: var(--dk-edge-control); }
+.control-root .dock-rdpick__row[aria-pressed='true'] { background: #0f1b28; border-color: rgba(31, 165, 250, 0.35); }
+.control-root .dock-rdpick__name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 550; color: #eef2f8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-rdpick__count { flex: none; font-size: 12px; color: #8f9bad; white-space: nowrap; }
+.control-root .dock-rdpick__state { flex: none; font-size: 12px; font-weight: 600; color: var(--ll-blue); white-space: nowrap; }
+.control-root .dock-rdpick__row[aria-pressed='true'] .dock-rdpick__state { color: #9aa7ba; font-weight: 500; }
+.control-root .dock-rdpick__new { display: flex; gap: 8px; }
+.control-root .dock-rdpick__new .field__input { flex: 1; min-width: 0; }
+
+/* Queue head: + Add sits with the kicker/count; search takes its own row so
+   it survives 255px without squeezing the count into unreadability. */
+.control-root .dock-q__addbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cfe4fb;
+  background: rgba(47, 149, 248, 0.12);
+  border: 1px solid rgba(47, 149, 248, 0.32);
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-q__addbtn:hover,
+.control-root .dock-q__addbtn[aria-expanded='true'] { background: rgba(47, 149, 248, 0.2); border-color: rgba(47, 149, 248, 0.48); }
+
+.control-root .dock-q__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+  color: #8f9bad;
+}
+.control-root .dock-q__search:focus-within { border-color: rgba(47, 149, 248, 0.45); }
+.control-root .dock-q__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: #e8edf4;
+  font-size: 13px;
+  outline: none;
+}
+.control-root .dock-q__search input::placeholder { color: #6f7e95; }
+.control-root .dock-q__search input::-webkit-search-cancel-button { display: none; }
+.control-root .dock-q__clear {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: #9aa7ba;
+  font-size: 12px;
+  cursor: pointer;
+}
+.control-root .dock-q__clear:hover { color: #fff; background: rgba(148, 163, 184, 0.14); }
+
+/* Add disclosure: each row names exactly what it adds. */
+.control-root .dock-q__addpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px;
+  background: var(--dk-raised);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 5px;
+}
+.control-root .dock-q__addgroup { display: flex; flex-direction: column; gap: 6px; }
+.control-root .dock-q__addgroup .ll-kicker { color: #9fadc0; }
+.control-root .dock-q__addrow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 6px 10px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 4px;
+  color: #dfe6f0;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .dock-q__addrow:hover { border-color: var(--dk-edge-control); background: #121922; }
+.control-root .dock-q__addrow:disabled { opacity: 0.4; cursor: default; }
+.control-root .dock-q__addrow .ll-icon { flex: none; color: #9fadc0; }
+.control-root .dock-q__addrow .ll-icon:last-child { margin-left: auto; color: var(--ll-blue); }
+.control-root .dock-q__addrow-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The type may shrink (the TITLE is what identifies the row) — a rigid type
+   label ate the whole 255px row and left the title zero pixels. */
+.control-root .dock-q__addrow-type { flex: 0 1 auto; min-width: 0; font-size: 12px; color: #8f9bad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container dock (max-width: 340px) {
+  /* Below this the row cannot honestly show both; the group kicker and the
+     type are redundant for template rows, and draft/saved rows keep identity
+     in the title. */
+  .control-root .dock-q__addrow-type { display: none; }
+}
+
+/* Queue rows — taller than the Live tab's (title-first, no index chip);
+   the index moves into line 2 with the type. */
+.control-root .dock-q__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-qitem {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 60px;
+  padding: 8px 10px;
+  background: var(--dk-row);
+  border: 1px solid var(--dk-edge-card);
+  border-radius: 5px;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-qitem:hover { border-color: var(--dk-edge-control); }
+.control-root .dock-qitem[data-selected] { background: #0f1b28; border-color: rgba(31, 165, 250, 0.35); }
+.control-root .dock-qitem[data-selected]::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+  background: var(--ll-blue-rail);
+}
+.control-root .dock-qitem__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.control-root .dock-qitem__title {
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.control-root .dock-qitem[data-done] .dock-qitem__title { color: #8f9bad; text-decoration: line-through; }
+.control-root .dock-qitem__sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8f9bad;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.control-root .dock-qitem__sub .ll-icon { flex: none; }
+/* The type shrinks with an ellipsis; the dot and queue position are rigid so
+   the running-order number survives 255px instead of clipping off the end. */
+.control-root .dock-qitem__type { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-qitem__dot { flex: none; color: #566276; }
+.control-root .dock-qitem__pos { flex: none; }
+.control-root .dock-qitem__cluster { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.control-root .dock-qitem__menu {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #9aa7ba;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+}
+.control-root .dock-qitem__menu:hover { color: #fff; border-color: var(--dk-edge-control); }
+.control-root .dock-qitem__menu[aria-expanded='true'] { color: #fff; background: var(--dk-recessed); border-color: var(--dk-edge-control); }
+
+/* Inline row-action strip (not a floating menu — see DockQueueTab). */
+.control-root .dock-qitem__actions {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dk-rule);
+}
+.control-root .dock-qitem__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 550;
+  color: #cdd6e4;
+  background: var(--dk-recessed);
+  border: 1px solid var(--dk-edge-control);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+.control-root .dock-qitem__act:hover { border-color: rgba(148, 163, 184, 0.3); color: #fff; }
+.control-root .dock-qitem__act:disabled { opacity: 0.35; cursor: default; }
+.control-root .dock-qitem__act--danger { color: #ff8f8c; border-color: var(--ll-danger-edge); }
+.control-root .dock-qitem__act--danger:hover { color: #ffb3b0; border-color: var(--ll-danger-edge); background: var(--ll-danger-surface); }
+
+/* Selected-action bar: Preview + Edit only — Take stays in the Program strip. */
+.control-root .dock-q__selbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dk-rule);
+}
+.control-root .dock-q__selinfo { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.control-root .dock-q__selinfo .ll-kicker { color: #9fadc0; }
+.control-root .dock-q__selname { font-size: 13.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.control-root .dock-q__selacts { flex: none; display: flex; gap: 8px; }
+.control-root .dock-q__selacts .btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* 255px: the buttons take a full-width row rather than crushing the title. */
+@container dock (max-width: 340px) {
+  .control-root .dock-q__selacts { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+/* == dock: quick edit tab == (stage 2) */
+
+/* Editing header: blue kicker (config tone), title, type, queue-position chip. */
+.control-root .dock-e__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+}
+.control-root .dock-e__id { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.control-root .dock-e__kicker { color: var(--ll-blue); }
+.control-root .dock-e__title {
+  font-size: 17px;
+  font-weight: 650;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.control-root .dock-e__type { font-size: 12.5px; color: #8f9bad; }
+.control-root .dock-e__chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cfe4fb;
+  background: rgba(47, 149, 248, 0.1);
+  border: 1px solid rgba(47, 149, 248, 0.3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+.control-root .dock-e__chip:hover { background: rgba(47, 149, 248, 0.18); border-color: rgba(47, 149, 248, 0.46); }
+
+/* Preview-only notice row: the shared DraftPreviewNote + the studio link. */
+.control-root .dock-e__note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border-radius: 5px;
+  background: rgba(47, 149, 248, 0.08);
+  border: 1px solid rgba(47, 149, 248, 0.22);
+}
+.control-root .dock-e__note .draft-note { margin: 0; flex: 1 1 180px; min-width: 0; font-size: 12.5px; line-height: 1.45; color: #cfe4fb; }
+.control-root .dock-e__studio {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ll-blue);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.control-root .dock-e__studio:hover { text-decoration: underline; }
+
+.control-root .dock-e__gotoqueue { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+
+/* Collapsible panels (Appearance / Layout): native details, card-styled. */
+.control-root .dock-panel { padding: 0; gap: 0; }
+.control-root .dock-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  list-style: none;
+  cursor: pointer;
+}
+.control-root .dock-panel__summary::-webkit-details-marker { display: none; }
+.control-root .dock-panel__summary .ll-kicker { color: #9fadc0; }
+.control-root .dock-panel__chev { margin-left: auto; color: #8f9bad; transition: transform 0.15s ease; }
+.control-root .dock-panel[open] .dock-panel__chev { transform: rotate(180deg); }
+.control-root .dock-panel__body { display: flex; flex-direction: column; gap: 14px; padding: 2px 10px 12px; }
+
+/* Palette row: the TWO brand swatches (Main/Accent) — colorText stays with
+   Design's "Reset palette" in the studio; see DockQuickEditTab.PaletteRow. */
+.control-root .dock-e__palette { display: flex; flex-direction: column; gap: 8px; }
+
+/* == dock: more tab == (stage 3 builds here) */
+
+/* == dock: more tab == (stage 3 builds here) */
+
+/* --- legacy step wrappers (unmounted; awaiting stage 2/3 salvage). Cyan is
+   retired here too so nothing cyan can re-enter the dock if one remounts. --- */
 .control-root .step { display: flex; flex-direction: column; gap: 14px; }
 .control-root .step-intro { display: flex; flex-direction: column; gap: 4px; }
 .control-root .step-intro__title { margin: 0; display: flex; align-items: center; gap: 9px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: #f3f6fb; }
-.control-root .step-intro__num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; flex: none; font-size: 13px; font-weight: 800; color: #021016; background: linear-gradient(135deg, #22d3ee, #06b6d4); }
+.control-root .step-intro__num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; flex: none; font-size: 13px; font-weight: 800; color: #04101c; background: var(--ll-blue); }
 .control-root .step-intro__hint { margin: 0; font-size: 13px; line-height: 1.45; color: #8d9db4; }
 
 .control-root .step-next {
   align-self: stretch;
   margin-top: 2px;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 700;
-  color: #cdeef7;
-  background: rgba(34, 211, 238, 0.08);
-  border: 1px solid rgba(34, 211, 238, 0.28);
+  color: #cfe4fb;
+  background: rgba(47, 149, 248, 0.1);
+  border: 1px solid rgba(47, 149, 248, 0.3);
   cursor: pointer;
   transition: background-color 0.14s ease, border-color 0.14s ease;
 }
 
-.control-root .step-next:hover { background: rgba(34, 211, 238, 0.14); border-color: rgba(34, 211, 238, 0.44); }
-
-/* --- sticky bottom live bar --- */
-.control-root .dock-livebar {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding: 11px 14px;
-  padding-bottom: calc(11px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--ll-border);
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.25)), var(--ll-panel);
-}
-
-.control-root .dock-livebar__meta { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.control-root .dock-livebar__hide { font-size: 11.5px; font-weight: 600; color: #6f7e95; }
-
-.control-root .dock-livebar__actions { display: flex; align-items: stretch; gap: 10px; }
-.control-root .dock-livebar__take { flex: 1 1 auto; padding: 15px; font-size: 16px; }
-.control-root .dock-livebar__clear { flex: none; width: auto; padding: 15px 18px; }
-
-/* When a graphic is live, nudge emphasis toward Clear (the likely next action)
-   without ever hiding or disabling Take. */
-.control-root .dock-livebar[data-state='taken'] .dock-livebar__take { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); filter: saturate(0.9); }
-.control-root .dock-livebar[data-state='taken'] .dock-livebar__clear { background: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.55); color: #fecdd3; font-weight: 700; }
+.control-root .step-next:hover { background: rgba(47, 149, 248, 0.16); border-color: rgba(47, 149, 248, 0.46); }
 
 /* --- step preview + inline reset link --- */
 .control-root .step-preview { width: 100%; }
@@ -8145,7 +8979,7 @@ body.gfx-transparent {
    surfaces; amber rather than red because it is an unfinished graphic, not a
    failure — the operator has something to complete, not something to recover. */
 .control-root .live-actions__blocked,
-.control-root .dock-livebar__actions .live-actions__blocked {
+.control-root .dock-program__actions .live-actions__blocked {
   margin: 0 0 7px;
   font-size: 11.5px;
   line-height: 1.45;
