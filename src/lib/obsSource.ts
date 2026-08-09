@@ -31,6 +31,23 @@
  * diagnostics instead, where it can be read off `/output?debug=1` rather than
  * silently changing what the operator is told.
  *
+ * WHAT THE TESTED RIG SHOWED, and why this module still ends at UNKNOWN there.
+ * On obs-browser 2.26.9 / macOS, with the Browser Source's own eye toggled: the
+ * binding was present, its `pluginVersion` read back, and the GLOBAL
+ * `obsSceneChanged` arrived (3 events, last scene `PPC · Live`) — while
+ * `obsSourceActiveChanged`, `obsSourceVisibleChanged`, both legacy callbacks and
+ * even the page's own `visibilitychange` never did. The general JS bridge works
+ * there; source-specific telemetry does not. That is a finding about that
+ * configuration, not a claim about obs-browser at large.
+ *
+ * The correct outcome is the one this module already produces: both readings
+ * stay UNKNOWN, and every control surface sits truthfully at OUTPUT READY —
+ * "the output page received and applied the graphic", which the page proves by
+ * itself. OUTPUT ACTIVE / SOURCE HIDDEN / SOURCE INACTIVE are opportunistic: a
+ * real source-specific reading produces them, and nothing else may. A scene
+ * name says which scene OBS switched to, never whether THIS source is in it, so
+ * it is diagnostics only (`lib/obsHostDiagnostics.ts`) and cannot reach here.
+ *
  * `host` is injectable so the subscription is testable in this repo's node test
  * environment (no DOM) and so a fake `obsstudio` can be supplied.
  */

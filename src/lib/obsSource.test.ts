@@ -266,6 +266,105 @@ describe('a binding that arrives late', () => {
   });
 });
 
+describe('a global scene change is not source telemetry', () => {
+  /**
+   * `obsSceneChanged` is the ONE OBS-specific event the real rig delivers — 3
+   * observed, last scene `PPC · Live` — while every source-specific event and
+   * both legacy callbacks stayed silent. It is a global: it names the scene OBS
+   * switched to and says nothing about whether THIS source is in that scene or
+   * whether its eye is on. Deriving a reading from it would be a guess wearing
+   * a measurement's clothes, and the operator would be told something no one
+   * checked.
+   *
+   * Asserted on a PROMISCUOUS bus, which hands every dispatch to every listener
+   * this module registered. A type-routed fake would pass this by declining to
+   * deliver an unregistered type — true by construction of the fake, not of the
+   * code, and worth nothing.
+   */
+  function promiscuousHost(binding: Record<string, unknown>) {
+    const attached: Listener[] = [];
+    const host: ObsEventHost = {
+      addEventListener: (_type, listener) => {
+        attached.push(listener);
+      },
+      removeEventListener: (_type, listener) => {
+        const at = attached.indexOf(listener);
+        if (at >= 0) attached.splice(at, 1);
+      },
+      obsstudio: binding
+    };
+    const dispatchToEveryone = (detail: unknown) => {
+      for (const listener of [...attached]) listener({ detail } as unknown as Event);
+    };
+    return { host, dispatchToEveryone };
+  }
+
+  it('leaves both readings UNKNOWN, however many scenes come and go', () => {
+    const { host, dispatchToEveryone } = promiscuousHost({ pluginVersion: '2.26.9' });
+    const states: ObsSourceState[] = [];
+    subscribeObsSourceState((state) => states.push(state), host);
+
+    dispatchToEveryone({ name: 'PPC · Live' });
+    dispatchToEveryone({ name: 'Worship' });
+    dispatchToEveryone({ name: 'PPC · Live' });
+
+    // Only the initial unknown emit: no scene name became a boolean.
+    expect(states).toEqual([{ sourceActive: null, sourceVisible: null }]);
+  });
+
+  it('does not record a scene change as a source event in the diagnostics either', () => {
+    const { host, dispatchToEveryone } = promiscuousHost({ pluginVersion: '2.26.9' });
+    const reports: ObsBridgeDiagnostics[] = [];
+    subscribeObsSourceState(() => undefined, host, (d) => reports.push(d));
+
+    dispatchToEveryone({ name: 'PPC · Live' });
+
+    expect(reports[reports.length - 1]).toMatchObject({
+      activeEvent: null,
+      visibleEvent: null,
+      lastPath: 'none'
+    });
+  });
+
+  it('reproduces the tested rig: bridge alive, source telemetry absent, state UNKNOWN', () => {
+    /**
+     * obs-browser 2.26.9 on macOS, eye toggled on the Browser Source itself.
+     * The binding is present and its version reads back, the global event
+     * arrives, and nothing source-specific ever does. The correct outcome is
+     * that both readings stay UNKNOWN — which is what keeps every control
+     * surface truthfully at OUTPUT READY instead of inventing a state.
+     */
+    const { host, dispatchToEveryone } = promiscuousHost({ pluginVersion: '2.26.9' });
+    const states: ObsSourceState[] = [];
+    const reports: ObsBridgeDiagnostics[] = [];
+    subscribeObsSourceState((state) => states.push(state), host, (d) => reports.push(d));
+
+    dispatchToEveryone({ name: 'PPC · Live' });
+
+    expect(reports[reports.length - 1]).toEqual({
+      binding: 'present',
+      pluginVersion: '2.26.9',
+      activeEvent: null,
+      visibleEvent: null,
+      lastPath: 'none'
+    });
+    expect(states).toEqual([{ sourceActive: null, sourceVisible: null }]);
+  });
+
+  it('still reads a real source event on that same bus, so the tests above are not silent', () => {
+    // Positive anchor: the promiscuous bus DOES reach this module's listeners.
+    // Without it, a subscription that had stopped attaching anything would make
+    // every assertion above pass for entirely the wrong reason.
+    const { host, dispatchToEveryone } = promiscuousHost({ pluginVersion: '2.26.9' });
+    const states: ObsSourceState[] = [];
+    subscribeObsSourceState((state) => states.push(state), host);
+
+    dispatchToEveryone({ active: true });
+
+    expect(states[states.length - 1]).toEqual({ sourceActive: true, sourceVisible: null });
+  });
+});
+
 describe('the ?debug=1 diagnostics', () => {
   it('reports waiting, then present, without touching source state', () => {
     vi.useFakeTimers();

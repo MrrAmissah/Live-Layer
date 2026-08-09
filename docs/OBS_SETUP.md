@@ -42,21 +42,79 @@ port. Fix the port conflict before opening OBS.
 
 ## Shutdown source when not visible
 
-Leave this **OFF** on the LiveLayer output source. It is a resource-saving option
-that costs you the two things the control surfaces rely on.
+Leave this **OFF** on the LiveLayer output source.
 
-- **OFF** — the output page stays loaded when the source is hidden, so it keeps
-  sending its heartbeat and reports the eye going off. The dock and studio show
-  **SOURCE HIDDEN · OBS source hidden**, which tells the operator exactly what to
-  fix.
+- **OFF** — the output page stays loaded when the source is hidden, so its
+  heartbeat keeps arriving and the control surfaces keep reporting on a page they
+  can still hear from.
 - **ON** — OBS unloads the whole page when the source is hidden. An unloaded page
-  sends nothing, so no visibility update ever arrives and the surfaces fall back
-  to **UNVERIFIED · Output status is stale** once the heartbeat goes quiet. That
-  is honest — nothing is being claimed that cannot be checked — but it cannot
-  tell you *why*, and it takes the staleness window to appear.
+  sends nothing, so the surfaces fall back to **UNVERIFIED · Output status is
+  stale** once the heartbeat goes quiet. That is honest — nothing is claimed that
+  cannot be checked — but it cannot tell you *why*, and it takes the staleness
+  window to appear.
+
+Turning it OFF buys heartbeat continuity. **It does not guarantee that OBS will
+tell the page its source was hidden** — see the next section.
 
 `Refresh browser when scene becomes active` is fine to leave on: the output page
 restores the current graphic from the relay snapshot when it loads.
+
+## What the output status can and cannot tell you
+
+**`OUTPUT READY` is the highest state LiveLayer can guarantee on the tested
+configuration.** It means exactly one thing: *the output page received and applied
+the graphic*. The output page establishes it by acknowledging the command itself,
+so it needs nothing from OBS.
+
+The richer labels — **`OUTPUT ACTIVE`**, **`SOURCE HIDDEN`**, **`SOURCE
+INACTIVE`** — are **opportunistic**. They appear only when OBS actually delivers a
+source-specific reading, and they are never promised. No reading means
+`OUTPUT READY`; an absent reading is never converted into active, hidden or
+inactive.
+
+### What the tested rig demonstrated
+
+Measured on **obs-browser 2.26.9, macOS**, with the Browser Source's own eye
+toggled directly and `Shutdown source when not visible` OFF:
+
+| Signal | Observed |
+| --- | --- |
+| `window.obsstudio` binding | present |
+| `obsSceneChanged` (global) | **working** — 3 events, last scene `PPC · Live` |
+| `obsSourceActiveChanged` | never arrived |
+| `obsSourceVisibleChanged` | never arrived |
+| legacy `onActiveChange` / `onVisibilityChange` | never arrived |
+| document `visibilitychange` on the eye toggle | never arrived |
+
+The source did leave the OBS canvas as expected, and the dock and studio stayed
+at `OUTPUT READY` throughout — reporting what they could verify and claiming
+nothing beyond it.
+
+So on this rig the general OBS JavaScript bridge works, while source-specific
+active/visibility telemetry is not available or not reliable. **That is a
+statement about the configuration tested here, not a claim about obs-browser in
+general.** Other versions and platforms may deliver these events, and LiveLayer
+reads them the moment they arrive — the listeners are always attached (see
+below), so nothing needs changing if your rig does deliver them.
+
+Reading exact scene-item visibility regardless of the page bridge would require a
+different integration boundary — an OBS control channel rather than the events
+OBS chooses to hand the page. That is deliberately out of scope here.
+
+### How the page listens
+
+LiveLayer attaches its listeners **independently of whether `window.obsstudio`
+exists at that instant**. An earlier version returned early when the binding was
+missing when the page mounted, so a binding injected a moment later was never
+noticed and the readings stayed unknown forever. The `obsSourceActiveChanged` /
+`obsSourceVisibleChanged` listeners are now installed unconditionally, and the
+legacy `onActiveChange` / `onVisibilityChange` callbacks are installed as soon as
+a binding appears, within a bounded window.
+
+Diagnostics for all of this are available at `/output?debug=1` — binding
+presence, plugin version, which events have arrived and by which path, plus the
+page's own visibility and scene-event counters. That overlay never appears on a
+normal `/output`, and none of it reaches the reported status.
 
 ## Recommended settings
 
