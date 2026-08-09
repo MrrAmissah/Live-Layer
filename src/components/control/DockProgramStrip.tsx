@@ -7,12 +7,19 @@ import { programClockMs } from '../../lib/programClock';
 import { Icon, type IconName } from '../../lib/icons';
 import LiveActions from './LiveActions';
 import type { LastAction } from './StatusBadge';
+import type { StripDensity } from '../../lib/dockDensity';
 
 interface DockProgramStripProps {
   onTake: () => void;
   onClear: () => void;
   sending?: boolean;
   lastAction: LastAction;
+  /**
+   * Resolved by `lib/dockDensity.ts` from the dock's measured height and the
+   * operator's preference — never from Program status, which must not be able
+   * to change this strip's height (see the fixed-height contract below).
+   */
+  density?: StripDensity;
 }
 
 /**
@@ -43,10 +50,14 @@ interface DockProgramStripProps {
  * that never changes. The recovery sentence stays — it is the honest
  * disclosure that makes the strip trustworthy after a reload.
  */
-export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction }: DockProgramStripProps) {
+export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction, density }: DockProgramStripProps) {
   const program = useLiveLayerStore((state) => state.program);
   const output = useLiveLayerStore((state) => state.outputStatus);
-  const compact = useDockPrefs((state) => state.compactProgramStrip);
+  const preferCompact = useDockPrefs((state) => state.compactProgramStrip);
+  // `density` is supplied by DockShell, which owns the measurement. Falling back
+  // to the bare preference keeps the strip correct for any surface that renders
+  // it without a measured container.
+  const compact = (density ?? (preferCompact ? 'compact' : 'full')) === 'compact';
 
   // Same clock policy as the studio's OutputCard: tick while a readout is
   // moving, and drop the cleared counter to a one-minute cadence once it only
@@ -78,13 +89,13 @@ export default function DockProgramStrip({ onTake, onClear, sending = false, las
       break;
     case 'recovering':
       title = snapshotMeta ? `Last sent: ${snapshotMeta.title}` : 'Reloaded';
-      sub = 'Reloaded — can’t confirm what output is showing';
+      sub = 'Reloaded — output unconfirmed';
       break;
     case 'failed':
       title = snapshotMeta?.title ?? 'Send failed';
       // Never claims output is empty: a failed publish leaves whatever was
       // already on air untouched.
-      sub = 'Command didn’t send — output may still show the previous graphic';
+      sub = 'Didn’t send — earlier graphic may still be on air';
       break;
     default:
       icon = 'layers';

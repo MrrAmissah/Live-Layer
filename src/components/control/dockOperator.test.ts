@@ -239,9 +239,26 @@ describe('the Program strip is honest', () => {
     expect(files.strip).not.toContain('1920 × 1080');
     expect(files.strip).not.toContain('__meta');
     expect(files.strip).not.toContain('__rule');
-    // The honest sentences are the reason the strip is trustworthy — they stay.
-    expect(files.strip).toContain('Reloaded — can’t confirm what output is showing');
-    expect(files.strip).toContain('Command didn’t send — output may still show the previous graphic');
+    /**
+     * The honest sentences are the reason the strip is trustworthy — they stay.
+     * Pinned by MEANING rather than by exact wording, because the wording is
+     * load-bearing on height: every status reserves its worst case, so the
+     * longest sentence sets the strip's height on every other status too.
+     * Stage 4B shortened them to buy that height back, which is the sanctioned
+     * way to shrink the strip — the disclosure is spelled more briefly, never
+     * removed and never clipped.
+     */
+    const subs = [...files.strip.matchAll(/sub = '([^']+)'/g)].map((match) => match[1]);
+    expect(subs.length, 'no status sentences found — this guard would be vacuous').toBeGreaterThan(1);
+    // Recovering must still say we cannot confirm what output is showing.
+    expect(subs.some((line) => /unconfirmed|can’t confirm|cannot confirm/i.test(line))).toBe(true);
+    // Failed must still refuse to claim the air is now empty.
+    expect(subs.some((line) => /still (be on air|show)/i.test(line))).toBe(true);
+    // ...and each must fit the row the strip reserves for it. A sentence longer
+    // than this silently makes every dock taller or gets clipped.
+    for (const line of subs) {
+      expect(line.length, `too long for the reserved row: ${line}`).toBeLessThanOrEqual(52);
+    }
   });
 
   it('drives the status chip colour off the real status, never hardcoded green', () => {

@@ -7205,8 +7205,8 @@ body.gfx-transparent {
      + two 8px gaps + 10px padding + 1px borders. */
   --dock-header-h: 44px;
   --dock-tabbar-h: 40px;
-  --dock-strip-h: 194px;
-  --dock-strip-h-compact: 167px;
+  --dock-strip-h: 176px;
+  --dock-strip-h-compact: 156px;
   --dock-strip-margin: 10px;
   --dock-footer-h: 36px;
   /* Flat body — the studio's radial/linear gradient stack does not apply. */
@@ -7408,13 +7408,17 @@ body.gfx-transparent {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 92px;
+  /* 92px → 74px. The reservation shrank because the WORST CASE shrank: the
+     recovering and failed sentences were shortened, so one sub line covers
+     them at ordinary dock widths. The contract is untouched — every status
+     still reserves its worst case, so Take never moves when the status flips. */
+  height: 74px;
   padding: 8px 10px;
   background: var(--dk-raised);
   border: 1px solid var(--dk-edge-control);
   border-radius: 5px;
 }
-.control-root .dock-program--compact .dock-program__identity { height: 73px; padding: 8px 10px; }
+.control-root .dock-program--compact .dock-program__identity { height: 62px; padding: 7px 9px; }
 .control-root .dock-program__glyph {
   flex: none;
   width: 40px;
@@ -7469,15 +7473,16 @@ body.gfx-transparent {
   -webkit-line-clamp: 1;
 }
 .control-root .dock-program__sub {
-  max-height: 34px;
+  max-height: 17px;
   font-size: 12.5px;
   line-height: 17px;
   color: #adb9c8;
-  /* The recovery caveat is a sentence, not a label — two lines RESERVED. It
-     was once cut at every dock width up to 440px, which hid exactly the words
-     that say the app cannot confirm what output is showing. */
+  /* One line reserved at ordinary widths now that the caveats are short enough
+     to fit one. The narrow container query below still reserves two — the
+     disclosure that we cannot confirm what output is showing is never clipped,
+     it is only spelled more briefly. */
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -7487,11 +7492,11 @@ body.gfx-transparent {
    the base vars + 17px (one sub line); kept as literals because a container
    cannot restyle itself from its own query. */
 @container dock (max-width: 290px) {
-  .control-root .dock-program__sub { max-height: 51px; -webkit-line-clamp: 3; }
-  .control-root .dock-program__identity { height: 109px; }
-  .control-root .dock-program--compact .dock-program__identity { height: 90px; }
-  .control-root .dock-program { min-height: 211px; }
-  .control-root .dock-program--compact { min-height: 184px; }
+  .control-root .dock-program__sub { max-height: 34px; -webkit-line-clamp: 2; }
+  .control-root .dock-program__identity { height: 91px; }
+  .control-root .dock-program--compact .dock-program__identity { height: 79px; }
+  .control-root .dock-program { min-height: 193px; }
+  .control-root .dock-program--compact { min-height: 173px; }
 }
 
 /* Status chip — tinted, colour driven by the REAL Program status, never a
