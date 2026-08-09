@@ -205,6 +205,7 @@ if (renderPathFailures.length) {
  */
 const OUTPUT_SEND_MODULE = 'src/lib/outputAck.ts';
 const RELAY_CONFIG_MODULE = 'src/lib/relayConfig.ts';
+const HOST_DIAGNOSTICS_MODULE = 'src/lib/obsHostDiagnostics.ts';
 const STORAGE_WRITE_EXEMPT = new Set([RELAY_CONFIG_MODULE, 'src/lib/storage.ts']);
 const COMMAND_TYPES = ['SHOW_GRAPHIC', 'HIDE_GRAPHIC', 'CLEAR_ALL', 'UPDATE_PREVIEW', 'LOAD_PRESET', 'SET_THEME'];
 
@@ -218,7 +219,7 @@ const closureByRel = new Map(renderPathFiles.map((file) => [relPath(file), strip
 // Positive anchors first: every exemption below names a module that must
 // actually be in the closure, or the rule it relaxes is checking nothing.
 const anchorFailures = [];
-for (const required of [OUTPUT_SEND_MODULE, RELAY_CONFIG_MODULE, 'src/lib/outputChannel.ts']) {
+for (const required of [OUTPUT_SEND_MODULE, RELAY_CONFIG_MODULE, 'src/lib/outputChannel.ts', HOST_DIAGNOSTICS_MODULE]) {
   if (!closureByRel.has(required)) {
     anchorFailures.push(`${required} is not reachable from OutputPage.tsx — the ack/receive path or an exemption is dead`);
   }
@@ -235,6 +236,19 @@ if (!/fetchImpl \?\? fetch/.test(sendModuleSource)) {
 }
 if (!/\.catch\(/.test(sendModuleSource)) {
   anchorFailures.push(`${OUTPUT_SEND_MODULE} no longer swallows send failures — a dead relay could throw into the render path`);
+}
+/**
+ * The browser-visibility/scene diagnostic is DISPLAY ONLY, and the cheapest way
+ * to keep that structural rather than promised is to deny it every import:
+ * with no imports it cannot reach `obsSource.ts` to write a source reading, and
+ * cannot reach `outputAck.ts` to put one on the wire. `document.hidden` is not
+ * SOURCE HIDDEN until there is evidence it is, and this is what stops the two
+ * being wired together by a later edit that looked harmless.
+ * (Remove this clause and its anchor above together with the diagnostic.)
+ */
+const hostDiagnosticsSource = closureByRel.get(HOST_DIAGNOSTICS_MODULE) ?? '';
+if (/\bimport\b|\bfrom\s*['"]/.test(hostDiagnosticsSource)) {
+  anchorFailures.push(`${HOST_DIAGNOSTICS_MODULE} imports something — the host diagnostic must stay unable to reach source state or the transmitter`);
 }
 if (anchorFailures.length) {
   console.error('Output directionality check failed:');

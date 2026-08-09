@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createOutputChannel, loadLastRealtimeMessage } from '../lib/outputChannel';
 import { createOutputEvent, getOutputSessionId, sendOutputEvent } from '../lib/outputAck';
 import { subscribeObsSourceState, type ObsBridgeDiagnostics } from '../lib/obsSource';
+import { subscribeObsHostDiagnostics, type ObsHostDiagnostics } from '../lib/obsHostDiagnostics';
 import { OUTPUT_HEARTBEAT_MS } from '../lib/outputPresence';
 import { templateRegistry, templateRendererMap } from '../components/templates/registry';
 import GraphicStage from '../components/graphics/GraphicStage';
@@ -22,6 +23,28 @@ function eventLabel(flag: boolean | null | undefined): string {
   return flag === null || flag === undefined ? 'not seen' : String(flag);
 }
 
+/**
+ * Wall clock, deliberately not an age: an age is computed when the chip renders
+ * and the chip renders when an event arrives, so it would read "0s ago" in a
+ * screenshot taken minutes later. A time of day cannot go stale.
+ */
+function clockLabel(at: number | null | undefined): string {
+  if (at === null || at === undefined) return 'none';
+  return new Date(at).toLocaleTimeString();
+}
+
+/**
+ * "arrived, shaped differently" must never render as "not seen" — if OBS names
+ * the scene under a key this build does not read, the keys it DID send are the
+ * finding, and calling that silence would end the enquiry at the wrong answer.
+ */
+function sceneLabel(signals: ObsHostDiagnostics | null): string {
+  if (!signals || signals.sceneEvents === 0) return 'not seen';
+  if (signals.lastSceneName) return signals.lastSceneName;
+  if (signals.lastSceneDetailKeys?.length) return `detail keys: ${signals.lastSceneDetailKeys.join(', ')}`;
+  return 'arrived, no readable detail';
+}
+
 export default function OutputPage() {
   const [activeGraphic, setActiveGraphic] = useState<GraphicInstance | null>(null);
   const [showing, setShowing] = useState(false);
@@ -34,6 +57,9 @@ export default function OutputPage() {
   // Browser Source says which bridge is delivering, instead of another blind
   // code-and-test cycle.
   const [bridge, setBridge] = useState<ObsBridgeDiagnostics | null>(null);
+  // Separate state for a separate question: the OBS source bridge is silent on
+  // the rig, so this records whether the HOST's own signals arrive at all.
+  const [hostSignals, setHostSignals] = useState<ObsHostDiagnostics | null>(null);
 
   const revokeResolvedAssets = () => {
     resolvedAssetUrls.current.forEach((url) => URL.revokeObjectURL(url));
@@ -209,6 +235,20 @@ export default function OutputPage() {
     };
   }, []);
 
+  /**
+   * Host-signal diagnostics (`lib/obsHostDiagnostics.ts`), under ?debug=1 only.
+   *
+   * Its OWN effect and its OWN state, deliberately not folded into the presence
+   * effect above: that effect's callback calls `sendStatus()`, and sharing it is
+   * precisely how a diagnostic reading turns into Program truth by accident.
+   * Nothing here sends, and nothing here writes `source`.
+   */
+  useEffect(() => {
+    // `debugMode` is read once from the URL and never changes for this page.
+    if (!debugMode) return;
+    return subscribeObsHostDiagnostics(setHostSignals);
+  }, []);
+
   useEffect(() => {
     // Always cancel any pending timer first. A SHOW arriving while an
     // unmount timer is pending (e.g. restore-on-refresh) must cancel it,
@@ -281,6 +321,13 @@ export default function OutputPage() {
           <div>active event: {eventLabel(bridge?.activeEvent)}</div>
           <div>visible event: {eventLabel(bridge?.visibleEvent)}</div>
           <div>last event path: {bridge?.lastPath ?? 'none'}</div>
+          <div>page visibility: {hostSignals?.visibilityState ?? 'unknown'}</div>
+          <div>document.hidden: {hostSignals ? String(hostSignals.hidden) : 'unknown'}</div>
+          <div>visibility changes: {hostSignals?.visibilityChanges ?? 0}</div>
+          <div>hidden ever seen: {hostSignals?.hiddenSeen ? 'yes' : 'no'}</div>
+          <div>last visibility change: {clockLabel(hostSignals?.lastVisibilityChangeAt)}</div>
+          <div>scene events: {hostSignals?.sceneEvents ?? 0}</div>
+          <div>last scene event: {sceneLabel(hostSignals)}</div>
         </div>
       ) : null}
     </div>
