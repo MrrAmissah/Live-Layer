@@ -12,6 +12,15 @@
  *   short dock  → compact, whatever the preference says
  *   normal dock → the operator's preference decides
  *
+ * WHERE THIS RUNS, AND WHERE IT DOES NOT. The short-dock override is enforced
+ * in CSS by a `@container dock (max-height)` query, because the rule that stops
+ * a preference making a dock unusable must not depend on an observer firing —
+ * and in a cross-document frame a ResizeObserver demonstrably may not. This
+ * resolver mirrors the same precedence for the things CSS cannot say: which
+ * class to write, and whether Settings should tell the operator their choice is
+ * being overridden right now. If the measurement never arrives, the layout is
+ * still correct and only the explanation is missing.
+ *
  * HYSTERESIS. One threshold oscillates. The strip is inside the container being
  * measured, so switching to compact frees height, which can push the container
  * back over a single boundary, which restores the full strip, which takes the

@@ -7499,6 +7499,32 @@ body.gfx-transparent {
   .control-root .dock-program--compact { min-height: 173px; }
 }
 
+/**
+ * AUTO-COMPACT — the short-dock override, owned by CSS.
+ *
+ * The precedence is: a short dock is compact whatever the preference says; a
+ * normal dock defers to the preference. The second half is the `--compact`
+ * class above, written by the operator in Settings. THIS half is a container
+ * query, deliberately not JavaScript.
+ *
+ * A preference must not be able to make a dock unusable, so the rule that
+ * protects usability cannot depend on an observer firing. The dock already
+ * declares `container: dock / size`, and the footer collapse already proves
+ * height queries work in OBS CEF — so the same mechanism carries this. It is
+ * also inherently flicker-free: the browser resolves it, there is no state to
+ * settle, and the strip shrinking cannot feed back into the dock's own height
+ * because the dock is sized by its frame, not by its contents.
+ *
+ * 470px is where the measured layout runs out: header, tab bar, strip and
+ * margins leave a tab too little to show a control below them.
+ */
+@container dock (max-height: 470px) {
+  .control-root .dock-program { min-height: var(--dock-strip-h-compact); padding: 8px; }
+  .control-root .dock-program__identity { height: 62px; padding: 7px 9px; }
+  .control-root .dock-program__title { max-height: 19px; font-size: 14px; -webkit-line-clamp: 1; }
+  .control-root .dock-program__glyph { width: 34px; height: 30px; }
+}
+
 /* Status chip — tinted, colour driven by the REAL Program status, never a
    hardcoded green. The clock is real (program.takenAt); the words come from
    lib/programStatus.ts. */
