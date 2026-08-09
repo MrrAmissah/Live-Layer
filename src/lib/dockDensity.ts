@@ -45,7 +45,15 @@ export interface StripDensityState {
   reason: 'short-dock' | 'preference';
 }
 
-/** Below this the dock is too short to spend the full strip's height. */
+/**
+ * At or below this the dock is too short to spend the full strip's height.
+ *
+ * INCLUSIVE, because the CSS that actually performs the override is
+ * `@container dock (max-height: 470px)` and `max-height` includes 470. When
+ * this was exclusive the two contracts disagreed at exactly that pixel: CSS
+ * rendered compact while the resolver still called it a preference, so Settings
+ * would have denied an override that was visibly happening.
+ */
 export const COMPACT_ENTER_HEIGHT = 470;
 /** Above this the full strip is affordable again. The gap is the hysteresis. */
 export const COMPACT_EXIT_HEIGHT = 530;
@@ -66,7 +74,7 @@ export function resolveStripDensity(input: {
     return { density: preferCompact ? 'compact' : 'full', reason: 'preference' };
   }
 
-  if (dockHeight < COMPACT_ENTER_HEIGHT) {
+  if (dockHeight <= COMPACT_ENTER_HEIGHT) {
     return { density: 'compact', reason: preferCompact ? 'preference' : 'short-dock' };
   }
 

@@ -32,10 +32,50 @@ describe('a short dock overrides the preference', () => {
     expect(isAutoCompact(state)).toBe(false);
   });
 
-  it('overrides at every height below the enter threshold', () => {
-    for (const h of [320, 380, 420, COMPACT_ENTER_HEIGHT - 1]) {
+  it('overrides at every height at or below the enter threshold', () => {
+    for (const h of [320, 380, 420, COMPACT_ENTER_HEIGHT - 1, COMPACT_ENTER_HEIGHT]) {
       expect(at(h, false).density, `${h}px`).toBe('compact');
     }
+  });
+});
+
+describe('the exact boundaries, where the two contracts have to agree', () => {
+  /**
+   * The CSS that performs the override is `@container dock (max-height: 470px)`,
+   * and `max-height` INCLUDES 470. An exclusive resolver disagreed at exactly
+   * that pixel — CSS rendered compact while Settings would have reported a
+   * preference — and the tests missed it by stopping one pixel short.
+   */
+  it('470 is short, and says so', () => {
+    const state = at(470, false);
+    expect(state.density).toBe('compact');
+    expect(state.reason).toBe('short-dock');
+    expect(isAutoCompact(state), 'Settings must be able to report the override').toBe(true);
+  });
+
+  it('469 is short', () => {
+    expect(at(469, false)).toEqual({ density: 'compact', reason: 'short-dock' });
+  });
+
+  it('471 is not short — it is inside the band, which holds what is applied', () => {
+    expect(at(471, false, 'full').density).toBe('full');
+    expect(at(471, false, 'compact').density).toBe('compact');
+  });
+
+  it('529 is still inside the band', () => {
+    expect(at(529, false, 'compact').density).toBe('compact');
+    expect(at(529, false, 'full').density).toBe('full');
+  });
+
+  it('530 leaves the band and defers to the preference', () => {
+    // The exit threshold is inclusive too, so a dock at exactly 530 is normal.
+    expect(at(530, false, 'compact')).toEqual({ density: 'full', reason: 'preference' });
+    expect(at(530, true, 'full')).toEqual({ density: 'compact', reason: 'preference' });
+  });
+
+  it('every height at or below 470 overrides, and none above 530 does', () => {
+    for (let h = 460; h <= 470; h += 1) expect(at(h, false).density, `${h}`).toBe('compact');
+    for (let h = 530; h <= 540; h += 1) expect(at(h, false).density, `${h}`).toBe('full');
   });
 });
 

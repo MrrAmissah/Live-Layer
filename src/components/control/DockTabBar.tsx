@@ -5,7 +5,7 @@ export type DockTab = 'live' | 'queue' | 'edit' | 'settings';
 /**
  * The tone split is SEMANTIC, not decorative: tabs that operate the output
  * (Live, Queue) carry the live-green indicator with the label kept white —
- * green never recolours text; configuration tabs (Quick Edit, More) turn
+ * green never recolours text; configuration tabs (Quick Edit, Settings) turn
  * fully blue. Encoded as data on each tab so the CSS keys off `data-tone`,
  * never off a per-tab class.
  */

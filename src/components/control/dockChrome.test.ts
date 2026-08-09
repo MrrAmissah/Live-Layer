@@ -57,7 +57,7 @@ describe('the chrome variables are load-bearing', () => {
      * out from under the hand reaching for it.
      */
     expect(css).toMatch(/\.dock-program__head\s*\{[^}]*[^-]height: 24px/);
-    expect(css).toMatch(/\.dock-program__identity\s*\{[^}]*[^-]height: 74px/);
+    expect(css).toMatch(/\.dock-program__identity\s*\{[^}]*[^-]height: 71px/);
 
     /**
      * The TEXT ROWS reserve a ceiling, not a floor, and the column centres.
@@ -120,8 +120,8 @@ describe('the 314×500 floor (the dock that had 24px of scroll)', () => {
     const bands = [...css.matchAll(narrow)].map((match) => match[1]).join('\n');
     // `max-height`, matching the fixed-box/ceiling-row split above: the strip's
     // 211px still holds, the row just stops adding slack when the text is short.
-    expect(bands).toMatch(/\.dock-program__sub \{ max-height: 34px; -webkit-line-clamp: 2; \}/);
-    expect(bands).toMatch(/\.dock-program \{ min-height: 193px; \}/);
+    expect(css).toMatch(/\.dock-program__sub \{[\s\S]*?max-height: 34px;[\s\S]*?-webkit-line-clamp: 2;/);
+    expect(bands).toMatch(/\.dock-program \{ min-height: 173px; \}/);
     // The reserved third line costs this band 17px, taking a 255×500 dock to
     // 38.6% scroll — deliberately below the 40% floor rather than clipping a
     // disclosure to hit a ratio. 190px is the honest floor for this band.

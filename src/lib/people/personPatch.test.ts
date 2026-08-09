@@ -51,9 +51,10 @@ describe('the fields a person fills', () => {
     expect(patch.subtitle).toBe('Visiting from Kumasi');
   });
 
-  it('CLEARS a field the new person does not have, rather than leaving the last one', () => {
+  it('CLEARS stale identity text, rather than leaving the last person’s', () => {
     // The failure this feature exists to prevent: a new speaker's name beside
-    // the previous speaker's title.
+    // the previous speaker's title. Applies to identity text and the headshot;
+    // the logo is deliberately preserved (see the asset tests below).
     const patch = personFieldPatch(person({ title: undefined, churchName: undefined }), 'preacher-lower-third');
     expect(patch.title).toBe('');
     expect(patch.subtitle).toBe('');
@@ -97,7 +98,17 @@ describe('assets are references, and only where the renderer shows them', () => 
     expect(patch.logoUrl).toBe('');
   });
 
-  it('leaves an existing logo alone when the person has none', () => {
+  it('PRESERVES the existing logo when the person has none — deliberately', () => {
+    /**
+     * The asymmetry is intentional, and matches the pre-existing person helper.
+     * Text and headshot are that PERSON's identity, so a new person without
+     * them must clear the last person's. A logo is usually the CHURCH's, set
+     * once for the event: wiping it because a guest speaker has no personal
+     * logo would strip the house brand off the graphic mid-service.
+     *
+     * So: an incoming person logo replaces the current one; the absence of one
+     * leaves whatever the graphic already carries.
+     */
     const patch = personFieldPatch(person({ logoAssetId: undefined }), 'preacher-lower-third');
     expect('logoAssetId' in patch).toBe(false);
     expect('logoUrl' in patch).toBe(false);

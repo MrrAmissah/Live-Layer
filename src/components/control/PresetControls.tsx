@@ -30,7 +30,6 @@ export default function PresetControls({
   const presets = useLiveLayerStore((state) => state.presets);
   const removePreset = useLiveLayerStore((state) => state.removePreset);
   const loadGraphicInstance = useLiveLayerStore((state) => state.loadGraphicInstance);
-  const clearLocalData = useLiveLayerStore((state) => state.clearLocalData);
   const { isRundownItem, sourceLabel, templateId, saveAsPreset } = useEditTarget();
   const rd = useRundowns();
 
