@@ -9138,3 +9138,30 @@ body.gfx-transparent {
    revised — and it is never what gets parsed. aria-live is off deliberately: a
    region that re-announced every partial guess would be unusable. */
 .control-root .voice-assist__interim { margin: 0; font-size: 11.5px; font-style: italic; color: var(--ll-muted-2); }
+
+/* --- dock Settings tab (stage 4B) ---------------------------------------
+   Deliberately plain: rows of real controls, not a dashboard. No cards inside
+   cards, no status pills inventing state, no decorative telemetry. */
+.control-root .dock-settings { display: flex; flex-direction: column; gap: 10px; }
+.control-root .dock-set__row {
+  display: flex; align-items: flex-start; gap: 9px;
+  min-height: 32px; margin: 0; cursor: pointer;
+}
+.control-root .dock-set__row--static { cursor: default; }
+.control-root .dock-set__row input[type='checkbox'] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--ll-blue); flex: none; }
+.control-root .dock-set__label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.control-root .dock-set__name { font-size: 13px; font-weight: 640; color: var(--ll-text); }
+.control-root .dock-set__hint { font-size: 11.5px; line-height: 1.4; color: var(--ll-muted-2); overflow-wrap: anywhere; }
+.control-root .dock-set__mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+/* The relay state carries the same colour vocabulary as the footer dot. */
+.control-root .dock-set__name[data-connection='local'] { color: var(--ll-live-text); }
+.control-root .dock-set__name[data-connection='ready'] { color: var(--ll-live-text); }
+.control-root .dock-set__name[data-connection='unreachable'],
+.control-root .dock-set__name[data-connection='not-relay'] { color: #ff9a94; }
+.control-root .dock-set__note {
+  margin: 8px 0 0; padding: 7px 9px; border-radius: 5px;
+  font-size: 11.5px; line-height: 1.45; color: #cbd6e6;
+  background: rgba(32, 165, 250, 0.08); border: 1px solid rgba(32, 165, 250, 0.24);
+}
+.control-root .dock-set__link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; }
+.control-root .dock-set__danger { border-color: rgba(244, 63, 94, 0.22); }

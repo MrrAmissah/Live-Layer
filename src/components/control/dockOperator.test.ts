@@ -183,15 +183,18 @@ describe('an item association is not an acknowledgement', () => {
 describe('the tab set', () => {
   it('is exactly the four expected ids, in order', () => {
     const ids = [...files.tabbar.matchAll(/\{ id: '(\w+)'/g)].map((match) => match[1]);
-    expect(ids).toEqual(['live', 'queue', 'edit', 'more']);
-    expect(files.tabbar).toContain("export type DockTab = 'live' | 'queue' | 'edit' | 'more'");
+    // Stage 4B: `more` became `settings` when the placeholder was replaced by a
+    // real preferences surface. The tab COUNT and the tone split are the parts
+    // that carry meaning, and both are unchanged.
+    expect(ids).toEqual(['live', 'queue', 'edit', 'settings']);
+    expect(files.tabbar).toContain("export type DockTab = 'live' | 'queue' | 'edit' | 'settings'");
   });
 
   it('encodes the tone split as data, not as a per-tab class', () => {
     // One render path reads the tone off the tab record…
     expect(files.tabbar).toContain('data-tone={tab.tone}');
     expect(files.tabbar).not.toMatch(/data-tone="(live|config)"/);
-    // …the split itself is live+queue vs edit+more…
+    // …the split itself is live+queue vs edit+settings…
     expect(files.tabbar.match(/tone: 'live'/g)).toHaveLength(2);
     expect(files.tabbar.match(/tone: 'config'/g)).toHaveLength(2);
     // …and the CSS keys the active indicator off the same attribute. Green
@@ -261,6 +264,45 @@ describe('the Program strip is honest', () => {
     }
   });
 
+  it('the placeholder tab is gone and Settings claims nothing it cannot check', () => {
+    /**
+     * `More` rendered "Coming in the next stage." over a quarter of primary
+     * navigation while `compactProgramStrip` — persisted, read and honoured —
+     * had no writer anywhere in the product. The tab is real now, and the point
+     * of it is that everything in it is backed by behaviour.
+     */
+    const shell = read('src/components/control/DockShell.tsx');
+    expect(shell).not.toContain('ComingSoon');
+    expect(shell).not.toContain('Coming in the next stage');
+
+    const settings = read('src/components/control/DockSettingsTab.tsx');
+    // It writes the real preference through the existing store...
+    expect(settings).toContain('setCompactProgramStrip');
+    // ...reports the real relay states from the shared table...
+    expect(settings).toContain('RELAY_LABEL[relay.connection]');
+    // ...and reuses the one reset implementation rather than copying it.
+    expect(settings).toContain('<ResetLocalData />');
+    expect(settings).not.toContain('clearLocalData');
+
+    /* The invented telemetry this tab exists without. Comments are stripped
+       first — same rule the vocabulary guards use — because the file's own
+       header names these very words to say it does not display them. */
+    const settingsCode = stripComments(settings);
+    for (const fake of [/OBS Connected/i, /Queue Sync/i, /\bFPS\b/, />\s*Online\s*</i, /Connected<\//i]) {
+      expect(settingsCode, `invented status: ${fake}`).not.toMatch(fake);
+    }
+  });
+
+  it('has exactly one reset implementation', () => {
+    // Two confirmation flows means two chances for the deletion copy to drift
+    // from what clearLocalData actually clears.
+    const dir = 'src/components/control';
+    const owners = readdirSync(dir)
+      .filter((name) => name.endsWith('.tsx'))
+      .filter((name) => read(`${dir}/${name}`).includes('preset-reset__confirm'));
+    expect(owners).toEqual(['ResetLocalData.tsx']);
+  });
+
   it('drives the status chip colour off the real status, never hardcoded green', () => {
     expect(files.strip).toContain('data-status={program.status}');
     const chipRules = css.match(/\.dock-program__chip\[data-status='\w+'\]/g) ?? [];
@@ -326,7 +368,7 @@ describe('exactly one Take in the dock tree', () => {
   });
 
   it('mounts only the active tab (an OBS dock shares CPU with an encoder)', () => {
-    for (const tab of ['live', 'queue', 'edit', 'more']) {
+    for (const tab of ['live', 'queue', 'edit', 'settings']) {
       expect(files.shell).toContain(`tab === '${tab}' ?`);
     }
   });

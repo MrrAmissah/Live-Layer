@@ -1,6 +1,6 @@
 import { Icon, type IconName } from '../../lib/icons';
 
-export type DockTab = 'live' | 'queue' | 'edit' | 'more';
+export type DockTab = 'live' | 'queue' | 'edit' | 'settings';
 
 /**
  * The tone split is SEMANTIC, not decorative: tabs that operate the output
@@ -15,7 +15,7 @@ const TABS: { id: DockTab; label: string; icon: IconName; tone: DockTabTone }[] 
   { id: 'live', label: 'Live', icon: 'broadcast', tone: 'live' },
   { id: 'queue', label: 'Queue', icon: 'queue', tone: 'live' },
   { id: 'edit', label: 'Quick Edit', icon: 'edit', tone: 'config' },
-  { id: 'more', label: 'More', icon: 'more', tone: 'config' }
+  { id: 'settings', label: 'Settings', icon: 'settings', tone: 'config' }
 ];
 
 interface DockTabBarProps {

@@ -6,7 +6,7 @@ import { noActiveRundownMessage, type ControlSurface } from './rundownDestinatio
 import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
 import { defaultPresetName, resolvePresetName, templateDisplayName } from '../../lib/presetNaming';
 import type { GraphicInstance } from '../../types/graphics';
-import { Icon } from '../../lib/icons';
+import ResetLocalData from './ResetLocalData';
 
 /**
  * Save / list / apply / remove presets, with a clear empty state and a small
@@ -33,7 +33,6 @@ export default function PresetControls({
   const clearLocalData = useLiveLayerStore((state) => state.clearLocalData);
   const { isRundownItem, sourceLabel, templateId, saveAsPreset } = useEditTarget();
   const rd = useRundowns();
-  const [confirmingReset, setConfirmingReset] = useState(false);
 
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
@@ -133,47 +132,13 @@ export default function PresetControls({
 
       {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
 
-      {/* Two-step, and never a bare one-click: this removes everything this
-          browser holds. The list below is checked against what `clearLocalData`
-          actually clears — it also resets Program and removes the working draft,
-          which the old copy did not mention. Nothing leaves this browser, so it
-          must not imply a server or cloud deletion. */}
-      {confirmingReset ? (
-        <div className="preset-reset__confirm" role="alertdialog" aria-label="Confirm reset">
-          <p className="preset-reset__warning">
-            Erase everything saved in this browser — presets, quick queue, recents, rundowns,
-            people, uploaded assets, brand colours, the Program record and the graphic you are
-            preparing? This cannot be undone.
-          </p>
-          <div className="preset-reset__actions">
-            <button
-              type="button"
-              className="btn btn--secondary btn--sm"
-              onClick={() => setConfirmingReset(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="preset-reset preset-reset--confirm"
-              onClick={() => {
-                clearLocalData();
-                setConfirmingReset(false);
-              }}
-            >
-              Yes, erase everything
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="preset-reset__zone">
-          <span className="ll-kicker">Local data</span>
-          <button type="button" className="preset-reset" onClick={() => setConfirmingReset(true)}>
-            <Icon name="reset" size={14} />
-            Reset all local data
-          </button>
-        </div>
-      )}
+      {/* One implementation, mounted here and in the dock's Settings tab —
+          see `ResetLocalData`. The studio has no Settings surface, so removing
+          it from here entirely would leave a studio operator unable to reset. */}
+      <div className="preset-reset__zone">
+        <span className="ll-kicker">Local data</span>
+        <ResetLocalData />
+      </div>
     </div>
   );
 }

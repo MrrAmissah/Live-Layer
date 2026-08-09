@@ -8,6 +8,7 @@ import DockLiveTab from './DockLiveTab';
 import DockQueueTab from './DockQueueTab';
 import DockQuickEditTab from './DockQuickEditTab';
 import DockFooter from './DockFooter';
+import DockSettingsTab from './DockSettingsTab';
 import { useDockPrefs } from '../../store/useDockPrefs';
 import { resolveStripDensity, type StripDensity } from '../../lib/dockDensity';
 
@@ -37,8 +38,8 @@ interface DockShellProps {
  * mounting useRelayStatus in each would double the probe traffic.
  *
  * Only the active tab mounts — an OBS dock shares CPU with an encoder, and a
- * GraphicStage render per hidden tab is a real cost. More is an honest
- * placeholder until stage 3.
+ * GraphicStage render per hidden tab is a real cost. Settings is a real tab now,
+ * carrying only preferences and information that already have behaviour.
  */
 export default function DockShell({ onTake, onClear, lastAction, sending = false }: DockShellProps) {
   const [tab, setTab] = useState<DockTab>('live');
@@ -86,9 +87,7 @@ export default function DockShell({ onTake, onClear, lastAction, sending = false
             />
           ) : null}
           {tab === 'edit' ? <DockQuickEditTab onOpenQueue={() => setTab('queue')} /> : null}
-          {tab === 'more' ? (
-            <ComingSoon title="More" note="Utilities, preferences and diagnostics land here." />
-          ) : null}
+          {tab === 'settings' ? <DockSettingsTab relay={relay} density={resolved} /> : null}
         </div>
         <DockFooter relay={relay} />
       </div>
@@ -96,15 +95,3 @@ export default function DockShell({ onTake, onClear, lastAction, sending = false
   );
 }
 
-/** Honest placeholder for the not-yet-built tabs — never a mocked-up screen. */
-function ComingSoon({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="dock-tabpane">
-      <section className="dock-card dock-coming">
-        <span className="ll-kicker">{title}</span>
-        <p className="dock-coming__note">Coming in the next stage.</p>
-        <p className="dock-card__hint">{note}</p>
-      </section>
-    </div>
-  );
-}
