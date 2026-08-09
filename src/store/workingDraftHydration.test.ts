@@ -330,6 +330,27 @@ describe('persisting what the operator does next', () => {
     expect(JSON.parse(session.map.get(WORKING_DRAFT_KEY) ?? '{}').draft.values.body).toBe('x'.repeat(40));
   });
 
+  it('an announcement beginning "Data:" survives a refresh intact', async () => {
+    /**
+     * End to end, through the real store: type prose that happens to start with
+     * a URL scheme, let it persist, boot a fresh store from that record. An
+     * asset sanitiser that reads values rather than keys deletes this on the
+     * way through, and the operator loses the announcement they just wrote.
+     */
+    vi.useFakeTimers();
+    const first = await bootStore();
+    const announcement = 'Data: registration closes at 5 PM';
+    first.store.getState().setField('headline', announcement);
+    first.store.getState().setField('body', 'blob: notes from the media team');
+    vi.advanceTimersByTime(500);
+
+    const persisted = first.session.map.get(WORKING_DRAFT_KEY)!;
+    const { store } = await bootStore({ session: { [WORKING_DRAFT_KEY]: persisted } });
+
+    expect(store.getState().draftValues.headline).toBe(announcement);
+    expect(store.getState().draftValues.body).toBe('blob: notes from the media team');
+  });
+
   it('an explicit template choice after hydration replaces the restored draft', async () => {
     // Contract: the library must not silently replace a restored draft on mount,
     // but an explicit choice still starts a new graphic, as it always has.

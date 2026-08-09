@@ -191,8 +191,38 @@ describe('a record that cannot be trusted seeds instead', () => {
   });
 });
 
-describe('assets are referenced, never carried', () => {
-  it('persists asset ids', () => {
+describe('the asset policy is decided by key, not by reading the value', () => {
+  /**
+   * The rule this suite exists to hold: a sanitiser cannot tell an asset source
+   * from a sentence by reading the sentence. An earlier version dropped ANY
+   * value beginning with `data:` or `blob:`, which silently deleted ordinary
+   * announcement text on refresh. Prose is prose whatever it starts with; only
+   * the KEY says a field is an asset source.
+   */
+
+  it('round-trips ordinary text that merely looks like a URL scheme', () => {
+    const { storage } = fakeStorage();
+    const prose = {
+      headline: 'Data: registration closes at 5 PM',
+      body: 'blob: notes from the media team',
+      subtitle: '   data:  spaced, still ordinary text',
+      note: 'BLOB:SHOUTED AND STILL TEXT',
+      quoteText: 'data:image/png;base64 — the team asked what this means'
+    };
+    writeWorkingDraft(draft({ values: { ...prose } }), storage);
+    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual(prose);
+  });
+
+  it('preserves such text byte for byte, not merely truthily', () => {
+    const { storage } = fakeStorage();
+    const exact = 'Data: registration closes at 5 PM';
+    writeWorkingDraft(draft({ values: { headline: exact } }), storage);
+    const restored = readWorkingDraft(KNOWN, storage)!.values.headline;
+    expect(restored).toBe(exact);
+    expect(restored.length).toBe(exact.length);
+  });
+
+  it('persists local uploaded assets by their stable ids', () => {
     const { storage, map } = fakeStorage();
     writeWorkingDraft(
       draft({ values: { name: 'Ama', headshotAssetId: 'asset-123', logoAssetId: 'asset-456' } }),
@@ -206,48 +236,114 @@ describe('assets are referenced, never carried', () => {
     expect(map.get(WORKING_DRAFT_KEY)).toContain('asset-123');
   });
 
-  it('drops inline binary rather than storing image bytes', () => {
-    const { storage, map } = fakeStorage();
+  it('covers a future *AssetId slot without a second list to keep in sync', () => {
+    // `endsWith('AssetId')` is the convention rundownReferences.ts already uses.
+    const { storage } = fakeStorage();
+    writeWorkingDraft(draft({ values: { backgroundAssetId: 'asset-bg-1' } }), storage);
+    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ backgroundAssetId: 'asset-bg-1' });
+  });
+
+  it('drops the render-only resolved sources /output writes', () => {
+    // Object URLs minted while rendering. Stored, they restore as broken images
+    // pointing at a document that no longer exists.
+    const { storage } = fakeStorage();
     writeWorkingDraft(
       draft({
         values: {
           name: 'Ama',
-          logoAssetId: 'asset-1',
-          logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
-          headshotUrl: 'blob:http://127.0.0.1:4173/9f0c-dead-beef'
+          logoResolvedSrc: 'blob:http://127.0.0.1:4173/9f0c',
+          headshotResolvedSrc: 'https://cdn.example/headshot.png'
         }
       }),
       storage
     );
-    const raw = map.get(WORKING_DRAFT_KEY) ?? '';
-    expect(raw).not.toContain('data:image');
-    expect(raw).not.toContain('blob:');
-    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ name: 'Ama', logoAssetId: 'asset-1' });
+    // Dropped by KEY: note the second one is an ordinary https URL and still goes.
+    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ name: 'Ama' });
   });
 
-  it('drops the render-time resolved sources /output writes', () => {
-    // `logoResolvedSrc` is an object URL minted while rendering. Stored, it
-    // restores as a broken image pointing at a document that no longer exists.
+  it('keeps a typed logo URL, because that is operator content', () => {
     const { storage } = fakeStorage();
+    writeWorkingDraft(draft({ values: { logoUrl: 'https://church.example/logo.png' } }), storage);
+    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ logoUrl: 'https://church.example/logo.png' });
+  });
+
+  it('drops inline binary and dead object URLs from the asset-source field only', () => {
+    const { storage, map } = fakeStorage();
     writeWorkingDraft(
-      draft({ values: { name: 'Ama', logoResolvedSrc: 'blob:x', headshotResolvedSrc: 'blob:y' } }),
+      draft({
+        values: {
+          logoUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+          headline: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='
+        }
+      }),
       storage
     );
-    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ name: 'Ama' });
+    const restored = readWorkingDraft(KNOWN, storage)!.values;
+    expect(restored.logoUrl).toBeUndefined(); // asset source: not a reference
+    expect(restored.headline).toBe('data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=='); // prose: verbatim
+    expect(map.get(WORKING_DRAFT_KEY)).toContain('headline');
   });
 
-  it('strips inline binary a hand-edited record smuggled in', () => {
+  it('drops a blob: asset id, which is dead the moment it is read back', () => {
+    const { storage } = fakeStorage();
+    writeWorkingDraft(draft({ values: { logoAssetId: 'blob:http://127.0.0.1:4173/dead' } }), storage);
+    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({});
+  });
+
+  it('applies the same policy to a hand-edited record on the way in', () => {
     const { storage } = fakeStorage(
-      stored({ ...draft(), values: { name: 'Ama', logoUrl: 'data:image/png;base64,AAA' } })
+      stored({
+        ...draft(),
+        values: {
+          headline: 'Data: still ordinary text',
+          logoUrl: 'data:image/png;base64,AAA',
+          logoResolvedSrc: 'blob:x'
+        }
+      })
     );
-    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ name: 'Ama' });
+    expect(readWorkingDraft(KNOWN, storage)?.values).toEqual({ headline: 'Data: still ordinary text' });
   });
 
-  it('refuses a theme whose required colour is inline binary', () => {
+  it('lets a theme colour through untouched — a colour is never an asset key', () => {
+    const { storage } = fakeStorage();
+    const theme = { primaryColor: '#f8fafc', accentColor: '#E8B93C', backgroundColor: 'transparent' };
+    writeWorkingDraft(draft({ theme }), storage);
+    expect(readWorkingDraft(KNOWN, storage)?.theme).toEqual(theme);
+  });
+
+  it('applies the asset policy to a theme-level logoAssetId', () => {
+    const { storage } = fakeStorage();
+    writeWorkingDraft(
+      draft({
+        theme: {
+          primaryColor: '#fff',
+          accentColor: '#000',
+          backgroundColor: 'transparent',
+          logoAssetId: 'asset-theme-1'
+        }
+      }),
+      storage
+    );
+    expect(readWorkingDraft(KNOWN, storage)?.theme.logoAssetId).toBe('asset-theme-1');
+  });
+
+  it('no Blob, File or other binary payload can enter the envelope', () => {
+    // Values are strings by type; this is the runtime boundary that enforces it.
+    // A record carrying a non-string is refused outright rather than coerced.
     const { storage } = fakeStorage(
-      stored({ ...draft(), theme: { primaryColor: 'data:x', accentColor: '#123456', backgroundColor: 'transparent' } })
+      stored({ ...draft(), values: { name: 'Ama', logo: { size: 1024, type: 'image/png' } } })
     );
     expect(readWorkingDraft(KNOWN, storage)).toBeNull();
+
+    // ...and on the way out, a non-string smuggled past the type system is
+    // dropped rather than serialised.
+    const write = fakeStorage();
+    writeWorkingDraft(
+      draft({ values: { name: 'Ama', logoBlob: { size: 1024 } as unknown as string } }),
+      write.storage
+    );
+    expect(readWorkingDraft(KNOWN, write.storage)?.values).toEqual({ name: 'Ama' });
+    expect(write.map.get(WORKING_DRAFT_KEY)).not.toContain('logoBlob');
   });
 });
 

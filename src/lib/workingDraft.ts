@@ -36,10 +36,9 @@ import type { LayoutSettings } from '../types/layout';
  * so this is stated as a boundary rather than a guarantee. `storage` is
  * injectable throughout precisely so that answer can change one line of code.
  *
- * Assets are referenced BY ID. A `data:` or `blob:` value is inline binary, not
- * a reference: the first would put image bytes in a 5 MB store, the second is a
- * per-document URL that is already dead by the time it is read back. Both are
- * dropped on write (see `referenceOnly`).
+ * Assets are referenced BY ID, and which fields are assets is decided by KEY,
+ * never by reading the value — see the asset policy below. Ordinary operator
+ * text round-trips byte for byte whatever it happens to say.
  */
 export const WORKING_DRAFT_VERSION = 1;
 export const WORKING_DRAFT_KEY = 'livelayer.workingDraft';
@@ -70,22 +69,59 @@ function defaultStorage(): DraftStorage | null {
   }
 }
 
-/** Rendering artefacts, never operator content: `/output` resolves asset ids to
- *  object URLs under these keys, and a stored one restores as a broken image. */
-const RESOLVED_ASSET_KEYS = new Set(['logoResolvedSrc', 'headshotResolvedSrc']);
-const INLINE_BINARY = /^\s*(data|blob):/i;
-
 /**
- * Keep only true string references. Anything carrying inline binary is dropped
- * rather than stored, so the record can never become an asset payload.
+ * THE ASSET POLICY, DECIDED BY KEY — never by inspecting the string.
+ *
+ * An earlier version dropped any value that merely *started with* `data:` or
+ * `blob:`, wherever it appeared. Draft values are mostly arbitrary operator
+ * prose, so that silently deleted ordinary announcement text on refresh:
+ *
+ *     "Data: registration closes at 5 PM"
+ *     "blob: notes from the media team"
+ *
+ * A sanitiser cannot tell an asset source from a sentence by reading the
+ * sentence. The key is what carries that meaning, so the key is what decides:
+ *
+ *  - `*AssetId` — a stable local asset reference. Persisted. The `endsWith`
+ *    rule is the convention this codebase already relies on
+ *    (`lib/rundown/rundownReferences.ts` collects references the same way), so
+ *    a future slot like `backgroundAssetId` is covered without a second list to
+ *    keep in sync.
+ *  - `logoUrl` — today's only URL-backed asset source. Persisted, because a
+ *    typed URL is the operator's content; but a `data:` value there is inline
+ *    binary rather than a reference, and a `blob:` value is a per-document URL
+ *    already dead by the time it is read back.
+ *  - `logoResolvedSrc` / `headshotResolvedSrc` — minted by `/output` while
+ *    rendering, never operator content. Never persisted: a stored one restores
+ *    as a broken image pointing at a document that no longer exists.
+ *  - everything else — verbatim, byte for byte, whatever it happens to say.
+ *
+ * A Blob or a File cannot enter the record at all: values are strings by type,
+ * and the runtime `typeof` guard below is what enforces that at the boundary.
  */
-function referenceOnly(source: Record<string, string>): Record<string, string> {
+const ASSET_ID_SUFFIX = 'AssetId';
+const URL_BACKED_ASSET_KEYS = new Set(['logoUrl']);
+const RENDER_ONLY_ASSET_KEYS = new Set(['logoResolvedSrc', 'headshotResolvedSrc']);
+/** Not a reference: inline binary, or a URL scoped to a document that is gone. */
+const NOT_A_REFERENCE = /^\s*(data|blob):/i;
+
+function isAssetSourceKey(key: string): boolean {
+  return key.endsWith(ASSET_ID_SUFFIX) || URL_BACKED_ASSET_KEYS.has(key);
+}
+
+/** `null` = do not persist this entry at all. */
+function persistableValue(key: string, value: unknown): string | null {
+  if (typeof value !== 'string') return null; // a Blob/File/number can never enter
+  if (RENDER_ONLY_ASSET_KEYS.has(key)) return null;
+  if (isAssetSourceKey(key) && NOT_A_REFERENCE.test(value)) return null;
+  return value;
+}
+
+function assetSafeRecord(source: Record<string, string>): Record<string, string> {
   const kept: Record<string, string> = {};
   for (const [key, value] of Object.entries(source)) {
-    if (typeof value !== 'string') continue;
-    if (RESOLVED_ASSET_KEYS.has(key)) continue;
-    if (INLINE_BINARY.test(value)) continue;
-    kept[key] = value;
+    const next = persistableValue(key, value);
+    if (next !== null) kept[key] = next;
   }
   return kept;
 }
@@ -101,9 +137,9 @@ const REQUIRED_THEME_KEYS = ['primaryColor', 'accentColor', 'backgroundColor'] a
 function asTheme(value: unknown): TemplateDefinition['theme'] | null {
   const record = asStringRecord(value);
   if (!record) return null;
-  // Sanitise BEFORE the check, so a required key that only survived as inline
-  // binary is treated as missing rather than cast away.
-  const kept = referenceOnly(record);
+  // Sanitised first so the required-colour check runs on what will actually be
+  // stored. Colours are not asset keys, so they pass through untouched.
+  const kept = assetSafeRecord(record);
   for (const key of REQUIRED_THEME_KEYS) {
     if (typeof kept[key] !== 'string') return null;
   }
@@ -210,7 +246,7 @@ export function readWorkingDraft(
     // Sanitised on read as well as write: a record written by an older build,
     // or edited by hand, must not reintroduce inline binary. (`asTheme` has
     // already done the same for the theme.)
-    values: referenceOnly(values),
+    values: assetSafeRecord(values),
     theme,
     layout,
     durationSeconds
@@ -226,8 +262,8 @@ export function writeWorkingDraft(draft: WorkingDraft, storage: DraftStorage | n
         version: WORKING_DRAFT_VERSION,
         draft: {
           templateId: draft.templateId,
-          values: referenceOnly(draft.values),
-          theme: referenceOnly(draft.theme as unknown as Record<string, string>),
+          values: assetSafeRecord(draft.values),
+          theme: assetSafeRecord(draft.theme as unknown as Record<string, string>),
           layout: draft.layout,
           durationSeconds: draft.durationSeconds
         }
