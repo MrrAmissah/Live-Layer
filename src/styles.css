@@ -9186,3 +9186,7 @@ body.gfx-transparent {
 .control-root .dock-person__name { font-size: 13px; font-weight: 640; color: var(--ll-text); }
 .control-root .dock-person__meta { font-size: 11px; color: var(--ll-muted-2); }
 .control-root .dock-person__cancel { align-self: flex-start; margin-top: 6px; }
+
+/* The Program readout is a status, not a control: no pointer, no hover, and a
+   flatter treatment than the Clear button it sits near. */
+.control-root .program-rail__status { cursor: default; user-select: none; }

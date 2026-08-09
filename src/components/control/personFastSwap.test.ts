@@ -87,7 +87,7 @@ describe('the rundown-item path', () => {
      * distinction, and getting it backwards is the defect this guards.
      */
     const draftBefore = { ...useLiveLayerStore.getState().draftValues };
-    const itemValues = { name: 'Bishop K. Owusu', title: 'Presiding Bishop', subtitle: 'Head Office' };
+    const itemValues: Record<string, string> = { name: 'Bishop K. Owusu', title: 'Presiding Bishop', subtitle: 'Head Office' };
 
     const patch = personFieldPatch(PERSON, 'preacher-lower-third');
     const itemAfter = { ...itemValues, ...patch };
@@ -99,7 +99,7 @@ describe('the rundown-item path', () => {
   });
 
   it('clears a stale field on the item rather than leaving the previous person’s', () => {
-    const itemValues = { name: 'Bishop K. Owusu', title: 'Presiding Bishop', subtitle: 'Head Office' };
+    const itemValues: Record<string, string> = { name: 'Bishop K. Owusu', title: 'Presiding Bishop', subtitle: 'Head Office' };
     const patch = personFieldPatch({ ...PERSON, title: undefined, churchName: undefined }, 'preacher-lower-third');
     const itemAfter = { ...itemValues, ...patch };
     expect(itemAfter.title).toBe('');

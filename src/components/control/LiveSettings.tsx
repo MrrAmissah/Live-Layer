@@ -28,7 +28,11 @@ export default function LiveSettings() {
 
   return (
     <div className="ls">
-      <span className="ll-kicker">Live settings</span>
+      {/* Named for what it edits, not for the button above it. "Live settings"
+          under a green TAKE LIVE read as controls that change what is on air;
+          every control here shapes the graphic being PREPARED, and only reaches
+          air on the next Take. */}
+      <span className="ll-kicker">Graphic settings</span>
 
       <div className="ls-row">
         <span className="ls-row__label">Size</span>
