@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRundowns } from '../../hooks/useRundowns';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
 import { getQueueCursors } from '../../lib/rundown/rundownStore';
+import { summariseQueue } from '../../lib/rundown/queueSummary';
 import { exportSelectedRundownPack, exportResultMessage } from '../../lib/export/exportRundownPack';
 import RundownItemCard from './RundownItemCard';
 
@@ -53,6 +54,9 @@ export default function StudioRundownPanel({ showItems = true }: { showItems?: b
 
   const items = rundown.items;
   const { selectedIndex, selected, nextItem, prevItem, liveItem } = getQueueCursors(rundown);
+  // One pure rule turns the three cursors into words (`lib/rundown/queueSummary.ts`),
+  // so the same-item case is decided and tested outside the component.
+  const summary = summariseQueue({ selected, lastSent: liveItem, next: nextItem });
 
   const onPrev = () => {
     if (prevItem) rd.setSelectedItem(prevItem.id);
@@ -81,10 +85,19 @@ export default function StudioRundownPanel({ showItems = true }: { showItems?: b
         </div>
       ) : (
         <>
+          {/**
+            * LAST SENT, never "Live". `activeItemId` records the item behind our
+            * last successful command; nothing here observes an encoder, so the
+            * studio must use the same word the dock does — one stored value, one
+            * meaning, on every surface.
+            */}
           <div className="studio-rd__summary">
-            <span><span className="rd-queue__lbl">Selected</span> {selected ? selected.title : '—'}</span>
-            <span><span className="rd-queue__lbl">Live</span> {liveItem ? liveItem.title : '—'}</span>
-            <span><span className="rd-queue__lbl">Next</span> {nextItem ? nextItem.title : '—'}</span>
+            <span><span className="rd-queue__lbl">Selected</span> {summary.selected}</span>
+            <span><span className="rd-queue__lbl">Last sent</span> {summary.lastSent}</span>
+            <span>
+              <span className="rd-queue__lbl">Next</span> {summary.next}
+              {summary.nextIsLastSent ? <em className="studio-rd__same"> · same as last sent</em> : null}
+            </span>
           </div>
 
           <div className="studio-rd__nav">

@@ -57,17 +57,67 @@ describe('an item association is not an acknowledgement', () => {
   ] as const;
   const queueSurfaces = GUARDED.map((path) => [path.split('/').pop()!, read(path)] as const);
 
+  const CONTROL_DIR = 'src/components/control';
+  const controlFiles = readdirSync(CONTROL_DIR)
+    .filter((name) => name.endsWith('.tsx'))
+    .map((name) => `${CONTROL_DIR}/${name}`);
+  const matching = (pattern: RegExp) => controlFiles.filter((path) => pattern.test(read(path)));
+
+  /**
+   * The banned vocabulary, in the forms a JSX text node can take.
+   *
+   * `Live` in title case is here because that is the form the defect actually
+   * took: the studio summary rendered `>Live<` for `activeItemId` while every
+   * badge surface said LAST SENT. An uppercase-only set would have let the file
+   * into the guard and still passed. The `['"`>]` anchor is what keeps this off
+   * `LiveActions`, `useLiveTakeContext`, `liveItem`, `tone: 'live'` and the
+   * `--ll-live-*` tokens — all legitimate identifiers, none of them a claim.
+   */
+  const BANNED_CLAIMS = [
+    /['"`>]LIVE\b/,
+    /['"`>]Live\b/,
+    /['"`>]ON AIR\b/i,
+    /['"`>]On air\b/,
+    /['"`>]PROGRAM</
+  ];
+
+  it('the banned set actually catches the words it names — and nothing else', () => {
+    /**
+     * Guarding the guard. Deleting one pattern from BANNED_CLAIMS re-opens the
+     * exact defect while every other test here stays green: the file list still
+     * covers the summary surface, the surface still reads `activeItemId`, and
+     * `>Live<` simply stops matching anything. Mutation-proved — removing the
+     * title-case entry survived until this test existed.
+     *
+     * The negative half matters just as much: an over-broad pattern would fail
+     * on `LiveActions` and the `--ll-live-*` tokens, and the usual repair for a
+     * guard that cries wolf is to weaken it.
+     */
+    const mustCatch = ['<span>LIVE</span>', '<span>Live</span>', '>ON AIR<', '>On air<', '>PROGRAM<', "'LIVE'", '"Live"'];
+    for (const sample of mustCatch) {
+      expect(BANNED_CLAIMS.some((claim) => claim.test(sample)), `unguarded: ${sample}`).toBe(true);
+    }
+    const mustAllow = [
+      'import LiveActions from',
+      'useLiveTakeContext()',
+      'const liveItem = items.find',
+      "tone: 'live'",
+      'var(--ll-live-soft)',
+      'rundownActive',
+      'className="dock-live"'
+    ];
+    for (const sample of mustAllow) {
+      expect(BANNED_CLAIMS.some((claim) => claim.test(sample)), `false positive: ${sample}`).toBe(false);
+    }
+  });
+
   it('guards every surface that renders the marker, not a hand-kept list', () => {
     /**
      * Without this, dropping a file from GUARDED silently un-guards it — the
      * mutation that proved the point. The list must cover every control surface
      * that renders the badge at all.
      */
-    const dir = 'src/components/control';
-    const rendersBadge = readdirSync(dir)
-      .filter((name) => name.endsWith('.tsx'))
-      .filter((name) => read(`${dir}/${name}`).includes('rd-sent'))
-      .map((name) => `${dir}/${name}`);
+    const rendersBadge = matching(/rd-sent/);
     expect(rendersBadge.length).toBeGreaterThan(0);
     expect([...rendersBadge].sort()).toEqual([...GUARDED].sort());
   });
@@ -76,11 +126,46 @@ describe('an item association is not an acknowledgement', () => {
     for (const [name, source] of queueSurfaces) {
       const code = stripComments(source);
       expect(code, `${name} must mark the row`).toMatch(/rd-sent">LAST SENT</);
-      // The banned vocabulary, in the forms a JSX text node can take.
-      for (const claim of [/['"`>]LIVE\b/, /['"`>]ON AIR\b/i, /['"`>]On air\b/, /['"`>]PROGRAM</]) {
+      for (const claim of BANNED_CLAIMS) {
         expect(code, `${name}: ${claim}`).not.toMatch(claim);
       }
     }
+  });
+
+  it('guards every surface that READS activeItemId, badge or no badge', () => {
+    /**
+     * The badge derivation alone was not enough, and the gap was not theoretical.
+     * `StudioRundownPanel` reads the same stored value and renders a SUMMARY
+     * rather than a per-row marker, so it contained no `rd-sent`, sat outside the
+     * guard by construction, and called the item "Live" for as long as it existed.
+     *
+     * Coverage is therefore a UNION of two derivations — renders the badge, or
+     * reads the value — and this tier deliberately does NOT require the badge:
+     * a summary legitimately has no row to mark. What it does require is that
+     * reading `activeItemId` never licenses a confident on-air word.
+     */
+    const readsActiveItem = matching(/\bactiveItemId\b/);
+    expect(readsActiveItem.length, 'no file reads activeItemId — this guard is vacuous').toBeGreaterThan(0);
+    expect(
+      readsActiveItem,
+      'the summary surface must be inside this tier'
+    ).toContain('src/components/control/StudioRundownPanel.tsx');
+
+    for (const path of readsActiveItem) {
+      const code = stripComments(read(path));
+      for (const claim of BANNED_CLAIMS) {
+        expect(code, `${path.split('/').pop()}: ${claim}`).not.toMatch(claim);
+      }
+    }
+  });
+
+  it('covers the union of both derivations, so neither can shrink unnoticed', () => {
+    // A positive anchor per derivation: a regex that stopped matching would
+    // otherwise leave its whole tier passing over an empty set.
+    const union = new Set([...matching(/rd-sent/), ...matching(/\bactiveItemId\b/)]);
+    expect(matching(/rd-sent/).length).toBeGreaterThan(0);
+    expect(matching(/\bactiveItemId\b/).length).toBeGreaterThan(0);
+    expect(union.size).toBeGreaterThan(GUARDED.length);
   });
 
   it('drives the marker from the item id, not from Program confirmation', () => {
