@@ -9,7 +9,7 @@ import { useTicks, elapsed, ago } from '../../hooks/useTicks';
 import { programClockMs } from '../../lib/programClock';
 import LiveActions from './LiveActions';
 import type { GraphicInstance } from '../../types/graphics';
-import type { ProgramState } from '../../types/program';
+import type { OutputStatusState, ProgramState } from '../../types/program';
 import { Icon } from '../../lib/icons';
 import LiveSettings from './LiveSettings';
 import RailQueue from './RailQueue';
@@ -22,42 +22,51 @@ function templateName(templateId: string | null): string {
 }
 
 /**
- * Output status card — reports the operator-side Program model honestly: a
- * published Take is 'showing' + unconfirmed ("Awaiting output"), never a
- * confident acknowledged LIVE. Flat surface, status word right-aligned.
+ * Output status card — reports the operator-side Program model honestly. Every
+ * status word comes from `lib/programStatus.ts`: a published Take is SENT /
+ * "Awaiting output" until the OUTPUT_APPLIED with the matching commandId
+ * arrives, OUTPUT READY / OUTPUT ACTIVE only while the output heartbeat is
+ * fresh, never a confident LIVE. Flat surface, status word right-aligned.
  */
-function OutputCard({ program }: { program: ProgramState }) {
+function OutputCard({ program, output }: { program: ProgramState; output: OutputStatusState | null }) {
   // The cleared readout is a live counter too — it used to freeze because the
   // clock only ran for on-air states. Both branches tick; each drops to a
   // one-minute cadence once it is only reporting whole minutes.
-  // Shared cadence rule (`lib/programClock.ts`). This surface previously dropped
-  // to a minute after the first minute for `showing` too, while rendering
-  // "sent MM:SS ago" — so its seconds only moved once a minute.
+  // Shared cadence rule (`lib/programClock.ts`). The `showing` tick is also
+  // what lets a confirmed reading fall to UNVERIFIED once the heartbeat lapses.
   const now = useTicks(programClockMs(program, Date.now()));
-
-  const badge =
-    program.status === 'showing'
-      ? { label: 'Awaiting output', tone: 'showing' as const }
-      : program.status === 'recovering'
-        ? { label: 'Not confirmed', tone: 'recovering' as const }
-        : program.status === 'failed'
-          ? { label: 'Send failed', tone: 'failed' as const }
-          : { label: 'Clear', tone: 'clear' as const };
+  const words = describeProgramStatus(program, output, now);
 
   return (
-    <div className={`program-card program-card--${badge.tone}`}>
+    <div className={`program-card program-card--${program.status}`}>
       <div className="program-card__row">
         <span className="program-card__label">Output</span>
-        <span className="program-card__badge">{badge.label}</span>
+        <span className="program-card__badge">{words.phrase}</span>
       </div>
       <div className="program-card__detail">
         {program.status === 'showing' && program.snapshot ? (
           <>
-            <span className="program-card__identity">{graphicTitle(program.snapshot)}</span>
-            <span className="program-card__sub">
-              {templateName(program.templateId)}
-              {program.takenAt ? <> · sent {elapsed(program.takenAt, now)} ago</> : null}
+            <span className="program-card__identity">
+              {words.pill === 'UNVERIFIED' ? <>Last sent: {graphicTitle(program.snapshot)}</> : graphicTitle(program.snapshot)}
             </span>
+            <span className="program-card__sub">
+              {program.outputFailure ? (
+                // Surface output's own reason — the one thing SENT wording can't say.
+                <>{program.outputFailure.reason}</>
+              ) : (
+                <>
+                  {templateName(program.templateId)}
+                  {program.takenAt ? <> · sent {elapsed(program.takenAt, now)} ago</> : null}
+                </>
+              )}
+            </span>
+          </>
+        ) : program.status === 'clearing' && program.snapshot ? (
+          <>
+            <span className="program-card__identity">Last sent: {graphicTitle(program.snapshot)}</span>
+            {/* Honest pending clear: the command went out, and nothing has yet
+                confirmed the graphic is gone. */}
+            <span className="program-card__sub">Clear sent — waiting for output to confirm</span>
           </>
         ) : program.status === 'recovering' && program.snapshot ? (
           <>
@@ -100,12 +109,16 @@ interface ProgramRailProps {
  */
 export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
+  const output = useLiveLayerStore((state) => state.outputStatus);
   // The rail rides along in every workspace, so it hands the editable list to
   // the Rundown workspace when that is what the operator is looking at.
   const managingRundown = useLocation().pathname.startsWith('/control/rundown');
   const { rundownActive } = useLiveTakeContext();
   // Shared with the stacked layout's sticky strip — one vocabulary, one source.
-  const statusLabel = describeProgramStatus(program).pill;
+  // Ticks at the shared cadence so the pill can fall to UNVERIFIED when the
+  // output heartbeat goes stale (staleness is derived from `now`).
+  const now = useTicks(programClockMs(program, Date.now()));
+  const statusLabel = describeProgramStatus(program, output, now).pill;
 
   return (
     <div className="program-rail">
@@ -118,7 +131,7 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditIns
           </span>
         </div>
 
-        <OutputCard program={program} />
+        <OutputCard program={program} output={output} />
 
         <div className="program-rail__actions">
           <LiveActions surface="studio" onTake={onTake} onClear={onClear} sending={sending} />

@@ -6,12 +6,13 @@ import { describe, expect, it } from 'vitest';
  * Live tab). Two families of guarantee, both asserted against source because
  * this repo's vitest runs in node with no DOM:
  *
- *  1. HONESTY. This app's messaging is one-way — control publishes, output
- *     renders, and no acknowledgement path exists. The dock therefore may not
- *     claim "LIVE" anywhere — as a Program status or a queue-row badge — print
- *     an fps it has no source for,
- *     report "Online", or name an OBS connection it cannot verify. Every
- *     status word must come from `lib/programStatus.ts`.
+ *  1. HONESTY. Output acknowledges commands (`OUTPUT_APPLIED` et al.), but an
+ *     acknowledgement is evidence about the output PAGE, never about an
+ *     encoder or a stream. The dock therefore still may not claim "LIVE"
+ *     anywhere — as a Program status or a queue-row badge — print an fps it
+ *     has no source for, report "Online", or hardcode host-source claims in
+ *     its own copy. Every status word must come from `lib/programStatus.ts`,
+ *     where each claim is tied to the evidence that backs it.
  *
  *  2. ONE TAKE. Exactly one live-actions surface mounts in the dock tree —
  *     the pinned Program strip — with the blocked-Take reason still rendered
@@ -83,7 +84,9 @@ describe('an item association is not an acknowledgement', () => {
   });
 
   it('drives the marker from the item id, not from Program confirmation', () => {
-    // The marker must not be wired to a confirmation field — there is none to read.
+    // The marker must not be wired to the confirmation field: an OUTPUT_APPLIED
+    // confirms one commandId, not a queue row, and LAST SENT must stay true
+    // through unconfirmed, stale and reloaded states alike.
     for (const [name, source] of queueSurfaces) {
       const code = stripComments(source);
       expect(code, name).toMatch(/activeItemId|lastSentItemId|isLastSent|lastSent/);
@@ -159,8 +162,9 @@ describe('the Program strip is honest', () => {
   it('drives the status chip colour off the real status, never hardcoded green', () => {
     expect(files.strip).toContain('data-status={program.status}');
     const chipRules = css.match(/\.dock-program__chip\[data-status='\w+'\]/g) ?? [];
-    // All four Program statuses have their own treatment.
-    expect(new Set(chipRules).size).toBe(4);
+    // All five Program statuses have their own treatment (clearing joined when
+    // Clear became a pending command awaiting OUTPUT_CLEARED).
+    expect(new Set(chipRules).size).toBe(5);
   });
 });
 

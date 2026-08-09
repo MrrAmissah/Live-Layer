@@ -1,24 +1,36 @@
-import type { GraphicInstance, RealtimeMessage, TemplateTheme } from '../types/graphics';
+import type { ControlCommandMessage, RealtimeMessage } from '../types/graphics';
+import {
+  REALTIME_CHANNEL_NAME,
+  REALTIME_STORAGE_MESSAGE_KEY,
+  createRealtimeId,
+  createSeenIds,
+  parseRealtimeMessage
+} from './realtimeMessages';
+import { getRealtimeRelayUrl } from './relayConfig';
 
-const CHANNEL_NAME = 'livelayer:graphics';
-const STORAGE_MESSAGE_KEY = 'livelayer:lastMessage';
-const RELAY_QUERY_PARAM = 'relay';
-const RELAY_STORAGE_KEY = 'livelayer:relayUrl';
+// Re-exported so existing control-side imports keep one entry point. The
+// OUTPUT side must not import this module at all — it has its own pair
+// (`outputChannel.ts` to receive, `outputAck.ts` to report) and the isolation
+// guard enforces the split.
+export { parseRealtimeMessage } from './realtimeMessages';
+export { getRealtimeRelayUrl } from './relayConfig';
 
-function createMessageId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
+/**
+ * The CONTROL surface's realtime endpoint: publishes commands, and receives
+ * everything the transports deliver — other control clients' commands (so two
+ * open controls stay in agreement) and `/output`'s acknowledgements. What a
+ * received message MEANS for Program is not decided here; that rule lives in
+ * `lib/programSync.ts` where it is testable. This module only guarantees
+ * delivery, validation and duplicate suppression.
+ */
 export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => void) {
-  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(CHANNEL_NAME) : null;
-  let lastSeenId: string | null = null;
+  const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(REALTIME_CHANNEL_NAME) : null;
+  // Bounded set, not a single last id: with commands and acks interleaving
+  // across three transports, A,B,A must not re-deliver A.
+  const seen = createSeenIds();
 
   const handleMessage = (message: RealtimeMessage) => {
-    if (message.id === lastSeenId) return;
-    lastSeenId = message.id;
+    if (!seen.add(message.id)) return;
     onMessage(message);
   };
   const relay = createRelayClient(handleMessage);
@@ -31,7 +43,7 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
   }
 
   const storageListener = (event: StorageEvent) => {
-    if (event.key !== STORAGE_MESSAGE_KEY || !event.newValue) return;
+    if (event.key !== REALTIME_STORAGE_MESSAGE_KEY || !event.newValue) return;
     try {
       const message = parseRealtimeMessage(JSON.parse(event.newValue));
       if (message) handleMessage(message);
@@ -52,6 +64,10 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
      * machine received the command.
      */
     async post(message: RealtimeMessage): Promise<PublishResult> {
+      // Own messages are marked seen at send time, so the relay echoing our own
+      // command back over SSE (it broadcasts to every client, including the
+      // sender) is dropped here rather than re-entering the Program reducer.
+      seen.add(message.id);
       let localDelivered = false;
       if (channel) {
         try {
@@ -62,7 +78,7 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
         }
       }
       try {
-        localStorage.setItem(STORAGE_MESSAGE_KEY, JSON.stringify(message));
+        localStorage.setItem(REALTIME_STORAGE_MESSAGE_KEY, JSON.stringify(message));
         localDelivered = true;
       } catch {
         // ignore quota errors
@@ -90,7 +106,8 @@ export function createRealtimeChannel(onMessage: (message: RealtimeMessage) => v
  * (or after it is closed) nothing reaches output, so the operator-facing state
  * must stay honest. `ok: true` means an available transport accepted the
  * command — for a relay, that it answered 2xx. It is NOT an output
- * acknowledgement: Program confirmation stays `unconfirmed` either way.
+ * acknowledgement: Program confirmation stays `unconfirmed` until an
+ * OUTPUT_APPLIED with the matching commandId arrives (see `lib/programSync.ts`).
  */
 export async function publishCommand(
   channel: { post: (message: RealtimeMessage) => Promise<PublishResult> } | null | undefined,
@@ -152,102 +169,19 @@ export async function postToRelay(
   }
 }
 
-export function createMessage(type: RealtimeMessage['type'], payload: unknown): RealtimeMessage {
+/**
+ * Construct a CONTROL command. Typed against `ControlCommandMessage` on
+ * purpose: this is the control side's only construction site, and it must not
+ * be able to mint output-originated events (`OUTPUT_*`) any more than
+ * `/output` may mint commands.
+ */
+export function createMessage(type: ControlCommandMessage['type'], payload: unknown): ControlCommandMessage {
   return {
-    id: createMessageId(),
+    id: createRealtimeId(),
     type,
     payload,
     timestamp: Date.now()
-  } as RealtimeMessage;
-}
-
-export function loadLastRealtimeMessage(): RealtimeMessage | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_MESSAGE_KEY);
-    if (!raw) return null;
-    return parseRealtimeMessage(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
-export function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
-  if (!isRecord(value)) return null;
-  if (typeof value.id !== 'string') return null;
-  if (typeof value.type !== 'string') return null;
-  if (typeof value.timestamp !== 'number' || !Number.isFinite(value.timestamp)) return null;
-
-  if (value.type === 'SHOW_GRAPHIC') {
-    if (!isGraphicInstance(value.payload)) return null;
-    return { id: value.id, type: value.type, payload: value.payload, timestamp: value.timestamp };
-  }
-  if (value.type === 'UPDATE_PREVIEW') {
-    if (!isGraphicInstance(value.payload)) return null;
-    return { id: value.id, type: value.type, payload: value.payload, timestamp: value.timestamp };
-  }
-  if (value.type === 'LOAD_PRESET') {
-    if (!isGraphicInstance(value.payload)) return null;
-    return { id: value.id, type: value.type, payload: value.payload, timestamp: value.timestamp };
-  }
-  if (value.type === 'HIDE_GRAPHIC') {
-    if (!isRecord(value.payload) || typeof value.payload.id !== 'string') return null;
-    return { id: value.id, type: value.type, payload: { id: value.payload.id }, timestamp: value.timestamp };
-  }
-  if (value.type === 'CLEAR_ALL') {
-    if (!isRecord(value.payload)) return null;
-    return { id: value.id, type: value.type, payload: {}, timestamp: value.timestamp };
-  }
-  if (value.type === 'SET_THEME') {
-    if (!isTemplateTheme(value.payload)) return null;
-    return { id: value.id, type: value.type, payload: value.payload, timestamp: value.timestamp };
-  }
-  return null;
-}
-
-export function getRealtimeRelayUrl(): string | null {
-  if (typeof window === 'undefined') return null;
-
-  const params = new URLSearchParams(window.location.search);
-  const rawParam = params.get(RELAY_QUERY_PARAM);
-  if (rawParam !== null) {
-    if (rawParam === '' || rawParam.toLowerCase() === 'off') {
-      try {
-        localStorage.removeItem(RELAY_STORAGE_KEY);
-      } catch {
-        // ignore storage errors
-      }
-      return null;
-    }
-
-    const normalized = normalizeRelayUrl(rawParam);
-    if (normalized) {
-      try {
-        localStorage.setItem(RELAY_STORAGE_KEY, normalized);
-      } catch {
-        // ignore storage errors
-      }
-      return normalized;
-    }
-  }
-
-  try {
-    const stored = localStorage.getItem(RELAY_STORAGE_KEY);
-    return stored ? normalizeRelayUrl(stored) : null;
-  } catch {
-    return null;
-  }
-}
-
-function normalizeRelayUrl(raw: string): string | null {
-  try {
-    const url = new URL(raw, window.location.href);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
-    url.hash = '';
-    url.search = '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return null;
-  }
+  } as ControlCommandMessage;
 }
 
 function createRelayClient(onRelayMessage: (message: RealtimeMessage) => void) {
@@ -274,38 +208,4 @@ function createRelayClient(onRelayMessage: (message: RealtimeMessage) => void) {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
-}
-
-function isGraphicInstance(value: unknown): value is GraphicInstance {
-  if (!isRecord(value)) return false;
-  if (typeof value.id !== 'string') return false;
-  if (typeof value.templateId !== 'string') return false;
-  if (typeof value.createdAt !== 'string') return false;
-  if (typeof value.updatedAt !== 'string') return false;
-  if (typeof value.durationSeconds !== 'number' || !Number.isFinite(value.durationSeconds) || value.durationSeconds < 0) return false;
-  if (!isStringRecord(value.values)) return false;
-  if (!isRecord(value.theme)) return false;
-  if (value.assetRefs !== undefined && !isStringRecord(value.assetRefs)) return false;
-  if (value.personId !== undefined && typeof value.personId !== 'string') return false;
-  if (value.presetName !== undefined && typeof value.presetName !== 'string') return false;
-  return true;
-}
-
-function isTemplateTheme(value: unknown): value is TemplateTheme {
-  if (!isRecord(value)) return false;
-  if (typeof value.primaryColor !== 'string') return false;
-  if (typeof value.accentColor !== 'string') return false;
-  if (typeof value.backgroundColor !== 'string') return false;
-  if (value.surfaceColor !== undefined && typeof value.surfaceColor !== 'string') return false;
-  if (value.accent2Color !== undefined && typeof value.accent2Color !== 'string') return false;
-  if (value.logoAssetId !== undefined && typeof value.logoAssetId !== 'string') return false;
-  return true;
 }

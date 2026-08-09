@@ -24,6 +24,20 @@ deliberately narrow. These are honest constraints, not bugs.
   `/output` page — there is no native OBS plugin or native NDI output. You can
   send the finished OBS scene/program over NDI with an OBS plugin workflow such
   as DistroAV/NDI.
+- **OBS source state is best-effort, and `OUTPUT READY` is the ceiling.**
+  LiveLayer reads whatever the Browser Source's own JavaScript bridge chooses to
+  send it; it has no control channel into OBS. On the rig tested for this —
+  **obs-browser 2.26.9 on macOS** — the binding was present and the global
+  `obsSceneChanged` worked, but `obsSourceActiveChanged`, `obsSourceVisibleChanged`,
+  the legacy callbacks and the page's own `visibilitychange` never arrived when
+  the source's eye was toggled. So `OUTPUT ACTIVE` / `SOURCE HIDDEN` /
+  `SOURCE INACTIVE` are **opportunistic labels, never promised**: with no reading
+  the surfaces stay at `OUTPUT READY` — "the output page received and applied the
+  graphic" — rather than inferring a state nobody measured. This describes the
+  tested rig, not obs-browser generally; the listeners are always attached, so a
+  rig that does deliver those events gets the richer labels with no change.
+  Knowing scene-item visibility for certain would need a different integration
+  boundary (an OBS control channel), which is not built. See `docs/OBS_SETUP.md`.
 - **LAN control is beta.** The optional LAN relay can carry Take/Clear/live graphic
   messages between devices, but uploaded assets, People, Saved Graphics, and
   rundowns are still browser-local. Host-owned asset/library storage is not built

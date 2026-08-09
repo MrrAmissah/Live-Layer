@@ -32,6 +32,32 @@ const takePathFiles = controlFiles.filter((file) =>
 const controlSource = takePathFiles.map((file) => file.source).join('\n');
 const styles = readFileSync(stylesPath, 'utf8');
 
+/**
+ * WHAT THIS GUARD PROTECTS, restated for the acknowledgement era.
+ *
+ * These bans began life as a blanket "output does not talk": no fetch, no
+ * post, no message construction, no storage writes. Output→control
+ * acknowledgement makes the blanket reading obsolete — output now REPORTS —
+ * but the invariant underneath it was never "no network"; it was
+ * DIRECTIONALITY:
+ *
+ *   the page that renders to air must not be able to COMMAND (construct or
+ *   publish SHOW/HIDE/CLEAR/preview/theme traffic) and must not MUTATE
+ *   control state, and nothing it does transmit may delay or break a graphic.
+ *
+ * So the rules are now expressed that way, and enforced TRANSITIVELY over the
+ * real import closure (the single-file greps below survive as the first line):
+ *
+ *  - `lib/outputAck.ts` is the ONE module in the closure allowed to transmit,
+ *    it can construct only OUTPUT_* events, and it is itself content-checked
+ *    (no command literals, no awaits, failure swallowed) further down.
+ *  - The control transport (`lib/realtime.ts` — createMessage, publishCommand,
+ *    postToRelay, the posting channel) is banned from the entire closure, not
+ *    just this file. Before this stage, moving a `.post()` one import away
+ *    from OutputPage.tsx would have gone green; now it cannot.
+ *  - The inverse direction is pinned too: control surfaces cannot import the
+ *    output ack modules (see the control-side section).
+ */
 const forbiddenPatterns = [
   { pattern: /from ['"].*store\/useLiveLayerStore['"]/, label: 'control Zustand store import' },
   { pattern: /from ['"].*components\/control\//, label: 'control component import' },
@@ -81,9 +107,10 @@ if (failures.length) {
  * usefully tell us nothing, since App reaches everything by design.
  *
  * Scoped deliberately to the dependencies that must never run while rendering to
- * air. The broader control-surface patterns are NOT applied transitively:
- * `lib/realtime.ts` is legitimately reachable (the output subscribes to it) and
- * defines `createMessage`, so reusing the full list would fail on correct code.
+ * air. The messaging-directionality patterns ARE applied transitively now (see
+ * the section after this one): output subscribes through `lib/outputChannel.ts`
+ * (receive-only) rather than `lib/realtime.ts`, so the control transport and its
+ * verbs can be banned from the whole closure without failing on correct code.
  */
 function resolveImport(fromFile, spec) {
   if (!spec.startsWith('.')) return null;
@@ -141,6 +168,154 @@ if (renderPathFailures.length) {
   for (const failure of renderPathFailures) {
     console.error(`- ${failure.file} contains ${failure.label} and is reachable from OutputPage.tsx`);
   }
+  process.exit(1);
+}
+
+/**
+ * DIRECTIONALITY, transitively (see the block comment above forbiddenPatterns).
+ *
+ * Output may report; it may never command or mutate control state, and its one
+ * transmitter must be unable to hurt the render. Enforced in four parts:
+ *
+ *  1. Nothing in the closure may reach the control transport — not the module,
+ *     not its verbs. This is the old single-file `.post(`/`createMessage` ban
+ *     made transitive, which is strictly stronger: the realistic regression was
+ *     always one import away from OutputPage.tsx, exactly like the scripture
+ *     case that motivated the closure walk.
+ *  2. Nothing in the closure may transmit at all, EXCEPT `lib/outputAck.ts` —
+ *     one narrow, named module whose contents are pinned by part 3. (The relay
+ *     POST there is written as `fetchImpl ?? fetch`, so a naive `fetch(` grep
+ *     would not even see it; the exemption is declared anyway so the intent is
+ *     enforced, not accidental.)
+ *  3. The transmitter itself can only report: no control-command type literal
+ *     ever appears in it (it could not construct a SHOW/CLEAR even by casting),
+ *     no `await` (fire-and-forget — the render path can never block on it), and
+ *     the send failure is swallowed (`.catch(`), never thrown into rendering.
+ *  4. No command CONSTRUCTION anywhere in the closure: a `type: 'SHOW_GRAPHIC'`
+ *     object literal is banned outside `src/types/` (interface declarations
+ *     cannot execute; `parseRealtimeMessage`'s comparisons don't match the
+ *     construction shape).
+ *
+ * localStorage writes get the same transitive treatment with two named
+ * exemptions: `lib/relayConfig.ts` (persisting `?relay=` is output's one
+ * sanctioned write — an OBS Browser Source must keep its relay across
+ * refreshes, and that behaviour predates this guard) and `lib/storage.ts`,
+ * which is reachable via registry→packs and is PRE-EXISTING DEBT: the ban
+ * still catches a new write appearing in any renderer, stage or hook.
+ */
+const OUTPUT_SEND_MODULE = 'src/lib/outputAck.ts';
+const RELAY_CONFIG_MODULE = 'src/lib/relayConfig.ts';
+const HOST_DIAGNOSTICS_MODULE = 'src/lib/obsHostDiagnostics.ts';
+const STORAGE_WRITE_EXEMPT = new Set([RELAY_CONFIG_MODULE, 'src/lib/storage.ts']);
+const COMMAND_TYPES = ['SHOW_GRAPHIC', 'HIDE_GRAPHIC', 'CLEAR_ALL', 'UPDATE_PREVIEW', 'LOAD_PRESET', 'SET_THEME'];
+
+const relPath = (file) => file.replace(`${root}/`, '');
+// Capability lives in code; the modules DOCUMENT the banned verbs in their
+// comments (they exist to explain this exact boundary), so comments are
+// stripped before matching — same approach as dockOperator.test.ts.
+const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const closureByRel = new Map(renderPathFiles.map((file) => [relPath(file), stripComments(readFileSync(file, 'utf8'))]));
+
+// Positive anchors first: every exemption below names a module that must
+// actually be in the closure, or the rule it relaxes is checking nothing.
+const anchorFailures = [];
+for (const required of [OUTPUT_SEND_MODULE, RELAY_CONFIG_MODULE, 'src/lib/outputChannel.ts', HOST_DIAGNOSTICS_MODULE]) {
+  if (!closureByRel.has(required)) {
+    anchorFailures.push(`${required} is not reachable from OutputPage.tsx — the ack/receive path or an exemption is dead`);
+  }
+}
+// The acknowledgements themselves cannot silently vanish from the page.
+for (const ack of ['OUTPUT_APPLIED', 'OUTPUT_CLEARED', 'OUTPUT_FAILED', 'OUTPUT_STATUS']) {
+  if (!source.includes(`createOutputEvent('${ack}'`)) {
+    anchorFailures.push(`OutputPage.tsx no longer sends ${ack} — output stopped acknowledging`);
+  }
+}
+const sendModuleSource = closureByRel.get(OUTPUT_SEND_MODULE) ?? '';
+if (!/fetchImpl \?\? fetch/.test(sendModuleSource)) {
+  anchorFailures.push(`${OUTPUT_SEND_MODULE} no longer contains the relay send — the network exemption would be vacuous`);
+}
+if (!/\.catch\(/.test(sendModuleSource)) {
+  anchorFailures.push(`${OUTPUT_SEND_MODULE} no longer swallows send failures — a dead relay could throw into the render path`);
+}
+/**
+ * The browser-visibility/scene diagnostic is DISPLAY ONLY, and the cheapest way
+ * to keep that structural rather than promised is to deny it every import:
+ * with no imports it cannot reach `obsSource.ts` to write a source reading, and
+ * cannot reach `outputAck.ts` to put one on the wire. `document.hidden` is not
+ * SOURCE HIDDEN until there is evidence it is, and this is what stops the two
+ * being wired together by a later edit that looked harmless.
+ * (Remove this clause and its anchor above together with the diagnostic.)
+ */
+const hostDiagnosticsSource = closureByRel.get(HOST_DIAGNOSTICS_MODULE) ?? '';
+if (/\bimport\b|\bfrom\s*['"]/.test(hostDiagnosticsSource)) {
+  anchorFailures.push(`${HOST_DIAGNOSTICS_MODULE} imports something — the host diagnostic must stay unable to reach source state or the transmitter`);
+}
+if (anchorFailures.length) {
+  console.error('Output directionality check failed:');
+  for (const failure of anchorFailures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+const directionalityFailures = [];
+const commandLiteral = new RegExp(`type:\\s*['"](${COMMAND_TYPES.join('|')})['"]`);
+for (const [file, text] of closureByRel) {
+  // Part 1: the control transport and its verbs, banned everywhere. The path
+  // form catches `../lib/realtime` and a sibling `./realtime` alike, without
+  // matching `realtimeMessages` (the shared, send-free parse module).
+  for (const verb of [/\bcreateMessage\b/, /\bpublishCommand\b/, /\bpostToRelay\b/]) {
+    if (verb.test(text)) directionalityFailures.push(`${file} references control command verb ${verb}`);
+  }
+  if (/\.post\(/.test(text)) {
+    directionalityFailures.push(`${file} posts realtime messages`);
+  }
+  if (/from ['"][^'"]*\/realtime['"]/.test(text)) {
+    directionalityFailures.push(`${file} imports the control transport by relative path`);
+  }
+  // Part 2: transmission, allowed only in the named send module.
+  if (file !== OUTPUT_SEND_MODULE) {
+    for (const net of [/\bfetch\s*\(/, /\bfetchImpl\b/, /\bXMLHttpRequest\b/, /\bnew WebSocket\b/, /\bsendBeacon\b/]) {
+      if (net.test(text)) directionalityFailures.push(`${file} can transmit (${net}) but is not ${OUTPUT_SEND_MODULE}`);
+    }
+  }
+  // Part 4: command construction, banned outside type declarations.
+  if (!file.startsWith('src/types/') && commandLiteral.test(text)) {
+    directionalityFailures.push(`${file} constructs a control command object`);
+  }
+  // localStorage writes, transitively.
+  if (!STORAGE_WRITE_EXEMPT.has(file) && /\blocalStorage\.(setItem|removeItem|clear)\b/.test(text)) {
+    directionalityFailures.push(`${file} writes localStorage from the output render path`);
+  }
+}
+// Part 3: the transmitter can only report.
+if (new RegExp(`['"](${COMMAND_TYPES.join('|')})['"]`).test(sendModuleSource)) {
+  directionalityFailures.push(`${OUTPUT_SEND_MODULE} names a control command type — it must be unable to construct one`);
+}
+if (/\bawait\b/.test(sendModuleSource)) {
+  directionalityFailures.push(`${OUTPUT_SEND_MODULE} awaits — acknowledgement must stay fire-and-forget`);
+}
+
+if (directionalityFailures.length) {
+  console.error('Output directionality check failed:');
+  for (const failure of directionalityFailures) console.error(`- ${failure}`);
+  process.exit(1);
+}
+
+/**
+ * The INVERSE direction: control surfaces may not speak with output's voice.
+ * An OUTPUT_APPLIED minted by a control page would be a forged acknowledgement
+ * — Program would confirm a graphic nothing rendered. Applied to every control
+ * file (not just the Take path): the ban is on the capability, not the intent.
+ */
+const controlSideFiles = controlFiles.filter((file) => !file.path.endsWith('app/OutputPage.tsx'));
+const outputVoiceFailures = [];
+for (const file of controlSideFiles) {
+  for (const pattern of [/\bsendOutputEvent\b/, /\bcreateOutputEvent\b/, /from ['"][^'"]*lib\/output(Ack|Channel)['"]/]) {
+    if (pattern.test(file.source)) outputVoiceFailures.push(`${file.path} uses output's transmitter (${pattern})`);
+  }
+}
+if (outputVoiceFailures.length) {
+  console.error('Control-side directionality check failed:');
+  for (const failure of outputVoiceFailures) console.error(`- ${failure}`);
   process.exit(1);
 }
 

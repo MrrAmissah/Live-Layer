@@ -1,8 +1,15 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { GraphicInstance, QuickQueueItem, TemplateDefinition } from '../types/graphics';
-import type { ProgramSourceType, ProgramState } from '../types/program';
+import { GraphicInstance, QuickQueueItem, RealtimeMessage, TemplateDefinition } from '../types/graphics';
+import type { OutputStatusState, ProgramSourceType, ProgramState } from '../types/program';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
+import {
+  bufferPendingAck,
+  drainPendingAcks,
+  isOutputAck,
+  reduceRealtimeMessage,
+  type PendingAck
+} from '../lib/programSync';
 import type { PersonProfile } from '../types/people';
 import type { LayoutSettings } from '../types/layout';
 import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, saveExplicitBrandKeys, savePresets, saveProgram, saveQuickQueue, saveRecentGraphics, type ExplicitBrandKey } from '../lib/storage';
@@ -65,11 +72,21 @@ interface LiveLayerState {
   updateQuickQueueItem: (update: QuickQueueUpdate) => QuickQueueUpdateResult;
   /** Operator-side record of what has been commanded on air (never a second protocol). */
   program: ProgramState;
+  /** Latest liveness/source reading OF the output page. Never persisted. */
+  outputStatus: OutputStatusState | null;
+  /** Acks that arrived before their command was recorded (see programSync.ts —
+   *  a same-browser output acknowledges over BroadcastChannel faster than the
+   *  relay answers the publish POST). Drained by markProgramShowing/Clearing. */
+  pendingOutputAcks: PendingAck[];
   markProgramShowing: (input: { snapshot: GraphicInstance; commandId: string; source: ProgramSource }) => void;
-  markProgramClear: () => void;
+  /** A Clear was published; Program stays pending until the matching OUTPUT_CLEARED. */
+  markProgramClearing: (input: { commandId: string }) => void;
   /** Records a publish that never reached output. Source is passed explicitly so
    *  the failed record never inherits the previous Program's source. */
   markProgramFailed: (input?: { snapshot?: GraphicInstance; commandId?: string; source?: ProgramSource }) => void;
+  /** Inbound realtime traffic (remote commands, output acks) — one testable rule
+   *  (`lib/programSync.ts`), applied identically by every control client. */
+  applyRealtimeMessage: (message: RealtimeMessage) => void;
   activePackId: string;
   setActivePack: (packId: string) => void;
   /** True when the ad-hoc draft differs from a fresh seed for the current
@@ -252,8 +269,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       set({ quickQueue: next });
       return { ok: true, item: updated };
     },
+    outputStatus: null,
+    pendingOutputAcks: [],
     markProgramShowing: ({ snapshot, commandId, source }) =>
-      set(() => {
+      set((state) => {
         const next: ProgramState = {
           status: 'showing',
           confirmation: 'unconfirmed',
@@ -264,16 +283,76 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           sourceId: source.sourceId,
           snapshot: deepClone(snapshot),
           takenAt: Date.now(),
-          clearedAt: null
+          clearedAt: null,
+          appliedAt: null,
+          outputFailure: null
         };
-        saveProgram(next);
-        return { program: next };
+        // A same-browser output may have acknowledged this command before we
+        // got here (ack-before-mark race) — settle with anything buffered.
+        const drained = drainPendingAcks(
+          { program: next, outputStatus: state.outputStatus },
+          state.pendingOutputAcks,
+          Date.now()
+        );
+        saveProgram(drained.program);
+        return { program: drained.program, outputStatus: drained.outputStatus, pendingOutputAcks: drained.pending };
       }),
-    markProgramClear: () =>
-      set(() => {
-        const next: ProgramState = { ...CLEAR_PROGRAM_STATE, clearedAt: Date.now() };
-        saveProgram(next);
-        return { program: next };
+    /**
+     * A published Clear is a command like any other: until output answers with
+     * the matching OUTPUT_CLEARED, the previous graphic may still be on air, so
+     * Program records `clearing`, never a confident empty. The last graphic's
+     * identity is kept for "Last sent" wording; `clearedAt` marks when the
+     * clear was COMMANDED and is finalised by the acknowledgement
+     * (`lib/programSync.ts`).
+     */
+    markProgramClearing: ({ commandId }) =>
+      set((state) => {
+        // Clearing an already-clear Program claims nothing new, so it does not
+        // enter a pending state that only an output could resolve — with no
+        // output page open, that pending would hang forever over an empty air.
+        if (state.program.status === 'clear') {
+          const next: ProgramState = { ...CLEAR_PROGRAM_STATE, clearedAt: Date.now() };
+          saveProgram(next);
+          return { program: next };
+        }
+        const next: ProgramState = {
+          ...state.program,
+          status: 'clearing',
+          confirmation: 'unconfirmed',
+          commandId,
+          appliedAt: null,
+          outputFailure: null,
+          clearedAt: Date.now()
+        };
+        // Same ack-before-mark race as Take — worse here, because a CLEAR is
+        // acknowledged instantly (no asset work), so a same-browser output's
+        // OUTPUT_CLEARED reliably beats the relay's POST response.
+        const drained = drainPendingAcks(
+          { program: next, outputStatus: state.outputStatus },
+          state.pendingOutputAcks,
+          Date.now()
+        );
+        saveProgram(drained.program);
+        return { program: drained.program, outputStatus: drained.outputStatus, pendingOutputAcks: drained.pending };
+      }),
+    applyRealtimeMessage: (message) =>
+      set((state) => {
+        const now = Date.now();
+        const change = reduceRealtimeMessage(
+          { program: state.program, outputStatus: state.outputStatus },
+          message,
+          now
+        );
+        if (change.program) saveProgram(change.program);
+        // An ack the reducer refused may simply be EARLY (its command's
+        // markProgram* has not run yet) — keep it briefly for the drain.
+        const refusedAck = !change.program && isOutputAck(message) ? message : null;
+        const pendingOutputAcks = bufferPendingAck(state.pendingOutputAcks, refusedAck, now);
+        return {
+          ...(change.program ? { program: change.program } : {}),
+          ...(change.outputStatus ? { outputStatus: change.outputStatus } : {}),
+          ...(pendingOutputAcks !== state.pendingOutputAcks ? { pendingOutputAcks } : {})
+        };
       }),
     /**
      * Record a publish that did not reach output. Built from CLEAR_PROGRAM_STATE
