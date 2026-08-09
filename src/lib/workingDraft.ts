@@ -29,18 +29,25 @@ import type { LayoutSettings } from '../types/layout';
  * the relay, BroadcastChannel, Program or OUTPUT_STATUS: the draft is not
  * something other clients are entitled to see.
  *
- * WHAT THIS DOES AND DOES NOT SURVIVE, measured rather than assumed. A page
- * reload keeps the browsing context, so the draft comes back. **An OBS Custom
- * Browser Dock hidden and reshown from `View > Docks` also keeps it** — checked
- * on the real rig (macOS): text typed into the dock's Quick Edit tab was still
- * there after the toggle. That is the operational hazard issue #30 was filed
- * for, and it is the harsher of the two dock reload paths, so an ordinary
- * refresh is covered a fortiori.
+ * WHAT WAS ACTUALLY MEASURED, kept separate from what it would be convenient to
+ * conclude:
  *
- * A context that is genuinely destroyed and recreated — closing the tab,
- * restarting OBS — does not survive, and the editor seeds normally. That
- * remains a stated boundary, not a measured one. `storage` is injectable
- * throughout so that answer can change one line of code if it ever has to.
+ *  - **A real page refresh preserves the draft.** Checked in a disposable
+ *    browser: prepare a template with edits, refresh, both come back.
+ *  - **Hiding and reshowing an OBS Custom Browser Dock from `View > Docks`
+ *    preserves it.** Checked on the real rig (macOS): text typed into the
+ *    dock's Quick Edit tab was still there after the toggle. This establishes
+ *    that the toggle does not destroy that dock's storage context — it does not
+ *    establish that any reload took place, since hide/show may simply keep the
+ *    existing page alive.
+ *  - **OBS's title-bar Refresh was not directly measured**: the action was
+ *    unavailable on the tested build. It is not claimed either way.
+ *  - **A genuinely destroyed and recreated context** — closing the tab,
+ *    restarting OBS — starts fresh and the editor seeds normally. Outside this
+ *    contract, and stated rather than measured.
+ *
+ * `storage` is injectable throughout so that any of those answers can change one
+ * line of code if it ever has to.
  *
  * Assets are referenced BY ID, and which fields are assets is decided by KEY,
  * never by reading the value — see the asset policy below. Ordinary operator
