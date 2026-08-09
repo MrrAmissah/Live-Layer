@@ -124,10 +124,77 @@ npm run dev        # Vite dev server on http://127.0.0.1:4173
 - Output: <http://127.0.0.1:4173/output>
 - Setup helper: <http://127.0.0.1:4173/setup>
 - Build: `npm run build` (runs `tsc` then `vite build`)
-- Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard, production build)
-- Route smoke: with the dev server running, `npm run smoke:routes`
+- Verify: `npm run verify` (output isolation/transparency guard, asset-id message guard,
+  unit tests, portable-server integration tests, production build)
+- Portable server only: `npm run test:server` (spawns the real server against a
+  temporary `dist/` fixture; uses Node's built-in test runner, no extra dependency)
+- Route smoke: with a server running, `npm run smoke:routes` (point it elsewhere with
+  `LIVELAYER_SMOKE_URL=http://127.0.0.1:4188`)
 - LAN beta: `npm run dev:lan` plus `npm run lan:relay`, then open matching
   `?relay=http://<graphics-host-ip>:4174` URLs on `/control` and `/output`.
+
+## Run the built app (production, no dev tree)
+
+For a service, run the build rather than the dev server. Building needs the dev
+dependencies; **serving does not**, which is what makes the build portable.
+
+**On a machine with the repo installed** — build, then serve:
+
+```bash
+npm install && npm run build   # needs node_modules
+npm run start                  # http://127.0.0.1:4173 — same origin as npm run dev
+```
+
+**On the service machine** — copy over just `dist/` and `scripts/` (keeping them
+side by side) and run, with **only Node 22 or newer installed**, no `npm install`:
+
+```bash
+node scripts/serve-dist.mjs                 # 127.0.0.1:4173
+node scripts/serve-dist.mjs --port 4188     # if 4173 is busy
+node scripts/serve-dist.mjs --host 0.0.0.0  # reachable from the LAN
+```
+
+`npm run start` is that same command. Unlike `npm run preview`, which needs the
+full dev dependency tree, `scripts/serve-dist.mjs` has no dependencies at all —
+so `dist/` plus `scripts/` is a complete, runnable LiveLayer on a borrowed
+laptop twenty minutes before a service.
+
+**Node 22 is the floor**, and a current LTS (22 or 24) is what to install: Node
+18 and 20 are end-of-life, and this server can be told to listen on every
+interface of a hall's network. The server checks at start-up and says so rather
+than failing somewhere less obvious.
+
+Nothing it serves is cached beyond the page it is on — a corrected logo or
+graphic is always one refresh away, never pinned. It also refuses to follow a
+symlink out of `dist/`, so a stray link cannot expose a file from elsewhere on
+the machine to the LAN.
+
+It prints the exact `/control`, `/output` and `/setup` URLs to paste into OBS,
+and refuses to start on a port browsers block (an OBS Browser Source is
+Chromium, so those give you a blank source and no error to explain it).
+It defaults to port 4173 on purpose: that is the dev and preview port too, so
+the assets, People, presets and rundowns an operator built up while testing are
+the same origin's, and still there. Moving it with `--port` moves the origin,
+and those libraries do not follow.
+
+For a second device, serve on the LAN and run the relay beside it. On the
+service machine (`scripts/livelayer-lan-relay.mjs` is dependency-free too, so
+copy it across with the rest):
+
+```bash
+node scripts/serve-dist.mjs --host 0.0.0.0
+node scripts/livelayer-lan-relay.mjs
+```
+
+With the repo installed, those are `npm run start:lan` and `npm run lan:relay`.
+
+A laptop in a hall usually has several IPv4 addresses (Wi-Fi, Ethernet, VPN,
+virtualisation), and which one the controller device can reach is not something
+the server can know — so `--host 0.0.0.0` lists every candidate with its
+interface name instead of picking one and calling it the answer. Use **one** of
+them for the dock, the Browser Source and the relay; if the first does not load
+on the other device, try the next. Then open `/setup` on that address to copy
+the matching `?relay=` control and output URLs.
 
 ## OBS setup
 

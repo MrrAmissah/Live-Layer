@@ -4,7 +4,7 @@
 > origin, copy-able control/output URLs, and localStorage / IndexedDB /
 > BroadcastChannel checks. For the full end-to-end run, see
 > [`OBS_PRODUCTION_QA.md`](OBS_PRODUCTION_QA.md). For stable testing, serve the
-> production build (`npm run build`, then a static server / `npm run preview`).
+> production build: `npm run build`, then `npm run start` (or `npm run preview`).
 
 ## Same-origin rule for local assets
 
@@ -24,6 +24,17 @@ origins, and uploaded logos may not resolve in `/output`.
 The dev and preview servers bind to `127.0.0.1:4173` with strict port `4173`; if
 that port is already busy, start-up fails instead of silently moving to another
 port. Fix the port conflict before opening OBS.
+
+`npm run start` — the dependency-free server for a built `dist/`, used when the
+machine has Node 22+ but no `node_modules` — uses the same `127.0.0.1:4173` so an
+operator keeps the assets and libraries they built up in dev. Moving it with
+`--port` moves the origin: uploaded images and saved libraries do not follow, and
+both OBS entries must be updated together.
+
+It also refuses to start on a port browsers block outright (the WHATWG bad-port
+list — `4190`, `6000`, `6697` and the rest). A Browser Source is Chromium, so
+such a port would show an empty source with no error anywhere in OBS to explain
+it; the server names a working alternative instead.
 
 ## Control Dock
 
