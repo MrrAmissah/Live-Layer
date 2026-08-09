@@ -1,7 +1,7 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
 import { getSelectedItem } from '../lib/rundown/rundownStore';
-import { resolveGraphicReadiness } from '../lib/graphicReadiness';
+import { describeTakeBlock, resolveGraphicReadiness } from '../lib/graphicReadiness';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 import type { RundownItem } from '../types/rundown';
@@ -51,7 +51,13 @@ export function useLiveTakeContext() {
 
   const readiness = resolveGraphicReadiness(previewSource.templateId, previewSource.values);
 
-  const takeDisabled = (rundownActive && !selectedItem) || !readiness.ready;
+  /**
+   * The button state and its explanation come out of ONE call, so a surface can
+   * never render a disabled Take with no stated cause (`lib/graphicReadiness.ts`).
+   */
+  const block = describeTakeBlock({ rundownActive, hasSelection: Boolean(selectedItem), readiness });
+  const takeDisabled = block.disabled;
+  const notReadyReason = block.reason;
   const takeLabel = rundownActive ? 'Take selected' : 'Take live';
   const durationSeconds = selectedItem ? selectedItem.graphic.durationSeconds : draftDurationSeconds;
 
@@ -68,7 +74,7 @@ export function useLiveTakeContext() {
     takeLabel,
     durationSeconds,
     preview,
-    /** Why Take is unavailable on content grounds. Empty when it is available. */
-    notReadyReason: readiness.ready ? '' : readiness.reason
+    /** Why Take is unavailable. Empty when it is available. */
+    notReadyReason
   };
 }
