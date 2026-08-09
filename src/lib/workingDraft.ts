@@ -29,12 +29,18 @@ import type { LayoutSettings } from '../types/layout';
  * the relay, BroadcastChannel, Program or OUTPUT_STATUS: the draft is not
  * something other clients are entitled to see.
  *
- * WHAT THIS DOES AND DOES NOT SURVIVE. A page reload keeps the browsing context,
- * so the draft comes back. A context that is destroyed and recreated — closing
- * the tab, restarting OBS — does not, and the editor seeds normally. Whether an
- * OBS dock refresh is a reload or a fresh context was not measured on the rig,
- * so this is stated as a boundary rather than a guarantee. `storage` is
- * injectable throughout precisely so that answer can change one line of code.
+ * WHAT THIS DOES AND DOES NOT SURVIVE, measured rather than assumed. A page
+ * reload keeps the browsing context, so the draft comes back. **An OBS Custom
+ * Browser Dock hidden and reshown from `View > Docks` also keeps it** — checked
+ * on the real rig (macOS): text typed into the dock's Quick Edit tab was still
+ * there after the toggle. That is the operational hazard issue #30 was filed
+ * for, and it is the harsher of the two dock reload paths, so an ordinary
+ * refresh is covered a fortiori.
+ *
+ * A context that is genuinely destroyed and recreated — closing the tab,
+ * restarting OBS — does not survive, and the editor seeds normally. That
+ * remains a stated boundary, not a measured one. `storage` is injectable
+ * throughout so that answer can change one line of code if it ever has to.
  *
  * Assets are referenced BY ID, and which fields are assets is decided by KEY,
  * never by reading the value — see the asset policy below. Ordinary operator
