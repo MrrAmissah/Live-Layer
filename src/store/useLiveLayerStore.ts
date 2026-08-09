@@ -19,6 +19,7 @@ import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
 import { loadActivePackId, saveActivePackId } from '../lib/packs';
 import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
+import { createWorkingDraftWriter, readWorkingDraft, type WorkingDraft } from '../lib/workingDraft';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
 import { resetScriptureDraft } from '../lib/scripture/scriptureDraftStore';
@@ -183,10 +184,28 @@ const initialPackId = loadActivePackId();
 const initialTheme = loadBrandOverrides();
 const initialExplicitBrandKeys = loadExplicitBrandKeys();
 
+/**
+ * The restored working draft, read ONCE while the initial state is being built.
+ *
+ * Deliberately not an effect. Hydrating after mount would mean the default seed
+ * exists first, and the persistence subscription below would see that seed as a
+ * change and write it over the record it was about to restore — the draft would
+ * be destroyed by the act of loading it. Reading it here means the seed for a
+ * restored draft is never constructed at all, so there is no race to lose.
+ *
+ * `null` — absent, corrupt, wrong version, unknown template, or any invalid
+ * field — falls through to exactly the pack seed that shipped before this.
+ */
+const restoredDraft = readWorkingDraft((templateId) =>
+  templateRegistry.some((template) => template.id === templateId)
+);
+
 export const useLiveLayerStore = create<LiveLayerState>()(
   devtools((set, get) => ({
-    currentTemplateId: templateRegistry[0].id,
-    draftValues: createDraftValues(templateRegistry[0].id, initialPackId, initialTheme, initialExplicitBrandKeys),
+    currentTemplateId: restoredDraft?.templateId ?? templateRegistry[0].id,
+    draftValues: restoredDraft
+      ? { ...restoredDraft.values }
+      : createDraftValues(templateRegistry[0].id, initialPackId, initialTheme, initialExplicitBrandKeys),
     activePackId: initialPackId,
     setActivePack: (packId) =>
       set((state) => {
@@ -210,11 +229,15 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       }
       return false;
     },
-    theme: { ...initialTheme },
+    // The restored theme is the CURRENT graphic's, exactly as loadGraphicInstance
+    // treats a preset's. `brandTheme` and `explicitBrandKeys` are read from
+    // their own storage regardless, so restoring a draft can never redefine what
+    // the next NEW graphic looks like.
+    theme: restoredDraft ? { ...restoredDraft.theme } : { ...initialTheme },
     brandTheme: { ...initialTheme },
     explicitBrandKeys: initialExplicitBrandKeys,
-    layout: {},
-    durationSeconds: 6,
+    layout: restoredDraft ? { ...restoredDraft.layout } : {},
+    durationSeconds: restoredDraft?.durationSeconds ?? DEFAULT_DURATION_SECONDS,
     durationByTemplate: {},
     presets: loadPresets(),
     recent: loadRecentGraphics(),
@@ -485,7 +508,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           explicitBrandKeys: []
         };
       }),
-    clearLocalData: () =>
+    clearLocalData: () => {
       set(() => {
         clearAllData();
         clearAllRundowns();
@@ -519,7 +542,17 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           quickQueue: [],
           program: { ...CLEAR_PROGRAM_STATE }
         };
-      }),
+      });
+      /**
+       * AFTER the set, not inside it. `setState` notifies subscribers
+       * synchronously, so by this line the persistence subscription below has
+       * already scheduled a write of the fresh default — and that write would
+       * land a few hundred milliseconds later and re-create the very record
+       * `clearAllData` just removed. Cancelling here is what makes "Reset all
+       * local data" actually leave nothing behind.
+       */
+      workingDraftWriter.reset();
+    },
     savePreset: (name) => {
       // Draft save routes through the same creation rules as a rundown-item
       // save, so both produce identical preset shapes.
@@ -594,3 +627,52 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     }
   }))
 );
+
+/**
+ * Working-draft persistence: ONE subscription, not a `save()` in every setter.
+ *
+ * Twelve paths legitimately move the draft (setTemplate, setField, setFields,
+ * setTheme, setLayout, resetLayout, setDurationSeconds, resetDraft, resetTheme,
+ * loadGraphicInstance, applyPersonToLowerThird, setActivePack). A hand-kept list
+ * of save calls goes stale the moment a thirteenth arrives, and the failure is
+ * silent — the operator simply loses that kind of edit on refresh. Subscribing
+ * once means the rule is "the draft changed", which cannot drift.
+ *
+ * Nothing here transmits. The draft never reaches a realtime message, the relay,
+ * BroadcastChannel, Program or OUTPUT_STATUS: two control clients share Program
+ * truth and keep their own drafts.
+ */
+export const workingDraftWriter = createWorkingDraftWriter();
+
+function draftOf(state: LiveLayerState): WorkingDraft {
+  return {
+    templateId: state.currentTemplateId,
+    values: state.draftValues,
+    theme: state.theme,
+    layout: state.layout,
+    durationSeconds: state.durationSeconds
+  };
+}
+
+useLiveLayerStore.subscribe((state, previous) => {
+  // Reference comparison, because every setter builds new objects and this
+  // listener also runs on each heartbeat, ack and queue edit — on a page that
+  // may share a CPU with an encoder, a deep compare here would be the cost.
+  if (
+    state.currentTemplateId === previous.currentTemplateId &&
+    state.draftValues === previous.draftValues &&
+    state.theme === previous.theme &&
+    state.layout === previous.layout &&
+    state.durationSeconds === previous.durationSeconds
+  ) {
+    return;
+  }
+  workingDraftWriter.schedule(draftOf(state));
+});
+
+// A reload inside the debounce window would otherwise lose the last keystrokes.
+// `pagehide` rather than `beforeunload`: it fires for the bfcache path too, and
+// after a reset there is nothing pending, so this writes nothing.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => workingDraftWriter.flush());
+}
