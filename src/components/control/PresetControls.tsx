@@ -6,6 +6,7 @@ import { noActiveRundownMessage, type ControlSurface } from './rundownDestinatio
 import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
 import { defaultPresetName, resolvePresetName, templateDisplayName } from '../../lib/presetNaming';
 import type { GraphicInstance } from '../../types/graphics';
+import { Icon } from '../../lib/icons';
 
 /**
  * Save / list / apply / remove presets, with a clear empty state and a small
@@ -166,8 +167,9 @@ export default function PresetControls({
         </div>
       ) : (
         <div className="preset-reset__zone">
-          <p className="preset-reset__zonehint">Everything below erases local data.</p>
+          <span className="ll-kicker">Local data</span>
           <button type="button" className="preset-reset" onClick={() => setConfirmingReset(true)}>
+            <Icon name="reset" size={14} />
             Reset all local data
           </button>
         </div>

@@ -6774,16 +6774,12 @@ body.gfx-transparent {
   cursor: pointer;
   transition: color 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
 }
-.control-root .preset-reset::before { content: '⚠'; font-size: 12px; line-height: 1; }
 .control-root .preset-reset:hover { color: #fca5a5; border-color: rgba(244, 63, 94, 0.55); background: rgba(244, 63, 94, 0.14); }
 .control-root .preset-reset:focus-visible { outline: none; box-shadow: var(--ll-focus); }
 /* A rule and real space between "erase everything" and the routine list actions
-   directly above it. */
-.control-root .preset-reset--standalone {
-  margin-top: 18px;
-  padding-top: 0;
-  border-top: 0;
-}
+   directly above it. The section label is the whole explanation — the button's
+   own name, its destructive treatment and the two-step confirmation carry the
+   consequence, so a sentence of helper copy here only adds noise. */
 .control-root .preset-reset__zone {
   margin-top: auto;
   padding-top: 14px;
@@ -6793,7 +6789,6 @@ body.gfx-transparent {
   gap: 8px;
 }
 .control-root .preset-reset__zone .preset-reset { margin-top: 0; }
-.control-root .preset-reset__zonehint { margin: 0; font-size: 11px; color: #6f7e95; }
 
 /* --- library / people --------------------------------------------------- */
 
