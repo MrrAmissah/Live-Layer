@@ -118,7 +118,7 @@ export default function StudioRundownPanel({ showItems = true }: { showItems?: b
                 index={index}
                 count={items.length}
                 selected={item.id === rundown.selectedItemId}
-                live={item.id === activeItemId}
+                lastSent={item.id === activeItemId}
                 onSelect={() => rd.setSelectedItem(item.id)}
                 onToggleDone={() => rd.toggleDone(item.id)}
                 onMoveUp={() => rd.moveItemUp(item.id)}

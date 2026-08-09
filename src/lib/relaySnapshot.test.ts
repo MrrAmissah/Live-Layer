@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import {
+  createRelaySnapshot,
+  reduceRelaySnapshot,
+  snapshotReplay,
+  validateRelayMessage
+} from '../../scripts/relay-snapshot.mjs';
+import type { RealtimeMessage } from '../types/graphics';
+
+/**
+ * The relay's snapshot reducer — the module `livelayer-lan-relay.mjs` imports,
+ * exercised directly. THE bug the old single `lastMessage` slot would have
+ * caused, stated as the first test: a heartbeat lands every few seconds, so
+ * whatever event happened last would replace the command a reconnecting
+ * `/output` needs to restore its graphic.
+ */
+
+const T0 = 5_000_000;
+
+const show = (id: string, timestamp: number): RealtimeMessage => ({
+  id,
+  type: 'SHOW_GRAPHIC',
+  payload: {
+    id: `g-${id}`,
+    templateId: 'preacher-lower-third',
+    values: { name: 'Mass Choir' },
+    theme: {},
+    durationSeconds: 0,
+    createdAt: '2026-08-06T00:00:00.000Z',
+    updatedAt: '2026-08-06T00:00:00.000Z'
+  },
+  timestamp
+});
+
+const applied = (commandId: string, timestamp: number): RealtimeMessage => ({
+  id: `ack-${commandId}`,
+  type: 'OUTPUT_APPLIED',
+  payload: { commandId, outputId: 'out-1', graphicId: 'g-x' },
+  timestamp
+});
+
+const status = (timestamp: number): RealtimeMessage => ({
+  id: `st-${timestamp}`,
+  type: 'OUTPUT_STATUS',
+  payload: { outputId: 'out-1', sourceActive: true, sourceVisible: true },
+  timestamp
+});
+
+describe('a status event can never displace the command', () => {
+  it('keeps the command through any number of heartbeats, and a reconnect replays it first', () => {
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    for (let i = 1; i <= 20; i += 1) {
+      s = reduceRelaySnapshot(s, status(T0 + i * 15_000), T0 + i * 15_000);
+    }
+    expect(s.command?.id).toBe('cmd-A');
+    const replay = snapshotReplay(s);
+    expect(replay[0]?.type).toBe('SHOW_GRAPHIC'); // /output restores before anything else applies
+    expect(replay[0]?.id).toBe('cmd-A');
+  });
+
+  it('acks refresh output liveness without touching the command slot', () => {
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    s = reduceRelaySnapshot(s, applied('cmd-A', T0 + 5), T0 + 5);
+    expect(s.command?.id).toBe('cmd-A');
+    expect(s.outputLastSeenAt).toBe(T0 + 5);
+  });
+});
+
+describe('ack retention is command-id matched', () => {
+  it('retains the ack that answers the current command', () => {
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    s = reduceRelaySnapshot(s, applied('cmd-A', T0 + 5), T0 + 5);
+    expect(s.ack?.id).toBe('ack-cmd-A');
+  });
+
+  it('drops a stale ack from retention rather than replaying it beside a newer command', () => {
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    s = reduceRelaySnapshot(s, show('cmd-B', T0 + 100), T0 + 100);
+    s = reduceRelaySnapshot(s, applied('cmd-A', T0 + 110), T0 + 110);
+    expect(s.ack).toBeNull();
+    expect(snapshotReplay(s).some((m) => m.type === 'OUTPUT_APPLIED')).toBe(false);
+  });
+
+  it('a new command resets the previous ack', () => {
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    s = reduceRelaySnapshot(s, applied('cmd-A', T0 + 5), T0 + 5);
+    s = reduceRelaySnapshot(s, show('cmd-B', T0 + 100), T0 + 100);
+    expect(s.ack).toBeNull();
+    expect(s.command?.id).toBe('cmd-B');
+  });
+});
+
+describe('the replay is a coherent snapshot in apply-safe order', () => {
+  it('serves command → matching ack → status', () => {
+    let s = createRelaySnapshot();
+    // Arrival order scrambled on purpose: status first, then command, then ack.
+    s = reduceRelaySnapshot(s, status(T0 - 10), T0 - 10);
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    s = reduceRelaySnapshot(s, applied('cmd-A', T0 + 5), T0 + 5);
+    expect(snapshotReplay(s).map((m) => m.type)).toEqual(['SHOW_GRAPHIC', 'OUTPUT_APPLIED', 'OUTPUT_STATUS']);
+  });
+
+  it('preview/theme traffic is never retained for replay', () => {
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, show('cmd-A', T0), T0);
+    const preview = {
+      id: 'p-1',
+      type: 'UPDATE_PREVIEW',
+      payload: { anything: true },
+      timestamp: T0 + 1
+    } as unknown as RealtimeMessage;
+    s = reduceRelaySnapshot(s, preview, T0 + 1);
+    expect(snapshotReplay(s).map((m) => m.id)).toEqual(['cmd-A']);
+  });
+});
+
+describe('bounded per-type validation', () => {
+  const envelope = { id: 'm-1', timestamp: T0 };
+
+  it('accepts every command with an object payload, exactly like the old relay', () => {
+    for (const type of ['SHOW_GRAPHIC', 'HIDE_GRAPHIC', 'CLEAR_ALL', 'UPDATE_PREVIEW', 'LOAD_PRESET', 'SET_THEME']) {
+      expect(validateRelayMessage({ ...envelope, type, payload: {} }).ok).toBe(true);
+      expect(validateRelayMessage({ ...envelope, type, payload: 'nope' }).ok).toBe(false);
+    }
+  });
+
+  it('rejects output events without the fields matching depends on', () => {
+    expect(validateRelayMessage({ ...envelope, type: 'OUTPUT_APPLIED', payload: { outputId: 'o' } }).ok).toBe(false);
+    expect(validateRelayMessage({ ...envelope, type: 'OUTPUT_CLEARED', payload: { commandId: 'c' } }).ok).toBe(false);
+    expect(
+      validateRelayMessage({ ...envelope, type: 'OUTPUT_FAILED', payload: { commandId: 'c', outputId: 'o' } }).ok
+    ).toBe(false); // no reason
+    expect(
+      validateRelayMessage({
+        ...envelope,
+        type: 'OUTPUT_FAILED',
+        payload: { commandId: 'c', outputId: 'o', reason: 'template missing' }
+      }).ok
+    ).toBe(true);
+    expect(validateRelayMessage({ ...envelope, type: 'OUTPUT_STATUS', payload: {} }).ok).toBe(false);
+  });
+
+  it('rejects unknown types and broken envelopes', () => {
+    expect(validateRelayMessage({ ...envelope, type: 'TOTALLY_NEW', payload: {} }).ok).toBe(false);
+    expect(validateRelayMessage({ id: 'x', type: 'CLEAR_ALL', payload: {} }).ok).toBe(false); // no timestamp
+    expect(validateRelayMessage('garbage').ok).toBe(false);
+  });
+});

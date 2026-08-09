@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { graphicPacks } from '../../lib/packs';
-import { useRelayStatus, type RelayConnection } from '../../hooks/useRelayStatus';
+import { useRelayStatus } from '../../hooks/useRelayStatus';
+import { RELAY_LABEL } from '../../lib/relayReadiness';
 import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { Icon } from '../../lib/icons';
 
@@ -10,21 +11,12 @@ function openRoute(path: string) {
 }
 
 /**
- * Four distinguishable states, because "connected" used to cover two very
- * different things. A dev server's SPA fallback answers `/health` with 200, so a
- * relay URL pointing at the app's own port read as connected while every command
- * 404'd. `not-relay` is that case, named. Only `ready` claims commands can go
- * out — see `relayReadiness.ts` and issue #20.
- */
-const RELAY_LABEL: Record<RelayConnection, string> = {
-  ready: 'Relay ready',
-  'not-relay': 'Not a relay',
-  unreachable: 'Relay unreachable',
-  checking: 'Checking relay…',
-  local: 'Local output'
-};
-
-/**
+ * The state labels live in `relayReadiness.ts` (`RELAY_LABEL`) — five
+ * distinguishable states, because "connected" used to cover two very different
+ * things (a dev server's SPA fallback answers `/health` with 200, so a relay
+ * URL pointing at the app's own port read as connected while every command
+ * 404'd — issue #20). The dock footer shows the same words.
+ *
  * Studio header: brand, active production/event context, truthful transport
  * state, and OBS-surface links. The transport indicator reports what the
  * control client can actually verify — a polled LAN relay, or same-browser

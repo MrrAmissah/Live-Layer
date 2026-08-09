@@ -35,6 +35,62 @@ export const SAFE_TITLE = { x: 160, top: 96, bottom: 120 } as const;
 export const LOWER_THIRD_ZONE = { x: SAFE_TITLE.x, top: 720, bottom: SAFE_TITLE.bottom } as const;
 
 /**
+ * Preview-only lower-third focus (GraphicStage `focus="lower-third"`): the
+ * preview zooms the stage and pans it left/up so the LOWER_THIRD_ZONE band
+ * fills a 16:9 monitor screen. /output never applies this — it is a judging
+ * aid, not part of the broadcast composition.
+ */
+export const LOWER_THIRD_FOCUS = { zoom: 1.38, panX: 40, panY: 520 } as const;
+
+/** An axis-aligned rect in stage (1080p px) coordinates. */
+export interface StageRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Breathing margin (stage px) the bare preview keeps around the measured
+ * graphic. The floor that stops the design sitting flush against the card
+ * edge; it also absorbs what layout measurement cannot see (pseudo-element
+ * caps, a few px of drop shadow). Deliberately small — the whole point of
+ * the bare frame is that the design, not empty stage, fills the box.
+ */
+export const BARE_MARGIN = { x: 32, y: 16 } as const;
+
+/**
+ * Floor on the bare crop's size, derived from the stage. Guards against a
+ * degenerate measurement (a sliver of underbar, a lone stripe) producing a
+ * comically zoomed crop: the crop never frames less than a quarter of the
+ * stage width or a twelfth of its height.
+ */
+export const BARE_MIN_CROP = {
+  width: STAGE_WIDTH / 4,
+  height: STAGE_HEIGHT / 12
+} as const;
+
+/**
+ * The bare preview's starting/fallback crop for bottom-anchored graphics,
+ * derived from LOWER_THIRD_ZONE — NOT from the monitor calibration above.
+ * The monitor focus exists to give a 16:9 screen context and therefore shows
+ * 343 stage-px of empty sky above the band; a frameless preview wants the
+ * opposite, so its fallback frames the zone itself (margin allowance on the
+ * sides, decorative allowance down to the frame edge). In practice the bare
+ * preview measures the rendered graphic and fits THAT (contentCrop.ts); this
+ * rect is what it shows before the first measurement and if measurement
+ * ever fails.
+ */
+const bareFallbackInsetX = LOWER_THIRD_ZONE.x - BARE_MARGIN.x;
+const bareFallbackTop = LOWER_THIRD_ZONE.top - BARE_MARGIN.y;
+export const LOWER_THIRD_BARE_FALLBACK: StageRect = {
+  x: bareFallbackInsetX,
+  y: bareFallbackTop,
+  width: STAGE_WIDTH - bareFallbackInsetX - bareFallbackInsetX,
+  height: STAGE_HEIGHT - bareFallbackTop
+} as const;
+
+/**
  * Outro duration for graphics leaving the stage, in ms.
  * The CSS exit transition under `.gfx-layer[data-state='out']` uses the same
  * value (300ms); OutputPage unmounts after GFX_OUT_MS + a small buffer.

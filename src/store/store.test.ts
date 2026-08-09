@@ -21,7 +21,12 @@ function makeQueueItem(id: string, revision = 1): QuickQueueItem {
 
 beforeEach(() => {
   // Reset only the slices these tests touch, leaving the singleton otherwise intact.
-  useLiveLayerStore.setState({ program: { ...CLEAR_PROGRAM_STATE }, quickQueue: [] });
+  useLiveLayerStore.setState({
+    program: { ...CLEAR_PROGRAM_STATE },
+    quickQueue: [],
+    outputStatus: null,
+    pendingOutputAcks: []
+  });
 });
 
 const store = () => useLiveLayerStore.getState();
@@ -51,14 +56,63 @@ describe('program state — Take / Clear / Fail', () => {
     expect(store().program.sourceId).toBe('q-original');
   });
 
-  it('Clear resets to clear with a clearedAt and no snapshot', () => {
+  it('Clear is pending (clearing) until the matching OUTPUT_CLEARED arrives', () => {
     store().markProgramShowing({ snapshot: makeInstance('g'), commandId: 'c', source: { sourceType: 'draft', sourceId: null } });
-    store().markProgramClear();
-    const p = store().program;
+    store().markProgramClearing({ commandId: 'clear-1' });
+    let p = store().program;
+    // A published clear is a command like any other: the previous graphic may
+    // still be on air, so Program may not claim empty yet.
+    expect(p.status).toBe('clearing');
+    expect(p.commandId).toBe('clear-1');
+    expect(p.snapshot).not.toBeNull(); // kept for "Last sent" wording
+    // Only the acknowledgement for THIS clear settles it.
+    store().applyRealtimeMessage({
+      id: 'ack-1',
+      type: 'OUTPUT_CLEARED',
+      payload: { commandId: 'clear-1', outputId: 'out-1' },
+      timestamp: Date.now()
+    });
+    p = store().program;
     expect(p.status).toBe('clear');
     expect(p.instanceId).toBeNull();
     expect(p.snapshot).toBeNull();
     expect(typeof p.clearedAt).toBe('number');
+  });
+
+  it('an OUTPUT_CLEARED that beats markProgramClearing still settles the clear (ack-before-mark race)', () => {
+    // Same-browser output acknowledges over BroadcastChannel before the relay
+    // answers the publish POST — the ack arrives while Program still tracks
+    // the SHOW. It must be buffered and consumed when the clear is recorded.
+    store().markProgramShowing({ snapshot: makeInstance('g'), commandId: 'cmd-A', source: { sourceType: 'draft', sourceId: null } });
+    store().applyRealtimeMessage({
+      id: 'ack-early',
+      type: 'OUTPUT_CLEARED',
+      payload: { commandId: 'clear-1', outputId: 'out-1' },
+      timestamp: Date.now()
+    });
+    expect(store().program.status).toBe('showing'); // refused now…
+    store().markProgramClearing({ commandId: 'clear-1' });
+    expect(store().program.status).toBe('clear'); // …consumed at mark time
+  });
+
+  it('an OUTPUT_APPLIED that beats markProgramShowing still confirms the Take', () => {
+    store().applyRealtimeMessage({
+      id: 'ack-early-2',
+      type: 'OUTPUT_APPLIED',
+      payload: { commandId: 'cmd-B', outputId: 'out-1', graphicId: 'g-b' },
+      timestamp: Date.now()
+    });
+    store().markProgramShowing({ snapshot: makeInstance('g-b'), commandId: 'cmd-B', source: { sourceType: 'draft', sourceId: null } });
+    expect(store().program.status).toBe('showing');
+    expect(store().program.confirmation).toBe('confirmed');
+  });
+
+  it('clearing an already-clear Program stays clear instead of pending forever', () => {
+    // With no output page open, a pending state over an empty air would never
+    // resolve — an idle operator pressing Clear must still read "Ready".
+    store().markProgramClearing({ commandId: 'clear-idle' });
+    expect(store().program.status).toBe('clear');
+    expect(typeof store().program.clearedAt).toBe('number');
   });
 
   it('publish failure marks failed and never confirmed', () => {

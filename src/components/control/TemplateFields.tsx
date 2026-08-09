@@ -564,18 +564,25 @@ function TemplateColorControls({
  * `section` lets the studio editor tabs render just the content fields
  * (Content tab) or just the design controls (Design tab). The dock's single
  * form omits the prop and renders everything ('all'), unchanged.
+ *
+ * 'variant' renders the design-variant picker ALONE. The dock's Quick Edit
+ * tab pairs it with the two BRAND swatches (Main/Accent via useBrandSwatch)
+ * instead of this file's five-field design palette — a dock palette row that
+ * looked brand-editable but wrote colorText/colorSurface would blur the
+ * Brand/Design ownership split useBrandReset documents.
  */
 export default function TemplateFields({
   section = 'all',
   excludeFieldIds
 }: {
-  section?: 'all' | 'content' | 'design';
+  section?: 'all' | 'content' | 'design' | 'variant';
   /** Field ids rendered elsewhere (e.g. logo in the Content tab's Logo block). */
   excludeFieldIds?: string[];
 }) {
   const { templateId: currentTemplateId, values: draftValues, theme: targetTheme, setField, setFields } = useEditTarget();
   const activePackId = useLiveLayerStore((state) => state.activePackId);
-  const showDesign = section === 'all' || section === 'design';
+  const showVariants = section === 'all' || section === 'design' || section === 'variant';
+  const showColors = section === 'all' || section === 'design';
   const showContent = section === 'all' || section === 'content';
   const excluded = new Set(excludeFieldIds ?? []);
 
@@ -602,7 +609,7 @@ export default function TemplateFields({
 
   return (
     <div className="field-grid">
-      {showDesign && packVariants.length && template ? (
+      {showVariants && packVariants.length && template ? (
         <TemplateVariantPicker
           templateId={template.id}
           draftValues={draftValues}
@@ -613,7 +620,7 @@ export default function TemplateFields({
           onNormalize={(value) => setFields({ variantId: value })}
         />
       ) : null}
-      {showDesign && template ? (
+      {showColors && template ? (
         <TemplateColorControls
           template={template}
           values={draftValues}

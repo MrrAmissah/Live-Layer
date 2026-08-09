@@ -1,10 +1,19 @@
 import http from 'node:http';
+import {
+  createRelaySnapshot,
+  reduceRelaySnapshot,
+  snapshotReplay,
+  validateRelayMessage
+} from './relay-snapshot.mjs';
 
 const host = process.env.LIVELAYER_LAN_HOST || '0.0.0.0';
 const port = Number(process.env.LIVELAYER_LAN_RELAY_PORT || 4174);
 const maxBodyBytes = 1_000_000;
 const clients = new Set();
-let lastMessage = null;
+// One validated slot per concern (command / ack / status) — see
+// relay-snapshot.mjs for why a single last-message slot became a bug once
+// output events joined the wire.
+let snapshot = createRelaySnapshot();
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,19 +35,6 @@ function broadcast(message) {
   for (const res of clients) {
     sendEvent(res, message);
   }
-}
-
-function isRelayMessage(value) {
-  return (
-    value &&
-    typeof value === 'object' &&
-    !Array.isArray(value) &&
-    typeof value.id === 'string' &&
-    typeof value.type === 'string' &&
-    typeof value.timestamp === 'number' &&
-    Number.isFinite(value.timestamp) &&
-    'payload' in value
-  );
 }
 
 function readJson(req) {
@@ -73,7 +69,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && req.url === '/health') {
-    sendJson(res, 200, { ok: true, clients: clients.size, hasLastMessage: Boolean(lastMessage) });
+    // `ok` + numeric `clients` is the identity `lib/relayReadiness.ts` checks —
+    // keep both. `hasLastMessage` keeps its historical meaning: a command is
+    // retained for replay.
+    sendJson(res, 200, {
+      ok: true,
+      clients: clients.size,
+      hasLastMessage: Boolean(snapshot.command),
+      output: {
+        lastSeenAt: snapshot.outputLastSeenAt,
+        hasStatus: Boolean(snapshot.status)
+      }
+    });
     return;
   }
 
@@ -86,7 +93,10 @@ const server = http.createServer(async (req, res) => {
     });
     res.write(': LiveLayer LAN relay connected\n\n');
     clients.add(res);
-    if (lastMessage) sendEvent(res, lastMessage);
+    // Coherent snapshot, in apply-safe order: command → matching ack → status.
+    for (const message of snapshotReplay(snapshot)) {
+      sendEvent(res, message);
+    }
     req.on('close', () => {
       clients.delete(res);
     });
@@ -95,13 +105,14 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/message') {
     try {
-      const message = await readJson(req);
-      if (!isRelayMessage(message)) {
-        sendJson(res, 400, { ok: false, error: 'Invalid LiveLayer realtime message' });
+      const body = await readJson(req);
+      const verdict = validateRelayMessage(body);
+      if (!verdict.ok) {
+        sendJson(res, 400, { ok: false, error: verdict.error });
         return;
       }
-      lastMessage = message;
-      broadcast(message);
+      snapshot = reduceRelaySnapshot(snapshot, verdict.message, Date.now());
+      broadcast(verdict.message);
       sendJson(res, 202, { ok: true, clients: clients.size });
     } catch (error) {
       sendJson(res, 400, { ok: false, error: error instanceof Error ? error.message : 'Invalid request' });

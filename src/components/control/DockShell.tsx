@@ -1,48 +1,81 @@
 import { useState } from 'react';
 import type { LastAction } from './StatusBadge';
-import DockStatusBar from './DockStatusBar';
-import DockTabs, { type DockTab } from './DockTabs';
-import StickyLiveBar from './StickyLiveBar';
-import TemplateStep from './steps/TemplateStep';
-import EditStep from './steps/EditStep';
-import LiveStep from './steps/LiveStep';
-import BrandStep from './steps/BrandStep';
-import LibraryStep from './steps/LibraryStep';
+import { useRelayStatus } from '../../hooks/useRelayStatus';
+import DockHeader from './DockHeader';
+import DockTabBar, { type DockTab } from './DockTabBar';
+import DockProgramStrip from './DockProgramStrip';
+import DockLiveTab from './DockLiveTab';
+import DockQueueTab from './DockQueueTab';
+import DockQuickEditTab from './DockQuickEditTab';
+import DockFooter from './DockFooter';
 
 interface DockShellProps {
   onTake: () => void;
   onClear: () => void;
   lastAction: LastAction;
+  /**
+   * Accepted for prop-compatibility with ControlPage but unused here: the
+   * Program strip reads `program.takenAt` from the store for its clock.
+   */
   lastTakenAt: number | null;
-  /** A command is in flight — passed through to the sticky action bar. */
+  /** A command is in flight — passed through to the Program strip's actions. */
   sending?: boolean;
 }
 
 /**
- * Dock-first operator shell (narrow widths / OBS Custom Browser Dock).
+ * Dock operator shell (narrow widths / OBS Custom Browser Dock).
  *
- * A fixed-height app frame: a sticky status bar and tab bar on top, one step's
- * content scrolling in the middle, and an always-visible Take/Clear bar pinned
- * to the bottom. Only the active step mounts, so a beginner sees one task at a
- * time and never scrolls past the live actions.
+ * A fixed-height app frame: header (brand + event switcher + relay dot) and
+ * tab bar on top, the Program strip pinned beneath them (so Take/Clear and the
+ * honest Program record are visible on EVERY tab), one tab's content scrolling
+ * in the middle, and the transport footer at the bottom — hidden by CSS on
+ * short docks, where the header's relay dot carries the same state.
+ *
+ * The relay is polled HERE, once, and handed to both header and footer:
+ * mounting useRelayStatus in each would double the probe traffic.
+ *
+ * Only the active tab mounts — an OBS dock shares CPU with an encoder, and a
+ * GraphicStage render per hidden tab is a real cost. More is an honest
+ * placeholder until stage 3.
  */
-export default function DockShell({ onTake, onClear, lastAction, lastTakenAt, sending = false }: DockShellProps) {
-  const [tab, setTab] = useState<DockTab>('templates');
+export default function DockShell({ onTake, onClear, lastAction, sending = false }: DockShellProps) {
+  const [tab, setTab] = useState<DockTab>('live');
+  const relay = useRelayStatus();
 
   return (
     <div className="control-root control-root--dock">
       <div className="dock">
-        <DockStatusBar lastAction={lastAction} />
-        <DockTabs active={tab} onChange={setTab} />
+        <DockHeader relay={relay} />
+        <DockTabBar active={tab} onChange={setTab} />
+        <DockProgramStrip onTake={onTake} onClear={onClear} sending={sending} lastAction={lastAction} />
         <div className="dock-scroll">
-          {tab === 'templates' ? <TemplateStep onNext={() => setTab('edit')} /> : null}
-          {tab === 'edit' ? <EditStep onNext={() => setTab('live')} /> : null}
-          {tab === 'live' ? <LiveStep lastAction={lastAction} lastTakenAt={lastTakenAt} /> : null}
-          {tab === 'brand' ? <BrandStep /> : null}
-          {tab === 'library' ? <LibraryStep /> : null}
+          {tab === 'live' ? <DockLiveTab /> : null}
+          {tab === 'queue' ? (
+            <DockQueueTab
+              onPreviewSelected={() => setTab('live')}
+              onEditSelected={() => setTab('edit')}
+            />
+          ) : null}
+          {tab === 'edit' ? <DockQuickEditTab onOpenQueue={() => setTab('queue')} /> : null}
+          {tab === 'more' ? (
+            <ComingSoon title="More" note="Utilities, preferences and diagnostics land here." />
+          ) : null}
         </div>
-        <StickyLiveBar onTake={onTake} onClear={onClear} lastAction={lastAction} sending={sending} />
+        <DockFooter relay={relay} />
       </div>
+    </div>
+  );
+}
+
+/** Honest placeholder for the not-yet-built tabs — never a mocked-up screen. */
+function ComingSoon({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="dock-tabpane">
+      <section className="dock-card dock-coming">
+        <span className="ll-kicker">{title}</span>
+        <p className="dock-coming__note">Coming in the next stage.</p>
+        <p className="dock-card__hint">{note}</p>
+      </section>
     </div>
   );
 }

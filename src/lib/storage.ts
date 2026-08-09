@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   scriptureRecents: 'livelayer.scriptureRecents',
+  dockPrefs: 'livelayer.dockPrefs',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
@@ -138,6 +139,7 @@ export function loadProgram(): ProgramState {
     case 'clear':
       return { ...CLEAR_PROGRAM_STATE, clearedAt: asNumber(raw.clearedAt) };
     case 'showing':
+    case 'clearing':
     case 'recovering':
     case 'failed':
       break;
@@ -149,10 +151,13 @@ export function loadProgram(): ProgramState {
   const snapshot = isGraphicInstance(raw.snapshot) ? (raw.snapshot as GraphicInstance) : null;
   if (!snapshot) return { ...CLEAR_PROGRAM_STATE };
 
-  // A reload cannot confirm output, so 'showing' downgrades to 'recovering';
-  // 'failed' is already a settled fact and survives as-is. Validated identity
-  // and source metadata are preserved so the originating queue/rundown item
-  // stays identified across a refresh.
+  // A reload cannot confirm output, so 'showing' AND a pending 'clearing'
+  // downgrade to 'recovering'; 'failed' is already a settled fact and survives
+  // as-is. Confirmation and any output ack/failure are deliberately reset:
+  // they were evidence about a session that no longer exists (the realtime
+  // channel re-proves them via the relay snapshot replay if it can). Validated
+  // identity and source metadata are preserved so the originating
+  // queue/rundown item stays identified across a refresh.
   const sourceType = validSourceType(raw.sourceType);
   return {
     ...CLEAR_PROGRAM_STATE,
@@ -267,6 +272,27 @@ export function saveExplicitBrandKeys(keys: Iterable<ExplicitBrandKey>) {
     STORAGE_KEYS.brandExplicit,
     EXPLICIT_BRAND_KEYS.filter((key) => chosen.has(key))
   );
+}
+
+/**
+ * Operator preferences for the dock surface only. Stage 2b: the Program strip
+ * honours `compactProgramStrip`; the toggle that writes it ships with the More
+ * tab in stage 3 — the flag is real first so the control can never be dead.
+ * Lives in STORAGE_KEYS so "Reset all local data" clears it with everything else.
+ */
+export interface DockPrefs {
+  compactProgramStrip: boolean;
+}
+
+export function loadDockPrefs(): DockPrefs {
+  const raw = safeReadJson(STORAGE_KEYS.dockPrefs);
+  // Strict `=== true`: a malformed or legacy record must read as the default
+  // (regular strip), never as an accidental opt-in.
+  return { compactProgramStrip: isRecord(raw) && raw.compactProgramStrip === true };
+}
+
+export function saveDockPrefs(prefs: DockPrefs) {
+  safeWrite(STORAGE_KEYS.dockPrefs, prefs);
 }
 
 export function clearAllData() {
