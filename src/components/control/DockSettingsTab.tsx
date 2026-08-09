@@ -1,15 +1,12 @@
 import { useDockPrefs } from '../../store/useDockPrefs';
 import { RELAY_LABEL } from '../../lib/relayReadiness';
 import type { RelayStatus } from '../../hooks/useRelayStatus';
-import { isAutoCompact, type StripDensityState } from '../../lib/dockDensity';
 import { Icon } from '../../lib/icons';
 import ResetLocalData from './ResetLocalData';
 
 interface DockSettingsTabProps {
   /** Polled once by DockShell and shared with header and footer. */
   relay: RelayStatus;
-  /** Resolved density, so this tab can say when the preference is overridden. */
-  density: StripDensityState;
 }
 
 /**
@@ -27,10 +24,9 @@ interface DockSettingsTabProps {
  * check, and the product's credibility rests on not making them. If that leaves
  * three sections, it leaves three sections.
  */
-export default function DockSettingsTab({ relay, density }: DockSettingsTabProps) {
+export default function DockSettingsTab({ relay }: DockSettingsTabProps) {
   const preferCompact = useDockPrefs((state) => state.compactProgramStrip);
   const setCompactProgramStrip = useDockPrefs((state) => state.setCompactProgramStrip);
-  const overridden = isAutoCompact(density);
 
   return (
     <div className="dock-tabpane dock-settings">
@@ -45,19 +41,11 @@ export default function DockSettingsTab({ relay, density }: DockSettingsTabProps
           <span className="dock-set__label">
             <span className="dock-set__name">Compact Program strip</span>
             <span className="dock-set__hint">
-              Trades the Program strip&rsquo;s spare height for the tab below it.
+              Trades the Program strip&rsquo;s spare height for the tab below it. Short docks
+              compact automatically.
             </span>
           </span>
         </label>
-        {/* Told, not left to be discovered: on a short dock the strip is compact
-            whatever this says, and a toggle that appears to do nothing is worse
-            than one that explains why. */}
-        {overridden ? (
-          <p className="dock-set__note" role="status">
-            This dock is short, so the strip is compact already. Your choice applies again when
-            there is room for it.
-          </p>
-        ) : null}
       </section>
 
       <section className="dock-card">

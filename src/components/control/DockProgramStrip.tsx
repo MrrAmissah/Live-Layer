@@ -7,19 +7,12 @@ import { programClockMs } from '../../lib/programClock';
 import { Icon, type IconName } from '../../lib/icons';
 import LiveActions from './LiveActions';
 import type { LastAction } from './StatusBadge';
-import type { StripDensity } from '../../lib/dockDensity';
 
 interface DockProgramStripProps {
   onTake: () => void;
   onClear: () => void;
   sending?: boolean;
   lastAction: LastAction;
-  /**
-   * Resolved by `lib/dockDensity.ts` from the dock's measured height and the
-   * operator's preference — never from Program status, which must not be able
-   * to change this strip's height (see the fixed-height contract below).
-   */
-  density?: StripDensity;
 }
 
 /**
@@ -50,14 +43,16 @@ interface DockProgramStripProps {
  * that never changes. The recovery sentence stays — it is the honest
  * disclosure that makes the strip trustworthy after a reload.
  */
-export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction, density }: DockProgramStripProps) {
+export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction }: DockProgramStripProps) {
   const program = useLiveLayerStore((state) => state.program);
   const output = useLiveLayerStore((state) => state.outputStatus);
-  const preferCompact = useDockPrefs((state) => state.compactProgramStrip);
-  // `density` is supplied by DockShell, which owns the measurement. Falling back
-  // to the bare preference keeps the strip correct for any surface that renders
-  // it without a measured container.
-  const compact = (density ?? (preferCompact ? 'compact' : 'full')) === 'compact';
+  /**
+   * The operator's persisted preference, and only that. The SHORT-DOCK override
+   * is CSS (`@container dock (max-height: 470px)`) — the dock has a definite
+   * height imposed by its frame, so the rule that protects usability needs no
+   * observer, no measured state and no history.
+   */
+  const compact = useDockPrefs((state) => state.compactProgramStrip);
 
   // Same clock policy as the studio's OutputCard: tick while a readout is
   // moving, and drop the cleared counter to a one-minute cadence once it only

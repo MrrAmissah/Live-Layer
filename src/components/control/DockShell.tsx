@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { LastAction } from './StatusBadge';
 import { useRelayStatus } from '../../hooks/useRelayStatus';
 import DockHeader from './DockHeader';
@@ -9,8 +9,6 @@ import DockQueueTab from './DockQueueTab';
 import DockQuickEditTab from './DockQuickEditTab';
 import DockFooter from './DockFooter';
 import DockSettingsTab from './DockSettingsTab';
-import { useDockPrefs } from '../../store/useDockPrefs';
-import { resolveStripDensity, type StripDensity } from '../../lib/dockDensity';
 
 interface DockShellProps {
   onTake: () => void;
@@ -44,40 +42,14 @@ interface DockShellProps {
 export default function DockShell({ onTake, onClear, lastAction, sending = false }: DockShellProps) {
   const [tab, setTab] = useState<DockTab>('live');
   const relay = useRelayStatus();
-  const preferCompact = useDockPrefs((state) => state.compactProgramStrip);
 
-  /**
-   * The dock's own height, observed rather than inferred from the viewport: an
-   * OBS dock is resized by dragging its edge, so the window never changes size
-   * and a media query would never fire. Same reasoning as the footer collapse.
-   */
-  const frameRef = useRef<HTMLDivElement | null>(null);
-  const [dockHeight, setDockHeight] = useState<number | null>(null);
-  useEffect(() => {
-    const node = frameRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver((entries) => {
-      const next = entries[0]?.contentRect.height;
-      if (typeof next === 'number') setDockHeight(Math.round(next));
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  // Kept in state so the resolver can see what is currently applied and hold
-  // the band between its thresholds instead of oscillating there.
-  const [density, setDensity] = useState<StripDensity>(preferCompact ? 'compact' : 'full');
-  const resolved = resolveStripDensity({ dockHeight, preferCompact, current: density });
-  useEffect(() => {
-    if (resolved.density !== density) setDensity(resolved.density);
-  }, [resolved.density, density]);
 
   return (
     <div className="control-root control-root--dock">
-      <div className="dock" ref={frameRef}>
+      <div className="dock">
         <DockHeader relay={relay} />
         <DockTabBar active={tab} onChange={setTab} />
-        <DockProgramStrip onTake={onTake} onClear={onClear} sending={sending} lastAction={lastAction} density={resolved.density} />
+        <DockProgramStrip onTake={onTake} onClear={onClear} sending={sending} lastAction={lastAction} />
         <div className="dock-scroll">
           {tab === 'live' ? <DockLiveTab /> : null}
           {tab === 'queue' ? (
@@ -87,7 +59,7 @@ export default function DockShell({ onTake, onClear, lastAction, sending = false
             />
           ) : null}
           {tab === 'edit' ? <DockQuickEditTab onOpenQueue={() => setTab('queue')} /> : null}
-          {tab === 'settings' ? <DockSettingsTab relay={relay} density={resolved} /> : null}
+          {tab === 'settings' ? <DockSettingsTab relay={relay} /> : null}
         </div>
         <DockFooter relay={relay} />
       </div>

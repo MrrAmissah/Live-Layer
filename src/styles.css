@@ -7408,10 +7408,10 @@ body.gfx-transparent {
   display: flex;
   align-items: center;
   gap: 10px;
-  /* 92px → 74px. The reservation shrank because the WORST CASE shrank: the
-     recovering and failed sentences were shortened, so one sub line covers
-     them at ordinary dock widths. The contract is untouched — every status
-     still reserves its worst case, so Take never moves when the status flips. */
+  /* 92px → 71px, and the saving is SLACK, not content. The box still reserves
+     its worst case — a one-line title plus the two-line failure/recovery
+     disclosure, 55px — so every status fits and Take never moves when the
+     status flips. What went was the ~37px the old box carried beyond that. */
   height: 71px;
   padding: 8px 10px;
   background: var(--dk-raised);
@@ -7481,7 +7481,7 @@ body.gfx-transparent {
      sentence still needs two up to ~380px and fits one only from ~420px, so a
      one-line reservation clipped the disclosure across the middle of the dock's
      real width range. The height saving comes from the box losing its slack
-     (92px → 74px), not from cutting what the strip is allowed to say. */
+     (92px → 71px), not from cutting what the strip is allowed to say. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -7501,29 +7501,37 @@ body.gfx-transparent {
 }
 
 /**
- * AUTO-COMPACT — the short-dock override, owned by CSS.
+ * AUTO-COMPACT — the short-dock override, and the ONLY thing that performs it.
  *
- * The precedence is: a short dock is compact whatever the preference says; a
- * normal dock defers to the preference. The second half is the `--compact`
- * class above, written by the operator in Settings. THIS half is a container
- * query, deliberately not JavaScript.
+ * The contract has two halves and one authority each:
  *
- * A preference must not be able to make a dock unusable, so the rule that
- * protects usability cannot depend on an observer firing. The dock already
- * declares `container: dock / size`, and the footer collapse already proves
- * height queries work in OBS CEF — so the same mechanism carries this. It is
- * also inherently flicker-free: the browser resolves it, there is no state to
- * settle, and the strip shrinking cannot feed back into the dock's own height
- * because the dock is sized by its frame, not by its contents.
+ *   short dock  → compact, enforced HERE, whatever the preference says
+ *   normal dock → the `--compact` class, written by the operator in Settings
+ *
+ * There was briefly a JavaScript system doing the first half as well, with a
+ * measured height and a 470→530 hysteresis band. Both were wrong for this
+ * geometry. The dock is `100dvh` inside a frame the operator drags, so its
+ * height is imposed from outside and shrinking a child strip cannot feed back
+ * into it — there is no loop for hysteresis to damp. What the band did produce
+ * was history: a 500px dock could be full on a fresh load and compact after the
+ * operator had dragged below 470 and back, for the same height and the same
+ * preference. A container query has no memory, needs no observer (which the QA
+ * environment demonstrably failed to fire), and cannot disagree with itself.
  *
  * 470px is where the measured layout runs out: header, tab bar, strip and
- * margins leave a tab too little to show a control below them.
+ * margins leave a tab too little to show a control below them. `max-height`
+ * includes 470, and that is the whole definition of "short" now.
  */
 @container dock (max-height: 470px) {
   .control-root .dock-program { min-height: var(--dock-strip-h-compact); padding: 8px; }
   .control-root .dock-program__identity { height: 71px; padding: 7px 9px; }
   .control-root .dock-program__title { max-height: 19px; font-size: 14px; -webkit-line-clamp: 1; }
   .control-root .dock-program__glyph { width: 34px; height: 30px; }
+  /* The complete treatment, not most of it: the action height belongs to the
+     compact geometry too, and the height query was carrying every other part
+     of it while leaving the buttons full size. */
+  .control-root .dock-program__take,
+  .control-root .dock-program__clear { min-height: 36px; }
 }
 
 /**

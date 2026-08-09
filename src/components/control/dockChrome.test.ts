@@ -112,10 +112,9 @@ describe('the 314×500 floor (the dock that had 24px of scroll)', () => {
   });
 
   it('reserves the third disclosure line below 290px instead of clipping it', () => {
-    // The failed-send sentence needs a second line at 255px. The narrow band
-    // grows the reserved sub row and the strip together — a disclosure is
-    // never clipped to buy chrome back. (Stage 4B: three lines became two
-    // because the sentences got shorter, not because the reservation was cut.)
+    // The failed-send sentence needs two lines up to ~380px — measured — so the
+    // reservation is two lines everywhere and the narrow band keeps the strip
+    // tall enough to hold them. A disclosure is never clipped to buy chrome back.
     const narrow = /@container dock \(max-width: 290px\)\s*\{([\s\S]*?)\n\}/g;
     const bands = [...css.matchAll(narrow)].map((match) => match[1]).join('\n');
     // `max-height`, matching the fixed-box/ceiling-row split above: the strip's
@@ -126,5 +125,75 @@ describe('the 314×500 floor (the dock that had 24px of scroll)', () => {
     // 38.6% scroll — deliberately below the 40% floor rather than clipping a
     // disclosure to hit a ratio. 190px is the honest floor for this band.
     expect(500 - (header + tabbar + RULES + stripMargin + 211)).toBeGreaterThanOrEqual(190);
+  });
+});
+
+describe('auto-compact has exactly one authority', () => {
+  /**
+   * CSS performs the short-dock override; the persisted preference performs the
+   * normal-height one. There is deliberately no JavaScript height system: the
+   * dock is 100dvh inside a frame the operator drags, so its height is imposed
+   * from outside and a child strip cannot feed back into it. A measured
+   * resolver added history without adding safety — the same height and the same
+   * preference could produce different layouts depending on how the operator
+   * had got there — and it could disagree with the CSS at the boundary.
+   */
+  const SHORT = /@container dock \(max-height: 470px\)\s*\{([\s\S]*?)\n\}/;
+
+  it('the short-dock override lives in CSS, inclusive of 470', () => {
+    expect(css).toMatch(SHORT);
+  });
+
+  it('no JavaScript measures the dock to decide density', () => {
+    const shell = readFileSync('src/components/control/DockShell.tsx', 'utf8');
+    const strip = readFileSync('src/components/control/DockProgramStrip.tsx', 'utf8');
+    for (const source of [shell, strip]) {
+      expect(source).not.toContain('ResizeObserver');
+      expect(source).not.toContain('dockDensity');
+      expect(source).not.toContain('resolveStripDensity');
+    }
+    // The strip reads the persisted preference and nothing else.
+    expect(strip).toContain('useDockPrefs((state) => state.compactProgramStrip)');
+  });
+
+  it('the short-dock query applies the COMPLETE compact treatment', () => {
+    /**
+     * Not most of it. The action height was carried by the `--compact` class and
+     * missing from the height query, so a short dock got compact everything
+     * except its buttons. Derived by comparing the two rather than by listing
+     * properties by hand, so a future compact declaration cannot be added to one
+     * and forgotten in the other.
+     */
+    const short = css.match(SHORT)![1];
+    const compactClassProps = [
+      ...css.matchAll(/\.dock-program--compact(?:\s+\.dock-program__(\w+))?[^{]*\{([^}]*)\}/g)
+    ]
+      .flatMap((match) => match[2].split(';'))
+      .map((decl) => decl.split(':')[0].trim())
+      .filter((name) => name && !name.startsWith('--'));
+    expect(compactClassProps.length).toBeGreaterThan(3);
+    for (const prop of new Set(compactClassProps)) {
+      expect(short, `short-dock query is missing ${prop}`).toContain(`${prop}:`);
+    }
+  });
+
+  it('keeps the narrow AND short reservation, which neither rule covers alone', () => {
+    expect(css).toMatch(/@container dock \(max-width: 290px\) and \(max-height: 470px\)/);
+  });
+
+  it('has no second threshold, because there is no feedback loop to damp', () => {
+    // The dock cannot be resized by its own contents, so a band between an
+    // enter and an exit threshold protected against nothing and cost history:
+    // the same height and preference could render differently depending on how
+    // the operator got there. One inclusive threshold, no exit band.
+    // Scoped to the STRIP's thresholds. The dock has another height query at
+    // 547px for the footer collapse, which is a different concern and predates
+    // this — the claim here is only that the strip has one boundary, not two.
+    const stripQueries = [...css.matchAll(/@container dock \([^)]*max-height: (\d+)px\)\s*\{([\s\S]*?)\n\}/g)]
+      .filter(([, , body]) => body.includes('dock-program'))
+      .map(([, px]) => px);
+    expect(stripQueries.length, 'no strip height query found — this guard would be vacuous').toBeGreaterThan(0);
+    expect(new Set(stripQueries), `strip height thresholds: ${stripQueries}`).toEqual(new Set(['470']));
+    expect(css).not.toMatch(/530px/);
   });
 });
