@@ -2,6 +2,7 @@ import { useLocation } from 'react-router-dom';
 import TemplatePreview from '../templates/TemplatePreview';
 import TemplateFields from './TemplateFields';
 import DraftPreviewNote from './DraftPreviewNote';
+import PersonFastSwap from './PersonFastSwap';
 import LayoutControls from './LayoutControls';
 import DurationControl from './DurationControl';
 import LogoControls from './LogoControls';
@@ -125,6 +126,9 @@ export default function DockQuickEditTab({ onOpenQueue }: DockQuickEditTabProps)
           <span className="ll-kicker">Content</span>
         </div>
         <TemplateFields section="content" excludeFieldIds={contentFieldExclusions(target.isRundownItem)} />
+        {/* Right under the fields it fills, and it renders nothing at all on a
+            template with no person to swap. */}
+        <PersonFastSwap />
         {target.isRundownItem ? (
           <p className="dock-card__hint">Changes save to this queue item as you type.</p>
         ) : (
