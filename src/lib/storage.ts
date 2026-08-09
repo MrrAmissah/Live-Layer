@@ -1,6 +1,7 @@
 import type { GraphicInstance, QuickQueueItem, TemplateDefinition } from '../types/graphics';
 import type { ProgramState } from '../types/program';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
+import { clearWorkingDraft } from './workingDraft';
 
 const STORAGE_KEYS = {
   presets: 'livelayer.presets',
@@ -301,6 +302,14 @@ export function clearAllData() {
   } catch {
     // ignore errors during cleanup
   }
+  /**
+   * The working draft lives in sessionStorage, not in STORAGE_KEYS, so the loop
+   * above cannot reach it — the exact shape of the leak this module already
+   * warns about above `SCRIPTURE_RECENTS_KEY`. Removal belongs to `clearAllData`
+   * rather than to one caller, so every reset path clears it. (The store also
+   * cancels its pending debounced write; see `clearLocalData`.)
+   */
+  clearWorkingDraft();
 }
 
 function loadGraphicList(key: string): GraphicInstance[] {
