@@ -132,13 +132,17 @@ export default function PresetControls({
 
       {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
 
-      {/* Two-step, and never a bare one-click: this removes presets, the quick
-          queue, recents, rundowns, people and uploaded assets irreversibly. */}
+      {/* Two-step, and never a bare one-click: this removes everything this
+          browser holds. The list below is checked against what `clearLocalData`
+          actually clears — it also resets Program and removes the working draft,
+          which the old copy did not mention. Nothing leaves this browser, so it
+          must not imply a server or cloud deletion. */}
       {confirmingReset ? (
         <div className="preset-reset__confirm" role="alertdialog" aria-label="Confirm reset">
           <p className="preset-reset__warning">
-            Delete presets, quick queue, recents, rundowns, people and uploaded assets? This cannot
-            be undone.
+            Erase everything saved in this browser — presets, quick queue, recents, rundowns,
+            people, uploaded assets, brand colours, the Program record and the graphic you are
+            preparing? This cannot be undone.
           </p>
           <div className="preset-reset__actions">
             <button
@@ -161,9 +165,12 @@ export default function PresetControls({
           </div>
         </div>
       ) : (
-        <button type="button" className="preset-reset" onClick={() => setConfirmingReset(true)}>
-          Reset all local data
-        </button>
+        <div className="preset-reset__zone">
+          <p className="preset-reset__zonehint">Everything below erases local data.</p>
+          <button type="button" className="preset-reset" onClick={() => setConfirmingReset(true)}>
+            Reset all local data
+          </button>
+        </div>
       )}
     </div>
   );

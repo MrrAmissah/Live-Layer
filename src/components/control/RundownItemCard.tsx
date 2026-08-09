@@ -46,11 +46,23 @@ export default function RundownItemCard({
     <li className={`rd-item ${selected ? 'rd-item--selected' : ''} ${item.done ? 'rd-item--done' : ''}`}>
       <button type="button" className="rd-item__main" onClick={onSelect} aria-pressed={selected}>
         <span className="rd-item__order" aria-hidden>{index + 1}</span>
+        {/**
+          * The badge sits on the META line, not beside the title.
+          *
+          * As a third flex child of the row it was `flex: none` next to a title
+          * that was the only flexible element, so in the studio rail — where the
+          * five action buttons already claim ~160px — the title collapsed to a
+          * ~10px box and "Opening verse" rendered as "O". Sharing the quieter
+          * line keeps the badge fully readable, gives the title the row's whole
+          * width, and lets the template name truncate instead.
+          */}
         <span className="rd-item__text">
           <span className="rd-item__title">{item.title}</span>
-          <span className="rd-item__meta">{templateName(item.graphic.templateId)}</span>
+          <span className="rd-item__metaline">
+            <span className="rd-item__meta">{templateName(item.graphic.templateId)}</span>
+            {lastSent ? <span className="rd-sent">LAST SENT</span> : null}
+          </span>
         </span>
-        {lastSent ? <span className="rd-sent">LAST SENT</span> : null}
       </button>
       <span className="rd-item__actions">
         <button
