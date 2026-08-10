@@ -85,6 +85,14 @@ export function useRundowns() {
     activeRundownId,
 
     createRundown: (name: string): Rundown | undefined => run(() => store.createRundown(name)),
+    /**
+     * Copy a whole rundown for the next service. Preparation only: nothing is
+     * published, and the copy is NOT made active — activating it would redirect
+     * Take to a different set of items, and the copy is next week's work, not
+     * what is being run now.
+     */
+    duplicateRundown: (id: string, name?: string): Rundown | undefined =>
+      run(() => store.duplicateRundown(id, name)),
     renameRundown: (id: string, name: string) => run(() => store.updateRundown(id, { name })),
     deleteRundown: (id: string) => run(() => store.deleteRundown(id)),
     setActiveRundown: (id: string | undefined) => run(() => store.setActiveRundown(id)),

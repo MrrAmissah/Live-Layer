@@ -1,5 +1,17 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { addItem, createRundown, duplicateRundown, getRundown, listRundowns, setSelectedItem, updateItem } from './rundownStore';
+import {
+  addItem,
+  createRundown,
+  duplicateRundown,
+  getActiveRundownId,
+  getRundown,
+  listRundowns,
+  setActiveRundown,
+  setSelectedItem,
+  updateItem,
+  MAX_RUNDOWNS
+} from './rundownStore';
 import type { GraphicInstance } from '../../types/graphics';
 
 /**
@@ -120,6 +132,20 @@ describe('the copy is genuinely independent', () => {
     expect(getRundown(copy.id)!.items[0].title).toBe('Changed in the copy');
   });
 
+  it('clones item records rather than spreading the source’s own objects', () => {
+    /**
+     * Pinned at the source, and deliberately so. `read()` parses fresh objects
+     * and `write()` serialises, so a shared reference dies inside the call and
+     * no behavioural test can see it today. The clone is what keeps the copy
+     * independent if this store ever caches — as its own header says it may —
+     * and a spread that looks equivalent now is exactly the change nothing
+     * would catch then.
+     */
+    const source = readFileSync('src/lib/rundown/rundownStore.ts', 'utf8');
+    const fn = source.slice(source.indexOf('export function duplicateRundown'));
+    expect(fn.slice(0, fn.indexOf('\n}'))).toContain('...clone(item)');
+  });
+
   it('leaves the source rundown otherwise untouched', () => {
     const source = seed();
     const before = JSON.stringify(getRundown(source.id));
@@ -135,5 +161,47 @@ describe('the copy is genuinely independent', () => {
 
   it('refuses an unknown source rather than inventing one', () => {
     expect(duplicateRundown('no-such-rundown')).toBeUndefined();
+  });
+
+  it('refuses at the rundown cap rather than dropping one to make room', () => {
+    const source = seed();
+    while (listRundowns().length < MAX_RUNDOWNS) createRundown('filler');
+    const before = listRundowns().length;
+    expect(duplicateRundown(source.id)).toBeUndefined();
+    expect(listRundowns()).toHaveLength(before);
+  });
+});
+
+describe('duplicating is preparation, never a live action', () => {
+  it('publishes nothing and does not change which rundown is active', () => {
+    const source = seed();
+    setActiveRundown(source.id);
+    duplicateRundown(source.id);
+    // Take fires from the ACTIVE rundown. Silently repointing it mid-service
+    // would air next week's items.
+    expect(getActiveRundownId()).toBe(source.id);
+  });
+
+  it('the operator surface leaves activation to an explicit click, and says so', () => {
+    const library = readFileSync('src/components/control/RundownLibrary.tsx', 'utf8');
+    const handler = library.slice(
+      library.indexOf('const onDuplicateRundown'),
+      library.indexOf('const onDeleteRundown')
+    );
+    expect(handler).not.toContain('setActiveRundown');
+    // An operator who does not know a copy exists edits last week's rundown.
+    expect(handler).toMatch(/select it to edit/);
+  });
+
+  it('reports the cap instead of failing silently', () => {
+    const library = readFileSync('src/components/control/RundownLibrary.tsx', 'utf8');
+    expect(library).toMatch(/const copy = rd\.duplicateRundown\([\s\S]*?if \(!copy\)[\s\S]*?Limit reached/);
+  });
+
+  it('is reachable from every rundown in the list, not just the active one', () => {
+    // Last week's rundown is usually NOT the active one when next week is set up.
+    const card = readFileSync('src/components/control/RundownCard.tsx', 'utf8');
+    expect(card).toContain('onDuplicate');
+    expect(card).toMatch(/aria-label=\{`Duplicate rundown \$\{rundown\.name\}`\}/);
   });
 });

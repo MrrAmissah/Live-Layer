@@ -55,6 +55,21 @@ export default function RundownLibrary() {
     flash(item ? `Added “${item.title}”` : 'Could not add item.');
   };
 
+  const onDuplicateRundown = (rundown: Rundown) => {
+    const copy = rd.duplicateRundown(rundown.id);
+    if (!copy) {
+      flash(`Limit reached — max ${MAX_RUNDOWNS} rundowns. Delete one first.`);
+      return;
+    }
+    /**
+     * Says what it did AND what it deliberately did not do. The copy is not
+     * made active, because during a service that would silently point Take at a
+     * different set of items — and an operator who does not know a copy exists
+     * will make their edits in last week's rundown.
+     */
+    flash(`Copied to “${copy.name}” — select it to edit.`, 4000);
+  };
+
   const onDeleteRundown = (id: string, name: string) => {
     if (window.confirm(`Delete the rundown “${name}” and all its items?`)) {
       rd.deleteRundown(id);
@@ -101,6 +116,7 @@ export default function RundownLibrary() {
               rundown={rundown}
               active={rundown.id === rd.activeRundownId}
               onSetActive={() => rd.setActiveRundown(rundown.id)}
+              onDuplicate={() => onDuplicateRundown(rundown)}
               onExport={() => onExportRundown(rundown)}
               onDelete={() => onDeleteRundown(rundown.id, rundown.name)}
             />
