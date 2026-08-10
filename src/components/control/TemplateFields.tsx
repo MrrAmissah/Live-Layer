@@ -120,8 +120,14 @@ function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void 
     { label: "Use today's date", value: '{{date}}' },
     { label: 'Use current time', value: '{{time}}' },
     { label: 'Use weekday', value: '{{weekday}}' },
-    { label: 'Use date + time', value: '{{date}} · {{time}}' },
-    { label: 'Countdown', value: '{{countdown}}' }
+    { label: 'Use date + time', value: '{{date}} · {{time}}' }
+    /**
+     * Countdown is deliberately NOT offered. `{{countdown}}` and `{{eventTime}}`
+     * resolve from `eventDateTime`, and nothing in the product sets it — every
+     * caller resolves with no context — so offering the button handed the
+     * operator a control that could only ever produce placeholder text. It
+     * comes back when an event time is a real, configurable thing.
+     */
   ];
 
   return (

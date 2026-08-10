@@ -443,7 +443,14 @@ describe('Unresolvable logo reference', () => {
   it('offers no removal when the graphic genuinely has no logo', () => {
     selectItemWithTheme({ name: 'Legacy speaker', logoAssetId: '', logoUrl: '' }, {} as GraphicInstance['theme']);
     const html = brandTab();
-    expect(html).toContain('Choose image');
+    /**
+     * Stage 4C split one button into two: an image can now come from an upload
+     * OR from the saved images already on this machine. The intent of this test
+     * is unchanged — with no logo the operator is offered a way to add one and
+     * is NOT offered a removal for something that does not exist.
+     */
+    expect(html).toContain('Upload image');
+    expect(html).toContain('Use saved image');
     expect(html).not.toContain('Remove image');
   });
 
