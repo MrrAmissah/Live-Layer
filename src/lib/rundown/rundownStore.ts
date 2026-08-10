@@ -255,6 +255,59 @@ export function createRundown(name: string): Rundown | undefined {
   return rundown;
 }
 
+/**
+ * Start next week's service from last week's, without rebuilding it.
+ *
+ * A recurring service reuses most of its rundown — the same welcome, the same
+ * offering banner, the same closing scripture — and the only tool for that was
+ * building it again from zero.
+ *
+ * WHAT IS PREPARATION AND WHAT IS HISTORY. Items and their graphics are
+ * preparation and are copied whole: order, templates, content, RAW dynamic
+ * tokens, People references, asset ids, theme, palette, variant, layout and
+ * duration all travel, because a token resolved at copy time would freeze last
+ * week's date into this week's graphic.
+ *
+ * `activeItemId` and `selectedItemId` are execution state — what was last sent,
+ * and where the operator's cursor was — and both are dropped. A fresh rundown
+ * that opens claiming an item was already sent is worse than useless: it is a
+ * claim about air that never happened.
+ *
+ * Items get NEW ids. Sharing them would make the copy and the original the same
+ * rundown wearing two names, and an edit to one would silently change the other.
+ * Asset IDS are copied as ids — no blob is duplicated, because the picture is
+ * already on the machine.
+ *
+ * Nothing here publishes. Program is untouched and no Take occurs.
+ */
+export function duplicateRundown(sourceId: string, name?: string): Rundown | undefined {
+  const state = read();
+  if (state.rundowns.length >= MAX_RUNDOWNS) return undefined;
+  const source = state.rundowns.find((rundown) => rundown.id === sourceId);
+  if (!source) return undefined;
+
+  const ts = now();
+  const copy: Rundown = {
+    id: createId('rundown'),
+    name: (name ?? `${source.name} (copy)`).trim() || 'Untitled rundown',
+    // Deep clone through the same helper the item paths use, and re-id every
+    // item so the two rundowns can never write over each other.
+    items: source.items.map((item) => ({
+      ...clone(item),
+      id: createId('rditem'),
+      graphic: { ...cloneRundownGraphic(item.graphic), id: createId('graphic') },
+      // "Done" is a record of this service being run, not of it being prepared.
+      done: false
+    })),
+    activeItemId: undefined,
+    selectedItemId: undefined,
+    createdAt: ts,
+    updatedAt: ts
+  };
+  write({ ...state, rundowns: [copy, ...state.rundowns] });
+  return copy;
+}
+
 export function updateRundown(id: string, patch: Partial<Pick<Rundown, 'name'>>): Rundown | undefined {
   const clean: Partial<Rundown> = {};
   if (patch.name !== undefined) clean.name = patch.name.trim() || 'Untitled rundown';

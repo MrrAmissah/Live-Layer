@@ -4,6 +4,7 @@ import { useRelayStatus } from '../../hooks/useRelayStatus';
 import { RELAY_LABEL } from '../../lib/relayReadiness';
 import { usePackSwitchGuard } from '../../hooks/usePackSwitchGuard';
 import { Icon } from '../../lib/icons';
+import ServiceContextBar from './ServiceContextBar';
 
 /** Opens an app route in a new tab (output source / setup dock helpers). */
 function openRoute(path: string) {
@@ -54,6 +55,8 @@ export default function CommandBar() {
           <Icon name="chevronDown" size={16} />
         </span>
       </label>
+
+      <ServiceContextBar />
 
       <div className={`cmd-transport cmd-transport--${relay.connection}`} role="status">
         <span className="cmd-transport__dot" aria-hidden />

@@ -22,6 +22,7 @@ import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
 import { createWorkingDraftWriter, readWorkingDraft, type WorkingDraft } from '../lib/workingDraft';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
+import { loadServiceContext, serviceDynamicContext } from '../lib/serviceContext';
 import { resetScriptureDraft } from '../lib/scripture/scriptureDraftStore';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
@@ -175,6 +176,14 @@ export function buildInstanceFromDraft(
     },
     personId: values.personId,
     durationSeconds: draft.durationSeconds,
+    /**
+     * The service context AS IT IS NOW, frozen into the snapshot. This is what
+     * stops a later service change retiming a graphic already on air: Program
+     * reads this, Preview reads the live context, and the two are allowed to
+     * differ. Omitted entirely when no start time is configured, so nothing is
+     * invented.
+     */
+    ...(serviceDynamicContext(loadServiceContext()) ? { dynamicContext: serviceDynamicContext(loadServiceContext()) } : {}),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };

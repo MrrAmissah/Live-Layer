@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   scriptureRecents: 'livelayer.scriptureRecents',
   scriptureFavorites: 'livelayer.scriptureFavorites',
   dockPrefs: 'livelayer.dockPrefs',
+  serviceContext: 'livelayer.serviceContext',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
@@ -32,6 +33,9 @@ export const SCRIPTURE_RECENTS_KEY = STORAGE_KEYS.scriptureRecents;
  *  livelayer key — a key declared locally elsewhere survives a reset, which on a
  *  shared machine means one church's passages outliving it. */
 export const SCRIPTURE_FAVORITES_KEY = STORAGE_KEYS.scriptureFavorites;
+/** The service being produced. Registered here so "Reset all local data" clears
+ *  it with everything else. */
+export const SERVICE_CONTEXT_KEY = STORAGE_KEYS.serviceContext;
 
 const DEFAULT_THEME: TemplateDefinition['theme'] = {
   primaryColor: '#f8fafc',
