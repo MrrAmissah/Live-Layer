@@ -2,6 +2,11 @@ import { useEffect, useState, type ChangeEvent } from 'react';
 import { saveUploadedAsset } from '../../lib/assets/assetStore';
 import { validateImageFile } from '../../lib/assets/imageProcessing';
 import { useAsset } from '../../hooks/useAsset';
+import SavedImagePicker from './SavedImagePicker';
+import type { AssetType } from '../../types/assets';
+
+/** A logo slot accepts logos, not faces — the store's own taxonomy decides. */
+const LOGO_ASSET_TYPES: readonly AssetType[] = ['logo', 'event-logo'];
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { describeLogoRef, planLogoWrite } from '../../lib/brandWrites';
 
@@ -22,6 +27,7 @@ export default function LogoControls() {
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [pickingSaved, setPickingSaved] = useState(false);
   const [previewFailed, setPreviewFailed] = useState(false);
 
   const assetResult = useAsset(logoAssetId);
@@ -78,6 +84,19 @@ export default function LogoControls() {
     }
   };
 
+  /**
+   * Reuse, through the SAME atomic helper an upload uses. `planLogoWrite`
+   * defines what a logo change means — asset and URL are alternatives and must
+   * never both be live — so choosing a saved image cannot drift from uploading
+   * one. The ID is written; no blob is copied and no second upload happens.
+   */
+  const handlePickSaved = (assetId: string) => {
+    setFields(planLogoWrite({ type: 'asset', assetId }));
+    setShowUrlInput(false);
+    setPickingSaved(false);
+    setError(null);
+  };
+
   const handleRemove = () => {
     setFields(planLogoWrite({ type: 'clear' }));
     setShowUrlInput(false);
@@ -92,8 +111,16 @@ export default function LogoControls() {
       </span>
       <div className="brand-upload-group">
         <label className="btn btn--secondary btn--sm" htmlFor="brand-logo-upload">
-          {hasLogoRef ? 'Replace image' : 'Choose image'}
+          {hasLogoRef ? 'Replace image' : 'Upload image'}
         </label>
+        {/* The image is probably already on this machine. */}
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
+          onClick={() => setPickingSaved((open) => !open)}
+        >
+          Use saved image
+        </button>
         <input
           id="brand-logo-upload"
           type="file"
@@ -114,6 +141,16 @@ export default function LogoControls() {
           </button>
         ) : null}
       </div>
+
+      {pickingSaved ? (
+        <SavedImagePicker
+          accept={LOGO_ASSET_TYPES}
+          selectedAssetId={logoAssetId}
+          onSelect={handlePickSaved}
+          onCancel={() => setPickingSaved(false)}
+          emptyHint="No saved logos yet. Upload one and it becomes reusable from every graphic."
+        />
+      ) : null}
 
       {showUrlInput ? (
         <input

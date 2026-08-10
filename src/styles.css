@@ -9248,3 +9248,24 @@ body.gfx-transparent {
 /* The Program readout is a status, not a control: no pointer, no hover, and a
    flatter treatment than the Clear button it sits near. */
 .control-root .program-rail__status { cursor: default; user-select: none; }
+
+/* --- saved-image reuse (stage 4C) ---------------------------------------
+   A short list, not a gallery: thumbnail, name, choose. */
+.control-root .saved-img { margin-top: 8px; padding: 9px 10px; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--ll-border-soft); }
+.control-root .saved-img__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.control-root .saved-img__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 232px; overflow-y: auto; }
+.control-root .saved-img__item {
+  width: 100%; display: flex; align-items: center; gap: 9px; min-height: 40px;
+  padding: 5px 8px; border-radius: 6px; text-align: left; cursor: pointer;
+  background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
+}
+.control-root .saved-img__item:hover { border-color: rgba(32,165,250,0.42); }
+.control-root .saved-img__item.is-current { border-color: rgba(32,165,250,0.6); background: rgba(32,165,250,0.08); }
+.control-root .saved-img__thumb {
+  flex: none; width: 34px; height: 34px; border-radius: 4px; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05); color: var(--ll-muted-2);
+}
+.control-root .saved-img__thumb img { width: 100%; height: 100%; object-fit: contain; }
+.control-root .saved-img__name { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ll-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.control-root .saved-img__current { flex: none; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--ll-blue); }
