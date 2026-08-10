@@ -76,6 +76,12 @@ export default function LogoControls() {
       // never both be live between two sequential field updates.
       setFields(planLogoWrite({ type: 'asset', assetId: asset.id }));
       setShowUrlInput(false);
+      /**
+       * Close the saved list rather than leaving it stale: it was loaded before
+       * this upload, so it does not contain the asset that is now selected, and
+       * a list that omits the current choice invites picking something else.
+       */
+      setPickingSaved(false);
     } catch (err) {
       setError(errorMessage(err));
     } finally {

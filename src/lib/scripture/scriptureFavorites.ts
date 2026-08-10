@@ -26,6 +26,14 @@ import { isScriptureRecord, type ScriptureRecent } from './scriptureRecents';
  *
  * Bounded, for the same reason recents are: an unbounded localStorage list
  * eventually fails a write, and mid-service is when it would.
+ *
+ * BUT THE BOUND BEHAVES DIFFERENTLY. Recents rotate — that is what an MRU list
+ * is for. Saved passages are operator decisions, and a list that quietly drops
+ * the theme verse to make room for the 25th passage is the exact failure this
+ * feature exists to prevent. So at capacity a NEW passage is REFUSED and the
+ * caller is told, rather than a save appearing to succeed while something else
+ * disappears. Re-saving an already-saved passage stays safe at any size, and
+ * removing one frees the slot.
  */
 const MAX_FAVORITES = 24;
 
@@ -47,7 +55,7 @@ function read(): ScriptureFavorite[] {
 
 function write(entries: ScriptureFavorite[]) {
   try {
-    localStorage.setItem(SCRIPTURE_FAVORITES_KEY, JSON.stringify(entries.slice(0, MAX_FAVORITES)));
+    localStorage.setItem(SCRIPTURE_FAVORITES_KEY, JSON.stringify(entries));
   } catch {
     // Quota or disabled storage: the favourite simply does not persist.
   }
@@ -71,17 +79,36 @@ export function isScriptureFavorite(result: ScriptureLookupResult, translationId
  * Save a passage, or move an existing one to the front. Storing the whole
  * result is the point: reopening must never need the provider.
  */
+export interface SaveFavoriteOutcome {
+  /** False only when the list is full and this passage is not already in it. */
+  saved: boolean;
+  entries: ScriptureFavorite[];
+  /** Present when the save was refused, for the operator to read. */
+  reason?: 'full';
+}
+
 export function addScriptureFavorite(
   result: ScriptureLookupResult,
   translationId: string,
   usedAt = new Date().toISOString()
-): ScriptureFavorite[] {
+): SaveFavoriteOutcome {
   const key = favoriteKey(result, translationId);
-  const next: ScriptureFavorite = { key, result, translationId, usedAt };
-  const rest = read().filter((entry) => entry.key !== key);
-  const entries = [next, ...rest].slice(0, MAX_FAVORITES);
+  const existing = read();
+  const rest = existing.filter((entry) => entry.key !== key);
+  const alreadySaved = rest.length !== existing.length;
+
+  /**
+   * At capacity with a genuinely new passage: refuse, and change nothing.
+   * Slicing here would have removed the oldest saved passage silently — a save
+   * that reports success while destroying an earlier decision.
+   */
+  if (!alreadySaved && rest.length >= MAX_FAVORITES) {
+    return { saved: false, entries: existing, reason: 'full' };
+  }
+
+  const entries = [{ key, result, translationId, usedAt }, ...rest];
   write(entries);
-  return entries;
+  return { saved: true, entries };
 }
 
 export function removeScriptureFavorite(key: string): ScriptureFavorite[] {
@@ -94,12 +121,12 @@ export function removeScriptureFavorite(key: string): ScriptureFavorite[] {
 export function toggleScriptureFavorite(
   result: ScriptureLookupResult,
   translationId: string
-): { entries: ScriptureFavorite[]; saved: boolean } {
+): SaveFavoriteOutcome {
   const key = favoriteKey(result, translationId);
   if (read().some((entry) => entry.key === key)) {
-    return { entries: removeScriptureFavorite(key), saved: false };
+    return { saved: false, entries: removeScriptureFavorite(key) };
   }
-  return { entries: addScriptureFavorite(result, translationId), saved: true };
+  return addScriptureFavorite(result, translationId);
 }
 
 export const SCRIPTURE_FAVORITES_LIMIT = MAX_FAVORITES;

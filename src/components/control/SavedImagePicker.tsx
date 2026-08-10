@@ -44,13 +44,21 @@ export default function SavedImagePicker({
   onCancel,
   emptyHint
 }: SavedImagePickerProps) {
-  const [assets, setAssets] = useState<LocalAsset[] | null>(null);
+  /**
+   * Three settled states, not two. Collapsing a failed read into an empty array
+   * told the operator "you have no saved images" when the truth was "we could
+   * not read them" — and the honest consequence of that lie is an unnecessary
+   * duplicate upload of a picture already on the machine.
+   */
+  const [state, setState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [assets, setAssets] = useState<LocalAsset[]>([]);
 
   useEffect(() => {
     let alive = true;
     listAssets()
       .then((all) => {
         if (!alive) return;
+        setState('loaded');
         /**
          * Filtered by the store's OWN taxonomy rather than by "it is an image".
          * Offering a speaker's headshot as a church logo because both are
@@ -63,7 +71,9 @@ export default function SavedImagePicker({
         setAssets(usable);
       })
       .catch(() => {
-        if (alive) setAssets([]);
+        // The raw IndexedDB error is not the operator's problem; the fact that
+        // the library could not be read is.
+        if (alive) setState('error');
       });
     return () => {
       alive = false;
@@ -79,8 +89,12 @@ export default function SavedImagePicker({
         </button>
       </div>
 
-      {assets === null ? (
+      {state === 'loading' ? (
         <p className="field__hint">Loading saved images…</p>
+      ) : state === 'error' ? (
+        <p className="field__hint">
+          Saved images couldn&rsquo;t be read. You can still upload a new image.
+        </p>
       ) : assets.length === 0 ? (
         <p className="field__hint">
           {emptyHint ?? 'No saved images of this kind yet. Upload one and it will be reusable here.'}

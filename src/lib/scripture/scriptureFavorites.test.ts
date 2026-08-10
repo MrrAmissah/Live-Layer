@@ -5,7 +5,8 @@ import {
   isScriptureFavorite,
   readScriptureFavorites,
   removeScriptureFavorite,
-  toggleScriptureFavorite
+  toggleScriptureFavorite,
+  SCRIPTURE_FAVORITES_LIMIT
 } from './scriptureFavorites';
 import { readScriptureRecents, rememberScripturePassage } from './scriptureRecents';
 import { SCRIPTURE_FAVORITES_KEY } from '../storage';
@@ -135,5 +136,77 @@ describe('save, check and remove', () => {
     const remaining = removeScriptureFavorite(favoriteKey(result(), 'web'));
     expect(remaining).toHaveLength(1);
     expect(remaining[0].result.reference).toBe('John 3:16');
+  });
+});
+
+describe('at capacity the operator decides what leaves', () => {
+  /**
+   * The contradiction this closes: the module promised "kept until removed"
+   * while `slice(0, MAX)` quietly dropped the oldest saved passage to make room
+   * for the 25th. A save that reports success by destroying an earlier decision
+   * is the precise failure saved passages exist to prevent.
+   */
+  const fill = () => {
+    for (let i = 0; i < SCRIPTURE_FAVORITES_LIMIT; i += 1) {
+      addScriptureFavorite(result({ reference: `Psalm ${i + 1}:1` }), 'web');
+    }
+  };
+
+  it('refuses a new passage rather than evicting one', () => {
+    fill();
+    const before = readScriptureFavorites();
+    const outcome = addScriptureFavorite(result({ reference: 'Romans 8:28' }), 'web');
+
+    expect(outcome.saved).toBe(false);
+    expect(outcome.reason).toBe('full');
+    // Nothing was added...
+    expect(readScriptureFavorites().some((e) => e.result.reference === 'Romans 8:28')).toBe(false);
+    // ...and nothing was lost.
+    expect(readScriptureFavorites()).toHaveLength(SCRIPTURE_FAVORITES_LIMIT);
+    expect(readScriptureFavorites().map((e) => e.key)).toEqual(before.map((e) => e.key));
+  });
+
+  it('the oldest saved passage in particular survives', () => {
+    // The theme verse saved in January is the one an MRU bound would drop.
+    addScriptureFavorite(result({ reference: 'Theme 1:1' }), 'web');
+    for (let i = 0; i < SCRIPTURE_FAVORITES_LIMIT - 1; i += 1) {
+      addScriptureFavorite(result({ reference: `Psalm ${i + 1}:1` }), 'web');
+    }
+    addScriptureFavorite(result({ reference: 'Romans 8:28' }), 'web');
+    expect(readScriptureFavorites().some((e) => e.result.reference === 'Theme 1:1')).toBe(true);
+  });
+
+  it('re-saving an already-saved passage stays safe at capacity', () => {
+    fill();
+    const outcome = addScriptureFavorite(result({ reference: 'Psalm 1:1' }), 'web');
+    expect(outcome.saved).toBe(true);
+    expect(readScriptureFavorites()).toHaveLength(SCRIPTURE_FAVORITES_LIMIT);
+    // ...and moves to the front, as re-saving always did.
+    expect(readScriptureFavorites()[0].result.reference).toBe('Psalm 1:1');
+  });
+
+  it('removing one frees the slot, and the next save then succeeds', () => {
+    fill();
+    expect(addScriptureFavorite(result({ reference: 'Romans 8:28' }), 'web').saved).toBe(false);
+    removeScriptureFavorite(favoriteKey(result({ reference: 'Psalm 1:1' }), 'web'));
+    const retry = addScriptureFavorite(result({ reference: 'Romans 8:28' }), 'web');
+    expect(retry.saved).toBe(true);
+    expect(readScriptureFavorites().some((e) => e.result.reference === 'Romans 8:28')).toBe(true);
+  });
+
+  it('translation still separates identity at capacity', () => {
+    fill();
+    // Same reference, different translation, is a genuinely new entry — so it
+    // is refused rather than replacing the other translation's copy.
+    const outcome = addScriptureFavorite(result({ reference: 'Psalm 1:1', translation: 'KJV' }), 'kjv');
+    expect(outcome.saved).toBe(false);
+    expect(readScriptureFavorites().some((e) => e.translationId === 'kjv')).toBe(false);
+  });
+
+  it('the toggle reports the refusal instead of a silent no-op', () => {
+    fill();
+    const outcome = toggleScriptureFavorite(result({ reference: 'Romans 8:28' }), 'web');
+    expect(outcome.saved).toBe(false);
+    expect(outcome.reason).toBe('full');
   });
 });

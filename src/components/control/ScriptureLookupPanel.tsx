@@ -71,6 +71,7 @@ export default function ScriptureLookupPanel({
   const { provider, status, message, failure, lookup, reset, cancel } = useScriptureLookup();
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
   const [favorites, setFavorites] = useState<ScriptureFavorite[]>([]);
+  const [saveNotice, setSaveNotice] = useState('');
   const [offline, setOffline] = useState(false);
 
   /**
@@ -304,7 +305,14 @@ export default function ScriptureLookupPanel({
   const saved = passage ? isScriptureFavorite(passage, translationId) : false;
   const onToggleSaved = () => {
     if (!passage) return;
-    setFavorites(toggleScriptureFavorite(passage, translationId).entries);
+    const outcome = toggleScriptureFavorite(passage, translationId);
+    setFavorites(outcome.entries);
+    /**
+     * A refusal must be visible. Saved passages do not rotate — at capacity the
+     * operator decides what leaves — so a silent no-op would read as a broken
+     * button rather than as a full list.
+     */
+    setSaveNotice(outcome.reason === 'full' ? 'Saved passages is full — remove one before saving another.' : '');
   };
 
   const stagingDisabled = !passage || pending;
@@ -505,6 +513,10 @@ export default function ScriptureLookupPanel({
             Dismiss
           </button>
         </p>
+      ) : null}
+
+      {saveNotice ? (
+        <p className="scripture-ws__note" role="status" aria-live="polite">{saveNotice}</p>
       ) : null}
 
       {favorites.length ? (

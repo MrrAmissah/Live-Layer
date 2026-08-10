@@ -109,3 +109,36 @@ describe('planLogoWrite still guarantees asset and URL cannot both be live', () 
     }
   });
 });
+
+describe('a failed read is not an empty library', () => {
+  /**
+   * Collapsing a rejected `listAssets()` into `[]` rendered the empty-library
+   * message, which is a lie with a cost: the operator uploads a duplicate of a
+   * picture already on the machine.
+   */
+  it('models loading, loaded and error as three distinct states', () => {
+    expect(picker).toMatch(/'loading' \| 'loaded' \| 'error'/);
+  });
+
+  it('a rejection sets the error state rather than an empty list', () => {
+    expect(picker).toMatch(/\.catch\(\(\) => \{[\s\S]*?setState\('error'\)/);
+    expect(picker).not.toMatch(/\.catch\(\(\) => \{[\s\S]*?setAssets\(\[\]\)/);
+  });
+
+  it('says the images could not be read, and keeps upload available', () => {
+    expect(picker).toMatch(/couldn&rsquo;t be read/);
+    expect(picker).toMatch(/still upload/);
+  });
+
+  it('does not leak a raw storage error to the operator', () => {
+    expect(picker).not.toMatch(/error\.message|String\(error\)|err\.name/);
+  });
+});
+
+describe('an upload does not leave a stale saved list behind', () => {
+  it('closes the saved picker once the uploaded asset becomes the selection', () => {
+    // The list was loaded before the upload, so it cannot contain the asset now
+    // selected — and a list omitting the current choice invites picking another.
+    expect(logo).toMatch(/saveUploadedAsset[\s\S]*?setPickingSaved\(false\)/);
+  });
+});
