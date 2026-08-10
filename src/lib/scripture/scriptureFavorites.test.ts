@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addScriptureFavorite,
@@ -208,5 +209,68 @@ describe('at capacity the operator decides what leaves', () => {
     const outcome = toggleScriptureFavorite(result({ reference: 'Romans 8:28' }), 'web');
     expect(outcome.saved).toBe(false);
     expect(outcome.reason).toBe('full');
+  });
+});
+
+describe('a save that did not persist is not a save', () => {
+  /**
+   * Durability IS the feature here. Reporting `saved: true` after a failed
+   * write would put "Saved" over a passage that is gone after a refresh — the
+   * one lie this list must never tell. Recents can swallow a failed write;
+   * saved passages cannot.
+   */
+  const breakWrites = () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
+      },
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear()
+    });
+  };
+
+  it('reports the storage failure rather than success', () => {
+    breakWrites();
+    const outcome = addScriptureFavorite(result(), 'web');
+    expect(outcome.saved).toBe(false);
+    expect(outcome.reason).toBe('storage-failed');
+  });
+
+  it('returns no phantom entry, so the UI cannot show one', () => {
+    breakWrites();
+    const outcome = addScriptureFavorite(result(), 'web');
+    // The returned list is what a refresh would show.
+    expect(outcome.entries).toEqual([]);
+    expect(outcome.entries.some((e) => e.result.reference === 'Psalm 23:1-6')).toBe(false);
+  });
+
+  it('leaves passages saved earlier exactly as they were', () => {
+    addScriptureFavorite(result({ reference: 'John 3:16' }), 'web');
+    const before = readScriptureFavorites();
+    breakWrites();
+    const outcome = addScriptureFavorite(result(), 'web');
+    expect(outcome.entries).toEqual(before);
+  });
+
+  it('does not report a removal that could not be written', () => {
+    addScriptureFavorite(result(), 'web');
+    const before = readScriptureFavorites();
+    breakWrites();
+    expect(removeScriptureFavorite(favoriteKey(result(), 'web'))).toEqual(before);
+  });
+
+  it('never confuses a full list with a broken device', () => {
+    // They need different words: one is a decision the operator can act on, the
+    // other is not helped by deleting anything.
+    breakWrites();
+    expect(addScriptureFavorite(result(), 'web').reason).toBe('storage-failed');
+  });
+
+  it('the panel words the two refusals differently', () => {
+    const panel = readFileSync('src/components/control/ScriptureLookupPanel.tsx', 'utf8');
+    expect(panel).toContain("reason === 'full'");
+    expect(panel).toContain("reason === 'storage-failed'");
+    expect(panel).toMatch(/Couldn.t save this passage on this device/);
   });
 });

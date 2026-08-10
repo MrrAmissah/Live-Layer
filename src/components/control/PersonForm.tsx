@@ -48,6 +48,7 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
   const [pickingHeadshot, setPickingHeadshot] = useState(false);
   const [pickingLogo, setPickingLogo] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const headshot = useAsset(form.headshotAssetId);
   const personLogo = useAsset(form.logoAssetId);
   const showLogo = Boolean(personLogo.src && !logoFailed);
@@ -71,8 +72,52 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
     setHeadshotFailed(false);
   }, [headshot.src]);
 
+  /**
+   * The same reset the headshot has, which the logo was missing: a Person whose
+   * logo failed to load left `logoFailed` true, so switching to a Person with a
+   * perfectly good logo kept it hidden.
+   */
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [personLogo.src]);
+
   const update = (field: keyof PersonProfileInput, value: string | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  /**
+   * A person's logo through the same pipeline as their headshot — same
+   * validation, same asset store, same error handling — differing only in the
+   * AssetType it is saved under. Requiring the operator to go and upload it via
+   * some other graphic's Brand controls first was workflow coupling, not a
+   * safety property.
+   *
+   * Its own uploading flag, so "Saving image…" can never describe the wrong
+   * media slot.
+   */
+  const handleLogoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const validation = validateImageFile(file);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    try {
+      const asset = await saveUploadedAsset(file, 'logo');
+      update('logoAssetId', asset.id);
+      setLogoFailed(false);
+      // Same staleness rule as the headshot: the saved list predates this upload.
+      setPickingLogo(false);
+    } catch (uploadError) {
+      setError(messageForUploadError(uploadError));
+    } finally {
+      setIsUploadingLogo(false);
+      event.target.value = '';
+    }
   };
 
   const handleHeadshotChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -200,14 +245,19 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
         )}
         <div className="person-media__actions">
           <span className="field__hint">Applied by People swap where the template shows a logo.</span>
+          <label className="btn btn--secondary btn--sm" htmlFor="person-logo-upload">
+            {form.logoAssetId ? 'Replace logo' : 'Upload logo'}
+          </label>
+          <input id="person-logo-upload" className="field__file-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoChange} />
           <button type="button" className="btn btn--secondary btn--sm" onClick={() => setPickingLogo((open) => !open)}>
-            {form.logoAssetId ? 'Change logo' : 'Use saved logo'}
+            Use saved logo
           </button>
           {form.logoAssetId ? (
             <button type="button" className="btn btn--ghost btn--sm" onClick={() => update('logoAssetId', '')}>
               Remove logo
             </button>
           ) : null}
+          {isUploadingLogo ? <span className="field__hint" role="status" aria-live="polite">Saving logo...</span> : null}
         </div>
       </div>
 
@@ -221,7 +271,7 @@ export default function PersonForm({ person, onSave, onCancel }: PersonFormProps
             setPickingLogo(false);
           }}
           onCancel={() => setPickingLogo(false)}
-          emptyHint="No saved logos yet. Upload one from a graphic's Brand controls and it becomes reusable here."
+          emptyHint="No saved logos yet. Upload one here and it becomes reusable for any person or graphic."
         />
       ) : null}
 

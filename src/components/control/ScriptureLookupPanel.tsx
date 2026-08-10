@@ -312,7 +312,18 @@ export default function ScriptureLookupPanel({
      * operator decides what leaves — so a silent no-op would read as a broken
      * button rather than as a full list.
      */
-    setSaveNotice(outcome.reason === 'full' ? 'Saved passages is full — remove one before saving another.' : '');
+    /**
+     * The two refusals need different words. "Full" is a decision the operator
+     * can act on; a storage failure is the device refusing to keep it, and
+     * telling someone to delete a passage would not help.
+     */
+    setSaveNotice(
+      outcome.reason === 'full'
+        ? 'Saved passages is full — remove one before saving another.'
+        : outcome.reason === 'storage-failed'
+          ? 'Couldn’t save this passage on this device. It stays open here, but it won’t be there after a refresh.'
+          : ''
+    );
   };
 
   const stagingDisabled = !passage || pending;

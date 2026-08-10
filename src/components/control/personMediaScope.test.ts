@@ -78,3 +78,51 @@ describe('an upload does not leave a stale saved list', () => {
     expect(form).toMatch(/update\('headshotAssetId', asset\.id\)[\s\S]*?setPickingHeadshot\(false\)/);
   });
 });
+
+describe('the person logo is fully authorable, not half', () => {
+  it('uploads through the existing pipeline, not a new one', () => {
+    expect(form).toMatch(/saveUploadedAsset\(file, 'logo'\)/);
+    expect(form).toContain('validateImageFile(file)');
+    // One upload helper, called for each media slot — the import makes three
+    // occurrences, so count the CALLS.
+    expect(form.match(/saveUploadedAsset\(file,/g)?.length).toBe(2);
+  });
+
+  it('offers upload, saved reuse and removal', () => {
+    expect(form).toMatch(/Upload logo|Replace logo/);
+    expect(form).toMatch(/Use saved logo/);
+    expect(form).toMatch(/Remove logo/);
+  });
+
+  it('no longer sends the operator to another graphic to upload one', () => {
+    expect(form).not.toMatch(/Brand controls/);
+  });
+
+  it('a logo upload writes the person form only', () => {
+    expect(form).toMatch(/saveUploadedAsset\(file, 'logo'\);[\s\S]{0,120}update\('logoAssetId', asset\.id\)/);
+  });
+
+  it('closes a stale saved-logo picker after upload', () => {
+    expect(form).toMatch(/update\('logoAssetId', asset\.id\)[\s\S]{0,200}?setPickingLogo\(false\)/);
+  });
+
+  it('uses its own uploading flag, so the wrong slot cannot claim to be saving', () => {
+    expect(form).toContain('isUploadingLogo');
+    expect(form).toMatch(/Saving logo/);
+  });
+});
+
+describe('a failed logo preview does not outlive its person', () => {
+  it('resets the failure when the logo source changes', () => {
+    /**
+     * The headshot already did this; the logo did not. So a Person whose logo
+     * failed to load left the flag true, and the next Person's perfectly good
+     * logo stayed hidden behind it.
+     */
+    expect(form).toMatch(/useEffect\(\(\) => \{\s*setLogoFailed\(false\);\s*\}, \[personLogo\.src\]\)/);
+  });
+
+  it('keeps the headshot equivalent reset', () => {
+    expect(form).toMatch(/setHeadshotFailed\(false\)/);
+  });
+});

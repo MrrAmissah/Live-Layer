@@ -53,11 +53,21 @@ function read(): ScriptureFavorite[] {
   }
 }
 
-function write(entries: ScriptureFavorite[]) {
+/**
+ * Returns whether the write actually landed.
+ *
+ * Swallowing the failure and reporting success is defensible for recents — they
+ * are disposable history. It is not defensible here: durability IS the feature,
+ * so "Saved" over a passage that will be gone after a refresh is the one lie
+ * this list must never tell.
+ */
+function write(entries: ScriptureFavorite[]): boolean {
   try {
     localStorage.setItem(SCRIPTURE_FAVORITES_KEY, JSON.stringify(entries));
+    return true;
   } catch {
-    // Quota or disabled storage: the favourite simply does not persist.
+    // Quota, or storage disabled by policy. The caller reports it.
+    return false;
   }
 }
 
@@ -80,11 +90,16 @@ export function isScriptureFavorite(result: ScriptureLookupResult, translationId
  * result is the point: reopening must never need the provider.
  */
 export interface SaveFavoriteOutcome {
-  /** False only when the list is full and this passage is not already in it. */
+  /** True only when the passage is now DURABLY saved. */
   saved: boolean;
+  /** The durable list — what a refresh would show, never an optimistic one. */
   entries: ScriptureFavorite[];
-  /** Present when the save was refused, for the operator to read. */
-  reason?: 'full';
+  /**
+   * Why a save did not happen. `full` is a decision the operator can act on;
+   * `storage-failed` is the device refusing to keep it. Conflating them would
+   * tell someone to delete a passage when deleting would not help.
+   */
+  reason?: 'full' | 'storage-failed';
 }
 
 export function addScriptureFavorite(
@@ -107,14 +122,20 @@ export function addScriptureFavorite(
   }
 
   const entries = [{ key, result, translationId, usedAt }, ...rest];
-  write(entries);
+  if (!write(entries)) {
+    // Report the list that actually survives a refresh, so a phantom entry
+    // cannot appear in the UI as though it were saved.
+    return { saved: false, entries: existing, reason: 'storage-failed' };
+  }
   return { saved: true, entries };
 }
 
 export function removeScriptureFavorite(key: string): ScriptureFavorite[] {
-  const entries = read().filter((entry) => entry.key !== key);
-  write(entries);
-  return entries;
+  const existing = read();
+  const entries = existing.filter((entry) => entry.key !== key);
+  // A removal that could not be written has not happened; returning the
+  // unchanged list keeps the UI showing what a refresh would.
+  return write(entries) ? entries : existing;
 }
 
 /** Toggle, returning the list and whether the passage is now saved. */
