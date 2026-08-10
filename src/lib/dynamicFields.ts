@@ -54,7 +54,9 @@ function parseEventDate(context: DynamicFieldContext) {
 
 function formatCountdown(context: DynamicFieldContext) {
   const eventDate = parseEventDate(context);
-  if (!eventDate) return 'Starts soon';
+  // Same rule as eventTime: 'Starts soon' was a sentence the app could not
+  // support, shown as though it were counting down to something.
+  if (!eventDate) return '{{countdown}}';
 
   const diffSeconds = Math.max(0, Math.floor((eventDate.getTime() - context.now.getTime()) / 1000));
   const hours = Math.floor(diffSeconds / 3600);
@@ -85,7 +87,16 @@ function resolveToken(token: DynamicToken, context: DynamicFieldContext) {
     case 'datetime':
       return `${formatWeekday(context.now, context)} · ${formatTime(context.now, context)}`;
     case 'eventTime':
-      return eventDate ? formatTime(eventDate, context) : '10:30 AM';
+      /**
+       * No configured event time means we do not know it, and inventing one is
+       * the worst available answer: `'10:30 AM'` used to render here, on air,
+       * indistinguishable from a real service time. Nothing in the product
+       * supplies `eventDateTime` today — `OutputPage` and `TemplatePreview`
+       * both resolve with no context — so that fallback was what an operator
+       * always got. The token is left visibly unresolved instead, which reads
+       * as "not set up" rather than as a time somebody chose.
+       */
+      return eventDate ? formatTime(eventDate, context) : `{{${token}}}`;
     case 'countdown':
       return formatCountdown(context);
     default:
