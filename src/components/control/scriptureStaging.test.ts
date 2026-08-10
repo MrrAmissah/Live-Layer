@@ -250,7 +250,13 @@ describe('recents refresh on the action, not on the message', () => {
      * message.
      */
     const code = stripComments(panel);
-    expect(code).toMatch(/useEffect\(\(\) => \{\s*setRecents\(readScriptureRecents\(\)\);\s*\}, \[recentsVersion\]\)/);
+    /**
+     * The load-bearing part is the DEPENDENCY, not the body: stage 4C added a
+     * saved-passages read alongside the recents read in the same effect, and
+     * both must re-run on the counter for the same reason.
+     */
+    expect(code).toMatch(/setRecents\(readScriptureRecents\(\)\);/);
+    expect(code).toMatch(/useEffect\(\(\) => \{[\s\S]{0,160}?setRecents\(readScriptureRecents\(\)\);[\s\S]{0,160}?\}, \[recentsVersion\]\)/);
     expect(code).not.toMatch(/\}, \[notice\]\)/);
     // And the workspace must actually increment it on every accepted action.
     const ws = stripComments(workspace);

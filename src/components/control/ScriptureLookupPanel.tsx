@@ -7,7 +7,14 @@ import {
   type CanonicalReference,
   type VerseSpan
 } from '../../lib/scripture/parseReference';
+import { Icon } from '../../lib/icons';
 import { readScriptureRecents, type ScriptureRecent } from '../../lib/scripture/scriptureRecents';
+import {
+  isScriptureFavorite,
+  readScriptureFavorites,
+  toggleScriptureFavorite,
+  type ScriptureFavorite
+} from '../../lib/scripture/scriptureFavorites';
 import type { ScriptureLookupResult } from '../../types/scripture';
 
 interface Props {
@@ -63,6 +70,7 @@ export default function ScriptureLookupPanel({
 }: Props) {
   const { provider, status, message, failure, lookup, reset, cancel } = useScriptureLookup();
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
+  const [favorites, setFavorites] = useState<ScriptureFavorite[]>([]);
   const [offline, setOffline] = useState(false);
 
   /**
@@ -75,6 +83,7 @@ export default function ScriptureLookupPanel({
    */
   useEffect(() => {
     setRecents(readScriptureRecents());
+    setFavorites(readScriptureFavorites());
   }, [recentsVersion]);
 
   useEffect(() => {
@@ -285,6 +294,19 @@ export default function ScriptureLookupPanel({
     onPassage(recent.result, true);
   };
 
+  /**
+   * A favourite reopens through the SAME path as a recent: identical record
+   * shape, so the in-flight cancellation and the no-fetch restore both apply
+   * unchanged. Nothing here asks the provider.
+   */
+  const openSaved = openRecent;
+
+  const saved = passage ? isScriptureFavorite(passage, translationId) : false;
+  const onToggleSaved = () => {
+    if (!passage) return;
+    setFavorites(toggleScriptureFavorite(passage, translationId).entries);
+  };
+
   const stagingDisabled = !passage || pending;
 
   return (
@@ -361,6 +383,16 @@ export default function ScriptureLookupPanel({
             <h3 className="scripture-ws__ref">{passage.reference}</h3>
             <span className="ll-tag">{passage.translation}</span>
             {fromCache ? <span className="scripture-ws__note">from saved copy</span> : null}
+            {/* Saving is not using: this writes a favourite, never a recent. */}
+            <button
+              type="button"
+              className={`btn btn--ghost btn--xs scripture-ws__save${saved ? ' is-saved' : ''}`}
+              onClick={onToggleSaved}
+              aria-pressed={saved}
+            >
+              <Icon name={saved ? 'bookmark' : 'plus'} size={13} />
+              {saved ? 'Saved' : 'Save passage'}
+            </button>
           </header>
           <p className="scripture-ws__text">{passage.text}</p>
           {passage.attribution ? (
@@ -473,6 +505,26 @@ export default function ScriptureLookupPanel({
             Dismiss
           </button>
         </p>
+      ) : null}
+
+      {favorites.length ? (
+        <section className="scripture-ws__recents" aria-label="Saved passages">
+          <span className="ll-kicker">Saved passages</span>
+          <div className="scripture-ws__recent-row" role="group" aria-label="Reopen a saved passage">
+            {favorites.map((entry) => (
+              <button
+                key={entry.key}
+                type="button"
+                className="scripture-ws__recent"
+                onClick={() => openSaved(entry)}
+                title={`${entry.result.reference} · ${entry.result.translation}`}
+              >
+                <span className="scripture-ws__recent-ref">{entry.result.reference}</span>
+                <span className="ll-tag">{entry.result.translation}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section className="scripture-ws__recents" aria-label="Recent passages">
