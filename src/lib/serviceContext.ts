@@ -94,6 +94,48 @@ export function saveServiceContext(context: ServiceContext) {
 }
 
 /**
+ * THE live service, and the only authority on it while the app is open.
+ *
+ * Deliberately not re-read from storage per caller. If a write fails — quota,
+ * private browsing, storage disabled by policy — a storage-reading Take would
+ * capture 10:30 while the setup panel and the preview both showed 19:00. What
+ * the operator is looking at has to be what a Take publishes, so the in-memory
+ * value is the authority and storage is only how it survives a reload.
+ *
+ * Module store rather than a slice of the LiveLayer store, following the
+ * Scripture draft: nothing here touches graphics, Program or packs.
+ */
+let live: ServiceContext | null = null;
+const listeners = new Set<() => void>();
+
+/** Identity-stable between changes, so `useSyncExternalStore` can use it directly. */
+export function getServiceContext(): ServiceContext {
+  if (!live) live = loadServiceContext();
+  return live;
+}
+
+export function setServiceContext(next: ServiceContext) {
+  const current = getServiceContext();
+  if (current.name === next.name && current.startAt === next.startAt) return;
+  live = next;
+  saveServiceContext(next);
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeServiceContext(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** Test seam, and what a full reset uses to drop the cached copy. */
+export function resetServiceContextCache() {
+  live = null;
+  listeners.forEach((listener) => listener());
+}
+
+/**
  * The dynamic-field context a service implies, or `undefined` when there is no
  * real configured time.
  *
@@ -104,4 +146,35 @@ export function saveServiceContext(context: ServiceContext) {
  */
 export function serviceDynamicContext(context: ServiceContext): { eventDateTime: string } | undefined {
   return isConfiguredStart(context.startAt) ? { eventDateTime: context.startAt } : undefined;
+}
+
+/**
+ * Freeze the service onto a graphic AT THE MOMENT IT GOES TO AIR.
+ *
+ * The stamp belongs to the air boundary, not to authoring, and the difference
+ * matters most for prepared content. A rundown item is preparation: it may have
+ * been written last week and duplicated forward, and if it carried the context
+ * it was PREPARED with, a duplicated service would count down to the service it
+ * was copied from. So preparation carries no context, and everything published
+ * is stamped with the service as it is at that instant.
+ *
+ * Both branches are load-bearing. A configured service OVERWRITES whatever the
+ * graphic arrived with, so a stale context copied along with a duplicated
+ * rundown is corrected rather than aired. No configured service STRIPS it, so a
+ * stale time can never survive as the one thing on air that still believes in
+ * last week's start.
+ *
+ * Once stamped, the value is frozen: Output resolves `{{countdown}}` from this,
+ * so a later service change cannot retime what is already showing.
+ */
+export function stampServiceContext<T extends { dynamicContext?: { eventDateTime?: string } }>(
+  graphic: T,
+  context: ServiceContext
+): T {
+  const dynamicContext = serviceDynamicContext(context);
+  if (dynamicContext) return { ...graphic, dynamicContext };
+  if (graphic.dynamicContext === undefined) return graphic;
+  const stripped = { ...graphic };
+  delete stripped.dynamicContext;
+  return stripped;
 }

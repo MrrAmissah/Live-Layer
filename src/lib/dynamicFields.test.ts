@@ -32,10 +32,18 @@ describe('tokens the app cannot back must not invent an answer', () => {
   });
 
   it('the insert helper does not offer a control with no backing', () => {
+    /**
+     * The rule has not changed; its backing has. `{{countdown}}` was withdrawn
+     * because nothing in the product supplied `eventDateTime`, and the stated
+     * condition for its return was an event time that is a real, configurable
+     * thing. The service is now that, so the button is offered only against a
+     * configured start time and is otherwise still absent. The gate itself is
+     * covered in `components/control/eventTokenGate.test.ts`.
+     */
     const source = readFileSync('src/components/control/TemplateFields.tsx', 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '');
-    expect(source).not.toMatch(/value: '\{\{countdown\}\}'/);
-    // ...while the tokens that always resolve are still offered.
-    expect(source).toMatch(/value: '\{\{date\}\}'/);
+    expect(source).toMatch(/\.\.\.\(configured[\s\S]*?value: '\{\{countdown\}\}'/);
+    // ...while the tokens that always resolve are still offered unconditionally.
+    expect(source.slice(0, source.indexOf('...(configured'))).toMatch(/value: '\{\{date\}\}'/);
   });
 });

@@ -4,6 +4,7 @@ import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '.
 import { createRealtimeChannel, createMessage, publishCommand } from '../lib/realtime';
 import { resolveClearOutcome, resolveTakeOutcome } from '../lib/takeOutcome';
 import { resolveGraphicReadiness } from '../lib/graphicReadiness';
+import { getServiceContext, stampServiceContext } from '../lib/serviceContext';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import {
   getActiveRundownId,
@@ -80,7 +81,22 @@ export default function ControlPage() {
    * a confident acknowledged live, which awaits an output ack). Publish failure
    * marks 'failed', never a confirmed live.
    */
-  const publishShow = async (instance: GraphicInstance, source: ProgramSource): Promise<boolean> => {
+  const publishShow = async (graphic: GraphicInstance, source: ProgramSource): Promise<boolean> => {
+    /**
+     * THE SERVICE AS IT IS AT THIS INSTANT, frozen onto what goes to air.
+     *
+     * Here rather than in each Take path, because this is the single door: the
+     * draft, the selected rundown item and the quick queue all come through it,
+     * and a stamp applied per-caller is a stamp one future surface forgets. The
+     * three of them are also the ONLY callers, and nothing republishes
+     * automatically — Output replays the stored message, already stamped — so
+     * stamping here cannot retime a graphic that is already showing.
+     *
+     * It is deliberately not applied when a graphic is authored, saved or
+     * queued. Those are preparation, and a rundown prepared last week must
+     * count down to the service being run now, not the one it was copied from.
+     */
+    const instance = stampServiceContext(graphic, getServiceContext());
     /**
      * Content gate, checked here rather than only on the button.
      *

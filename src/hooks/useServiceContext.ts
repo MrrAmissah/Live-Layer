@@ -1,58 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import {
-  EMPTY_SERVICE_CONTEXT,
-  loadServiceContext,
-  saveServiceContext,
+  getServiceContext,
   serviceDynamicContext,
+  subscribeServiceContext,
   type ServiceContext
 } from '../lib/serviceContext';
 
 /**
- * The service being prepared, shared by every authoring surface.
- *
- * A tiny module-level store rather than a slice of the main LiveLayer store,
- * for the same reason dock preferences are: nothing here touches graphics,
- * Program or packs, and the main store is already the largest file in the app.
- * Subscribers are notified so the Preview retimes the moment the operator
- * changes the start time.
+ * React binding for the live service. The store itself lives in
+ * `lib/serviceContext`, so the non-React Take path reads the same value the
+ * operator is looking at rather than a second copy from storage.
  */
-let current: ServiceContext = { ...EMPTY_SERVICE_CONTEXT };
-let loaded = false;
-const listeners = new Set<(context: ServiceContext) => void>();
-
-function read(): ServiceContext {
-  if (!loaded) {
-    current = loadServiceContext();
-    loaded = true;
-  }
-  return current;
-}
-
-export function setServiceContext(next: ServiceContext) {
-  current = next;
-  loaded = true;
-  saveServiceContext(next);
-  listeners.forEach((listener) => listener(next));
-}
-
-/** Read-once accessor for non-React callers (the Take snapshot path). */
-export function getServiceContext(): ServiceContext {
-  return read();
-}
-
 export function useServiceContext(): ServiceContext {
-  const [context, setContext] = useState<ServiceContext>(read);
-  useEffect(() => {
-    listeners.add(setContext);
-    setContext(read());
-    return () => {
-      listeners.delete(setContext);
-    };
-  }, []);
-  return context;
+  return useSyncExternalStore(subscribeServiceContext, getServiceContext, getServiceContext);
 }
 
 /** What Preview resolves against — `undefined` when no real time is configured. */
 export function useServiceDynamicContext(): { eventDateTime: string } | undefined {
   return serviceDynamicContext(useServiceContext());
 }
+
+export { setServiceContext, getServiceContext } from '../lib/serviceContext';

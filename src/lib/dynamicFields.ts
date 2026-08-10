@@ -90,11 +90,14 @@ function resolveToken(token: DynamicToken, context: DynamicFieldContext) {
       /**
        * No configured event time means we do not know it, and inventing one is
        * the worst available answer: `'10:30 AM'` used to render here, on air,
-       * indistinguishable from a real service time. Nothing in the product
-       * supplies `eventDateTime` today — `OutputPage` and `TemplatePreview`
-       * both resolve with no context — so that fallback was what an operator
-       * always got. The token is left visibly unresolved instead, which reads
-       * as "not set up" rather than as a time somebody chose.
+       * indistinguishable from a real service time. The token is left visibly
+       * unresolved instead, which reads as "not set up" rather than as a time
+       * somebody chose.
+       *
+       * `eventDateTime` now has a real supplier — the service being prepared —
+       * but it stays OPTIONAL: Preview passes the live service, Output passes
+       * whatever the graphic was taken with, and a graphic taken before any
+       * start time was set carries none. This branch is what that graphic gets.
        */
       return eventDate ? formatTime(eventDate, context) : `{{${token}}}`;
     case 'countdown':
