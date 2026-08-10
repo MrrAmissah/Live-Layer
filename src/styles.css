@@ -7205,8 +7205,8 @@ body.gfx-transparent {
      + two 8px gaps + 10px padding + 1px borders. */
   --dock-header-h: 44px;
   --dock-tabbar-h: 40px;
-  --dock-strip-h: 194px;
-  --dock-strip-h-compact: 167px;
+  --dock-strip-h: 173px;
+  --dock-strip-h-compact: 168px;
   --dock-strip-margin: 10px;
   --dock-footer-h: 36px;
   /* Flat body — the studio's radial/linear gradient stack does not apply. */
@@ -7408,13 +7408,17 @@ body.gfx-transparent {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 92px;
+  /* 92px → 71px, and the saving is SLACK, not content. The box still reserves
+     its worst case — a one-line title plus the two-line failure/recovery
+     disclosure, 55px — so every status fits and Take never moves when the
+     status flips. What went was the ~37px the old box carried beyond that. */
+  height: 71px;
   padding: 8px 10px;
   background: var(--dk-raised);
   border: 1px solid var(--dk-edge-control);
   border-radius: 5px;
 }
-.control-root .dock-program--compact .dock-program__identity { height: 73px; padding: 8px 10px; }
+.control-root .dock-program--compact .dock-program__identity { height: 71px; padding: 7px 9px; }
 .control-root .dock-program__glyph {
   flex: none;
   width: 40px;
@@ -7473,9 +7477,11 @@ body.gfx-transparent {
   font-size: 12.5px;
   line-height: 17px;
   color: #adb9c8;
-  /* The recovery caveat is a sentence, not a label — two lines RESERVED. It
-     was once cut at every dock width up to 440px, which hid exactly the words
-     that say the app cannot confirm what output is showing. */
+  /* TWO lines reserved, measured rather than assumed. The shortened failed
+     sentence still needs two up to ~380px and fits one only from ~420px, so a
+     one-line reservation clipped the disclosure across the middle of the dock's
+     real width range. The height saving comes from the box losing its slack
+     (92px → 71px), not from cutting what the strip is allowed to say. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -7487,11 +7493,68 @@ body.gfx-transparent {
    the base vars + 17px (one sub line); kept as literals because a container
    cannot restyle itself from its own query. */
 @container dock (max-width: 290px) {
-  .control-root .dock-program__sub { max-height: 51px; -webkit-line-clamp: 3; }
-  .control-root .dock-program__identity { height: 109px; }
-  .control-root .dock-program--compact .dock-program__identity { height: 90px; }
-  .control-root .dock-program { min-height: 211px; }
-  .control-root .dock-program--compact { min-height: 184px; }
+  .control-root .dock-program__sub { max-height: 34px; -webkit-line-clamp: 2; }
+  .control-root .dock-program__identity { height: 71px; }
+  .control-root .dock-program--compact .dock-program__identity { height: 71px; }
+  .control-root .dock-program { min-height: 173px; }
+  .control-root .dock-program--compact { min-height: 173px; }
+}
+
+/**
+ * AUTO-COMPACT — the short-dock override, and the ONLY thing that performs it.
+ *
+ * The contract has two halves and one authority each:
+ *
+ *   short dock  → compact, enforced HERE, whatever the preference says
+ *   normal dock → the `--compact` class, written by the operator in Settings
+ *
+ * There was briefly a JavaScript system doing the first half as well, with a
+ * measured height and a 470→530 hysteresis band. Both were wrong for this
+ * geometry. The dock is `100dvh` inside a frame the operator drags, so its
+ * height is imposed from outside and shrinking a child strip cannot feed back
+ * into it — there is no loop for hysteresis to damp. What the band did produce
+ * was history: a 500px dock could be full on a fresh load and compact after the
+ * operator had dragged below 470 and back, for the same height and the same
+ * preference. A container query has no memory, needs no observer (which the QA
+ * environment demonstrably failed to fire), and cannot disagree with itself.
+ *
+ * 470px is where the measured layout runs out: header, tab bar, strip and
+ * margins leave a tab too little to show a control below them. `max-height`
+ * includes 470, and that is the whole definition of "short" now.
+ */
+@container dock (max-height: 470px) {
+  .control-root .dock-program { min-height: var(--dock-strip-h-compact); padding: 8px; }
+  .control-root .dock-program__identity { height: 71px; padding: 7px 9px; }
+  .control-root .dock-program__title { max-height: 19px; font-size: 14px; -webkit-line-clamp: 1; }
+  .control-root .dock-program__glyph { width: 34px; height: 30px; }
+  /* The complete treatment, not most of it: the action height belongs to the
+     compact geometry too, and the height query was carrying every other part
+     of it while leaving the buttons full size. */
+  .control-root .dock-program__take,
+  .control-root .dock-program__clear { min-height: 36px; }
+}
+
+/**
+ * NARROW **AND** SHORT — the cross-product, which neither rule handles alone.
+ *
+ * The ≤290px band reserves a SECOND subtitle line, because that is where the
+ * failed-send and recovery sentences need one, and grows the identity box and
+ * the strip to pay for it. The max-height rule above then flattened the same
+ * box back to the wide-dock compact height of 62px.
+ *
+ * With `box-sizing: border-box` that box holds 62 − 14 padding − 2 border =
+ * 46px of content, while narrow mode legitimately renders 19px title + 2px gap
+ * + 34px of two-line subtitle = 55px. Nine pixels of overflow, in exactly the
+ * case that matters most: a 255px dock, short, showing FAILED.
+ *
+ * So the narrow reservation wins on height, and the short dock still gets the
+ * compact treatment everywhere else. Both contracts hold: the disclosure stays
+ * readable, and the box is still FIXED — Take does not move when the status
+ * changes, it only differs between viewport sizes.
+ */
+@container dock (max-width: 290px) and (max-height: 470px) {
+  .control-root .dock-program__identity { height: 71px; }
+  .control-root .dock-program { min-height: 173px; }
 }
 
 /* Status chip — tinted, colour driven by the REAL Program status, never a
@@ -8053,18 +8116,15 @@ body.gfx-transparent {
 .control-root .dock-e__chip:hover { background: rgba(47, 149, 248, 0.18); border-color: rgba(47, 149, 248, 0.46); }
 
 /* Preview-only notice row: the shared DraftPreviewNote + the studio link. */
+/* Stage 4B: the disclosure keeps its words and loses its panel. It was a
+   bordered, tinted card ~90px tall on every visit to Quick Edit; it is now a
+   caption line under the monitor, which is where an operator reads it once and
+   then works. */
 .control-root .dock-e__note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  flex-wrap: wrap;
-  padding: 9px 11px;
-  border-radius: 5px;
-  background: rgba(47, 149, 248, 0.08);
-  border: 1px solid rgba(47, 149, 248, 0.22);
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  margin-top: 7px; padding: 0; background: none; border: 0;
 }
-.control-root .dock-e__note .draft-note { margin: 0; flex: 1 1 180px; min-width: 0; font-size: 12.5px; line-height: 1.45; color: #cfe4fb; }
+.control-root .dock-e__note .draft-note { margin: 0; flex: 1 1 160px; min-width: 0; font-size: 11.5px; line-height: 1.4; color: var(--ll-muted-2); }
 .control-root .dock-e__studio {
   flex: none;
   display: inline-flex;
@@ -9133,3 +9193,58 @@ body.gfx-transparent {
    revised — and it is never what gets parsed. aria-live is off deliberately: a
    region that re-announced every partial guess would be unusable. */
 .control-root .voice-assist__interim { margin: 0; font-size: 11.5px; font-style: italic; color: var(--ll-muted-2); }
+
+/* --- dock Settings tab (stage 4B) ---------------------------------------
+   Deliberately plain: rows of real controls, not a dashboard. No cards inside
+   cards, no status pills inventing state, no decorative telemetry. */
+.control-root .dock-settings { display: flex; flex-direction: column; gap: 10px; }
+.control-root .dock-set__row {
+  display: flex; align-items: flex-start; gap: 9px;
+  min-height: 32px; margin: 0; cursor: pointer;
+}
+.control-root .dock-set__row--static { cursor: default; }
+.control-root .dock-set__row input[type='checkbox'] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--ll-blue); flex: none; }
+.control-root .dock-set__label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.control-root .dock-set__name { font-size: 13px; font-weight: 640; color: var(--ll-text); }
+.control-root .dock-set__hint { font-size: 11.5px; line-height: 1.4; color: var(--ll-muted-2); overflow-wrap: anywhere; }
+.control-root .dock-set__mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+/* The relay state carries the same colour vocabulary as the footer dot. */
+.control-root .dock-set__name[data-connection='local'] { color: var(--ll-live-text); }
+.control-root .dock-set__name[data-connection='ready'] { color: var(--ll-live-text); }
+.control-root .dock-set__name[data-connection='unreachable'],
+.control-root .dock-set__name[data-connection='not-relay'] { color: #ff9a94; }
+.control-root .dock-set__note {
+  margin: 8px 0 0; padding: 7px 9px; border-radius: 5px;
+  font-size: 11.5px; line-height: 1.45; color: #cbd6e6;
+  background: rgba(32, 165, 250, 0.08); border: 1px solid rgba(32, 165, 250, 0.24);
+}
+.control-root .dock-set__link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; }
+.control-root .dock-set__danger { border-color: rgba(244, 63, 94, 0.22); }
+
+/* NEXT — a position in the list, never an on-air claim, so it wears the
+   authoring blue rather than the live green that LAST SENT uses. */
+.control-root .dock-qitem__next {
+  flex: none; padding: 2px 6px; border-radius: 4px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em;
+  color: #9ecbff; background: rgba(32, 165, 250, 0.12); border: 1px solid rgba(32, 165, 250, 0.4);
+}
+
+/* --- person fast-swap (stage 4B) ---------------------------------------- */
+.control-root .dock-person__applied { font-size: 11.5px; font-weight: 640; color: var(--ll-blue); margin-left: auto; }
+.control-root .dock-person__open { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
+.control-root .dock-person__search { margin-top: 7px; }
+.control-root .dock-person__list { list-style: none; margin: 7px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.control-root .dock-person__item {
+  width: 100%; display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+  min-height: 38px; padding: 6px 9px; border-radius: 5px; text-align: left; cursor: pointer;
+  background: var(--dk-raised); border: 1px solid var(--dk-edge-control);
+}
+.control-root .dock-person__item:hover { border-color: rgba(32, 165, 250, 0.4); }
+.control-root .dock-person__item.is-applied { border-color: rgba(32, 165, 250, 0.55); background: rgba(32, 165, 250, 0.09); }
+.control-root .dock-person__name { font-size: 13px; font-weight: 640; color: var(--ll-text); }
+.control-root .dock-person__meta { font-size: 11px; color: var(--ll-muted-2); }
+.control-root .dock-person__cancel { align-self: flex-start; margin-top: 6px; }
+
+/* The Program readout is a status, not a control: no pointer, no hover, and a
+   flatter treatment than the Clear button it sits near. */
+.control-root .program-rail__status { cursor: default; user-select: none; }

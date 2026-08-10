@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { resolveGraphicReadiness, isGraphicReady, SCRIPTURE_TEMPLATE_ID } from './graphicReadiness';
+import { resolveGraphicReadiness, isGraphicReady, describeTakeBlock, SCRIPTURE_TEMPLATE_ID } from './graphicReadiness';
 import ScriptureCard from '../components/templates/ScriptureCard';
 import { templateRegistry, templateRendererMap } from '../components/templates/registry';
 
@@ -246,5 +246,63 @@ describe('a queue row that cannot air says so', () => {
     // The row being disabled is not the guarantee; the publish gate is.
     expect(resolveGraphicReadiness(SCRIPTURE_TEMPLATE_ID, { reference: 'John 3:16' }).ready).toBe(false);
     expect(resolveGraphicReadiness(SCRIPTURE_TEMPLATE_ID, VALID).ready).toBe(true);
+  });
+});
+
+describe('why Take is blocked — one answer for every arm', () => {
+  const READY_STATE = { ready: true, reason: '' } as const;
+  const NOT_READY = { ready: false, reason: 'This Scripture card is empty.' } as const;
+
+  it('never disables Take without saying why', () => {
+    /**
+     * The invariant that matters, over every combination: a greyed button with
+     * no cause is the defect this replaced. `disabled` is true exactly when
+     * `reason` is non-empty — neither can drift from the other, because a
+     * single call returns both.
+     */
+    for (const rundownActive of [true, false]) {
+      for (const hasSelection of [true, false]) {
+        for (const readiness of [READY_STATE, NOT_READY]) {
+          const block = describeTakeBlock({ rundownActive, hasSelection, readiness });
+          expect(block.disabled, JSON.stringify({ rundownActive, hasSelection, readiness })).toBe(
+            block.reason !== ''
+          );
+        }
+      }
+    }
+  });
+
+  it('explains the empty selection, which used to be the silent case', () => {
+    const block = describeTakeBlock({ rundownActive: true, hasSelection: false, readiness: READY_STATE });
+    expect(block.disabled).toBe(true);
+    expect(block.reason).toMatch(/select/i);
+    expect(block.reason).toMatch(/queue/i);
+  });
+
+  it('prefers the selection complaint over a content one', () => {
+    // With no selection there is no target to judge; complaining about the
+    // hidden ad-hoc draft would name a graphic the operator cannot see.
+    const block = describeTakeBlock({ rundownActive: true, hasSelection: false, readiness: NOT_READY });
+    expect(block.reason).toMatch(/select/i);
+    expect(block.reason).not.toBe(NOT_READY.reason);
+  });
+
+  it('passes the existing readiness reason through untouched', () => {
+    // No parallel vocabulary: the content sentence is the one readiness already
+    // produces, verbatim.
+    const block = describeTakeBlock({ rundownActive: false, hasSelection: false, readiness: NOT_READY });
+    expect(block.reason).toBe(NOT_READY.reason);
+  });
+
+  it('allows Take when a selected item is airable', () => {
+    const block = describeTakeBlock({ rundownActive: true, hasSelection: true, readiness: READY_STATE });
+    expect(block).toEqual({ disabled: false, reason: '' });
+  });
+
+  it('allows Take on the draft when no rundown is active', () => {
+    expect(describeTakeBlock({ rundownActive: false, hasSelection: false, readiness: READY_STATE })).toEqual({
+      disabled: false,
+      reason: ''
+    });
   });
 });

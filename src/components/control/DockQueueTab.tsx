@@ -175,8 +175,19 @@ function QueueCard({
   if (!rundown) return null;
 
   const items = rundown.items;
-  const { selected, selectedIndex } = getQueueCursors(rundown);
+  const { selected, selectedIndex, nextItem } = getQueueCursors(rundown);
   const lastSentItemId = rundown.activeItemId;
+  /**
+   * What Take will send next if the operator advances — the item after the
+   * selection, from the same cursors the studio summary reads. It answers the
+   * one question the queue could not: rows carried a number and, for one row,
+   * LAST SENT, and nothing said what was coming.
+   *
+   * Only ever ONE extra marker on a row, and never on the selected row: the
+   * selection already has its own treatment, and "next" beside "you are here"
+   * is noise. Nothing here is an on-air claim — NEXT is a position in a list.
+   */
+  const nextItemId = nextItem?.id;
   const searching = query.trim().length > 0;
   const hits = filterRundownItems(items, query);
   const full = items.length >= MAX_ITEMS_PER_RUNDOWN;
@@ -262,6 +273,9 @@ function QueueCard({
                 </button>
                 <span className="dock-qitem__cluster">
                   {item.id === lastSentItemId ? <span className="rd-sent">LAST SENT</span> : null}
+                  {item.id === nextItemId && item.id !== selected?.id ? (
+                    <span className="dock-qitem__next">NEXT</span>
+                  ) : null}
                   <button
                     type="button"
                     className="dock-qitem__menu"

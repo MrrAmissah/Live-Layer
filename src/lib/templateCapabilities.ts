@@ -56,3 +56,34 @@ export function paletteFieldsFor(templateId: string): ReadonlyArray<PaletteField
 export function rendersLogo(templateId: string): boolean {
   return TEMPLATE_RENDERS_LOGO[templateId] ?? true;
 }
+
+/**
+ * Templates whose renderer draws a person's headshot.
+ *
+ * Derived the same evidence-based way as `TEMPLATE_RENDERS_LOGO`: only
+ * `PreacherLowerThird` reads `headshotAssetId` (via `headshotResolvedSrc`,
+ * which `/output` fills in from the id), and `templateRendererMap` points both
+ * lower thirds at it.
+ *
+ * It has to be a separate table from the registry's `fields`. The registry
+ * declares the TEXT inputs an operator types — `headshotAssetId` is not among
+ * them, because the headshot is chosen through the asset picker rather than a
+ * text box. A person mapping that filtered on declared fields alone would
+ * silently drop the most visible part of a person swap: the face.
+ */
+export const TEMPLATE_RENDERS_HEADSHOT: Record<string, boolean> = {
+  'preacher-lower-third': true,
+  'performer-lower-third': true,
+  'scripture-card': false,
+  'announcement-banner': false,
+  'quote-card': false,
+  'event-banner': false,
+  'sermon-title': false,
+  'fullscreen-message': false
+};
+
+/** Unknown templates are assumed NOT to draw a headshot: writing an asset id a
+ *  renderer ignores would leave a graphic carrying a reference nothing shows. */
+export function rendersHeadshot(templateId: string): boolean {
+  return TEMPLATE_RENDERS_HEADSHOT[templateId] ?? false;
+}

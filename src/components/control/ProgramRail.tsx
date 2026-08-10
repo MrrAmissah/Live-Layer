@@ -125,7 +125,15 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditIns
       <div className="program-rail__section program-rail__section--program">
         <div className="program-rail__head">
           <span className="ll-kicker">Program / Live</span>
-          <span className={`program-rail__status program-rail__status--${program.status}`}>
+          {/* A READOUT, not a control. It sat beside two real Clear affordances
+              styled closely enough to be mistaken for a third — `role="status"`
+              names it for assistive tech and the CSS stops it reading as a
+              button. */}
+          <span
+            className={`program-rail__status program-rail__status--${program.status}`}
+            role="status"
+            aria-live="polite"
+          >
             <span className="program-rail__status-dot" aria-hidden />
             {statusLabel}
           </span>

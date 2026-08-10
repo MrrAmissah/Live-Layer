@@ -78,3 +78,35 @@ export function resolveGraphicReadiness(
 /** Convenience for surfaces that only need the boolean. */
 export const isGraphicReady = (templateId: string, values: Record<string, string> | undefined): boolean =>
   resolveGraphicReadiness(templateId, values).ready;
+
+/**
+ * Why Take is unavailable — every reason it can be, in one place.
+ *
+ * `takeDisabled` always had two arms: the content is not airable, or a rundown
+ * is active with no row selected. Only the first ever produced a sentence, so
+ * the commonest case gave the operator a greyed button and silence.
+ *
+ * Returning both together is what makes them impossible to disagree: a caller
+ * cannot render a disabled Take with no cause, because the disabled flag and
+ * the reason come out of the same call. The invariant is tested directly —
+ * `disabled` is true exactly when `reason` is non-empty.
+ *
+ * Selection is checked FIRST. When a rundown is active and nothing is selected
+ * there is no target to judge, so a content complaint about the hidden ad-hoc
+ * draft would name a graphic the operator cannot even see.
+ */
+export function describeTakeBlock(input: {
+  rundownActive: boolean;
+  hasSelection: boolean;
+  readiness: GraphicReadiness;
+}): { disabled: boolean; reason: string } {
+  if (input.rundownActive && !input.hasSelection) {
+    return {
+      disabled: true,
+      reason: 'No queue item selected. Choose one in the Queue tab, and Take sends that.'
+    };
+  }
+  return input.readiness.ready
+    ? { disabled: false, reason: '' }
+    : { disabled: true, reason: input.readiness.reason };
+}

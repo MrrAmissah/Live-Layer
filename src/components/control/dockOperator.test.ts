@@ -183,15 +183,18 @@ describe('an item association is not an acknowledgement', () => {
 describe('the tab set', () => {
   it('is exactly the four expected ids, in order', () => {
     const ids = [...files.tabbar.matchAll(/\{ id: '(\w+)'/g)].map((match) => match[1]);
-    expect(ids).toEqual(['live', 'queue', 'edit', 'more']);
-    expect(files.tabbar).toContain("export type DockTab = 'live' | 'queue' | 'edit' | 'more'");
+    // Stage 4B: `more` became `settings` when the placeholder was replaced by a
+    // real preferences surface. The tab COUNT and the tone split are the parts
+    // that carry meaning, and both are unchanged.
+    expect(ids).toEqual(['live', 'queue', 'edit', 'settings']);
+    expect(files.tabbar).toContain("export type DockTab = 'live' | 'queue' | 'edit' | 'settings'");
   });
 
   it('encodes the tone split as data, not as a per-tab class', () => {
     // One render path reads the tone off the tab record…
     expect(files.tabbar).toContain('data-tone={tab.tone}');
     expect(files.tabbar).not.toMatch(/data-tone="(live|config)"/);
-    // …the split itself is live+queue vs edit+more…
+    // …the split itself is live+queue vs edit+settings…
     expect(files.tabbar.match(/tone: 'live'/g)).toHaveLength(2);
     expect(files.tabbar.match(/tone: 'config'/g)).toHaveLength(2);
     // …and the CSS keys the active indicator off the same attribute. Green
@@ -239,9 +242,65 @@ describe('the Program strip is honest', () => {
     expect(files.strip).not.toContain('1920 × 1080');
     expect(files.strip).not.toContain('__meta');
     expect(files.strip).not.toContain('__rule');
-    // The honest sentences are the reason the strip is trustworthy — they stay.
-    expect(files.strip).toContain('Reloaded — can’t confirm what output is showing');
-    expect(files.strip).toContain('Command didn’t send — output may still show the previous graphic');
+    /**
+     * The honest sentences are the reason the strip is trustworthy — they stay.
+     * Pinned by MEANING rather than by exact wording, because the wording is
+     * load-bearing on height: every status reserves its worst case, so the
+     * longest sentence sets the strip's height on every other status too.
+     * Stage 4B shortened them to buy that height back, which is the sanctioned
+     * way to shrink the strip — the disclosure is spelled more briefly, never
+     * removed and never clipped.
+     */
+    const subs = [...files.strip.matchAll(/sub = '([^']+)'/g)].map((match) => match[1]);
+    expect(subs.length, 'no status sentences found — this guard would be vacuous').toBeGreaterThan(1);
+    // Recovering must still say we cannot confirm what output is showing.
+    expect(subs.some((line) => /unconfirmed|can’t confirm|cannot confirm/i.test(line))).toBe(true);
+    // Failed must still refuse to claim the air is now empty.
+    expect(subs.some((line) => /still (be on air|show)/i.test(line))).toBe(true);
+    // ...and each must fit the row the strip reserves for it. A sentence longer
+    // than this silently makes every dock taller or gets clipped.
+    for (const line of subs) {
+      expect(line.length, `too long for the reserved row: ${line}`).toBeLessThanOrEqual(52);
+    }
+  });
+
+  it('the placeholder tab is gone and Settings claims nothing it cannot check', () => {
+    /**
+     * `More` rendered "Coming in the next stage." over a quarter of primary
+     * navigation while `compactProgramStrip` — persisted, read and honoured —
+     * had no writer anywhere in the product. The tab is real now, and the point
+     * of it is that everything in it is backed by behaviour.
+     */
+    const shell = read('src/components/control/DockShell.tsx');
+    expect(shell).not.toContain('ComingSoon');
+    expect(shell).not.toContain('Coming in the next stage');
+
+    const settings = read('src/components/control/DockSettingsTab.tsx');
+    // It writes the real preference through the existing store...
+    expect(settings).toContain('setCompactProgramStrip');
+    // ...reports the real relay states from the shared table...
+    expect(settings).toContain('RELAY_LABEL[relay.connection]');
+    // ...and reuses the one reset implementation rather than copying it.
+    expect(settings).toContain('<ResetLocalData />');
+    expect(settings).not.toContain('clearLocalData');
+
+    /* The invented telemetry this tab exists without. Comments are stripped
+       first — same rule the vocabulary guards use — because the file's own
+       header names these very words to say it does not display them. */
+    const settingsCode = stripComments(settings);
+    for (const fake of [/OBS Connected/i, /Queue Sync/i, /\bFPS\b/, />\s*Online\s*</i, /Connected<\//i]) {
+      expect(settingsCode, `invented status: ${fake}`).not.toMatch(fake);
+    }
+  });
+
+  it('has exactly one reset implementation', () => {
+    // Two confirmation flows means two chances for the deletion copy to drift
+    // from what clearLocalData actually clears.
+    const dir = 'src/components/control';
+    const owners = readdirSync(dir)
+      .filter((name) => name.endsWith('.tsx'))
+      .filter((name) => read(`${dir}/${name}`).includes('preset-reset__confirm'));
+    expect(owners).toEqual(['ResetLocalData.tsx']);
   });
 
   it('drives the status chip colour off the real status, never hardcoded green', () => {
@@ -309,7 +368,7 @@ describe('exactly one Take in the dock tree', () => {
   });
 
   it('mounts only the active tab (an OBS dock shares CPU with an encoder)', () => {
-    for (const tab of ['live', 'queue', 'edit', 'more']) {
+    for (const tab of ['live', 'queue', 'edit', 'settings']) {
       expect(files.shell).toContain(`tab === '${tab}' ?`);
     }
   });

@@ -46,6 +46,12 @@ interface DockProgramStripProps {
 export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction }: DockProgramStripProps) {
   const program = useLiveLayerStore((state) => state.program);
   const output = useLiveLayerStore((state) => state.outputStatus);
+  /**
+   * The operator's persisted preference, and only that. The SHORT-DOCK override
+   * is CSS (`@container dock (max-height: 470px)`) — the dock has a definite
+   * height imposed by its frame, so the rule that protects usability needs no
+   * observer, no measured state and no history.
+   */
   const compact = useDockPrefs((state) => state.compactProgramStrip);
 
   // Same clock policy as the studio's OutputCard: tick while a readout is
@@ -78,13 +84,13 @@ export default function DockProgramStrip({ onTake, onClear, sending = false, las
       break;
     case 'recovering':
       title = snapshotMeta ? `Last sent: ${snapshotMeta.title}` : 'Reloaded';
-      sub = 'Reloaded — can’t confirm what output is showing';
+      sub = 'Reloaded — output unconfirmed';
       break;
     case 'failed':
       title = snapshotMeta?.title ?? 'Send failed';
       // Never claims output is empty: a failed publish leaves whatever was
       // already on air untouched.
-      sub = 'Command didn’t send — output may still show the previous graphic';
+      sub = 'Didn’t send — earlier graphic may still be on air';
       break;
     default:
       icon = 'layers';

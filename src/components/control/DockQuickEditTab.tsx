@@ -1,11 +1,11 @@
 import { useLocation } from 'react-router-dom';
 import TemplatePreview from '../templates/TemplatePreview';
 import TemplateFields from './TemplateFields';
+import DraftPreviewNote from './DraftPreviewNote';
+import PersonFastSwap from './PersonFastSwap';
 import LayoutControls from './LayoutControls';
 import DurationControl from './DurationControl';
 import LogoControls from './LogoControls';
-import DraftPreviewNote from './DraftPreviewNote';
-import EditTargetBanner from './EditTargetBanner';
 import { Swatch } from './BrandControls';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { useRundowns } from '../../hooks/useRundowns';
@@ -93,7 +93,11 @@ export default function DockQuickEditTab({ onOpenQueue }: DockQuickEditTabProps)
             </button>
           ) : null}
         </div>
-        <EditTargetBanner />
+        {/* The header above already names the target and, for a queue item, its
+            position. `EditTargetBanner` said the same thing again in a second
+            box, and the preview-only note said a third thing that never
+            changed. Both are gone: one context treatment, and the fields start
+            ~160px higher because of it. */}
         {/* Bare frame — the graphic itself, not the studio monitor chrome. */}
         <div className="dock-next__monitor">
           <TemplatePreview
@@ -105,6 +109,9 @@ export default function DockQuickEditTab({ onOpenQueue }: DockQuickEditTabProps)
             frame="bare"
           />
         </div>
+        {/* The preview-only disclosure STAYS — it is the dock's core safety
+            model, not filler. What went is the bordered card it sat in: one
+            quiet caption line under the monitor instead of a panel. */}
         <div className="dock-e__note">
           <DraftPreviewNote />
           <a className="dock-e__studio" href={studioHref} target="_blank" rel="noopener noreferrer">
@@ -119,6 +126,9 @@ export default function DockQuickEditTab({ onOpenQueue }: DockQuickEditTabProps)
           <span className="ll-kicker">Content</span>
         </div>
         <TemplateFields section="content" excludeFieldIds={contentFieldExclusions(target.isRundownItem)} />
+        {/* Right under the fields it fills, and it renders nothing at all on a
+            template with no person to swap. */}
+        <PersonFastSwap />
         {target.isRundownItem ? (
           <p className="dock-card__hint">Changes save to this queue item as you type.</p>
         ) : (
