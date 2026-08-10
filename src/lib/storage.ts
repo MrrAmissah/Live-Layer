@@ -14,6 +14,7 @@ const STORAGE_KEYS = {
   scriptureCache: 'livelayer.scriptureCache',
   chapterVerseCache: 'livelayer.chapterVerseCache',
   scriptureRecents: 'livelayer.scriptureRecents',
+  scriptureFavorites: 'livelayer.scriptureFavorites',
   dockPrefs: 'livelayer.dockPrefs',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
@@ -27,6 +28,10 @@ const STORAGE_KEYS = {
  * they happen to match, so clear-all works today by coincidence, not by design.)
  */
 export const SCRIPTURE_RECENTS_KEY = STORAGE_KEYS.scriptureRecents;
+/** Saved passages. Registered here so `clearAllData` wipes it like every other
+ *  livelayer key — a key declared locally elsewhere survives a reset, which on a
+ *  shared machine means one church's passages outliving it. */
+export const SCRIPTURE_FAVORITES_KEY = STORAGE_KEYS.scriptureFavorites;
 
 const DEFAULT_THEME: TemplateDefinition['theme'] = {
   primaryColor: '#f8fafc',

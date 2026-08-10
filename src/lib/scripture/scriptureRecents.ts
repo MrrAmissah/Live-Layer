@@ -28,7 +28,12 @@ export interface ScriptureRecent {
   usedAt: string;
 }
 
-function isRecent(value: unknown): value is ScriptureRecent {
+/**
+ * Exported so favourites validate with the SAME rule rather than re-declaring
+ * the shape — two validators for one record is how a field silently becomes
+ * optional in one place and required in the other.
+ */
+export function isScriptureRecord(value: unknown): value is ScriptureRecent {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const entry = value as Partial<ScriptureRecent>;
   if (typeof entry.key !== 'string' || typeof entry.usedAt !== 'string') return false;
@@ -52,7 +57,7 @@ export function readScriptureRecents(): ScriptureRecent[] {
     const raw = localStorage.getItem(SCRIPTURE_RECENTS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isRecent).slice(0, MAX_RECENTS) : [];
+    return Array.isArray(parsed) ? parsed.filter(isScriptureRecord).slice(0, MAX_RECENTS) : [];
   } catch {
     return [];
   }
