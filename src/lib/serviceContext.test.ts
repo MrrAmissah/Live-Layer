@@ -96,3 +96,49 @@ describe('tokens only become real when the time is real', () => {
     expect(out).not.toContain('{{');
   });
 });
+
+describe('the clock the operator typed is the clock that renders', () => {
+  /**
+   * Storing the string unconverted is only half the contract. `{{eventTime}}`
+   * has to PARSE it as local wall clock too — reading `2026-08-10T10:30` as a
+   * UTC instant would put 10:30 AM on air as 11:30 or 09:30 depending on the
+   * building's offset, and the stored value would look perfectly correct while
+   * it happened. Asserting "it resolved to something" cannot catch that; only
+   * asserting the digits can.
+   */
+  const render = (startAt: string) =>
+    resolveDynamicFields('{{eventTime}}', {
+      ...DEFAULT_DYNAMIC_FIELD_CONTEXT,
+      now: new Date(`${startAt.slice(0, 10)}T00:00:00`),
+      use24Hour: true,
+      eventDateTime: serviceDynamicContext({ name: 'S', startAt })!.eventDateTime
+    });
+
+  it('renders the typed hour and minute, not a shifted one', () => {
+    expect(render('2026-08-10T10:30')).toBe('10:30');
+  });
+
+  it('holds either side of both DST boundaries', () => {
+    // If a zone conversion were happening anywhere in the chain, the hour would
+    // move on one side of these dates and not the other.
+    expect(render('2026-03-28T10:30')).toBe('10:30');
+    expect(render('2026-03-29T10:30')).toBe('10:30');
+    expect(render('2026-10-24T10:30')).toBe('10:30');
+    expect(render('2026-10-25T10:30')).toBe('10:30');
+  });
+
+  it('holds at the hours a conversion would be most likely to wrap', () => {
+    expect(render('2026-08-10T00:15')).toBe('00:15');
+    expect(render('2026-08-10T23:45')).toBe('23:45');
+  });
+
+  it('counts down to the typed time, not to a shifted one', () => {
+    const out = resolveDynamicFields('{{countdown}}', {
+      ...DEFAULT_DYNAMIC_FIELD_CONTEXT,
+      now: new Date('2026-08-10T09:00:00'),
+      eventDateTime: '2026-08-10T10:30'
+    });
+    // Exactly ninety minutes. An hour out either way is a zone conversion.
+    expect(out).toBe('Starts in 1:30:00');
+  });
+});

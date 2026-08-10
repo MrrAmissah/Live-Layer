@@ -20,7 +20,9 @@ local presets, rundowns, and selected-rundown import/export. See
 - **Local asset system** — upload logos/headshots, store locally (IndexedDB), reference by id.
 - **People / speaker library** — enter a speaker once, recall in two taps.
 - **Scripture picker** — book/chapter/verse picker with auto-load (race-guarded); manual entry stays.
-- **Dynamic date/time fields** — `{{date}}`/`{{time}}`/`{{countdown}}` tokens.
+- **Dynamic date/time fields** — `{{date}}`/`{{time}}` tokens. (`{{eventTime}}` and
+  `{{countdown}}` shipped as tokens here but had no supplier and never resolved;
+  see the service work in Phase 4 below.)
 - **Layout / size controls** — beginner-safe, safe-area-aware output sizing.
 - **Production QA pass** — `/setup` diagnostics, OBS production QA pack, regression guardrails verified ([`OBS_PRODUCTION_QA.md`](OBS_PRODUCTION_QA.md)).
 
@@ -38,6 +40,25 @@ local presets, rundowns, and selected-rundown import/export. See
   `unreachable`, `not-relay`) instead of "connected" for anything that answers;
   canonical redirects that preserve the relay parameter; and readiness that is
   honestly not an output acknowledgement.
+
+## Phase 4 — service & event workflow (shipped locally)
+
+- **Service context** — the production being prepared: a name and a local
+  wall-clock start time, stored exactly as typed so no conversion can move a
+  10:30 service across a DST boundary. Settable from the studio command bar and
+  from the dock's Settings tab; it does not own the event pack.
+- **`{{eventTime}}` and `{{countdown}}` became real** — they resolve against the
+  service, and the insert helper offers them only against a genuinely configured
+  start time. With none set they stay visibly unresolved rather than inventing
+  a time.
+- **Program context isolation** — going to air freezes the service onto the
+  published graphic, so setting up the next service cannot retime a countdown
+  that is already showing. Preparation (drafts, saved graphics, rundown items)
+  carries no context, so a rundown reused next week counts down to the service
+  being run.
+- **Rundown duplication** — copy a whole service to start the next one. Items,
+  content and raw tokens travel; the last-sent cursor, the selection and `done`
+  do not, because those are a record of a service being run.
 
 ## Next — content & confidence
 

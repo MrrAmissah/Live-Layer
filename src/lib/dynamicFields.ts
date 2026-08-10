@@ -46,8 +46,28 @@ function formatMonth(date: Date, context: DynamicFieldContext) {
   return new Intl.DateTimeFormat(context.locale, { month: 'long' }).format(date);
 }
 
+/** `YYYY-MM-DDTHH:mm` — the wall-clock shape the service stores. */
+const WALL_CLOCK = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
 function parseEventDate(context: DynamicFieldContext) {
   if (!context.eventDateTime) return null;
+  /**
+   * A wall clock is built from its PARTS rather than handed to `new Date(str)`.
+   *
+   * The spec does read an offsetless date-time as local, and the old code was
+   * right to lean on it — but the whole stage rests on "10:30 means half past
+   * ten in this building", and leaning on a subtlety means a stray `Z`, a
+   * switch to `Date.parse`, or a normalisation upstream moves every service
+   * time by an hour, silently, and only on machines that are not on UTC. Built
+   * from parts it cannot happen at all. `isConfiguredStart` parses by parts for
+   * exactly this reason.
+   */
+  const parts = WALL_CLOCK.exec(context.eventDateTime);
+  if (parts) {
+    const [, year, month, day, hour, minute] = parts.map(Number);
+    return new Date(year, month - 1, day, hour, minute);
+  }
+  // Anything else is an instant supplied by a caller that is not the service.
   const date = new Date(context.eventDateTime);
   return Number.isNaN(date.getTime()) ? null : date;
 }
