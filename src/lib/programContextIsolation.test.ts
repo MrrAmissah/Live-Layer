@@ -210,6 +210,13 @@ describe('one authority: what the operator sees is what goes to air', () => {
     const source = readFileSync('src/store/useLiveLayerStore.ts', 'utf8');
     expect(source).toMatch(/clearLocalData:[\s\S]*?resetServiceContextCache\(\)/);
   });
+
+  it('the confirmation names the service among what it erases', () => {
+    // That component's own contract is that its list is checked against what
+    // `clearLocalData` really clears. Adding a store without adding the word is
+    // how the list starts lying.
+    expect(readFileSync('src/components/control/ResetLocalData.tsx', 'utf8')).toMatch(/the service and\s+graphic you are preparing/);
+  });
 });
 
 describe('Output reads the captured context, Preview reads the live one', () => {

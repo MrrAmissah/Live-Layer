@@ -9289,8 +9289,10 @@ body.gfx-transparent {
 .control-root .cmd-service__name { font-size: 13px; font-weight: 640; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .control-root .cmd-service__time { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ll-blue); }
 .control-root .cmd-service__time.is-unset { color: var(--ll-muted-2); font-variant-numeric: normal; }
+/* Portalled to `.control-root`, so `top`/`left` come from measurement — the
+   command bar clips its overflow and would slice the panel off at its edge. */
 .control-root .cmd-service__panel {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; width: min(340px, 78vw);
+  position: absolute; z-index: 60; width: min(340px, 78vw);
   display: flex; flex-direction: column; gap: 10px; padding: 12px;
   border-radius: 10px; background: var(--ll-panel); border: 1px solid var(--ll-border);
   box-shadow: 0 18px 40px rgba(2, 6, 16, 0.5);
