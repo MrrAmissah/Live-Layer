@@ -63,6 +63,35 @@ describe('the field hint resolves against the same service as the plate', () => 
   });
 });
 
+describe('a dock-only operator can set the thing the hint asks for', () => {
+  /**
+   * The dock reads the service already — the two buttons appear there when one
+   * is configured. Without somewhere to set it, an operator working inside OBS
+   * would watch controls appear and disappear, be told to "set the service
+   * start time", and have nowhere to do it.
+   */
+  const settings = readFileSync('src/components/control/DockSettingsTab.tsx', 'utf8');
+
+  it('offers both service fields in the dock’s Settings tab', () => {
+    expect(settings).toContain("<span className=\"ll-kicker\">Service</span>");
+    expect(settings).toContain("type=\"datetime-local\"");
+    expect(settings).toContain('setServiceContext({ ...service, startAt: event.target.value })');
+  });
+
+  it('writes through the same store the studio does, not a second copy', () => {
+    // Two writers with their own state is how the dock and the studio end up
+    // disagreeing about which service is being prepared.
+    expect(settings).toContain("from '../../hooks/useServiceContext'");
+    expect(settings).not.toMatch(/localStorage|useState<ServiceContext>/);
+  });
+
+  it('costs no dock height outside the tab the operator opened', () => {
+    // Not a popover, not a header row: the dock's vertical budget is the thing
+    // stage 4B spent itself defending.
+    expect(settings).not.toMatch(/createPortal|position: 'absolute'/);
+  });
+});
+
 describe('an unparseable stored time is not a configured one', () => {
   it('produces no dynamic context, so the buttons stay withdrawn', () => {
     for (const bad of ['', 'soon', '2026-02-31T10:30', '2026-08-10']) {

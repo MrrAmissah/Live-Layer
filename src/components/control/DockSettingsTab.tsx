@@ -3,6 +3,8 @@ import { RELAY_LABEL } from '../../lib/relayReadiness';
 import type { RelayStatus } from '../../hooks/useRelayStatus';
 import { Icon } from '../../lib/icons';
 import ResetLocalData from './ResetLocalData';
+import { useServiceContext, setServiceContext } from '../../hooks/useServiceContext';
+import { isConfiguredStart } from '../../lib/serviceContext';
 
 interface DockSettingsTabProps {
   /** Polled once by DockShell and shared with header and footer. */
@@ -22,11 +24,12 @@ interface DockSettingsTabProps {
  * no FPS, no version card, no "Online" pill and no switch for a feature that
  * does not exist yet. Every one of those would be a claim this app cannot
  * check, and the product's credibility rests on not making them. If that leaves
- * three sections, it leaves three sections.
+ * four sections, it leaves four sections.
  */
 export default function DockSettingsTab({ relay }: DockSettingsTabProps) {
   const preferCompact = useDockPrefs((state) => state.compactProgramStrip);
   const setCompactProgramStrip = useDockPrefs((state) => state.setCompactProgramStrip);
+  const service = useServiceContext();
 
   return (
     <div className="dock-tabpane dock-settings">
@@ -44,6 +47,45 @@ export default function DockSettingsTab({ relay }: DockSettingsTabProps) {
               Trades the Program strip&rsquo;s spare height for the tab below it. Short docks
               compact automatically.
             </span>
+          </span>
+        </label>
+      </section>
+
+      {/**
+        * The service, settable from the dock.
+        *
+        * The studio has the command-bar summary; the dock had nothing, and an
+        * operator working only inside OBS would have watched the start-time and
+        * countdown fields appear or not appear with no way to find out why. The
+        * hint on those fields says "set the service start time" — this is where
+        * a dock operator can.
+        *
+        * Two fields, no popover: it sits inside a tab the operator already
+        * chose to open, so it costs no dock height anywhere else.
+        */}
+      <section className="dock-card">
+        <span className="ll-kicker">Service</span>
+        <label className="field">
+          <span className="field__label"><span>Service or session</span></span>
+          <input
+            className="field__input"
+            value={service.name}
+            placeholder="Sunday Service, Evening Session…"
+            onChange={(event) => setServiceContext({ ...service, name: event.target.value })}
+          />
+        </label>
+        <label className="field">
+          <span className="field__label"><span>Starts</span></span>
+          <input
+            className="field__input"
+            type="datetime-local"
+            value={service.startAt}
+            onChange={(event) => setServiceContext({ ...service, startAt: event.target.value })}
+          />
+          <span className="field__hint">
+            {isConfiguredStart(service.startAt)
+              ? 'Date and time fields can use this. Graphics already on air keep the time they were taken with.'
+              : 'Set a start time to use the event time and countdown fields.'}
           </span>
         </label>
       </section>

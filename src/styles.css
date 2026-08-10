@@ -9289,6 +9289,17 @@ body.gfx-transparent {
 .control-root .cmd-service__name { font-size: 13px; font-weight: 640; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .control-root .cmd-service__time { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ll-blue); }
 .control-root .cmd-service__time.is-unset { color: var(--ll-muted-2); font-variant-numeric: normal; }
+/* A `datetime-local` control has a wide min-content size, and a grid item's
+   default `min-width: auto` lets it push straight past its column — in a 255px
+   dock that became a sideways scrollbar across the whole Settings tab. It is
+   allowed to shrink instead, with tighter padding so the date and time still
+   read at that width. */
+.control-root .field__input[type='datetime-local'] {
+  min-width: 0;
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
 /* Portalled to `.control-root`, so `top`/`left` come from measurement — the
    command bar clips its overflow and would slice the panel off at its edge. */
 .control-root .cmd-service__panel {
