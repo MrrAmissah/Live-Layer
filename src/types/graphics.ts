@@ -103,6 +103,20 @@ export interface GraphicInstance {
   layout?: LayoutSettings;
   animationOverride?: Partial<TemplateAnimation>;
   durationSeconds: number;
+  /**
+   * The dynamic-render context captured when this graphic was TAKEN.
+   *
+   * Program must not follow mutable authoring state. Without this, an operator
+   * who changed the service to an evening session would silently retime a
+   * countdown already on air, because Output resolved `{{countdown}}` from
+   * whatever the control surface currently believed. The context travels inside
+   * the instance, so it survives the relay and a reload for free.
+   *
+   * The DATETIME is captured, never a rendered countdown string — a resolved
+   * "12:04" would freeze on air. Optional, so every graphic written before this
+   * existed stays valid and simply resolves as unconfigured.
+   */
+  dynamicContext?: { eventDateTime?: string };
   createdAt: string;
   updatedAt: string;
   /**

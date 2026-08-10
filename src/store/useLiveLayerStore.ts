@@ -22,6 +22,7 @@ import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
 import { createWorkingDraftWriter, readWorkingDraft, type WorkingDraft } from '../lib/workingDraft';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
+import { resetServiceContextCache } from '../lib/serviceContext';
 import { resetScriptureDraft } from '../lib/scripture/scriptureDraftStore';
 
 /** Inputs for updateQuickQueueItem — a partial edit guarded by expectedRevision. */
@@ -175,6 +176,13 @@ export function buildInstanceFromDraft(
     },
     personId: values.personId,
     durationSeconds: draft.durationSeconds,
+    /**
+     * Deliberately no `dynamicContext`. This builds a graphic for authoring —
+     * a draft Take, a saved graphic, a preset — and only the air boundary
+     * freezes the service. `publishShow` stamps whatever it publishes, so a
+     * saved graphic reused weeks later counts down to the service being run
+     * rather than the one it was written for.
+     */
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -523,6 +531,13 @@ export const useLiveLayerStore = create<LiveLayerState>()(
          * STORAGE_KEYS; only the in-memory draft needs saying.
          */
         resetScriptureDraft();
+        /**
+         * Same shape of leak, one module along: the service is held in memory
+         * and only persisted to a key `clearAllData` just removed. Without this
+         * the setup bar would keep naming the reset service until a reload, and
+         * — worse — the next Take would freeze its start time into a graphic.
+         */
+        resetServiceContextCache();
         saveActivePackId('house');
         // Storage has just been wiped, so the brand IS the default now. Seeding
         // from the pre-clear theme would re-apply a colour the reset erased.

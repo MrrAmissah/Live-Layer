@@ -4,6 +4,8 @@ import { useEditTarget } from '../../hooks/useEditTarget';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import type { TemplateDefinition, TemplateField } from '../../types/graphics';
 import { resolveDynamicFields } from '../../lib/dynamicFields';
+import { useServiceContext, useServiceDynamicContext } from '../../hooks/useServiceContext';
+import { isConfiguredStart } from '../../lib/serviceContext';
 import { packVariantIdsFor } from '../../lib/packs';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ScriptureReferencePicker from './ScriptureReferencePicker';
@@ -65,10 +67,16 @@ function FieldRow({
   onChange: (value: string) => void;
   children?: ReactNode;
 }) {
+  /**
+   * The same live service the preview plate resolves against. Without it the
+   * field hint would report `{{eventTime}}` as unresolved while the plate two
+   * inches away rendered 10:30 — one value, two surfaces, two answers.
+   */
   const resolvedPreview = resolveDynamicFields(value, {
     now: new Date(),
     locale: 'en-GH',
-    use24Hour: false
+    use24Hour: false,
+    eventDateTime: useServiceDynamicContext()?.eventDateTime
   });
 
   const cap = field.maxLength;
@@ -116,36 +124,55 @@ function FieldRow({
 }
 
 function DateTimeInsertHelper({ onInsert }: { onInsert: (value: string) => void }) {
+  const configured = isConfiguredStart(useServiceContext().startAt);
+
   const options = [
     { label: "Use today's date", value: '{{date}}' },
     { label: 'Use current time', value: '{{time}}' },
     { label: 'Use weekday', value: '{{weekday}}' },
-    { label: 'Use date + time', value: '{{date}} · {{time}}' }
+    { label: 'Use date + time', value: '{{date}} · {{time}}' },
     /**
-     * Countdown is deliberately NOT offered. `{{countdown}}` and `{{eventTime}}`
-     * resolve from `eventDateTime`, and nothing in the product sets it — every
-     * caller resolves with no context — so offering the button handed the
-     * operator a control that could only ever produce placeholder text. It
-     * comes back when an event time is a real, configurable thing.
+     * The event tokens are offered ONLY against a real configured start time.
+     * They resolve from `eventDateTime`, so with no service time set they can
+     * produce nothing but visibly unresolved placeholder text — Stage 4C
+     * withdrew the countdown button for exactly that reason, and the condition
+     * for its return was an event time that is a real, configurable thing.
+     * That is now the service, so the gate is the service, not the calendar.
      */
+    ...(configured
+      ? [
+          { label: 'Use start time', value: '{{eventTime}}' },
+          { label: 'Use countdown', value: '{{countdown}}' }
+        ]
+      : [])
   ];
 
   return (
-    <div className="dynamic-insert" aria-label="Insert date/time">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className="dynamic-insert__btn"
-          onClick={(event) => {
-            event.preventDefault();
-            onInsert(option.value);
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="dynamic-insert" aria-label="Insert date/time">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className="dynamic-insert__btn"
+            onClick={(event) => {
+              event.preventDefault();
+              onInsert(option.value);
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {/* Hiding the two buttons silently would make the feature unfindable —
+          the operator has no way to learn what the missing control needs. One
+          line, only while unconfigured, naming where to set it. */}
+      {configured ? null : (
+        <span className="field__hint">
+          Set the service start time to use start time and countdown.
+        </span>
+      )}
+    </>
   );
 }
 

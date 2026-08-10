@@ -33,8 +33,8 @@ export default function ResetLocalData() {
       <div className="preset-reset__confirm" role="alertdialog" aria-label="Confirm reset">
         <p className="preset-reset__warning">
           Erase everything saved in this browser — presets, quick queue, recents, rundowns,
-          people, uploaded assets, brand colours, the Program record and the graphic you are
-          preparing? This cannot be undone.
+          people, uploaded assets, brand colours, the Program record, and the service and
+          graphic you are preparing? This cannot be undone.
         </p>
         <div className="preset-reset__actions">
           <button type="button" className="btn btn--secondary btn--sm" onClick={() => setConfirming(false)}>

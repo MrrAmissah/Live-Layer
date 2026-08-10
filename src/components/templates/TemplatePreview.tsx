@@ -11,6 +11,7 @@ import {
 import { measureStageContent, cropFromContent, sameRect } from '../graphics/contentCrop';
 import { TemplateDefinition } from '../../types/graphics';
 import { useDynamicValues } from '../../hooks/useDynamicValues';
+import { useServiceDynamicContext } from '../../hooks/useServiceContext';
 import type { LayoutSettings } from '../../types/layout';
 
 interface Props {
@@ -163,7 +164,12 @@ function useMeasuredBareCrop(enabled: boolean, discreteKey: string, contentKey: 
 export default function TemplatePreview({ templateId, values, theme, layout, showControls = true, footer, frame = 'monitor' }: Props) {
   const [backdrop, setBackdrop] = useState<Exclude<StageBackdrop, 'transparent'>>('neutral');
   const [showGuides, setShowGuides] = useState(false);
-  const resolvedValues = useDynamicValues(values);
+  /**
+   * Preview follows the service being prepared right now, so changing the start
+   * time updates what the operator is looking at immediately. Program does not
+   * move until the next Take.
+   */
+  const resolvedValues = useDynamicValues(values, useServiceDynamicContext());
 
   const template = templateRegistry.find((item) => item.id === templateId);
   const Renderer = templateRendererMap[templateId];

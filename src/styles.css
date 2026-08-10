@@ -9273,3 +9273,38 @@ body.gfx-transparent {
 /* Saved-passage control: a quiet toggle beside the passage identity. */
 .control-root .scripture-ws__save { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
 .control-root .scripture-ws__save.is-saved { color: var(--ll-blue); }
+
+/* --- service context (stage 4D) -----------------------------------------
+   One line in the command bar until opened. A permanent setup panel would
+   spend vertical space all service to answer a question asked twice. */
+.control-root .cmd-service { position: relative; }
+.control-root .cmd-service__summary {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 34px;
+  padding: 4px 10px; border-radius: 8px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--ll-border-soft);
+  color: var(--ll-text);
+}
+.control-root .cmd-service__summary:hover { border-color: rgba(148, 163, 184, 0.3); }
+.control-root .cmd-service__label { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ll-muted-2); }
+.control-root .cmd-service__name { font-size: 13px; font-weight: 640; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.control-root .cmd-service__time { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ll-blue); }
+.control-root .cmd-service__time.is-unset { color: var(--ll-muted-2); font-variant-numeric: normal; }
+/* A `datetime-local` control has a wide min-content size, and a grid item's
+   default `min-width: auto` lets it push straight past its column — in a 255px
+   dock that became a sideways scrollbar across the whole Settings tab. It is
+   allowed to shrink instead, with tighter padding so the date and time still
+   read at that width. */
+.control-root .field__input[type='datetime-local'] {
+  min-width: 0;
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
+/* Portalled to `.control-root`, so `top`/`left` come from measurement — the
+   command bar clips its overflow and would slice the panel off at its edge. */
+.control-root .cmd-service__panel {
+  position: absolute; z-index: 60; width: min(340px, 78vw);
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border-radius: 10px; background: var(--ll-panel); border: 1px solid var(--ll-border);
+  box-shadow: 0 18px 40px rgba(2, 6, 16, 0.5);
+}

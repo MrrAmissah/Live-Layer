@@ -167,6 +167,17 @@ function isGraphicInstance(value: unknown): value is GraphicInstance {
   if (!isRecord(value.theme)) return false;
   if (value.assetRefs !== undefined && !isStringRecord(value.assetRefs)) return false;
   if (value.personId !== undefined && typeof value.personId !== 'string') return false;
+  /**
+   * Optional by design: every graphic authored before service context existed
+   * has no `dynamicContext` and stays valid. Present-but-malformed is rejected
+   * rather than coerced — a bad datetime reaching Output renders as garbage.
+   */
+  if (value.dynamicContext !== undefined) {
+    const context = value.dynamicContext;
+    if (typeof context !== 'object' || context === null || Array.isArray(context)) return false;
+    const eventDateTime = (context as Record<string, unknown>).eventDateTime;
+    if (eventDateTime !== undefined && typeof eventDateTime !== 'string') return false;
+  }
   if (value.presetName !== undefined && typeof value.presetName !== 'string') return false;
   return true;
 }

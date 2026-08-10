@@ -283,7 +283,15 @@ export default function OutputPage() {
     const anim = resolveAnimationVariant(definition?.animation, activeGraphic.animationOverride);
     return { Renderer, theme, anim };
   }, [activeGraphic]);
-  const renderedValues = useDynamicValues(activeGraphic?.values ?? EMPTY_VALUES);
+  /**
+   * Program resolves from the context its own Take captured — never from
+   * anything the control surface currently believes. That is the whole reason
+   * `dynamicContext` rides inside the instance.
+   */
+  const renderedValues = useDynamicValues(
+    activeGraphic?.values ?? EMPTY_VALUES,
+    activeGraphic?.dynamicContext
+  );
 
   useEffect(() => {
     if (!activeGraphic) return;

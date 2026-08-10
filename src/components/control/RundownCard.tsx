@@ -4,12 +4,13 @@ interface Props {
   rundown: Rundown;
   active: boolean;
   onSetActive: () => void;
+  onDuplicate: () => void;
   onExport: () => void;
   onDelete: () => void;
 }
 
 /** One rundown in the list. Clicking selects it as the active rundown (R2). */
-export default function RundownCard({ rundown, active, onSetActive, onExport, onDelete }: Props) {
+export default function RundownCard({ rundown, active, onSetActive, onDuplicate, onExport, onDelete }: Props) {
   return (
     <li className={`rd-card ${active ? 'rd-card--active' : ''}`}>
       <button type="button" className="rd-card__main" onClick={onSetActive} aria-pressed={active}>
@@ -21,6 +22,17 @@ export default function RundownCard({ rundown, active, onSetActive, onExport, on
             {active ? ' · Active' : ''}
           </span>
         </span>
+      </button>
+      {/* Same glyph the item row uses for the same idea, so "duplicate" reads
+          the same whether the operator is copying one graphic or a service. */}
+      <button
+        type="button"
+        className="rd-icon"
+        onClick={onDuplicate}
+        aria-label={`Duplicate rundown ${rundown.name}`}
+        title="Duplicate rundown"
+      >
+        ⧉
       </button>
       <button
         type="button"
