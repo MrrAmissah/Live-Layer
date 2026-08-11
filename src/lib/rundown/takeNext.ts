@@ -1,6 +1,6 @@
 import type { GraphicReadiness } from '../graphicReadiness';
 import type { Rundown, RundownItem } from '../../types/rundown';
-import { countSkippedAfterSelection, getNextTakeableItem, getSelectedItem } from './rundownStore';
+import { countDoneBeforeNextTakeable, getNextTakeableItem, getSelectedItem } from './rundownStore';
 
 /**
  * What Take Next would do, and why it would refuse — decided once.
@@ -61,7 +61,7 @@ export function planTakeNext(input: {
     return refuse(`"${rundown.name}" is empty. Add an item before running it.`);
   }
 
-  const skipped = countSkippedAfterSelection(rundown);
+  const skipped = countDoneBeforeNextTakeable(rundown);
   const next = getNextTakeableItem(rundown);
 
   if (!next) {

@@ -239,11 +239,37 @@ export function getNextTakeableItem(rundown: Rundown | undefined): RundownItem |
   return rundown.items.slice(anchor + 1).find((item) => !item.done);
 }
 
-/** Done items skipped between the selection and the next takeable item. */
-export function countSkippedAfterSelection(rundown: Rundown | undefined): number {
+/**
+ * Done items **passed over to reach** the next takeable item — the run of them
+ * between the anchor and the first item that is not done.
+ *
+ * Named for the thing it counts, because the previous name
+ * (`countSkippedAfterSelection`) described a position and the implementation
+ * followed the name rather than the meaning: it counted every done item in the
+ * tail. For `A(selected) B(done) C(takeable) D(done)` that returned **2**, and the
+ * cue told the operator Take Next was "skipping 2 done items" to reach C. It skips
+ * one. D sits *after* the item being sent and has not been passed over at all —
+ * it may never be, since the operator can un-mark it before getting there.
+ *
+ * That mattered more than a wrong number: the cue exists precisely to explain why
+ * the rundown appears to jump, so an inflated count makes the explanation itself
+ * the thing the operator has to distrust.
+ *
+ * When **everything** after the anchor is done there is no takeable target, and
+ * the whole remaining run has genuinely been passed over — so the count is the
+ * rest of the list, which keeps the refusal ("everything after X is marked done")
+ * truthful.
+ *
+ * Deliberately the same scan `getNextTakeableItem` performs: that one takes the
+ * first `!done` item, this one takes its index. They cannot disagree about where
+ * the run of skipped items ends.
+ */
+export function countDoneBeforeNextTakeable(rundown: Rundown | undefined): number {
   if (!rundown) return 0;
   const anchor = rundown.items.findIndex((item) => item.id === rundown.selectedItemId);
-  return rundown.items.slice(anchor + 1).filter((item) => item.done).length;
+  const rest = rundown.items.slice(anchor + 1);
+  const target = rest.findIndex((item) => !item.done);
+  return target < 0 ? rest.length : target;
 }
 
 export function getPreviousItem(rundown: Rundown | undefined): RundownItem | undefined {

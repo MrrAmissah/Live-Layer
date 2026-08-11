@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { planTakeNext, describeTakeNextCue } from './takeNext';
 import {
-  countSkippedAfterSelection,
+  countDoneBeforeNextTakeable,
   getNextTakeableItem,
   createRundown,
   addItem,
@@ -73,7 +73,7 @@ describe('what Take Next would send', () => {
       { selectedItemId: 'a' }
     );
     expect(getNextTakeableItem(rundown)?.id).toBe('d');
-    expect(countSkippedAfterSelection(rundown)).toBe(2);
+    expect(countDoneBeforeNextTakeable(rundown)).toBe(2);
   });
 
   it('has nothing after the last item — it does not wrap to the top', () => {
@@ -96,6 +96,99 @@ describe('what Take Next would send', () => {
     // Selecting a done row to un-mark it must not confuse the anchor.
     const rundown = rundownOf([{ id: 'a', done: true }, { id: 'b' }], { selectedItemId: 'a' });
     expect(getNextTakeableItem(rundown)?.id).toBe('b');
+  });
+});
+
+describe('how many done items were passed over — a mixed tail', () => {
+  /**
+   * The count is "done items passed over to REACH the target", not "done items
+   * remaining". An earlier version counted the whole tail, so
+   * `A(sel) B(done) C(takeable) D(done)` reported 2 and the cue claimed Take Next
+   * was skipping two rows to reach C. It skips one; D is after C and may never be
+   * skipped at all, because the operator can un-mark it first.
+   */
+  it('counts only the run between the selection and the target, not the whole tail', () => {
+    const rundown = rundownOf(
+      [{ id: 'a' }, { id: 'b', done: true }, { id: 'c', title: 'Sermon' }, { id: 'd', done: true }],
+      { selectedItemId: 'a' }
+    );
+    expect(getNextTakeableItem(rundown)?.id).toBe('c');
+    expect(countDoneBeforeNextTakeable(rundown)).toBe(1);
+    const plan = planTakeNext({ rundown, readinessOf: alwaysReady });
+    expect(plan.skipped).toBe(1);
+    expect(describeTakeNextCue(plan)).toBe('Next: Sermon — skipping 1 done item');
+  });
+
+  it('advances the count correctly after the target is taken', () => {
+    // A B(done) C D(done) E — having taken C, the next hop skips only D.
+    const rundown = rundownOf(
+      [{ id: 'a' }, { id: 'b', done: true }, { id: 'c' }, { id: 'd', done: true }, { id: 'e', title: 'Closing' }],
+      { selectedItemId: 'c', activeItemId: 'c' }
+    );
+    expect(getNextTakeableItem(rundown)?.id).toBe('e');
+    expect(countDoneBeforeNextTakeable(rundown)).toBe(1);
+    expect(describeTakeNextCue(planTakeNext({ rundown, readinessOf: alwaysReady }))).toBe(
+      'Next: Closing — skipping 1 done item'
+    );
+  });
+
+  it('counts the whole remaining run when there is no target left', () => {
+    // Nothing is takeable, so every remaining done row HAS been passed over and
+    // the refusal must stay truthful about it.
+    const rundown = rundownOf(
+      [{ id: 'a', title: 'Welcome' }, { id: 'b', done: true }, { id: 'c', done: true }],
+      { selectedItemId: 'a' }
+    );
+    expect(getNextTakeableItem(rundown)).toBeUndefined();
+    expect(countDoneBeforeNextTakeable(rundown)).toBe(2);
+    const plan = planTakeNext({ rundown, readinessOf: alwaysReady });
+    expect(plan.skipped).toBe(2);
+    expect(plan.reason).toMatch(/Everything after "Welcome" is marked done/);
+  });
+
+  it('does not count rows beyond an UNREADY target either', () => {
+    // A B(done) C(unready) D(done): the decision concerns C, so one row was
+    // passed over — D is behind the blockage, not skipped past.
+    const rundown = rundownOf(
+      [{ id: 'a' }, { id: 'b', done: true }, { id: 'c', title: 'Memory Verse' }, { id: 'd', done: true }],
+      { selectedItemId: 'a' }
+    );
+    const plan = planTakeNext({
+      rundown,
+      readinessOf: () => ({ ready: false, reason: 'This Scripture card is empty.' })
+    });
+    expect(plan.disabled).toBe(true);
+    expect(plan.reason).toContain('Memory Verse');
+    expect(plan.skipped).toBe(1);
+  });
+
+  it('counts nothing when the very next item is takeable', () => {
+    const rundown = rundownOf([{ id: 'a' }, { id: 'b', title: 'Next Up' }, { id: 'c', done: true }], {
+      selectedItemId: 'a'
+    });
+    expect(countDoneBeforeNextTakeable(rundown)).toBe(0);
+    expect(describeTakeNextCue(planTakeNext({ rundown, readinessOf: alwaysReady }))).toBe('Next: Next Up');
+  });
+
+  it('never reports more skipped rows than lie between the anchor and the target', () => {
+    // The property behind all of the above, checked over several shapes.
+    const shapes: Rundown[] = [
+      rundownOf([{ id: 'a' }, { id: 'b', done: true }, { id: 'c' }, { id: 'd', done: true }], { selectedItemId: 'a' }),
+      rundownOf([{ id: 'a' }, { id: 'b', done: true }, { id: 'c', done: true }, { id: 'd' }], { selectedItemId: 'a' }),
+      rundownOf([{ id: 'a' }, { id: 'b' }, { id: 'c', done: true }], { selectedItemId: 'a' }),
+      rundownOf([{ id: 'a', done: true }, { id: 'b', done: true }]),
+      rundownOf([{ id: 'a' }, { id: 'b', done: true }], { selectedItemId: 'a' })
+    ];
+    for (const rundown of shapes) {
+      const anchor = rundown.items.findIndex((item) => item.id === rundown.selectedItemId);
+      const target = getNextTakeableItem(rundown);
+      const targetIndex = target ? rundown.items.findIndex((item) => item.id === target.id) : rundown.items.length;
+      const between = rundown.items.slice(anchor + 1, targetIndex);
+      const label = rundown.items.map((i) => `${i.id}${i.done ? '*' : ''}`).join(',');
+      expect(countDoneBeforeNextTakeable(rundown), label).toBe(between.length);
+      // And everything in that gap really is done — the gap is a run of skips.
+      expect(between.every((item) => item.done), label).toBe(true);
+    }
   });
 });
 
