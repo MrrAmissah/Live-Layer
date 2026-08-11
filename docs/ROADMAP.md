@@ -120,11 +120,12 @@ rundown while the service is happening.
 
 - **Operator-reviewed live speech assist — remediated and built, not validated.**
   Stage 5 measured DONDO and stopped: a third of utterances produced a confidently
-  wrong passage, and latency to final was 15.6 s. Both blockers turned out to be
-  **ours, not the model's** — the spoken parser was reading the *typed*
-  abbreviation table (`jon` is a declared alias of Jonah, so "John" became
+  wrong passage, and latency to final was 15.6 s. **Two integration blockers turned
+  out to be ours rather than the model's** — the spoken parser was reading the
+  *typed* abbreviation table (`jon` is a declared alias of Jonah, so "John" became
   Jonah 3:16), and the pipeline buffered fixed windows instead of detecting when
-  the speaker stopped.
+  the speaker stopped. Fixing our two did not fix DONDO: its acoustic limits are
+  substantial and unchanged.
   Fixing those moved misleading-top from **34.0% to 3.8%** on the same Stage 5
   transcripts and **12.0% to 3.6%** end-to-end on a held-out corpus frozen before
   the work began, with latency **15.6 s → 0.649 s**
