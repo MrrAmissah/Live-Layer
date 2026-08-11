@@ -122,3 +122,24 @@ synthesised, and no amount of running this harness substitutes for them.
 The timing numbers — RTF, latency, memory, thermal drift, OBS impact — are
 properties of the machine and the model rather than of the speaker, and those are
 honest measurements.
+
+
+## The live speech service
+
+`scripts/speech-service/server.py` is the local recogniser the product uses — the
+same `Recogniser` this harness benchmarks, behind a WebSocket.
+
+```sh
+uv pip install --python ~/LiveLayer-ASR-Eval/venv/bin/python websockets
+~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py \
+  --repo ~/LiveLayer-ASR-Eval/models/w2v-bert-en
+```
+
+It binds `127.0.0.1`, has no command surface, stores nothing, and logs timings but
+never transcripts — a verbatim transcript of a sermon carries the same content and
+the same obligations as the recording (§7). When it is not running the control
+surface degrades to typing, which is the normal state: the operator starts it
+deliberately before a service.
+
+`endpointing.py` measures what the VAD costs, separating the hangover from
+inference — the two must not be reported as one number.
