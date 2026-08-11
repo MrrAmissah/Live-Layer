@@ -1,6 +1,6 @@
 import { BIBLE_BOOKS } from './bibleBooks';
 import { parseScriptureReference, type CanonicalReference } from './parseReference';
-import { matchSpokenBook, recoverSpokenBook, describeRecovery } from './spokenBookLexicon';
+import { matchSpokenBook, recoverSpokenBook, describeRecovery, recoverStructuralWord } from './spokenBookLexicon';
 
 /**
  * Spoken text → candidate references. A SEPARATE boundary in front of the strict
@@ -423,6 +423,14 @@ function numberFollows(tokens: string[], from: number): boolean {
     // Structural words may sit between the book and its numbers; anything else
     // means the numbers are not this phrase's.
     if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
+    /**
+     * A DAMAGED structural word is still structure. "psalm chapte twenty three
+     * verse one" broke here rather than in the locator: `chapte` sits before the
+     * first number, so the book looked unanchored and the whole utterance was
+     * refused. Continuing is safe — if no number follows, this loop returns false
+     * anyway, which is the same guard the locator applies.
+     */
+    if (recoverStructuralWord(token)) continue;
     return false;
   }
   return false;
@@ -575,6 +583,23 @@ interface Locator {
   listAfter: Set<number>;
 }
 
+/** True when the next meaningful token in the span reads as a number. */
+function numberFollowsAt(
+  tokens: string[],
+  from: number,
+  until: number,
+  soFar: number,
+  zerosAsNoise: boolean
+): boolean {
+  for (let i = from; i < until; i += 1) {
+    if (readNumber(tokens, i, soFar, zerosAsNoise)) return true;
+    const token = tokens[i];
+    if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
+    return false;
+  }
+  return false;
+}
+
 function readLocator(
   tokens: string[],
   from: number,
@@ -638,7 +663,25 @@ function readLocator(
      * Before the first number this must NOT stop — "John, let us read verse sixteen"
      * has to get past "us".
      */
-    if (numbers.length) break;
+    if (numbers.length) {
+      /**
+       * …unless the word is a damaged JOINT of the reference grammar rather than
+       * prose. A real microphone gave "jon chapter three vers sixteen"; breaking
+       * here returned John 3 and discarded "sixteen" without a word to the
+       * operator.
+       *
+       * Only when a number actually follows, which is what distinguishes a broken
+       * `verse` from `worse`, `horse` or `nurse` — none of which is followed by a
+       * verse number in real speech. Prose still ends a reference, which is what
+       * keeps "Acts two, there were about three thousand souls" at Acts 2.
+       */
+      const structural = recoverStructuralWord(token);
+      if (structural && numberFollowsAt(tokens, i + 1, until, numbers.length, zerosAsNoise)) {
+        i += 1;
+        continue;
+      }
+      break;
+    }
 
     i += 1;
   }

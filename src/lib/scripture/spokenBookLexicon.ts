@@ -229,3 +229,64 @@ export function recoverSpokenBook(phrase: string): SpokenBookRecovery[] {
 /** The operator-facing explanation for a recovered book. Never silent. */
 export const describeRecovery = (recovery: SpokenBookRecovery): string =>
   ` — heard "${recovery.heard}"`;
+
+
+/**
+ * The small closed set of words that hold a spoken reference together.
+ *
+ * Not vocabulary — *syntax*. "chapter three verse sixteen" is a grammar, and these
+ * are its joints. A recogniser damaging one of them does not change which passage
+ * was named; it breaks the parser's ability to see that a passage was named at all.
+ */
+const STRUCTURAL_WORDS = [
+  'chapter', 'chapters', 'verse', 'verses', 'through', 'colon'
+];
+
+/**
+ * Recover a corrupted structural word — or refuse.
+ *
+ * A real microphone produced **"jon chapter three vers sixteen"**. The locator
+ * stopped at `vers`, because an ordinary word ending a reference is what stops
+ * "Acts two, there were about three thousand souls" from becoming Acts 2:3. So it
+ * returned **John 3** and silently discarded "sixteen" — a coarser passage than the
+ * one named, presented with no sign that anything was lost. On air that is a whole
+ * chapter where a verse was asked for.
+ *
+ * The guards are deliberately tighter than the book recovery, because this runs
+ * against sermon prose rather than against a token already known to sit in
+ * reference position:
+ *
+ * - **One edit only**, whatever the length. These words are short and common.
+ * - **At least four characters**, so `to`, `and` and `is` are untouchable.
+ * - **A vowel**, the same line the book lexicon draws between a spoken rendering
+ *   and a written abbreviation.
+ * - **The caller must confirm a number follows.** This is what separates a broken
+ *   joint from an ordinary noun: `worse`, `horse` and `nurse` are all one edit from
+ *   `verse`, and none of them is followed by a chapter number in real speech. It is
+ *   the same discriminator `numberFollows` already uses for book names.
+ *
+ * Returns the canonical structural word, or null to leave the token alone.
+ */
+export function recoverStructuralWord(token: string): string | null {
+  const heard = token.trim().toLowerCase();
+  if (heard.length < 4 || !VOWEL.test(heard)) return null;
+  if (STRUCTURAL_WORDS.includes(heard)) return null; // already correct
+
+  let best: string | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let tied = false;
+  for (const target of STRUCTURAL_WORDS) {
+    const distance = editDistance(heard, target);
+    if (distance > 1) continue;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = target;
+      tied = false;
+    } else if (distance === bestDistance) {
+      // `verse`/`verses` collapse to the same meaning; a genuine tie across
+      // different words is ambiguous and refused.
+      tied = best !== null && !best.startsWith(target) && !target.startsWith(best);
+    }
+  }
+  return tied ? null : best;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { matchSpokenBook, recoverSpokenBook, SPOKEN_BOOK_FORMS } from './spokenBookLexicon';
+import { matchSpokenBook, recoverSpokenBook, recoverStructuralWord, SPOKEN_BOOK_FORMS } from './spokenBookLexicon';
 import { parseSpokenReference } from './spokenReference';
 import { parseScriptureReference } from './parseReference';
 import { BIBLE_BOOKS } from './bibleBooks';
@@ -167,5 +167,61 @@ describe('the operator can see that a book was recovered', () => {
     if (clean.ok && recovered.ok) {
       expect(clean.candidates[0].score).toBeGreaterThan(recovered.candidates[0].score);
     }
+  });
+});
+
+describe('recovering the joints of a spoken reference', () => {
+  /**
+   * From the first human microphone test. A real voice said "John chapter three
+   * verse sixteen"; DONDO wrote "jon chapter three **vers** sixteen"; the locator
+   * treated `vers` as prose, ended the reference there, and returned **John 3** —
+   * discarding "sixteen" with no sign to the operator that anything was lost. A
+   * whole chapter where a verse was named.
+   */
+  it('reads the exact utterance the microphone produced', () => {
+    expect(canon('jon chapter three vers sixteen')).toEqual([['John 3:16']]);
+  });
+
+  it('is not tuned to that one word', () => {
+    expect(canon('romans chapter eight verce twenty eight')).toEqual([['Romans 8:28']]);
+    expect(canon('psalm chapte twenty three verse one')).toEqual([['Psalms 23:1']]);
+    // The range LEADS. A damaged "through" also leaves the non-range reading
+    // plausible, so it is offered underneath rather than suppressed — that is the
+    // ambiguity contract, not a miss.
+    expect(canon('matthew five three throug twelve')?.[0][0]).toBe('Matthew 5:3-12');
+  });
+
+  it('leaves ordinary prose alone, because a one-edit budget excludes real words', () => {
+    // `worse`, `horse` and `nurse` are all TWO edits from `verse` (w→v, o→e), so
+    // the budget refuses them without needing a stop-list.
+    for (const word of ['worse', 'horse', 'nurse', 'course', 'souls', 'sixteen']) {
+      expect(recoverStructuralWord(word), word).toBeNull();
+    }
+  });
+
+  it('refuses words too short to carry the signal', () => {
+    // `to`, `and`, `is` must stay untouchable — they already mean something.
+    for (const word of ['to', 'and', 'is', 'the', 'ver']) {
+      expect(recoverStructuralWord(word), word).toBeNull();
+    }
+  });
+
+  it('does not rewrite a structural word that is already correct', () => {
+    for (const word of ['verse', 'verses', 'chapter', 'through']) {
+      expect(recoverStructuralWord(word), word).toBeNull();
+    }
+  });
+
+  it('still lets prose END a reference, which is the rule this sits inside', () => {
+    // The regression this must not cause: a quoted number donating itself to the
+    // reference that introduced it.
+    expect(canon('Acts two there were about three thousand souls added')).toEqual([['Acts 2']]);
+    expect(canon('the horse three ran')).toBeNull();
+    expect(canon('Jesus fed five thousand men that day')).toBeNull();
+  });
+
+  it('only recovers where a number actually follows', () => {
+    // A broken joint introduces a number. Without one it is just a word.
+    expect(canon('jon chapter three vers')).toEqual([['John 3']]);
   });
 });
