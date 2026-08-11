@@ -174,11 +174,21 @@ export const HELD_AMBIGUOUS: UtteranceCase[] = [
       { canonical: '1 Corinthians 13:13', alternatives: ['2 Corinthians 13:13'], leadMayBeAny: true }
     ]
   },
+  /**
+   * Second authoring correction, recorded rather than quietly edited. This first
+   * declared `2 Thessalonians 4:16` as the alternative — an impossible reference,
+   * because 2 Thessalonians has three chapters. The parser validates every
+   * candidate through `parseScriptureReference` and correctly dropped it, and my
+   * expectation was demanding a fabrication.
+   *
+   * The family stays in the corpus with the reading that can exist. Ambiguous
+   * numbered families are still exercised by the Peter and Corinthians cases,
+   * where both siblings are real.
+   */
   {
     spoken: 'Thessalonians four sixteen',
-    expected: [
-      { canonical: '1 Thessalonians 4:16', alternatives: ['2 Thessalonians 4:16'], leadMayBeAny: true }
-    ]
+    expected: [{ canonical: '1 Thessalonians 4:16', alternatives: [] }],
+    note: '2 Thessalonians has only 3 chapters, so the sibling reading cannot exist'
   }
 ];
 
