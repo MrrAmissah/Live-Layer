@@ -89,16 +89,49 @@ describe('deciding when the speaker has stopped', () => {
  * registering its socket listeners — which the session guard then correctly treats
  * as a dead session, so every later assertion fails for the wrong reason.
  */
+/** The last script processor handed out, so a test can push audio through it. */
+let lastProcessor: { onaudioprocess: ((event: unknown) => void) | null } | null = null;
+
 class FakeAudioContext {
+  sampleRate = 16000;
   createMediaStreamSource() {
     return { connect: () => undefined };
   }
   createScriptProcessor() {
-    return { connect: () => undefined, disconnect: () => undefined, onaudioprocess: null };
+    const processor = { connect: () => undefined, disconnect: () => undefined, onaudioprocess: null };
+    lastProcessor = processor as unknown as { onaudioprocess: ((event: unknown) => void) | null };
+    return processor;
   }
   close() {
     return Promise.resolve();
   }
+}
+
+/** Push one block of samples through the capture path, as the browser would. */
+function pushAudio(samples: Float32Array) {
+  lastProcessor?.onaudioprocess?.({ inputBuffer: { getChannelData: () => samples } });
+}
+
+const block = (n: number, amplitude: number, seedIn = 3): Float32Array => {
+  const out = new Float32Array(n);
+  let seed = seedIn;
+  for (let i = 0; i < n; i += 1) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    out[i] = ((seed / 0x7fffffff) * 2 - 1) * amplitude;
+  }
+  return out;
+};
+
+/** Read the 16-byte header the service parses with `struct('<IIIi')`. */
+function readHeader(frame: ArrayBuffer) {
+  const view = new DataView(frame);
+  return {
+    session: view.getUint32(0, true),
+    utterance: view.getUint32(4, true),
+    revision: view.getUint32(8, true),
+    final: view.getInt32(12, true),
+    samples: (frame.byteLength - 16) / 2
+  };
 }
 (globalThis as unknown as { AudioContext: unknown }).AudioContext = FakeAudioContext;
 (globalThis as unknown as { WebSocket: unknown }).WebSocket ??= { CONNECTING: 0, OPEN: 1 };
@@ -405,5 +438,67 @@ describe('connection readiness is reported honestly', () => {
     const { source, statuses } = harness();
     await source.start();
     expect(statuses[statuses.length - 1].status).toBe('listening');
+  });
+});
+
+describe('the wire protocol the local recogniser parses', () => {
+  /**
+   * Identity travels WITH the audio, in a 16-byte little-endian header the service
+   * reads as `struct('<IIIi')`. It is not metadata for logging: progressive
+   * recognition means several answers are in flight for one utterance, and arrival
+   * order is not identity. A provisional that took longer than the final it was
+   * superseded by would otherwise overwrite the only answer that has to be right.
+   */
+  const speak = async (blocks: number) => {
+    const { source, sockets } = harness();
+    await source.start();
+    // Room tone first, so the detector has a floor to measure speech against.
+    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 5 + i));
+    for (let i = 0; i < blocks; i += 1) pushAudio(block(1024, 0.25, 100 + i));
+    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 900 + i));
+    return sockets[0].sent.map(readHeader);
+  };
+
+  it('puts a readable header in front of every frame of audio', async () => {
+    const frames = await speak(60);
+    expect(frames.length).toBeGreaterThan(0);
+    for (const frame of frames) {
+      expect(frame.session).toBeGreaterThan(0);
+      expect(frame.utterance).toBeGreaterThan(0);
+      expect(frame.revision).toBeGreaterThan(0);
+      // 16-bit PCM, so a whole number of samples with nothing left over.
+      expect(Number.isInteger(frame.samples)).toBe(true);
+      expect(frame.samples).toBeGreaterThan(0);
+    }
+  });
+
+  it('numbers revisions within one utterance, and ends it with exactly one final', async () => {
+    const frames = await speak(60);
+    const finals = frames.filter((f) => f.final === 1);
+    expect(finals).toHaveLength(1);
+    // Every frame belongs to the same utterance…
+    expect(new Set(frames.map((f) => f.utterance)).size).toBe(1);
+    // …and revisions rise, so the newest is identifiable without a clock.
+    const revisions = frames.map((f) => f.revision);
+    expect(revisions).toEqual([...revisions].sort((a, b) => a - b));
+    expect(new Set(revisions).size).toBe(revisions.length);
+    // The final is the last word on this utterance.
+    expect(frames[frames.length - 1].final).toBe(1);
+  });
+
+  it('sends each provisional as more audio than the one before it', async () => {
+    // A snapshot is the utterance SO FAR — it grows, it is not a fresh window.
+    const provisionals = (await speak(60)).filter((f) => f.final === 0);
+    expect(provisionals.length).toBeGreaterThan(1);
+    for (let i = 1; i < provisionals.length; i += 1) {
+      expect(provisionals[i].samples).toBeGreaterThan(provisionals[i - 1].samples);
+    }
+  });
+
+  it('sends the final as the whole utterance, not just its tail', async () => {
+    const frames = await speak(60);
+    const last = frames[frames.length - 1];
+    const biggestProvisional = Math.max(...frames.filter((f) => f.final === 0).map((f) => f.samples));
+    expect(last.samples).toBeGreaterThanOrEqual(biggestProvisional);
   });
 });

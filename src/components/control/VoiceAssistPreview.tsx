@@ -147,6 +147,11 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
        * labelled as updating, and the final result confirms or replaces it.
        */
       if (!event.isFinal && event.text.trim()) {
+        // Words came back while the speaker is still going. This is the mark that
+        // answers "does it feel like it is listening", so it is taken here —
+        // before any judgement about whether those words contained a reference,
+        // which for the first revision or two they usually do not.
+        if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-interim');
         const guess = receiveTranscript(event.text);
         if (guess.status === 'candidates' && guess.candidates.length) {
           void previewProvisional(guess, ++generation.current, timelineRef.current);
@@ -238,6 +243,21 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   const previewProvisional = async (source: VoiceAssistState, mine: number, timelineId: number | null) => {
     const candidate = source.candidates[0];
     if (!candidate) return;
+    /**
+     * A chapter with no verse is not shown while the speaker is still going.
+     *
+     * It retrieves perfectly well — and that is the problem. "…John chapter
+     * three" is a complete, valid reference for the WHOLE of John 3, so the card
+     * would fill with the entire chapter for a moment and then collapse to one
+     * verse when "sixteen" arrived. Mid-utterance a chapter-only reading is
+     * almost always a reference that has not finished being spoken: the rehearsal
+     * caught it twice, in "…chapter three verse sixteen" and "…chapter four verse
+     * eight", and in both the very next revision had the verse.
+     *
+     * Finals keep the opposite rule. "Turn to Romans eight" is a real thing an
+     * operator says and means, and there is nothing further coming.
+     */
+    if (!candidate.reference.spans.length) return;
     if (timelineId !== null) {
       liveLatency.mark(timelineId, 'first-candidate');
       liveLatency.mark(timelineId, 'lookup-start');
@@ -250,7 +270,15 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       liveLatency.mark(timelineId, 'first-verse');
     }
     setProvisional(true);
-    setState(passageResolved(source, found.result));
+    /**
+     * Functional, like every other write here. `source` was captured BEFORE a
+     * lookup that takes ~0.31 s when the passage is not cached, so writing it back
+     * flat would undo anything the operator did in the meantime — pressing Dismiss
+     * and watching the card reappear a third of a second later, mid-sentence, on
+     * its own. Dismissal is a decision about this utterance, so it stands until
+     * the next one.
+     */
+    setState((previous) => (previous.status === 'rejected' ? previous : passageResolved(source, found.result)));
   };
 
   const resolveCandidate = async (

@@ -131,6 +131,34 @@ async def handle(websocket, recogniser, verbose: bool) -> None:
         task.cancel()
 
 
+async def keep_warm(recogniser, every: float, verbose: bool) -> None:
+    """Keep the GPU resident, because the operator's FIRST reference is the one
+    that decides whether they trust this.
+
+    Warming once at startup is not enough and measurement is why: the same
+    half-second clip costs **2.29 s** on the first request after the service has
+    sat idle, and 0.05 s on every request after it. Not lazy compilation — that
+    was already paid — but Metal releasing what it is not using. A service is
+    started deliberately before a meeting and then left alone for an hour, which
+    is exactly the gap that produces the cold number, and the operator pays it on
+    the first thing they say.
+
+    So a heartbeat of silence every few seconds. It cannot overlap a real request:
+    inference is synchronous and this shares the event loop with the worker, so
+    the two take strict turns. Nothing is transmitted, nothing is stored, and the
+    audio is zeros.
+    """
+    if every <= 0:
+        return
+    silence = np.zeros(int(SR * 0.5), dtype=np.float32)
+    while True:
+        await asyncio.sleep(every)
+        started = time.perf_counter()
+        recogniser.transcribe(silence)
+        if verbose:
+            print(f"  warm {time.perf_counter() - started:.3f}s", flush=True)
+
+
 async def main_async(args) -> int:
     try:
         import websockets
@@ -150,11 +178,16 @@ async def main_async(args) -> int:
     recogniser.transcribe(np.zeros(SR, dtype=np.float32))
     print(f"ready on ws://{args.host}:{args.port} — local only, no audio is stored", flush=True)
 
-    async with websockets.serve(
-        lambda ws: handle(ws, recogniser, args.verbose),
-        args.host, args.port, max_size=32 * 1024 * 1024
-    ):
-        await asyncio.Future()
+    warm = asyncio.create_task(keep_warm(recogniser, args.keep_warm_seconds, args.verbose))
+
+    try:
+        async with websockets.serve(
+            lambda ws: handle(ws, recogniser, args.verbose),
+            args.host, args.port, max_size=32 * 1024 * 1024
+        ):
+            await asyncio.Future()
+    finally:
+        warm.cancel()
     return 0
 
 
@@ -168,6 +201,8 @@ def main() -> int:
     ap.add_argument("--dtype", default="float32")
     ap.add_argument("--language", default="", help="DONDO language for multilingual checkpoints")
     ap.add_argument("--verbose", action="store_true", help="log timings — never transcripts")
+    ap.add_argument("--keep-warm-seconds", type=float, default=15.0,
+                    help="idle heartbeat that keeps the GPU resident; 0 disables it")
     args = ap.parse_args()
     try:
         return asyncio.run(main_async(args))

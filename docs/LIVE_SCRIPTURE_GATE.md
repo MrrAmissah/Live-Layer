@@ -36,7 +36,11 @@ cd ~/Documents/Live\ Layer
 npm run dev
 ```
 
-Then open **http://localhost:5173/control/scripture** in Chrome.
+Then open **http://127.0.0.1:4173/control/scripture** in Chrome.
+
+That port and host are fixed in `vite.config.ts` with `strictPort`, so if 4173 is
+already taken the dev server refuses to start rather than moving — if `npm run
+dev` fails, something else is on the port.
 
 Chrome will ask for microphone permission the first time you press Start
 listening. Grant it. If it does not ask, the site permission is already set —
@@ -82,6 +86,12 @@ different verse. In rehearsal, "John three sixteen" produced **John 3:6**
 partway through, before correcting to John 3:16. That is the honest behaviour of
 recognising an unfinished sentence, which is why the card says it is still
 updating and why nothing is accepted automatically.
+
+A guess that names only a chapter — "John 3" — is deliberately **not** shown
+while you are still speaking. It retrieves perfectly well, which is the problem:
+it would fill the card with the whole chapter for a moment and then collapse to
+one verse. Mid-sentence, a chapter with no verse is almost always a reference
+you have not finished saying.
 
 **When you stop speaking**, the label changes to *"Ready to review"*. That is
 the answer being judged.
@@ -162,22 +172,54 @@ Measured over those six utterances, from the moment speech starts:
 
 | | |
 |---|---|
-| First candidate visible | **2.34 s** median |
-| First verse text visible | **2.34 s** median (cached lookup; ~0.31 s if the passage is new) |
+| First words back on screen | **0.65 s** median |
 | Final answer after you stop | **0.12 s** median inference |
 | Provisional passes per utterance | 5 median (range 2–6) |
 | Provisional inference | 83 ms median |
+| Bible lookup | ~1 ms cached, ~0.31 s when the passage is new |
 
-Five of the six showed a verse **before** the speaker finished, between 0.56 s
-and 1.24 s earlier than waiting for the endpoint. The sixth ("First John four
-eight") showed nothing until the end — it is short enough that no provisional
-had a complete reference to work with. Progressive recognition helps long forms
-substantially and short forms barely, and reference 5 is deliberately in this
-gate for that reason.
+The first line is the one that answers the complaint. Words appear at about
+**0.65 s**, long before any reference is understood — that is the difference
+between watching it work and speaking into silence.
 
-Under load the recogniser keeps one worker and one pending slot: five snapshots
-fired without reading answered only the two newest and dropped three before they
-cost anything, and a final is never displaced by a provisional.
+**A verse arriving early is the smaller effect, and it is uneven.** Written out
+per utterance rather than as a median, because a median hides which half you are
+in:
+
+| Utterance | Verse visible early | vs. waiting for the endpoint |
+|---|---|---|
+| "John three sixteen" | 1.06 s | 0.84 s earlier — but as John 3:**6**, corrected at the end |
+| "Turn with me to John chapter three verse sixteen" | — | nothing early |
+| "Let us read Romans eight twenty eight" | 2.34 s | 0.56 s earlier, correct |
+| "Psalm twenty three one" | 1.46 s | 0.64 s earlier, correct |
+| "First John four eight" | — | nothing early |
+| "Let us read first John chapter four verse eight" | — | nothing early |
+
+So **three of six** show a verse before the speaker stops, by roughly 0.6–0.8 s,
+and one of those three shows a wrong one first. The other three show only the
+moving transcript until the end — two because their guesses were chapter-only
+and are deliberately withheld, one because it is too short for a provisional to
+have a complete reference at all.
+
+That is a real improvement and a modest one, and it is worth being clear about
+which part is doing the work: the **transcript at 0.65 s** is what removes the
+feeling of speaking into silence. The early verse is a bonus that arrives for
+some phrasings and not others.
+
+In the rehearsal itself **nothing was dropped**: at 83 ms of inference against a
+400 ms cadence the recogniser is idle most of every interval, which is what the
+cadence was chosen for. Backpressure was measured separately, by firing five
+snapshots without reading any of them — only the two newest were answered, three
+were discarded before they cost anything, and a final was never displaced by a
+provisional.
+
+One more thing measurement changed. The same half-second clip cost **2.29 s** on
+the first request after the service had sat idle, and 0.05 s on every request
+after that — Metal releasing what it is not using, not compilation, which was
+already paid at startup. A service is started before a meeting and left alone,
+so the operator's *first* reference was reliably the slowest thing they would
+ever see. The recogniser now runs a half-second heartbeat of silence while idle;
+after 90 seconds untouched the first real request costs **0.16 s**.
 
 ### What the rehearsal could not test
 
