@@ -9515,3 +9515,13 @@ body.gfx-transparent {
 
 .control-root .live-type { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
 .control-root .live-type__field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
+
+/* A provisional reading is visibly not-yet-settled, without becoming a different
+   card when it settles — the operator is reading it, and swapping the layout under
+   them is the jump this stage removes. */
+.control-root .detected__stage {
+  margin-left: auto; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ll-muted);
+}
+.control-root .detected[data-provisional] { border-color: rgba(245, 199, 126, 0.34); }
+.control-root .detected[data-provisional] .detected__stage { color: #f5c77e; }

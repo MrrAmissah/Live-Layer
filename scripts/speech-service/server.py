@@ -37,32 +37,98 @@ sys.path.insert(0, str(HERE.parent / "asr-benchmark"))
 SR = 16000
 
 
+# 16 bytes of header before the PCM: session, utterance, revision, final flag.
+# Identity travels WITH the audio because arrival order is not identity — a slow
+# provisional result can land after the final one it was superseded by, and
+# "whatever arrived last" would then overwrite the authoritative answer.
+HEADER = struct.Struct("<IIIi")
+
+
+def parse_frame(message: bytes):
+    """(session, utterance, revision, is_final, pcm) — or None if unheadered."""
+    if len(message) < HEADER.size:
+        return None
+    session, utterance, revision, final = HEADER.unpack_from(message, 0)
+    pcm = np.frombuffer(message, dtype=np.int16, offset=HEADER.size).astype(np.float32) / 32768.0
+    return session, utterance, revision, bool(final), pcm
+
+
 async def handle(websocket, recogniser, verbose: bool) -> None:
-    async for message in websocket:
-        if isinstance(message, str):
-            # The only text frame understood is a ping; anything else is ignored
-            # rather than interpreted, because this endpoint has no command surface.
-            await websocket.send(json.dumps({"ok": True}))
-            continue
-        try:
-            pcm = np.frombuffer(message, dtype=np.int16).astype(np.float32) / 32768.0
-            if len(pcm) < SR // 10:  # under 100 ms is not an utterance
-                await websocket.send(json.dumps({"text": ""}))
+    """One connection, one worker, a slot for the newest provisional request.
+
+    Progressive recognition sends a snapshot every few hundred milliseconds while
+    someone is speaking, so a naive server queues five inferences and answers the
+    first one seconds late. Provisional work is DISPOSABLE: only the newest pending
+    snapshot is kept, anything older is dropped before it costs GPU time, and a
+    FINAL request replaces whatever is waiting because it is the only answer that
+    has to be right.
+    """
+    pending: dict | None = None          # the one queued request, newest wins
+    waiting = asyncio.Event()
+    stats = {"dropped": 0, "max_depth": 0}
+
+    async def worker():
+        nonlocal pending
+        while True:
+            await waiting.wait()
+            waiting.clear()
+            job, pending = pending, None
+            if job is None:
                 continue
-            started = time.perf_counter()
-            text, inference = recogniser.transcribe(pcm)
-            if verbose:
-                # Length and timing only. The transcript is NOT logged: it is the
-                # content of what someone said, and this process does not keep it.
-                print(f"  {len(pcm)/SR:.2f}s audio -> {inference:.3f}s inference "
-                      f"({len(text.strip())} chars)", flush=True)
-            await websocket.send(json.dumps({
-                "text": text.strip(),
-                "inference_seconds": round(inference, 4),
-                "total_seconds": round(time.perf_counter() - started, 4),
-            }))
-        except Exception as exc:  # a bad frame must not kill the session
-            await websocket.send(json.dumps({"text": "", "error": f"{type(exc).__name__}"}))
+            try:
+                started = time.perf_counter()
+                text, inference = recogniser.transcribe(job["pcm"])
+                if verbose:
+                    # Shape and timing only — never the transcript, which is the
+                    # content of what someone said (docs/ASR_EVALUATION.md §7).
+                    kind = "final" if job["final"] else "prov"
+                    print(f"  {kind} u{job['utterance']}r{job['revision']} "
+                          f"{len(job['pcm'])/SR:.2f}s -> {inference:.3f}s "
+                          f"({len(text.strip())} chars)", flush=True)
+                await websocket.send(json.dumps({
+                    "session": job["session"],
+                    "utterance": job["utterance"],
+                    "revision": job["revision"],
+                    "final": job["final"],
+                    "text": text.strip(),
+                    "inference_seconds": round(inference, 4),
+                    "total_seconds": round(time.perf_counter() - started, 4),
+                    "dropped": stats["dropped"],
+                }))
+            except Exception as exc:  # a bad frame must not kill the session
+                await websocket.send(json.dumps({
+                    "session": job["session"], "utterance": job["utterance"],
+                    "revision": job["revision"], "final": job["final"],
+                    "text": "", "error": f"{type(exc).__name__}",
+                }))
+
+    task = asyncio.create_task(worker())
+    try:
+        async for message in websocket:
+            if isinstance(message, str):
+                # The only text frame understood is a ping; anything else is ignored
+                # rather than interpreted — this endpoint has no command surface.
+                await websocket.send(json.dumps({"ok": True}))
+                continue
+            frame = parse_frame(message)
+            if frame is None:
+                continue
+            session, utterance, revision, final, pcm = frame
+            if len(pcm) < SR // 10:  # under 100 ms is not an utterance
+                continue
+            job = {"session": session, "utterance": utterance, "revision": revision,
+                   "final": final, "pcm": pcm}
+            if pending is not None:
+                # Something newer arrived before the old one started. Drop it here,
+                # where it costs nothing, rather than on the GPU.
+                if pending["final"] and not final:
+                    continue  # never displace a final with a provisional
+                stats["dropped"] += 1
+                stats["max_depth"] = max(stats["max_depth"], 2)
+            pending = job
+            waiting.set()
+    finally:
+        task.cancel()
 
 
 async def main_async(args) -> int:

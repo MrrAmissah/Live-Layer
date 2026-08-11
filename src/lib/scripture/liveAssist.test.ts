@@ -160,13 +160,46 @@ describe('the live source, as a transcript port', () => {
     expect(source.languages.length).toBeGreaterThan(0);
   });
 
-  it('emits only FINAL events, because the model has no partial hypotheses', async () => {
+  it('labels a provisional snapshot interim and the endpoint result final', async () => {
+    /**
+     * This used to assert that EVERY event was final, on the reasoning that the
+     * model has no partial hypotheses. That is still true of the model — each
+     * snapshot is a complete re-recognition of the utterance so far — but it was
+     * the wrong conclusion for the consumer. From the reducer's side a revisable
+     * guess for an utterance still in progress is exactly what interim means, and
+     * calling it final let half a sentence stand as the settled answer.
+     */
     const { source, fire } = harness();
     await source.start();
     const events: { isFinal: boolean; text: string }[] = [];
     source.subscribe((e) => events.push({ isFinal: e.isFinal, text: e.text }));
-    fire('message', { data: JSON.stringify({ text: 'John three sixteen' }) });
-    expect(events).toEqual([{ isFinal: true, text: 'John three sixteen' }]);
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 1, revision: 1, final: false, text: 'jon chapter' }) });
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 1, revision: 2, final: true, text: 'jon chapter three vers sixteen' }) });
+    expect(events).toEqual([
+      { isFinal: false, text: 'jon chapter' },
+      { isFinal: true, text: 'jon chapter three vers sixteen' }
+    ]);
+  });
+
+  it('ignores a provisional result that arrives AFTER its final', async () => {
+    // A snapshot made from half the sentence must never replace the authoritative
+    // answer just because the network delivered it late.
+    const { source, fire } = harness();
+    await source.start();
+    const events: { isFinal: boolean; text: string }[] = [];
+    source.subscribe((e) => events.push({ isFinal: e.isFinal, text: e.text }));
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 1, revision: 3, final: true, text: 'the whole sentence' }) });
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 1, revision: 2, final: false, text: 'half of it' }) });
+    expect(events).toEqual([{ isFinal: true, text: 'the whole sentence' }]);
+  });
+
+  it('ignores a result belonging to another session', async () => {
+    const { source, fire } = harness();
+    await source.start();
+    const events: unknown[] = [];
+    source.subscribe((e) => events.push(e));
+    fire('message', { data: JSON.stringify({ session: 999, utterance: 1, revision: 1, final: true, text: 'not ours' }) });
+    expect(events).toHaveLength(0);
   });
 
   it('gives each utterance its own segment, so the reducer keeps them apart', async () => {
@@ -174,8 +207,8 @@ describe('the live source, as a transcript port', () => {
     await source.start();
     const ids: string[] = [];
     source.subscribe((e) => ids.push(e.segmentId));
-    fire('message', { data: JSON.stringify({ text: 'one' }) });
-    fire('message', { data: JSON.stringify({ text: 'two' }) });
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 1, revision: 1, final: true, text: 'one' }) });
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 2, revision: 1, final: true, text: 'two' }) });
     expect(new Set(ids).size).toBe(2);
   });
 
@@ -184,9 +217,9 @@ describe('the live source, as a transcript port', () => {
     await source.start();
     const events: unknown[] = [];
     source.subscribe((e) => events.push(e));
-    fire('message', { data: JSON.stringify({ text: '   ' }) });
+    fire('message', { data: JSON.stringify({ utterance: 1, revision: 1, final: false, text: '   ' }) });
     fire('message', { data: 'not json at all' });
-    fire('message', { data: JSON.stringify({}) });
+    fire('message', { data: JSON.stringify({ utterance: 2, revision: 1, final: false }) });
     expect(events).toHaveLength(0);
   });
 
@@ -197,7 +230,9 @@ describe('the live source, as a transcript port', () => {
     source.subscribe((event) => {
       update = applyTranscriptEvent(update.state, event) as typeof update;
     });
-    fire('message', { data: JSON.stringify({ text: 'Romans eight twenty eight' }) });
+    fire('message', {
+      data: JSON.stringify({ session: 1, utterance: 1, revision: 1, final: true, text: 'Romans eight twenty eight' })
+    });
     expect(update.finalText).toBe('Romans eight twenty eight');
   });
 });
@@ -284,7 +319,7 @@ describe('what the live source refuses to be', () => {
     source.subscribe((e) => {
       event = e as unknown as Record<string, unknown>;
     });
-    fire('message', { data: JSON.stringify({ text: 'John three sixteen', inference_seconds: 0.1 }) });
+    fire('message', { data: JSON.stringify({ utterance: 1, revision: 1, final: true, text: 'John three sixteen', inference_seconds: 0.1 }) });
     // Exactly the TranscriptEvent shape from §4 — nothing more rides along.
     expect(Object.keys(event!).sort()).toEqual(
       ['isFinal', 'language', 'segmentId', 'sequence', 'sourceId', 'text'].sort()
@@ -301,7 +336,7 @@ describe('a stopped session can never speak again', () => {
     source.subscribe((e) => events.push(e));
     source.stop();
     // The service replies to an utterance sent before the operator stopped.
-    fire('message', { data: JSON.stringify({ text: 'John three sixteen' }) });
+    fire('message', { data: JSON.stringify({ session: 1, utterance: 1, revision: 1, final: true, text: 'John three sixteen' }) });
     expect(events).toHaveLength(0);
   });
 
@@ -315,7 +350,7 @@ describe('a stopped session can never speak again', () => {
     const events: unknown[] = [];
     source.subscribe((e) => events.push(e));
     // Socket 0 belongs to the session that already ended.
-    fireOn(0, 'message', { data: JSON.stringify({ text: 'from the previous session' }) });
+    fireOn(0, 'message', { data: JSON.stringify({ utterance: 1, revision: 1, final: true, text: 'from the previous session' }) });
     expect(events).toHaveLength(0);
   });
 
@@ -326,7 +361,7 @@ describe('a stopped session can never speak again', () => {
     await source.start();
     const events: { text: string }[] = [];
     source.subscribe((e) => events.push({ text: e.text }));
-    fire('message', { data: JSON.stringify({ text: 'Romans eight one' }) });
+    fire('message', { data: JSON.stringify({ utterance: 1, revision: 1, final: true, text: 'Romans eight one' }) });
     expect(events).toEqual([{ text: 'Romans eight one' }]);
   });
 

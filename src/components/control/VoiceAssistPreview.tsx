@@ -57,6 +57,8 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * mid-service.
    */
   const [listen, setListen] = useState(false);
+  /** True while the card is showing a guess from speech still in progress. */
+  const [provisional, setProvisional] = useState(false);
   const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
@@ -133,7 +135,30 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       const update = applyTranscriptEvent(streamRef.current, event);
       streamRef.current = update.state;
       setStream(update.state);
+
+      /**
+       * A PROVISIONAL transcript is interpreted for PREVIEW.
+       *
+       * The old rule — only finals are ever parsed — existed so a moving target
+       * could not be staged as though the speaker had finished. That reasoning is
+       * about STAGING, and staging is still manual: nothing here accepts, queues,
+       * publishes or Takes. What it cost was the whole live feeling, because every
+       * useful thing waited for the endpoint. So a revisable guess now fills a card
+       * labelled as updating, and the final result confirms or replaces it.
+       */
+      if (!event.isFinal && event.text.trim()) {
+        const provisional = receiveTranscript(event.text);
+        if (provisional.status === 'candidates' && provisional.candidates.length) {
+          const mine = ++generation.current;
+          setProvisional(true);
+          setState(provisional);
+          void resolveCandidate(provisional, 0, mine, timelineRef.current, true);
+        }
+        return;
+      }
+
       if (update.finalText !== null) {
+        setProvisional(false);
         generation.current += 1;
         const next = receiveTranscript(update.finalText);
         setState(next);
@@ -197,22 +222,40 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     source: VoiceAssistState,
     index: number,
     mine: number,
-    timelineId: number | null
+    timelineId: number | null,
+    isProvisional = false
   ) => {
     const candidate = source.candidates[index];
     if (!candidate) return;
-    setState((previous) => beginResolving(previous));
-    if (timelineId !== null) liveLatency.mark(timelineId, 'lookup-start');
+    const wanted = candidate.reference.canonical;
+    /**
+     * Do not tear the card down to re-resolve the SAME reference.
+     *
+     * A later snapshot usually confirms the previous one. Re-entering `resolving`
+     * would blank a passage the operator is already reading and make the surface
+     * flash on every revision — the layout jump this stage exists to remove.
+     */
+    const alreadyShowing = source.passage?.reference === wanted;
+    if (!alreadyShowing) setState((previous) => beginResolving(previous));
+    if (timelineId !== null) liveLatency.mark(timelineId, 'first-candidate');
+    if (timelineId !== null && !alreadyShowing) liveLatency.mark(timelineId, 'lookup-start');
 
-    const found = await lookup(candidate.reference.canonical, translationId);
-    if (generation.current !== mine) return; // a newer utterance owns the panel now
+    const found = await lookup(wanted, translationId);
+    if (generation.current !== mine) return; // a newer revision owns the panel now
     if (!found) {
-      setState((previous) =>
-        resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
-      );
+      // A provisional miss is not worth alarming the operator about — the final
+      // pass will speak for itself. A final miss must be stated.
+      if (!isProvisional) {
+        setState((previous) =>
+          resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
+        );
+      }
       return;
     }
-    if (timelineId !== null) liveLatency.mark(timelineId, 'lookup-done');
+    if (timelineId !== null) {
+      liveLatency.mark(timelineId, 'lookup-done');
+      liveLatency.mark(timelineId, 'first-verse');
+    }
     setState((previous) => passageResolved(previous, found.result));
   };
 
@@ -277,13 +320,17 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
 
       {/* The words we heard, subdued: the operator judges the PASSAGE, not the
           transcript, so this explains rather than competes. */}
-      {state.transcript ? (
+      {/* The live transcript. Shown WHILE the speaker talks, which is the whole
+          point — the operator should see LiveLayer working, not a blank panel and
+          then a result. Distinct from the meter: the meter says audio is arriving,
+          this says what DONDO currently thinks it heard. */}
+      {interimText(stream) ? (
+        <p className="live-heard live-heard--interim" aria-live="off">
+          Hearing <span className="live-heard__text">“{interimText(stream)}”</span>
+        </p>
+      ) : state.transcript ? (
         <p className="live-heard">
           Heard <span className="live-heard__text">“{state.transcript}”</span>
-        </p>
-      ) : interimText(stream) ? (
-        <p className="live-heard live-heard--interim" aria-live="off">
-          {interimText(stream)}
         </p>
       ) : null}
 
@@ -304,6 +351,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
           canAccept={canAccept(state)}
           onAccept={onAcceptClick}
           onDismiss={() => setState((previous) => rejectCandidate(previous))}
+          provisional={provisional}
           onRendered={() => {
             if (timelineRef.current !== null) {
               liveLatency.mark(timelineRef.current, 'rendered');

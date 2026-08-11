@@ -33,6 +33,8 @@ interface Props {
   onDismiss: () => void;
   /** Fired once the passage is actually on screen, to close the latency timeline. */
   onRendered: () => void;
+  /** The speaker is still talking — this reading may still change. */
+  provisional?: boolean;
 }
 
 export default function DetectedScripture({
@@ -44,7 +46,8 @@ export default function DetectedScripture({
   canAccept,
   onAccept,
   onDismiss,
-  onRendered
+  onRendered,
+  provisional = false
 }: Props) {
   useEffect(() => {
     // The operator metric ends when the verse is visible, not when it arrived.
@@ -55,10 +58,18 @@ export default function DetectedScripture({
   }, [passage]);
 
   return (
-    <article className="detected" data-resolving={resolving || undefined} aria-live="polite">
+    <article
+      className="detected"
+      data-resolving={resolving || undefined}
+      data-provisional={provisional || undefined}
+      aria-live="polite"
+    >
       <header className="detected__head">
         <h3 className="detected__ref">{reference || 'Listening…'}</h3>
         {passage ? <span className="ll-tag">{passage.translation}</span> : null}
+        {/* Honest about what this is. A guess from speech still in progress must
+            not look like a settled answer — the operator is deciding from it. */}
+        <span className="detected__stage">{provisional ? 'Updating while you speak' : 'Ready to review'}</span>
       </header>
 
       {interpretation ? <p className="detected__why">{interpretation}</p> : null}

@@ -58,6 +58,19 @@ export interface EndpointerConfig {
   /** Longest utterance before it is cut and sent anyway. */
   maxUtteranceMs: number;
   /**
+   * How often to recognise the utterance-so-far while speech continues.
+   *
+   * Chosen against measured inference: a 2-3 s utterance costs ~0.13 s on MPS, so
+   * a 400 ms cadence leaves the recogniser idle most of the interval and cannot
+   * backlog — and if one ever overruns, the service keeps only the newest pending
+   * snapshot. Faster buys little: the operator cannot read a card that changes
+   * every 200 ms, and each snapshot is a whole re-encode of the utterance so far,
+   * which grows as they speak.
+   */
+  snapshotEveryMs: number;
+  /** Don't snapshot until there is enough speech to be worth recognising. */
+  minSnapshotMs: number;
+  /**
    * Frames spent learning the room before any speech is reported. Bounded, and
    * short enough that pressing Start and speaking immediately still works — the
    * pre-roll below covers the overlap.
@@ -86,7 +99,9 @@ export const DEFAULT_ENDPOINTER: EndpointerConfig = {
    */
   maxUtteranceMs: 15000,
   calibrationMs: 400,
-  preRollMs: 200
+  preRollMs: 200,
+  snapshotEveryMs: 400,
+  minSnapshotMs: 600
 };
 
 // --- streaming framer ---------------------------------------------------------
@@ -163,6 +178,8 @@ export interface EndpointerState {
   framesSeen: number;
   /** True while the room is still being learned; no speech is reported. */
   calibrating: boolean;
+  /** Speech frames counted when the last provisional snapshot was taken. */
+  lastSnapshotFrames: number;
 }
 
 export const emptyEndpointer = (): EndpointerState => ({
@@ -179,7 +196,8 @@ export const emptyEndpointer = (): EndpointerState => ({
    */
   noiseFloorDb: 0,
   framesSeen: 0,
-  calibrating: true
+  calibrating: true,
+  lastSnapshotFrames: 0
 });
 
 /** RMS of a frame in dBFS. dB because speech level varies by ~40 dB. */
@@ -202,6 +220,16 @@ export interface EndpointerResult {
   calibrating: boolean;
   /** Why the utterance was released. */
   reason: '' | 'endpoint' | 'max-length';
+  /**
+   * The utterance SO FAR, while the speaker is still talking.
+   *
+   * Non-null only when a snapshot is due (`snapshotEveryMs`). Recognising this
+   * gives the operator a transcript and often a passage before they stop speaking,
+   * instead of the whole pipeline starting at the endpoint. It is provisional by
+   * construction — the same audio will be recognised again, authoritatively, when
+   * the utterance actually ends.
+   */
+  snapshot: Float32Array | null;
 }
 
 const concat = (frames: Float32Array[]): Float32Array => {
@@ -296,7 +324,8 @@ export function pushFrame(
     ...emptyEndpointer(),
     noiseFloorDb,
     framesSeen,
-    calibrating: false
+    calibrating: false,
+    lastSnapshotFrames: 0
   });
 
   const release = (reason: 'endpoint' | 'max-length'): EndpointerResult => {
@@ -318,6 +347,7 @@ export function pushFrame(
     return {
       state: reset(),
       utterance: concat(keep),
+      snapshot: null,
       speaking: false,
       calibrating: false,
       reason
@@ -328,10 +358,37 @@ export function pushFrame(
   if (next.inSpeech && next.silentFrames >= hangoverFrames) {
     // Too short to be an utterance: discard rather than send a cough to the model.
     if (next.speechFrames < minSpeechFrames) {
-      return { state: reset(), utterance: null, speaking: false, calibrating: false, reason: '' };
+      return { state: reset(), utterance: null, snapshot: null, speaking: false, calibrating: false, reason: '' };
     }
     return release('endpoint');
   }
 
-  return { state: next, utterance: null, speaking: isSpeech, calibrating: stillCalibrating, reason: '' };
+  /**
+   * Due a provisional snapshot?
+   *
+   * Counted in frames of **speech**, not wall clock and not frames buffered. Wall
+   * clock would drift with a stalled callback; frames buffered would count the
+   * pre-roll and the trailing hangover silence as though they were things the
+   * speaker said — so a 300 ms word would buy an inference on the strength of
+   * 200 ms of room tone in front of it, and a pause would keep re-recognising
+   * identical audio while the final was already on its way.
+   */
+  const snapshotEvery = Math.max(1, Math.round(config.snapshotEveryMs / FRAME_MS));
+  const minSnapshot = Math.max(1, Math.round(config.minSnapshotMs / FRAME_MS));
+  const dueSnapshot =
+    next.inSpeech &&
+    next.speechFrames >= minSnapshot &&
+    next.speechFrames - next.lastSnapshotFrames >= snapshotEvery;
+
+  return {
+    // Still the whole buffer that gets recognised — pre-roll included, because the
+    // book name lives in the onset. Only the *decision to send* counts speech.
+    state: dueSnapshot ? { ...next, lastSnapshotFrames: next.speechFrames } : next,
+    utterance: null,
+    // Provisional: the same audio is recognised again when the utterance ends.
+    snapshot: dueSnapshot ? concat(next.buffered) : null,
+    speaking: isSpeech,
+    calibrating: stillCalibrating,
+    reason: ''
+  };
 }

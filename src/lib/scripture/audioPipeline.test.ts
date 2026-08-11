@@ -321,3 +321,79 @@ describe('the hangover stays where the latency measurement assumed', () => {
     expect(frameDb(tone(FRAME, -20))).toBeGreaterThan(frameDb(tone(FRAME, -40)));
   });
 });
+
+describe('provisional snapshots while the speaker is still talking', () => {
+  /**
+   * The first human test found the whole experience batch: speak, wait, "Recognising",
+   * then a result. The model is utterance-batch CTC and that has not changed — but at
+   * ~0.2 s per inference it is fast enough to re-recognise the utterance SO FAR
+   * every few hundred milliseconds, so the operator sees work happening while they
+   * speak instead of afterwards.
+   */
+  const room = (ms: number) => noise((SR * ms) / 1000, -58, 3);
+  const speech = (ms: number) => tone((SR * ms) / 1000, -20);
+
+  function snapshots(stream: Float32Array, config = DEFAULT_ENDPOINTER) {
+    let state = emptyEndpointer();
+    let framer = createFramer(config.sampleRate);
+    const out: { snapshots: number[]; final: number | null } = { snapshots: [], final: null };
+    for (let at = 0; at < stream.length; at += 1024) {
+      const pushed = pushSamples(framer, stream.subarray(at, Math.min(at + 1024, stream.length)));
+      framer = pushed.framer;
+      for (const frame of pushed.frames) {
+        const result = pushFrame(state, frame, config);
+        state = result.state;
+        if (result.snapshot) out.snapshots.push(result.snapshot.length);
+        if (result.utterance) out.final = result.utterance.length;
+      }
+    }
+    return out;
+  }
+
+  it('emits growing snapshots during a long utterance, then one final', () => {
+    const { snapshots: seen, final } = snapshots(join(room(800), speech(3000), room(900)));
+    expect(seen.length).toBeGreaterThanOrEqual(4);
+    // Each snapshot contains everything the previous one did, and more.
+    for (let i = 1; i < seen.length; i += 1) expect(seen[i]).toBeGreaterThan(seen[i - 1]);
+    expect(final).not.toBeNull();
+    // The final is the authoritative pass over the whole utterance.
+    expect(final!).toBeGreaterThanOrEqual(seen[seen.length - 1]);
+  });
+
+  it('holds the cadence rather than firing per frame', () => {
+    // Every 20 ms would backlog the recogniser and flicker the card; the cadence is
+    // measured in buffered audio so a stalled callback cannot make it drift.
+    const { snapshots: seen } = snapshots(join(room(800), speech(2000), room(900)));
+    const expected = Math.floor(2000 / DEFAULT_ENDPOINTER.snapshotEveryMs);
+    expect(seen.length).toBeLessThanOrEqual(expected + 1);
+  });
+
+  it('says nothing until there is enough speech to be worth recognising', () => {
+    const { snapshots: seen } = snapshots(join(room(800), speech(300), room(900)));
+    expect(seen).toHaveLength(0);
+  });
+
+  it('emits no snapshot at all when nobody is speaking', () => {
+    expect(snapshots(noise(SR * 4, -55)).snapshots).toHaveLength(0);
+  });
+
+  it('is chunk-invariant, like the rest of the audio path', () => {
+    const stream = join(room(800), speech(2200), room(900));
+    const reference = snapshots(stream).snapshots;
+    for (const chunk of [320, 512, 2048]) {
+      let state = emptyEndpointer();
+      let framer = createFramer(SR);
+      const seen: number[] = [];
+      for (let at = 0; at < stream.length; at += chunk) {
+        const pushed = pushSamples(framer, stream.subarray(at, Math.min(at + chunk, stream.length)));
+        framer = pushed.framer;
+        for (const frame of pushed.frames) {
+          const result = pushFrame(state, frame, DEFAULT_ENDPOINTER);
+          state = result.state;
+          if (result.snapshot) seen.push(result.snapshot.length);
+        }
+      }
+      expect(seen, `chunk ${chunk}`).toEqual(reference);
+    }
+  });
+});

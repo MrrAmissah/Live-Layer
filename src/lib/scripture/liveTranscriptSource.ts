@@ -161,8 +161,19 @@ export function createLiveTranscriptSource(
    */
   let queued: Float32Array[] = [];
   const MAX_QUEUED_UTTERANCES = 2;
-  /** Timeline ids awaiting their response, FIFO — the service answers in order. */
-  let timing: number[] = [];
+  /**
+   * Identity for every frame, so a result can be matched to what asked for it.
+   *
+   * Arrival order is not identity: a provisional snapshot can be answered AFTER the
+   * final result that superseded it, and "whatever came last" would then replace
+   * the authoritative transcript with a guess made from half the sentence.
+   */
+  let utteranceNo = 0;
+  let revisionNo = 0;
+  /** Timeline id per utterance, so provisional and final share one measurement. */
+  const timelines = new Map<number, number>();
+  /** Utterances whose final answer has arrived; later provisionals are stale. */
+  const finalised = new Set<number>();
 
   /**
    * Latest measured level, published on a timer rather than per audio frame.
@@ -184,18 +195,27 @@ export function createLiveTranscriptSource(
     options.onStatus?.({ status, detail, speaking, level });
   };
 
-  const emit = (text: string) => {
+  const emit = (text: string, utterance: number, revision: number, isFinal: boolean) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    segment += 1;
+    if (!trimmed && !isFinal) return;
     const event: TranscriptEvent = {
       text: trimmed,
-      // Always final: this source has no interim guesses to offer, because the
-      // model does not produce partial hypotheses. Claiming interim results it
-      // cannot produce would be a lie the reducer would faithfully act on.
-      isFinal: true,
-      segmentId: `${id}-${segment}`,
-      sequence: 0,
+      /**
+       * Provisional snapshots are INTERIM, and honestly labelled as such.
+       *
+       * The model still has no partial hypotheses — each snapshot is a complete
+       * re-recognition of the utterance so far, not a continuation. But from the
+       * consumer's side that is exactly what interim means: a revisable guess for
+       * the same utterance, superseded by the final one. The reducer's rules for
+       * interim text — show it, never let it be the last word — are the rules this
+       * needs, and claiming these were final would let half a sentence stand as the
+       * settled answer.
+       */
+      isFinal,
+      // One segment per utterance, so revisions of the same utterance supersede
+      // each other rather than reading as separate things the speaker said.
+      segmentId: `${id}-${utterance}`,
+      sequence: revision,
       language,
       sourceId: id
     };
@@ -221,7 +241,8 @@ export function createLiveTranscriptSource(
     socket = null;
     endpointer = emptyEndpointer();
     framer = createFramer(config.sampleRate);
-    timing = [];
+    timelines.clear();
+    finalised.clear();
     pending = 0;
     queued = [];
     if (meterTimer) clearInterval(meterTimer);
@@ -229,7 +250,7 @@ export function createLiveTranscriptSource(
     level = 0;
   };
 
-  const send = (mine: number, utterance: Float32Array) => {
+  const send = (mine: number, utterance: Float32Array, isFinal: boolean) => {
     if (mine !== session || !socket) return;
     /**
      * The socket may still be CONNECTING when the first utterance is endpointed.
@@ -256,14 +277,32 @@ export function createLiveTranscriptSource(
     for (let i = 0; i < utterance.length; i += 1) {
       pcm[i] = Math.max(-32768, Math.min(32767, Math.round(utterance[i] * 32767)));
     }
-    pending += 1;
-    // The clock the operator feels starts the moment the endpointer decided.
-    const id = liveLatency.begin();
-    liveLatency.mark(id, 'endpoint');
-    liveLatency.mark(id, 'sent');
-    timing.push(id);
-    report('recognising', 'Recognising…');
-    socket.send(pcm.buffer);
+    // 16-byte header: session, utterance, revision, final. Identity travels WITH
+    // the audio so the service can drop stale provisional work and the browser can
+    // refuse a late one.
+    const header = new ArrayBuffer(16);
+    const view = new DataView(header);
+    view.setUint32(0, mine, true);
+    view.setUint32(4, utteranceNo, true);
+    view.setUint32(8, (revisionNo += 1), true);
+    view.setInt32(12, isFinal ? 1 : 0, true);
+    const frame = new Uint8Array(header.byteLength + pcm.byteLength);
+    frame.set(new Uint8Array(header), 0);
+    frame.set(new Uint8Array(pcm.buffer), header.byteLength);
+
+    if (isFinal) {
+      pending += 1;
+      let id = timelines.get(utteranceNo);
+      if (id === undefined) {
+        id = liveLatency.begin();
+        timelines.set(utteranceNo, id);
+      }
+      liveLatency.mark(id, 'endpoint');
+      liveLatency.mark(id, 'sent');
+      // No "Recognising…" banner: a provisional card is usually already on screen,
+      // and replacing it with a status would hide the useful thing.
+    }
+    socket.send(frame.buffer);
   };
 
   return {
@@ -346,7 +385,7 @@ export function createLiveTranscriptSource(
           // Flush anything endpointed while the socket was still connecting.
           const backlog = queued;
           queued = [];
-          for (const utterance of backlog) send(mine, utterance);
+          for (const utterance of backlog) send(mine, utterance, true);
           report('listening', '');
         });
         socket.addEventListener('message', (event) => {
@@ -356,19 +395,39 @@ export function createLiveTranscriptSource(
            * must not become a candidate for what the operator just said.
            */
           if (mine !== session) return;
-          pending = Math.max(0, pending - 1);
-          const timelineId = timing.shift();
           try {
             const payload = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
-            if (timelineId !== undefined) {
-              liveLatency.mark(timelineId, 'transcript');
-              if (typeof payload.inference_seconds === 'number') {
-                liveLatency.inference(timelineId, payload.inference_seconds);
-              }
-              if (!payload.text) liveLatency.refuse(timelineId);
-              else options.onUtteranceTiming?.(timelineId);
+            /**
+             * Identity, not arrival order. A provisional result for an utterance
+             * that has already been finalised is stale by definition — it was made
+             * from less audio than the answer already on screen.
+             */
+            if (payload.session !== undefined && payload.session !== mine) return;
+            const utterance = Number(payload.utterance ?? 0);
+            const isFinal = Boolean(payload.final);
+            if (!isFinal && finalised.has(utterance)) return;
+            if (isFinal) {
+              pending = Math.max(0, pending - 1);
+              finalised.add(utterance);
             }
-            if (payload.text) emit(String(payload.text));
+
+            const timelineId = timelines.get(utterance);
+            if (timelineId !== undefined) {
+              if (isFinal) {
+                liveLatency.mark(timelineId, 'transcript');
+                if (typeof payload.inference_seconds === 'number') {
+                  liveLatency.inference(timelineId, payload.inference_seconds);
+                }
+                if (!payload.text) liveLatency.refuse(timelineId);
+                else options.onUtteranceTiming?.(timelineId);
+              } else {
+                liveLatency.mark(timelineId, 'first-interim');
+                if (payload.text) options.onUtteranceTiming?.(timelineId);
+              }
+            }
+            if (payload.text || isFinal) {
+              emit(String(payload.text ?? ''), utterance, Number(payload.revision ?? 0), isFinal);
+            }
           } catch {
             /* a malformed frame is dropped rather than parsed as a reference */
           }
@@ -404,9 +463,20 @@ export function createLiveTranscriptSource(
           for (const frame of framed.frames) {
             // Measured every frame; published to the UI on the timer below.
             level = levelFromDb(frameDb(frame));
+            const wasSpeaking = endpointer.inSpeech;
             const result = pushFrame(endpointer, frame, config);
             endpointer = result.state;
-            if (result.utterance) send(mine, result.utterance);
+            // A new utterance begins the moment speech starts, so its identity and
+            // its clock exist before the first snapshot rather than at the endpoint.
+            if (!wasSpeaking && result.state.inSpeech) {
+              utteranceNo += 1;
+              const id = liveLatency.begin();
+              timelines.set(utteranceNo, id);
+              liveLatency.mark(id, 'speech-start');
+            }
+            // Provisional first — the operator sees work happening while talking.
+            if (result.snapshot) send(mine, result.snapshot, false);
+            if (result.utterance) send(mine, result.utterance, true);
             else if (pending === 0) {
               const status = result.calibrating ? 'starting' : 'listening';
               const detail = result.calibrating ? 'Listening for the room…' : '';

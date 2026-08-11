@@ -26,6 +26,14 @@
 
 /** Stages, in the order the operator's audio passes through them. */
 export type LatencyStage =
+  /** Speech began — the clock the operator actually feels starts here. */
+  | 'speech-start'
+  /** First provisional transcript for this utterance came back. */
+  | 'first-interim'
+  /** First Scripture candidate from any revision. */
+  | 'first-candidate'
+  /** First verse text on screen, provisional or final. */
+  | 'first-verse'
   /** Voice activity detected the end of the utterance. */
   | 'endpoint'
   /** PCM handed to the socket. */
@@ -52,7 +60,15 @@ export interface UtteranceTimeline {
 }
 
 export interface LatencyBreakdown {
-  /** THE operator metric: endpoint → strongest verse visible, in ms. */
+  /** Speech start → first provisional transcript. */
+  firstInterimMs: number | null;
+  /** Speech start → first Scripture candidate. */
+  firstCandidateMs: number | null;
+  /** Speech start → first verse on screen. The live-production metric. */
+  firstVerseMs: number | null;
+  /** Endpoint → the authoritative transcript. */
+  finalAfterEndpointMs: number | null;
+  /** Endpoint → strongest verse visible, in ms. */
   totalMs: number | null;
   transportMs: number | null;
   recogniseMs: number | null;
@@ -84,6 +100,12 @@ export interface LatencyRecorder {
 
 export interface LatencySummary {
   samples: number;
+  /** Speech start → first provisional transcript. */
+  medianFirstInterimMs: number;
+  /** Speech start → first Scripture candidate. */
+  medianFirstCandidateMs: number;
+  /** Speech start → first verse visible. THE live-production metric. */
+  medianFirstVerseMs: number;
   medianTotalMs: number;
   p95TotalMs: number;
   medianRecogniseMs: number;
@@ -133,6 +155,11 @@ export function createLatencyRecorder(): LatencyRecorder {
       if (!timeline) return null;
       const { marks } = timeline;
       return {
+        // What the operator experiences while speaking.
+        firstInterimMs: gap(marks, 'speech-start', 'first-interim'),
+        firstCandidateMs: gap(marks, 'speech-start', 'first-candidate'),
+        firstVerseMs: gap(marks, 'speech-start', 'first-verse'),
+        finalAfterEndpointMs: gap(marks, 'endpoint', 'transcript'),
         totalMs: gap(marks, 'endpoint', 'rendered'),
         transportMs: gap(marks, 'sent', 'transcript'),
         recogniseMs: gap(marks, 'endpoint', 'transcript'),
@@ -152,6 +179,9 @@ export function createLatencyRecorder(): LatencyRecorder {
         median(done.map((t) => gap(t.marks, stage, to)).filter((n): n is number => n !== null));
       return {
         samples: done.length,
+        medianFirstInterimMs: Math.round(pick('speech-start', 'first-interim')),
+        medianFirstCandidateMs: Math.round(pick('speech-start', 'first-candidate')),
+        medianFirstVerseMs: Math.round(pick('speech-start', 'first-verse')),
         medianTotalMs: Math.round(median(totals)),
         p95TotalMs: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0),
         medianRecogniseMs: Math.round(pick('endpoint', 'transcript')),
