@@ -118,24 +118,32 @@ rundown while the service is happening.
 
 ## Later — production scale
 
-- **Operator-reviewed live speech assist — evaluated, and not proceeding.** The Apple
-  Silicon benchmark was **run on 2026-08-11** and **Gate A was not cleared**
-  ([ASR_EVALUATION.md](ASR_EVALUATION.md) §5–§6). The machine is not the problem:
-  DONDO's English checkpoint runs at real-time factor 0.037–0.052 on Metal in about
-  0.5 GB (measured peak 501 MB).
-  The recognition is. On synthetic read speech in a silent room — conditions more
-  favourable than any service — it offers a confidently wrong leading passage for
-  about a third of utterances, is fully correct for about a third, and gets 0 of 10
-  multi-reference utterances right. The typical failure is a book name misheard as a
-  *different real book* (`John` → `jon` → **Jonah 3:16**), which the parser cannot
-  detect. Latency is a further blocker: the model is not streaming, so fixed windows
-  put "latency to final" at 15–30 s.
-  Nothing captures audio, no provider is selected, and `LiveTranscriptSource` stays
-  unimplemented. The benchmark harness ships at `scripts/asr-benchmark/`; no weights,
-  audio or transcripts are committed.
-  Cheapest next moves, both testable against evidence already captured: bias the
-  decoder toward the 66 book names, and add voice-activity detection to replace fixed
-  windows. Real consented church audio and the operator-review test come after those.
+- **Operator-reviewed live speech assist — remediated and built, not validated.**
+  Stage 5 measured DONDO and stopped: a third of utterances produced a confidently
+  wrong passage, and latency to final was 15.6 s. **Two integration blockers turned
+  out to be ours rather than the model's** — the spoken parser was reading the
+  *typed* abbreviation table (`jon` is a declared alias of Jonah, so "John" became
+  Jonah 3:16), and the pipeline buffered fixed windows instead of detecting when
+  the speaker stopped. Fixing our two did not fix DONDO: its acoustic limits are
+  substantial and unchanged.
+  Fixing those moved misleading-top from **34.0% to 3.8%** on the same Stage 5
+  transcripts and **12.0% to 3.6%** end-to-end on a held-out corpus frozen before
+  the work began, with latency **15.6 s → 0.649 s**
+  ([ASR_EVALUATION.md](ASR_EVALUATION.md) §9). DONDO's own acoustic limits remain.
+  So the reviewed microphone assist now exists: explicit Start/Stop listening, a
+  visible listening state, local inference only (`scripts/speech-service/`), final
+  transcript → the existing candidate flow → operator reads the passage → explicit
+  Accept → a separate Take. Typing is always immediately available and every
+  failure degrades to it.
+  **Gate A remains NOT CLEARED** — criterion 3 is unestablished and 4 and 6 have no
+  evidence. What changed is the development decision: the engineering evidence is
+  sufficient to build the reviewed assist **for real-world validation**, and it
+  ships as an explicitly unvalidated validation-stage capability. The residual weakness is acoustic
+  and out of reach of parser work: less common book names are mangled beyond safe
+  recovery and **refuse**, so roughly 60% of named passages return nothing under
+  degraded audio. If DONDO is replaced, the seam is `LiveTranscriptSource` and the
+  local process behind it; everything else is provider-neutral.
+
 - **Automatic acceptance or automatic Take — out of scope.** Distinct from the above
   and not a later phase of it. A finite corpus with no observed errors would not
   establish that auto-airing scripture is safe; it needs a different argument

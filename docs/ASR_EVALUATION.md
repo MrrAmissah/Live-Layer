@@ -1,31 +1,44 @@
 # Speech recognition: evaluation, and what would have to be true
 
-**Status: evaluation complete, and the answer is no — for now.** The Apple Silicon
-benchmark has been run (§5) and **Gate A is not cleared** (§6). Nothing in LiveLayer
-captures audio, no provider is selected, and `LiveTranscriptSource` is still
-unimplemented.
+**Status: evaluated, remediated, and now built as a reviewed assist — not as a
+validated one.** §5 is the original benchmark, which stopped the work. §9 is the
+targeted remediation and its measurements. §6 carries the current gate decision.
 
-The candidate model *has* now been downloaded and run — locally, on the production
-Mac, into a cache outside this repository. No weights, no audio and no transcripts
-are committed; the harness that produced the numbers is, at
-`scripts/asr-benchmark/`.
+The candidate model has been downloaded and run locally on the production Mac, into
+a cache outside this repository. No weights, no audio and no transcripts are
+committed; the harness that produced the numbers is, at `scripts/asr-benchmark/`.
 
-The short version: **the machine is roughly 20× faster than it needs to be, and the
-recognition is nowhere near good enough to justify going further.** On the most
-favourable audio available — a synthetic voice reading in a silent room — the
-assistant is fully correct for about a third of utterances and offers a confidently
-wrong passage for about another third.
+**The short version, in three steps.**
 
-Two things follow, and they are different in kind. Gate A's **latency** criterion
-**fails on measurement**, which alone is enough to withhold the gate. Its
-**accuracy** criterion is scored against *real church audio*, which has not been
-recorded — so it is **not established**, with strongly adverse preliminary evidence.
-The decision not to go and gather that recording is a judgement about where to spend
-a congregation's consent and an operator's time, not a claim to have measured it.
+Stage 5 measured the pipeline and stopped it: on the most favourable audio
+available, the assistant was fully correct for about a third of utterances and
+offered a *confidently wrong passage* for about another third, with a 15.6-second
+latency to final. Two blockers, one of them a safety failure.
+
+Two **integration** blockers were ours rather than the model's. The wrong passages
+came from the spoken parser reading the **typed** abbreviation table — `jon` is a
+declared alias of Jonah, so a recogniser's rendering of "John" produced Jonah 3:16.
+The latency came from buffering fixed windows rather than detecting when the speaker
+stopped. Fixing those, measured against an 83-case corpus frozen beforehand:
+
+| like-for-like | before | after |
+| --- | --- | --- |
+| misleading-top, same Stage 5 transcripts | 34.0% | **3.8%** |
+| misleading-top, held-out end-to-end | 12.0% | **3.6%** |
+| latency to final | 15.6 s | **0.649 s** |
+
+**DONDO itself still has substantial acoustic limits.** It mangles less common book
+names badly, and those **refuse** rather than err — roughly 60% of named passages
+return nothing under degraded audio. The assistant is now safe and modestly useful:
+it says nothing far more often than it says something wrong.
+
+That is enough to justify **building** the reviewed assist for real-world
+validation. It is not enough to trust it: **Gate A remains NOT CLEARED**, because
+criterion 3 is unestablished and 4 and 6 have no evidence.
 
 This document records what the candidate model claims, what our own harness
-measures, the architecture a live recogniser would have to fit behind, what the
-benchmark actually found, and what would have to change.
+measures, the architecture a live recogniser fits behind, what the benchmark found,
+what the remediation changed, and what is still unknown.
 
 It is one document on purpose. Speech is the easiest place in this project to
 accumulate confident planning prose about software that does not exist.
@@ -709,7 +722,44 @@ May be considered when **all** of these hold:
 Note what is *not* on this list: a zero misleading-top rate. Under review, that number
 is a cost to keep low and visible, not a veto.
 
-### Gate A adjudication — 2026-08-11: **NOT CLEARED**
+### Gate A re-adjudication — after remediation: **STILL NOT CLEARED**
+
+§9 records what the remediation changed. Against the same seven criteria:
+
+| # | Criterion | Was | Now |
+| --- | --- | --- | --- |
+| 1 | Nothing stages/queues/airs automatically | Met | **Met** |
+| 2 | Candidates show alternatives and reasoning | Met | **Met** — recovered books additionally carry `heard "jon"` |
+| 3 | Top-1/top-k good enough to save time | Not established, **strongly adverse** | **Still not established** — but the adverse signal is gone: misleading-top 34.0% → 3.8% same-transcript, 12.0% → 3.6% held-out |
+| 4 | Misleading-top on **real audio** measured | No evidence | **No evidence** |
+| 5 | Latency short enough to be useful | **Fails** (15.6 s) | **Met** — 0.649 s median, 0.764 s p95 |
+| 6 | Operator testing catches wrong candidates | No evidence | **No evidence** |
+| 7 | Typing always available | Met | **Met** |
+
+**Gate A requires all of its criteria, and three of them do not hold. It is NOT
+CLEARED**, and nothing below softens that.
+
+What changed is the *development* decision, which is a different question. Criterion
+5 moved from failure to pass, and criterion 3's adverse evidence is gone — those were
+the two that stopped Stage 5, and Stage 5 refused to build because the evidence said
+the thing would not work. That is no longer what the evidence says.
+
+So the decision is: **the engineering evidence is sufficient to build the
+operator-reviewed assist for real-world validation.** It ships as an explicitly
+unvalidated, validation-stage capability with typing always immediately available,
+refusing far more often than it errs.
+
+Criteria 4 and 6 are **not** logically impossible to measure without the feature —
+criterion 4 could in principle be measured offline on consented real church audio,
+and criterion 6 benefits from real interaction but is not strictly gated on this
+implementation. What the built feature changes is practicality: it makes in-situ
+collection and operator validation feasible rather than a separate research
+exercise.
+
+**What has NOT changed:** no automatic acceptance, no automatic staging, no
+automatic queueing, no Auto-Take. Gate B remains out of scope and untouched.
+
+### Gate A adjudication — 2026-08-11 (superseded by the re-adjudication above)
 
 Against the §5 run.
 
@@ -733,7 +783,7 @@ measurement, and Gate A requires **all** criteria to hold.
 | --- | --- | --- |
 | 1 | Nothing stages, queues or airs automatically; accept is a press and Take a second | **Met** — shipped in #26. `voiceAssist.ts` has no transition to the draft except `accept`, and the Scripture workspace has no Take at all. |
 | 2 | Candidates show alternatives *and the reasoning for each reading* | **Met** — `VoiceAssistPreview` renders each candidate's canonical alongside its `interpretation`. |
-| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | **Not established — strongly adverse preliminary evidence.** Real church audio remains unmeasured, so the criterion as written has no result. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. On evidence that adverse there is no justification for proceeding to the live-assist product phase and the real-audio validation it would require. That is an evidence-based stop decision, not a claim that the real-audio metric was measured. |
+| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | *(Stage 5, superseded — see the re-adjudication above.)* **Not established — strongly adverse preliminary evidence.** Real church audio remains unmeasured, so the criterion as written has no result. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. On evidence that adverse there is no justification for proceeding to the live-assist product phase and the real-audio validation it would require. That is an evidence-based stop decision, not a claim that the real-audio metric was measured. |
 | 4 | Misleading-top on **real audio** measured and reported | **No evidence.** Measured on synthetic speech only (§5.3). Cannot be synthesised. |
 | 5 | Latency to final short enough to be useful during a service | **Fails.** ≈15.6 s at 15 s chunks, ≈31.4 s at 30 s. The model is not the bottleneck; the buffering window is, and the endpointing that would fix it is not built. |
 | 6 | Operator testing shows wrong candidates are *reliably noticed* at review | **No evidence.** Not tested. This is the control the whole gate depends on, and §6 already says it has to be tested rather than asserted. |
@@ -845,18 +895,148 @@ consent and dignity, not just data handling.
 | Benchmark harness | **Shipped** (`scripts/asr-benchmark/`) |
 | Apple Silicon benchmark | **Run 2026-08-11.** Results in §5. |
 | Machine fast enough? | **Yes** — RTF 0.037–0.052 on Metal, measured peak RSS 501 MB. |
-| Recognition accurate enough? | **Not on the evidence available** — ~32% misleading-top on favourable synthetic audio, 0/10 on multiple references. Real church audio unmeasured. |
-| Gate A criterion 3 (accuracy, real audio) | **Not established** — strongly adverse preliminary evidence (§6). |
-| Gate A criterion 4 (misleading-top, real audio) | **No evidence.** |
-| Gate A criterion 5 (latency) | **Fails** on measurement — ≈15.6 s / ≈31.4 s. |
-| Gate A criterion 6 (operator testing) | **No evidence.** |
-| **Gate A overall** | **NOT CLEARED** (§6). |
-| Microphone capture | **Not built.** Deliberately. |
+| Recognition accurate enough? | **Improved, still unproven on real audio** — after remediation, misleading-top 3.8% same-transcript and 3.6% held-out, multiple references 5/5 (§9). Was ~32% and 0/10 before (§5.3). Real church audio remains unmeasured. |
+| Gate A criterion 3 (accuracy, real audio) | **Not established** — adverse signal gone; misleading-top 3.8% same-transcript, 3.6% held-out (§9). |
+| Gate A criterion 4 (misleading-top, real audio) | **No evidence** — needs a real service. |
+| Gate A criterion 5 (latency) | **Met** — 0.649 s median after endpointing (§9). |
+| Gate A criterion 6 (operator testing) | **No evidence** — needs operators using it. |
+| **Gate A overall** | **NOT CLEARED** — 3 unestablished, 4 and 6 no evidence (§6). |
+| Development decision | Evidence sufficient to **build for validation**, not to trust. |
+| Speech-specific book lexicon + recovery | **Shipped** (§9). |
+| Utterance endpointing | **Shipped** (§9). |
+| Microphone capture | **Built, operator-reviewed, off by default.** |
 | A selected provider | **Not chosen.** |
 | Gate B (automatic acceptance / Take) | **Out of scope**, unchanged. |
 
-`docs/OBS_SETUP.md` will gain a speech section when there is a runnable service to set
-up, and not before. On this evidence, that is not soon.
+A runnable local speech service now exists, so the condition this document set has
+been met: `scripts/speech-service/server.py`, with setup in
+`scripts/asr-benchmark/README.md` and an operator-facing pointer in
+`docs/OBS_SETUP.md`. It is documented as a **validation-stage** capability, because
+that is what it is.
+
+## 9. Remediation — what changed, and what it measured
+
+Stage 5 stopped because the assistant was right about a third of the time and
+confidently wrong about a third. This section records the targeted fix and its
+result.
+
+The headline, stated like-for-like: **misleading-top fell from 34.0% to 3.8% on the
+same Stage 5 transcripts, and from 12.0% to 3.6% end-to-end on held-out audio;
+latency fell from 15.6 s to 0.649 s.** The narrower "wrong book or chapter" subtype
+is 1.2% — a *different, stricter* metric than the 34%, and the two are not
+comparable.
+
+### The held-out corpus, frozen first
+
+`serviceCorpus.ts` could not honestly measure a fix to failures it had already
+revealed, so an **83-case held-out corpus was written and committed before the
+parser was touched** (`src/lib/asr/heldOutCorpus.ts`, sha256
+`3ed876598a0bacbc2baf06d771b9b9b4639e97795f9ffa7b162071cf8b34506c`). It covers
+canonical names, confusable books, numbered books, chapter/verse forms, bare
+numbers, natural framing, multiple references, ambiguous families, impossible
+references, should-refuse utterances, and corrupted proper nouns. Individual rules
+were not tuned against it; two of its own expectations were corrected before the
+parser changed and both corrections are recorded in the file.
+
+### What was fixed
+
+**The alias policy.** An alias valid for typed input is not automatically valid for
+spoken input. The spoken path now matches canonical names plus a short list of forms
+people actually say; written abbreviations (`jn`, `jhn`, `jon`, `ps`, `is`) match
+nothing. `parseReference.ts` is untouched, so typed entry keeps every abbreviation.
+
+**Constrained recovery, allowed to refuse.** A corrupted book name may be recovered
+under an absolute edit budget, a vowel requirement (written abbreviations are
+vowel-stripped, speech renderings are not), a three-character floor, single-token
+only, and only where numbers follow. Ties break on *how* the word is wrong —
+dropped letters beat changed ones, which is what decides `jon` → John rather than
+Job. Three or more equally-close books refuses outright.
+
+**An unrelated route to the same failure**, found on the held-out set: when nothing
+was followed by numbers the parser picked a book anyway and resolved it, so "my mark
+on the paper was three out of ten" produced Mark 3. A book with numbers on neither
+side is no longer a reference.
+
+**Endpointing** replaced fixed windows (§5.2's blocker).
+
+### Results
+
+Parser A/B on Stage 5's **preserved transcripts** — identical audio, identical ASR
+output, only the parser changed:
+
+| | before | after |
+| --- | --- | --- |
+| correct | 20/53 (37.7%) | **38/53 (71.7%)** |
+| exact | 10 | **27** |
+| misleading-top | **18 (34.0%)** | **2 (3.8%)** |
+| top-k reachable | 23.8% | **66.7%** |
+
+End-to-end on the **held-out corpus**, recognised fresh (Tessa/en_ZA, WER 23.5%):
+
+| | before | after |
+| --- | --- | --- |
+| correct | 33/83 (39.8%) | **48/83 (57.8%)** |
+| exact | 20 | **31** |
+| misleading-top | 10 (12.0%) | **3 (3.6%)** |
+| top-k reachable | 30.3% | **47.0%** |
+
+Held-out **text** (no audio) went 79.5% → 97.6% correct with misleading-top 8.4% →
+2.4%, and the regression corpus is unchanged at 53/53 with zero misleading-top.
+
+### Degradation, and the number that actually decides it
+
+At 20 dB SNR with 0.35 s reverb the frozen scorer reports misleading-top rising to
+**12.0%**. That number needs breaking down, because it is not what it appears:
+
+| | clean | degraded |
+| --- | --- | --- |
+| **wrong book or chapter** | **1 (1.2%)** | **1 (1.2%)** |
+| right book+chapter, verse lost | 2 | 8 |
+| scorer artifact (matches intent) | 0 | 1 |
+| exact rate | 47.0% | 28.8% |
+| refused | 48 | 53 |
+
+**The dangerous class does not grow under degradation.** What grows is verse
+truncation — "Hebrews 11" for "Hebrews 11:1" — which is an incomplete answer the
+operator sees as incomplete, not a plausible wrong passage they might accept. The
+single wrong-passage case in each condition is `galations` heard as `revelations`,
+where the recogniser produced a legitimate spoken form of a different book.
+
+That is the inverse of Stage 5's profile, where a third of utterances produced a
+confident wrong *book*.
+
+### Latency
+
+| | before | after |
+| --- | --- | --- |
+| endpoint delay | — (15 s window) | 0.504 s |
+| inference | 0.146 s | 0.146 s |
+| **latency to final** | **15.6 s** | **0.649 s** (p95 0.764 s) |
+
+20/20 utterances detected. This is **utterance-batch inference behind a VAD, not
+streaming** — w2v-BERT + CTC still encodes a complete utterance.
+
+### What is still not established
+
+Everything §5.5 said about synthetic audio still holds: no PA, no congregation, no
+Ghanaian speaker, no real service. The remediation did not make DONDO better at
+hearing; it made the layer above it stop turning mishearings into confident wrong
+passages, and stopped the pipeline waiting 15 seconds.
+
+The residual weakness is **acoustic and out of reach of any parser work**: less
+common books are mangled beyond safe recovery — `"newer mile ai ten"` for Nehemiah,
+`"melikhiri three tin"` for Malachi — and those refuse rather than err, which is
+safe but not useful. Roughly 60% of named passages return nothing under degradation.
+
+### The replaceable boundary
+
+If DONDO is later replaced, the seam is unchanged and small:
+`LiveTranscriptSource` in `transcriptSource.ts` (text only — no audio, tensors or
+credentials cross it) and the local inference process behind it. Everything built
+here — the lexicon, recovery, endpointing, the scorer, both corpora — is
+provider-neutral and survives a swap.
+
+---
 
 ## Sources
 

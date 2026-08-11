@@ -1,5 +1,6 @@
 import { BIBLE_BOOKS } from './bibleBooks';
 import { parseScriptureReference, type CanonicalReference } from './parseReference';
+import { matchSpokenBook, recoverSpokenBook, describeRecovery } from './spokenBookLexicon';
 
 /**
  * Spoken text → candidate references. A SEPARATE boundary in front of the strict
@@ -320,17 +321,19 @@ function readNumber(
   return null;
 }
 
-/** Exact book match for the `span` tokens at `at`, by canonical name or alias. */
+/**
+ * Exact book match for the `span` tokens at `at`, **against spoken forms only**.
+ *
+ * This used to match `bibleBooks.ts` aliases as well, and that is precisely how
+ * Stage 5's worst failure happened: a recogniser wrote "John" as `jon`, `jon` is a
+ * declared alias of Jonah, and the parser produced a confident Jonah 3:16. The
+ * alias table is right for typing and wrong for speech, because nobody says "jon"
+ * — see `spokenBookLexicon.ts`. The typed path (`parseReference.ts`) keeps every
+ * abbreviation it had.
+ */
 function readBook(tokens: string[], at: number, span: number): string | null {
   const phrase = tokens.slice(at, at + span).join(' ');
-  const squashed = phrase.replace(/\s/g, '');
-  const hit = BIBLE_BOOKS.find(
-    (book) =>
-      book.name.toLowerCase() === phrase ||
-      book.name.toLowerCase().replace(/\s/g, '') === squashed ||
-      book.aliases.some((alias) => alias.toLowerCase() === phrase || alias.toLowerCase().replace(/\s/g, '') === squashed)
-  );
-  return hit ? hit.name : null;
+  return matchSpokenBook(phrase);
 }
 
 /** The numbered-book families whose stem is exactly this phrase. */
@@ -338,6 +341,57 @@ function numberedSiblings(stem: string): string[] {
   return BIBLE_BOOKS.filter((book) => /^\d /.test(book.name) && book.name.slice(2).toLowerCase() === stem).map(
     (book) => book.name
   );
+}
+
+/**
+ * A book phrase recovered from a corrupted one, as candidate names.
+ *
+ * Only reached when nothing matched exactly, and only where a number follows —
+ * the caller enforces that, because recovery is the one place this parser is
+ * allowed to guess and it must not be reachable from ordinary prose. `blorptus` in
+ * a sentence about anything else has to stay `blorptus`.
+ *
+ * Carries a penalty so a recovered reading never outranks one the speaker
+ * actually said, and a note naming what was heard, so the operator reviewing the
+ * candidate can see it was recovered rather than transcribed.
+ */
+function recoveredNames(
+  phrase: string,
+  ordinal: number | undefined
+): { names: { name: string; penalty: number; note: string }[]; usedOrdinal: boolean } {
+  const recoveries = recoverSpokenBook(phrase);
+  let usedOrdinal = false;
+
+  const names = recoveries.flatMap((recovery) => {
+    const note = describeRecovery(recovery);
+    /**
+     * A spoken ordinal selects the sibling, and it has to be applied HERE rather
+     * than after the family is expanded. Doing it afterwards meant composing
+     * "second" with "1 Corinthians", which is not a book, so the ordinal was
+     * silently dropped and "second corintians five seventeen" produced **1**
+     * Corinthians 5:17. Found on the held-out corpus.
+     */
+    if (ordinal !== undefined) {
+      const stem = recovery.isStem ? recovery.target.toLowerCase() : recovery.target.toLowerCase();
+      const exact = BIBLE_BOOKS.find((book) => book.name.toLowerCase() === `${ordinal} ${stem}`);
+      if (exact) {
+        usedOrdinal = true;
+        return [{ name: exact.name, penalty: 8 + recovery.distance * 4, note }];
+      }
+    }
+    // No ordinal: a recovered STEM expands to its whole family, exactly as a clean
+    // stem does, so "corintians thirteen four" offers both rather than picking one.
+    const expanded = recovery.isStem ? numberedSiblings(recovery.target.toLowerCase()) : [recovery.target];
+    return expanded.map((name, index) => ({
+      name,
+      // Distance first, then sibling order — a one-edit recovery of the right
+      // family beats a two-edit recovery of a different book.
+      penalty: 8 + recovery.distance * 4 + index * 2,
+      note: recovery.isStem ? `${note}, "${name.slice(0, 1)}" was not spoken` : note
+    }));
+  });
+
+  return { names, usedOrdinal };
 }
 
 interface BookMatch {
@@ -374,6 +428,34 @@ function numberFollows(tokens: string[], from: number): boolean {
   return false;
 }
 
+/**
+ * The mirror of `numberFollows`, for the chapter spoken BEFORE its book — "the
+ * third chapter of Romans", which is ordinary formal phrasing and which
+ * `resolveSpan` already reads by scanning backwards.
+ *
+ * It exists because the unanchored fallback needed a discriminator and had none.
+ * `parseSpokenReference` falls back to picking a book when nothing is followed by
+ * numbers, and that fallback then RESOLVED — so a sentence merely containing a
+ * number somewhere produced a reference from an ordinary English word. Found on
+ * the held-out corpus: "my mark on the paper was three out of ten" produced
+ * **Mark 3**, and "the numbers were down by twelve percent" produced **Numbers 12**.
+ * Both are the confident-wrong-book failure Stage 5 was about, reached by a
+ * different route than the alias table.
+ *
+ * A book with numbers on neither side is not a reference, whatever else the
+ * sentence contains.
+ */
+function numberPrecedes(tokens: string[], before: number): boolean {
+  for (let i = before - 1; i >= 0; i -= 1) {
+    const token = tokens[i];
+    if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
+    // Read at this position rather than testing the bare token, so multi-word
+    // numbers ("twenty eight") are recognised from their first word.
+    return Boolean(readNumber(tokens, i, 0)) || ORDINALS[token] !== undefined;
+  }
+  return false;
+}
+
 
 /** Every book phrase in the utterance, longest span first at each position. */
 function collectBookMatches(tokens: string[]): BookMatch[] {
@@ -383,8 +465,6 @@ function collectBookMatches(tokens: string[]): BookMatch[] {
       const phrase = tokens.slice(at, at + span).join(' ');
       const hit = readBook(tokens, at, span);
       const siblings = numberedSiblings(phrase);
-      if (!hit && !siblings.length) continue;
-
       /**
        * The ordinal usually sits immediately before the book — "first John". But
        * "the first book of Kings" is also ordinary formal phrasing, and there the
@@ -395,6 +475,10 @@ function collectBookMatches(tokens: string[]): BookMatch[] {
        * Only the exact `<ordinal> book of` shape is skipped over. Skipping filler
        * generally would swallow "chapter three of John" and turn it into 3 John.
        */
+      const eligibleForRecovery =
+        !hit && !siblings.length && span === 1 && numberFollows(tokens, at + span);
+      if (!hit && !siblings.length && !eligibleForRecovery) continue;
+
       let ordinalAt = at - 1;
       if (tokens[at - 1] === 'of' && tokens[at - 2] === 'book') ordinalAt = at - 3;
       const previous = ordinalAt >= 0 ? tokens[ordinalAt] : undefined;
@@ -412,10 +496,31 @@ function collectBookMatches(tokens: string[]): BookMatch[] {
         }
       }
 
+      /**
+       * Recovery is attempted only for a SINGLE token that nothing matched, and
+       * only where numbers follow it. Both guards matter: multi-token spans are
+       * where ordinary phrases live, and without the number requirement any noun
+       * near a book name would become scripture. It runs after the ordinal is
+       * known, because the ordinal selects which sibling a recovered family means.
+       */
+      const recovery = eligibleForRecovery
+        ? recoveredNames(phrase, ordinal)
+        : { names: [], usedOrdinal: false };
+      const recovered = recovery.names;
+      if (!hit && !siblings.length && !recovered.length) continue;
+
       if (hit) {
         // A phrase that is a book in its own right is taken at its word rather
         // than expanded into its numbered siblings.
         found.push({ at, used: span, names: [{ name: hit, penalty: 0, note: '' }] });
+      } else if (recovered.length) {
+        // When the ordinal was consumed the span starts at the ordinal, so the
+        // locator does not later read "third" as a chapter number.
+        found.push(
+          recovery.usedOrdinal
+            ? { at: ordinalAt, used: span + (at - ordinalAt), names: recovered }
+            : { at, used: span, names: recovered }
+        );
       } else {
         // A bare stem that is NOT a book is genuinely ambiguous; offer the family.
         found.push({
@@ -834,7 +939,21 @@ export function parseSpokenReference(transcript: string): SpokenParseResult {
     return fail('no-book', `Couldn't find a Bible book in "${transcript.trim()}".`);
   }
   const anchored = all.filter((m) => numberFollows(tokens, m.at + m.used));
-  const spans = anchored.length ? anchored : [pickFallbackBook(all)!];
+  /**
+   * Nothing is followed by numbers. A book may still be a reference if its chapter
+   * was spoken BEFORE it — "the third chapter of Romans" — and `resolveSpan` reads
+   * that by scanning backwards. But a book with numbers on neither side is not a
+   * reference, and resolving one anyway is how "my mark on the paper was three out
+   * of ten" became Mark 3.
+   */
+  const fallback = anchored.length ? null : pickFallbackBook(all);
+  if (fallback && !numberPrecedes(tokens, fallback.at)) {
+    return fail(
+      'no-numbers',
+      `Heard "${fallback.names[0].name}" but no chapter or verse — say the chapter, or type the reference.`
+    );
+  }
+  const spans = anchored.length ? anchored : [fallback!];
 
   /**
    * ONE boundary per gap, used by both directions.
