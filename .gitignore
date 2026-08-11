@@ -21,6 +21,15 @@ reference-samples/
 # local verification scratch — screenshots, probe output, throwaway scripts
 scratchpad/
 
+# ASR benchmark byproducts. The harness in scripts/asr-benchmark IS committed; what
+# it produces never is — model weights, evaluation audio, and recognised transcripts.
+# A verbatim transcript of a sermon carries the same content as the recording and the
+# same obligations (docs/ASR_EVALUATION.md §7), so it is ignored here too.
+__pycache__/
+*.pyc
+*.wav
+*.safetensors
+
 # env
 .env
 .env.local

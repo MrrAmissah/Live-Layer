@@ -1,10 +1,25 @@
 # Speech recognition: evaluation, and what would have to be true
 
-**Status: evaluation only. No provider has been selected, no model is installed, and
-nothing in LiveLayer captures audio.** This document records what the candidate
-model actually claims, what our own harness measures, the architecture a live
-recogniser would have to fit behind, and the benchmark that has to be *run* before
-any of it is switched on.
+**Status: evaluation complete, and the answer is no — for now.** The Apple Silicon
+benchmark has been run (§5) and **Gate A is not cleared** (§6). Nothing in LiveLayer
+captures audio, no provider is selected, and `LiveTranscriptSource` is still
+unimplemented.
+
+The candidate model *has* now been downloaded and run — locally, on the production
+Mac, into a cache outside this repository. No weights, no audio and no transcripts
+are committed; the harness that produced the numbers is, at
+`scripts/asr-benchmark/`.
+
+The short version: **the machine is roughly 20× faster than it needs to be, and the
+recognition is not accurate enough to build an operator-assist on.** On the most
+favourable audio available — a synthetic voice reading in a silent room — the
+assistant is fully correct for about a third of utterances and offers a confidently
+wrong passage for about another third. That is a substantive failure of Gate A's
+usefulness bar, not merely an absence of evidence.
+
+This document records what the candidate model claims, what our own harness
+measures, the architecture a live recogniser would have to fit behind, what the
+benchmark actually found, and what would have to change.
 
 It is one document on purpose. Speech is the easiest place in this project to
 accumulate confident planning prose about software that does not exist.
@@ -63,7 +78,13 @@ ordinary suite with no audio and no model.
 
 ---
 
-## 2. What we measured (today, no model)
+## 2. What the parser does with transcripts (no model)
+
+> This section predates the benchmark and measures the **parser alone**, against
+> transcripts corrupted by a synthetic model of ASR error. §5 later ran the same
+> corpus through a real recogniser, and the two disagree about *which words break* —
+> see §5.3. The disagreement is the most useful thing in this document, so both are
+> kept.
 
 A 53-utterance corpus of how references are spoken from a pulpit — complete
 references, Ghanaian-English and Twi/Ga code-switched framing, quoted numbers
@@ -144,6 +165,15 @@ real recognition of real audio over that model's own test material. They share a
 and are not interchangeable, and the DONDO paper itself warns that its in-domain
 figures should not be read as guarantees for other speech domains.
 
+**And it got the failure mode wrong**, which §5.3 only discovered by running a real
+model. The corruption model above concentrates on **number words**, because that is
+what an English confusion dictionary corrupts — `eight` → `ate`. Real CTC output
+corrupts **proper nouns**: `John` → `jon`, which resolves to Jonah. The conclusion
+that a handful of errors is enough to produce a wrong leading passage survived
+contact with the real recogniser. The account of *which* errors did not. A synthetic
+error model can only contain the failures its author thought of, and this one is kept
+here as a worked example of that limit rather than deleted.
+
 ### The conclusion
 
 > **Published WER alone cannot justify unattended acceptance.** Synthetic corruption
@@ -154,6 +184,12 @@ figures should not be read as guarantees for other speech domains.
 
 This is why operator review is a requirement rather than a refinement, and it is the
 product decision the rest of this document is built on.
+
+**§5 has since measured DONDO on synthetic audio and this held up, harder than
+expected.** The checkpoint's published English WER is 16.9%; measured here it was
+21–29%, and the reference-outcome numbers were far worse than either figure suggests
+— about a third of utterances produced a wrong leading passage. Real church audio is
+still unmeasured (§7), so the sentence above stands as written.
 
 ---
 
@@ -320,40 +356,314 @@ interface.
 
 ---
 
-## 5. The benchmark that has to be run
+## 5. The benchmark — run 2026-08-11
 
-**No performance claim will be made until this has been executed and the numbers
-written into this section.** There is currently no published latency figure for DONDO
-on any hardware, and none for Apple Silicon in particular.
+**Status: executed.** The machine is fast enough and the recognition is not accurate
+enough. Those are separate findings and the rest of this section keeps them apart,
+because conflating them is how a project ships a feature on the strength of the
+number that happened to be good.
 
-Target machine: the production Mac (Apple Silicon), running OBS, LiveLayer and the
-recogniser **at the same time** — a number measured on an idle machine is not the
-number that matters.
+Harness: `scripts/asr-benchmark/`. Weights live outside the repository and no audio or
+transcript is committed. `model.safetensors` SHA-256, per §4's checksum rule:
 
-Measure, per candidate checkpoint (`w2v-bert-en` first, then
-`w2v-bert-ada_ewe_fat_fra_gaa_nzi_twi_en`):
+- `w2v-bert-en` — `88607df25ea73d475066b2f82025d8598d2f97ff9d29cfcf22b41c08eac0b9f2`
+- `w2v-bert-ada_ewe_fat_fra_gaa_nzi_twi_en` — `44b545d0b7779c63b3624c15e594190cbfd67adf28a57ec7118d6480eea41e3e`
 
-1. **Real-time factor** — audio seconds processed per wall-clock second, on 10s, 30s
-   and 120s clips. RTF < 1 is the bare minimum for streaming; the useful threshold is
-   well below that, because OBS needs the machine too.
-2. **Latency to final** — from end of utterance to the settled transcript. This is what
-   the operator feels. A reference that arrives after the preacher has moved on is
-   useless however accurate it is.
-3. **Backend comparison** — CPU vs Metal/MPS vs CoreML, and quantised vs F32. Record
-   what was actually tried, including what failed to run.
-4. **Memory footprint** and whether it forces swap while OBS is encoding.
-5. **Thermal behaviour** over a 90-minute run, which is the length of a service. A
-   figure from a 30-second test is not a service.
-6. **Effect on OBS** — dropped frames and encoding lag with and without the recogniser
-   running. If graphics stutter, the feature is not viable at any accuracy.
+| | |
+| --- | --- |
+| Machine | Apple M1 Pro, 8 cores, **16 GB**, macOS 26.2 |
+| Software | Python 3.12.13 (arm64), torch 2.13.0, transformers 5.15.0 |
+| Concurrent load | OBS 32.2.1 on scene `PPC · Live` at 1080p30 with the LiveLayer Browser Source rendering, plus the LiveLayer server and LAN relay |
+| Checkpoints | `KhayaAI/w2v-bert-en` (0.6B, F32) — the subject of §5.1–§5.2; and `KhayaAI/w2v-bert-ada_ewe_fat_fra_gaa_nzi_twi_en`, measured in §5.3 |
 
-Then re-run §2's corpus against the real transcripts to get the true reference-outcome
-numbers, replacing the synthetic curve.
+The interpreter matters and is recorded on purpose: this machine also carries an
+x86_64 Homebrew Python at `/usr/local/bin/python3`. Measuring under Rosetta would
+have produced a plausible real-time factor with no Metal at all.
 
-**Stop conditions for live capture in any form.** If RTF ≥ 1 on the production
-machine, or OBS drops frames, or latency to final is longer than the preacher stays on
-the verse, live capture does not ship. The typed transcript path stays and remains
-useful.
+### 5.1 Real-time factor, backends and memory
+
+`chunk` is the window fed to the model in one forward pass. Peak RSS is the peak of
+the process that did the work — each measurement ran in its own subprocess so one
+figure cannot hide behind another's.
+
+| backend | clip | chunk | audio s | median RTF | worst RTF | peak RSS |
+| --- | --- | --- | --- | --- | --- | --- |
+| **mps/f32** | 10s | single shot | 12.7 | **0.038** | 0.038 | 458 MB |
+| **mps/f32** | 30s | single shot | 32.2 | **0.052** | 0.054 | 381 MB |
+| **mps/f32** | 30s | 15s | 32.2 | 0.037 | 0.038 | 454 MB |
+| **mps/f32** | 120s | single shot | 120.3 | **aborted (SIGABRT)** | — | — |
+| **mps/f32** | 120s | 30s | 120.3 | 0.047 | 0.048 | 501 MB |
+| **mps/f32** | 120s | 15s | 120.3 | **0.037** | 0.037 | 490 MB |
+| mps/f16 | 30s | single shot | 32.2 | 0.044 | 0.044 | 3782 MB |
+| mps/f16 | 120s | single shot | 120.3 | **failed (exit 1)** | — | — |
+| mps/f16 | 120s | 15s | 120.3 | 0.034 | 0.035 | 3782 MB |
+| cpu/f32 | 10s | single shot | 12.7 | 0.185 | 0.215 | 2939 MB |
+| cpu/f32 | 30s | single shot | 32.2 | 0.221 | 0.321 | 4301 MB |
+| cpu/f32 | 120s | single shot | 120.3 | **terminated at 18 min, RTF ≥ 1.5** † | — | 3000 MB at 18 min |
+| cpu/f32 | 120s | 30s | 120.3 | 0.234 | 0.236 | 4089 MB |
+
+† **That row is a bound I stopped, not a crash.** The run was killed by hand after
+18 minutes because it was consuming the time budget, so no completed figure exists.
+The bound is still sound: warm-up plus 5 repeats is at most 6 × 120.3 s = 722 s of
+audio, and 1110 s of wall clock had elapsed without finishing, so RTF ≥ 1110 ÷ 722 ≈
+1.54. Slower than real time either way, which is all the stop condition needs.
+
+**Metal is the backend.** MPS float32 runs at RTF 0.037–0.052 — roughly 20–27× faster
+than real time — in under 500 MB, while CPU is 5–8× slower and needs 3–4 GB.
+
+**Float16 is not worth taking.** It is marginally faster and costs 3.8 GB against
+float32's 0.5 GB. The gap is a loading artefact rather than a model-size effect:
+float32 weights are memory-mapped from `safetensors` and paged in lazily, while
+casting to float16 materialises them. Either way the measured footprint is what the
+machine pays, and float32 pays less.
+
+**CoreML was not attempted.** `Wav2Vec2BertForCTC` has no CoreML conversion path in
+this stack and building one is a project rather than a benchmark step. Recorded as
+not tried, per this section's own rule, rather than reported as unavailable.
+
+**A 120-second window cannot be processed in one pass on this machine, on any
+backend.** Self-attention is quadratic in sequence length: MPS aborted, float16
+errored, and CPU was still running after 18 minutes having processed at most 720
+seconds of audio — an RTF of at least 1.5, slower than real time. Cost per audio
+second is therefore *not* constant, and an RTF measured at 30 seconds does not
+predict 120. Any deployment must chunk.
+
+### 5.2 Latency to final — the number that actually constrains this
+
+Real-time factor is not latency, and quoting the first as the second would be a false
+claim. w2v-BERT + CTC is **not a streaming architecture**: it encodes a complete
+window, so what the operator waits for is the window, not the model.
+
+| approach | model time per window | **worst-case latency to final** | why |
+| --- | --- | --- | --- |
+| 15s chunks | ≈ 0.55 s | **≈ 15.6 s** | an utterance ending just after a boundary waits out the whole next window |
+| 30s chunks | ≈ 1.40 s | **≈ 31.4 s** | as above |
+| utterance-sized | 0.13 s | 0.13 s **+ endpointing delay** | needs voice-activity detection, which is **not built** |
+
+Per-window figures are derived from the 120 s clip, which divides into whole windows
+(4.407 s total over ~8 windows of 15 s; 5.625 s over ~4 windows of 30 s). The 30 s
+clip would understate them, because its trailing window is a 2-second stub that costs
+almost nothing.
+
+Per-utterance inference on the 53 real utterances (median 2.45 s of audio) was a
+median of **0.132 s**, p95 0.265 s, max 0.364 s on mps/float32.
+
+So the model is fast and the *pipeline* is slow, and closing that gap is a
+voice-activity-detection problem rather than a faster-model problem. Against §5's own
+stop condition — "latency to final is longer than the preacher stays on the verse" —
+a 15-second wait is at best marginal and 30 seconds plainly fails. Nothing here
+measured VAD, so no claim is made about what it would achieve.
+
+### 5.3 Accuracy: real recognition, and what it is worth
+
+The audio is **synthetic**: macOS `say` reading §2's 53 hand-written utterances at
+16 kHz in a silent room (`scripts/asr-benchmark/make-audio.mjs`). No person was
+recorded, so §7's consent rules are not engaged — and neither is its evidence
+requirement met. Read speech with clean articulation and no room is close to the
+read-religious-text domain DONDO was trained on.
+
+Three voices, to separate the recogniser's behaviour from one voice's quirks. Scored
+through the **same** `scoreCorpus` the test suite runs (`scripts/asr-benchmark/score-transcripts.mjs`),
+with expectations re-read from `serviceCorpus.ts` so a recogniser is never scored
+against expectations that travelled with it.
+
+| voice | locale | WER | correct | exact | refused | **misleading-top** |
+| --- | --- | --- | --- | --- | --- | --- |
+| Tessa | en_ZA | **21.0%** | 20/53 (37.7%) | 10 | 25 | **18 (34.0%)** |
+| Daniel | en_GB | 24.7% | 19/53 (35.9%) | 10 | 26 | **17 (32.1%)** |
+| Samantha | en_US | 29.3% | 16/53 (30.2%) | 7 | 28 | **16 (30.2%)** |
+| *(clean transcripts, no audio)* | — | 0% | 53/53 | 42 | 11 | 0 |
+
+Per group, on the best voice (Tessa):
+
+| group | correct | misleading-top |
+| --- | --- | --- |
+| Complete references | 5/18 | 3 |
+| Code-switched framing | 3/7 | 2 |
+| Quoted / narrative numbers | 7/11 | 3 |
+| **Multiple references** | **0/10** | **8** |
+| Ambiguous families | 1/2 | 1 |
+| Should refuse | 4/5 | 1 |
+
+**The dominant failure is a mangled book name that is still a real book.** "John"
+comes back as `jon`, and the parser resolves `jon three sixteen` to **Jonah 3:16** —
+an existing passage, offered first, for an utterance that named John. `Psalm` → `salm`
+and `Luke` → `luoke` fail differently and more safely: they match nothing and the
+parser refuses.
+
+And `jon` is not a near-miss the parser fumbled. It is an **exact, deliberate
+alias**: `bibleBooks.ts` lists `aliases: ['jon', 'jnh']` for Jonah, and the spoken
+parser matches against that same table. There is no fuzzy matching anywhere in
+`spokenReference.ts` — the parser did precisely what it was told.
+
+That is the actual defect, and it is ours rather than DONDO's. **The alias set that is
+right for typed input is wrong for spoken input.** Someone typing `jon` means Jonah;
+nobody *says* "jon", so in a transcript that string is overwhelmingly a mis-heard
+"John". The written abbreviations — `jon`, `jnh`, `jn`, `jhn` — are noise on the
+spoken path and a live trap.
+
+`spokenReference.ts` already carries a defence against a *neighbouring* hazard: its
+`numberFollows` check exists because `is` is an alias of Isaiah and turned "This **is**
+John chapter three verse sixteen" into Isaiah 3:16. That defence does not help here,
+because "jon three sixteen" **is** followed by numbers — it is shaped exactly like a
+genuine reference. The existing guard catches an alias that is an ordinary word in
+running text; this is an alias that is a homophone of another book.
+
+This is **not** the failure profile §2's synthetic curve predicted. That model
+corrupted number words, because those are what an English confusion dictionary
+corrupts. Real CTC output on this material corrupts **proper nouns**, and a
+near-miss between two real book names is the one error the parser cannot detect —
+`Jonah` is a perfectly good reading of `jon`.
+
+Multiple references collapse completely: **0/10 across all three voices.**
+
+**Top-k recall equals top-1 exactly, and that closes off the obvious mitigation.**
+Gate A asks for both. Of the utterances that name a passage, the share where every
+named passage is *reachable anywhere in the candidate list* is 23.8% (Tessa and
+Daniel) and 16.7% (Samantha) — identical, to the case, with the top-1 rate. The
+`offered` outcome, meaning the right passage was present but not leading, occurred
+**zero times in every run**.
+
+So the correct passage is never merely mis-ranked: it is either leading or it is not
+there at all. Widening the candidate list, or letting the operator scroll further,
+recovers nothing. This is a consequence of *how* the recogniser fails — a mangled
+book name resolves to a different book or to none, and neither path leaves the true
+reading somewhere further down the list.
+
+Degrading the best voice (additive noise plus a crude 0.35 s synthetic room):
+
+| condition | WER | correct | refused | misleading-top |
+| --- | --- | --- | --- | --- |
+| clean | 21.0% | 20/53 | 25 | 18 (34.0%) |
+| 20 dB SNR + reverb | 31.1% | 18/53 | 32 | 14 (26.4%) |
+| 10 dB SNR + reverb | 50.5% | 13/53 | 39 | 9 (17.0%) |
+
+Degradation **does** fail toward refusal — as audio worsens, the parser matches less
+and refuses more, which is the safe direction. The danger zone is not the worst
+audio; it is *good* audio in which a book name is subtly wrong. But usefulness
+collapses along the way: at 10 dB the assistant is right about a quarter of the time.
+
+#### The multilingual checkpoint, and why its zero is not a good score
+
+§5 names two checkpoints, so `w2v-bert-ada_ewe_fat_fra_gaa_nzi_twi_en` was measured
+too, on the same audio, with the `African English` language prefix built exactly as
+the model card specifies (prefix id **6** from the card's *global* map — not the
+model's own position in its language list).
+
+Speed is the same: RTF 0.045–0.047 on mps/float32, 486 MB, and the same 120 s
+single-shot failure. Accuracy is not:
+
+| checkpoint | WER | correct | exact | refused | misleading-top |
+| --- | --- | --- | --- | --- | --- |
+| `w2v-bert-en` | 21.0% | 20/53 | 10 | 25 | 18 |
+| `…gaa_nzi_twi_en` + prefix | **81.7%** | 11/53 | **0** | **53** | **0** |
+
+**Its zero misleading-top is the harness's own warning case, not a result.** The
+transcripts are so degraded that the parser matches nothing and refuses all 53
+utterances; the 11 "correct" are exactly the 11 that were supposed to resolve nothing.
+A recogniser that resolves *nothing* scores a perfect misleading-top rate, which is
+precisely why `correct` and `misleadingTop` must be read together and why
+`referenceOutcome.ts` reports both.
+
+**Reported with low confidence, and it carries none of the conclusion.** 81.7% is far
+worse than the card's own 27.4% for English on this checkpoint. A no-prefix control
+was similarly bad, so the prefix is not obviously the culprit — but the card's
+`add_language_prefix` is crude by its own admission (a one-hot dropped into feature
+bin `lang_id % 160`, one frame ahead of hundreds), and it is entirely possible the
+scheme needs something the card does not document. Either way the English monolingual
+checkpoint is the one §3 predicted would suit reference recognition and the one the
+Gate A verdict rests on; nothing above depends on this table.
+
+### 5.4 Ninety minutes beside OBS
+
+A service is 90 minutes, so the run is 90 minutes. Three windows, because "did the
+recogniser cost anything" is a comparison and not a reading: **baseline** (OBS
+recording, no recogniser), **soak** (recogniser transcribing continuously), and
+**recovery** (recogniser stopped). OBS was loaded with a **local recording** — never a
+stream; the file it created was deleted at the end. Frame counters are deltas across
+each window, since OBS's own totals run since launch.
+
+947 iterations, 5403 s, mps/float32, 120 s clip in 30 s chunks.
+
+| window | duration | median frame render | render-skipped | output-skipped | median CPU |
+| --- | --- | --- | --- | --- | --- |
+| baseline | 285 s | 4.19 ms | 70 / 8 565 (0.82%) | 0 / 8 565 (0%) | 10.3% |
+| **soak** | 5 411 s | **6.43 ms** | 52 / 162 334 (0.03%) | 173 / 162 334 (0.11%) | 11.0% |
+| recovery | 165 s | 4.60 ms | 0 / 4 963 (0%) | 10 / 4 963 (0.20%) | 10.3% |
+
+**Thermal: no meaningful throttling.** Median real-time factor drifted from 0.0467
+over the first tenth of the run to 0.0482 over the last — **+3.2%** — with a worst
+single iteration of 0.056. `powermetrics` needs root so no die temperature was
+sampled; this is the observable that decides the question, and a machine 20× faster
+than real time losing 3% over an hour and a half is not throttling into trouble.
+
+**Memory: flat.** The recogniser's resident set was **344.5 MB at iteration 1 and
+344.5 MB at iteration 947** — no leak over 90 minutes. System-wide swap use rose by
+about 2 GB across the run, but the recogniser's own footprint did not grow, so that
+is not attributable to it and is not claimed as such.
+
+**Effect on OBS: a real cost in render time, and no sustained frame loss.** Median
+frame render time rose from 4.19 ms to 6.43 ms — about **+53%** — and returned to
+4.60 ms once the recogniser stopped. That is clean, reversible and clearly caused:
+the recogniser and the compositor share one GPU. At 1080p30 the frame budget is
+33.3 ms, so 6.43 ms is still comfortable.
+
+**The dropped-frame numbers do not support a simple story, and are reported rather
+than tidied.** They are *episodic bursts*, not a steady rate: the baseline's 70
+render-skips arrived in a single step three minutes in, the soak's 173 output-skips
+accumulated in bursts and then stayed flat for the last twenty minutes, and recovery
+— with no recogniser at all — dropped 10 more at the highest per-frame rate of the
+three windows. Render-skipping was **worse in the baseline** than during the soak.
+Nothing here scales with the recogniser being on, so the honest conclusion is that
+frame drops on this rig are dominated by something else and the recogniser's
+contribution, if any, is below what this run can resolve.
+
+**One observation that points the other way, and is not explained.** During the
+earlier backend sweep (§5.1) OBS accumulated **1 022 skipped render frames**, far more
+than anything in this soak. That sweep ran configurations this soak did not — CPU
+float32 at 3–4 GB and float16 at 3.8 GB — and also included a Browser Source refresh,
+so memory pressure is the plausible cause. **That is a guess and was not verified.**
+It is recorded because a reader who saw only the soak table would conclude the
+recogniser is free of frame cost, and the 1 022 is evidence that some configurations
+are not.
+
+### 5.5 What this establishes, and what it does not
+
+**Establishes.** On this machine DONDO's English checkpoint is comfortably fast
+enough — RTF 0.037–0.052, under 500 MB, Metal — and holds that over a full 90-minute
+service with 3.2% drift, no memory growth, and no sustained effect on OBS beyond a
++53% frame-render cost the compositor absorbs easily. **None of §5's performance stop
+conditions is what blocks this feature.** It also establishes that the *pipeline*, not
+the model, is the latency problem, and that any deployment must chunk.
+
+**Establishes about accuracy: a measurement under favourable acoustics — not a
+bound.** On synthetic read speech in a silent room the assistant offers a wrong
+leading passage for about **a third** of utterances and is fully correct for about
+**a third**. Three voices agree within a few points, and the closest available locale
+to African English (en_ZA) is the *best* of them, so this is not one voice's accent.
+
+It is tempting to call that an upper bound on real-world performance, and it is not
+one. The acoustics here are far better than a sanctuary, which flatters the result;
+but the *voices* are synthetic and none is Ghanaian, and DONDO's English was trained
+on African English, which may well penalise it. Those two push in opposite
+directions and this run cannot weigh them. So: a measurement taken under known
+conditions, with the direction of its error unknown.
+
+**Does not establish the number Gate A asks for.** This is synthetic speech, not a
+service: no PA system, no congregation, no spontaneous or genuinely code-switched
+delivery, no Ghanaian speaker, and no preacher moving relative to a microphone.
+
+What makes the result decisive anyway is its *distance* from the bar. Gate A asks
+whether the assistant saves the operator time. At roughly one utterance in three
+correct and one in three confidently wrong — and none of ten multi-reference
+utterances right — it is not near the line from either side. Real audio would have to
+move the number a very long way, in the favourable direction, for the answer to
+change.
+
+**Does not establish anything about a fine-tuned model.** Everything here is the
+base checkpoint. The paper's own position is that these models "may underperform on
+spontaneous, code-switched or noisy speech **until fine-tuned**", and nothing in this
+run tested that claim.
 
 ---
 
@@ -386,6 +696,68 @@ May be considered when **all** of these hold:
 
 Note what is *not* on this list: a zero misleading-top rate. Under review, that number
 is a cost to keep low and visible, not a veto.
+
+### Gate A adjudication — 2026-08-11: **NOT CLEARED**
+
+Against the §5 run. Two criteria fail on evidence that was actually measured; two
+more have no evidence and cannot be given any by this harness.
+
+| # | Criterion | Verdict |
+| --- | --- | --- |
+| 1 | Nothing stages, queues or airs automatically; accept is a press and Take a second | **Met** — shipped in #26. `voiceAssist.ts` has no transition to the draft except `accept`, and the Scripture workspace has no Take at all. |
+| 2 | Candidates show alternatives *and the reasoning for each reading* | **Met** — `VoiceAssistPreview` renders each candidate's canonical alongside its `interpretation`. |
+| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | **Fails.** No real-audio number exists. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. An assistant right about a third of the time and confidently wrong about a third costs the operator time. That is not near the bar from either side, and §5.5 explains why the missing Ghanaian accent is not a reason to expect the gap to close. |
+| 4 | Misleading-top on **real audio** measured and reported | **No evidence.** Measured on synthetic speech only (§5.3). Cannot be synthesised. |
+| 5 | Latency to final short enough to be useful during a service | **Fails.** ≈15.6 s at 15 s chunks, ≈31.4 s at 30 s. The model is not the bottleneck; the buffering window is, and the endpointing that would fix it is not built. |
+| 6 | Operator testing shows wrong candidates are *reliably noticed* at review | **No evidence.** Not tested. This is the control the whole gate depends on, and §6 already says it has to be tested rather than asserted. |
+| 7 | Typing remains immediately available and never worse | **Met** — the typed path is untouched and remains the only path. |
+
+**Criterion 3 is the one that matters, and it is a substantive failure, not a gap.**
+It would be convenient to file this entire result under "we lack real church audio",
+because that is true of criteria 4 and 6 and it leaves the door open. It is not true
+of 3. The measurement that exists was taken in far better acoustic conditions than a
+sanctuary, and it still lands a long way below "saves time" — with the
+multi-reference group at zero. Real audio is the missing evidence for 4 and 6; it is
+not a plausible rescue for 3.
+
+Criterion 5 fails independently of all of that, and would still fail if recognition
+were perfect.
+
+**So live capture is not built, and this is the §5 stop.** Not because the machine is
+too slow — it is 20× faster than it needs to be — but because the transcripts are not
+good enough to build an assistant on, and the pipeline that would deliver them is
+15 seconds late. `LiveTranscriptSource` remains unimplemented, deliberately.
+
+### What would change this verdict
+
+In rough order of leverage, and none of it is in scope here:
+
+1. **Give the spoken path its own alias set** — the cheapest by a wide margin, and
+   the only one whose defect is already proven. Written abbreviations (`jon`, `jnh`,
+   `jn`, `jhn`, `is`, `am`) should not be matchable in a transcript, because they are
+   spellings rather than pronunciations. This is a change to *our* parser, needs no
+   model, and can be evaluated today against transcripts already captured. It does
+   not fix mishearings that land on a genuinely different spoken book name, so it
+   shrinks the misleading-top count rather than eliminating it.
+2. **Fine-tuning on Ghanaian church speech.** The paper's own limitations section says
+   these base models "may underperform on spontaneous, code-switched or noisy speech
+   until fine-tuned". Untested, and the largest single unknown.
+3. **Constraining the decoder toward the book list** — CTC beam search biased toward
+   the 66 canonical names, or a phonetic match with a confidence floor. Attacks the
+   same error class as (1) but upstream, at the point where `John` became `jon`.
+4. **Voice-activity detection**, to replace fixed windows and collapse latency from
+   15 s toward the model's own 0.13 s.
+5. **Then, and only then, real consented church audio** (§7) and the operator-review
+   test of criterion 6.
+
+Items 1, 3 and 4 are ordinary engineering against evidence already in hand. Item 5 is
+the one that needs people, consent and a service.
+
+**None of this is scheduled, and none of it is a promise.** The honest reading of the
+numbers is that (1) and (3) together might move the misleading-top rate meaningfully
+while leaving the multi-reference collapse (0/10) untouched — and that is the group
+that most needs to work, because it is where an operator is least able to notice a
+substitution.
 
 ### Gate B — automatic acceptance, staging or Take
 
@@ -434,15 +806,20 @@ consent and dignity, not just data handling.
 | Reference parsing from a transcript | **Shipped** (PR #18, #26) |
 | Operator review before anything airs | **Shipped** (PR #26) |
 | Provider-neutral transcript port | **Shipped** (PR #26) |
-| Evaluation harness and metrics | **Shipped** (this PR) |
+| Evaluation harness and metrics | **Shipped** (PR #27) |
 | DONDO audit against official sources | **Done** (this document) |
 | Release gates for reviewed vs unattended | **Defined** (§6) |
-| Microphone capture | **Not built.** Deliberately. |
+| Benchmark harness | **Shipped** (`scripts/asr-benchmark/`) |
+| Apple Silicon benchmark | **Run 2026-08-11.** Results in §5. |
+| Machine fast enough? | **Yes** — RTF 0.037 on Metal, peak RSS under 500 MB. |
+| Recognition accurate enough? | **No** — ~32% misleading-top on favourable synthetic audio; 0/10 on multiple references. |
+| Gate A | **Not cleared** (§6). Criteria 3 and 5 fail on measured evidence; 4 and 6 have none. |
+| Microphone capture | **Not built.** Deliberately, and now with a measured reason. |
 | A selected provider | **Not chosen.** |
-| Apple Silicon benchmark | **Not run.** §5 is a plan, not a result. |
+| Gate B (automatic acceptance / Take) | **Out of scope**, unchanged. |
 
 `docs/OBS_SETUP.md` will gain a speech section when there is a runnable service to set
-up, and not before.
+up, and not before. On this evidence, that is not soon.
 
 ## Sources
 

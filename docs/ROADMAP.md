@@ -81,12 +81,23 @@ local presets, rundowns, and selected-rundown import/export. See
 
 ## Later — production scale
 
-- **Operator-reviewed live speech assist — evaluation stage only.** No provider is
-  selected and nothing captures audio. DONDO (Apache-2.0, 27 African language
-  varieties) is the leading candidate on licence and coverage grounds; the transcript
-  port it would plug into already ships. Before any live capture: run the Apple
-  Silicon benchmark, measure reference outcomes on real church audio, and clear
-  Gate A in [ASR_EVALUATION.md](ASR_EVALUATION.md).
+- **Operator-reviewed live speech assist — evaluated, and not proceeding.** The Apple
+  Silicon benchmark was **run on 2026-08-11** and **Gate A was not cleared**
+  ([ASR_EVALUATION.md](ASR_EVALUATION.md) §5–§6). The machine is not the problem:
+  DONDO's English checkpoint runs at real-time factor 0.037 on Metal in under 500 MB.
+  The recognition is. On synthetic read speech in a silent room — conditions more
+  favourable than any service — it offers a confidently wrong leading passage for
+  about a third of utterances, is fully correct for about a third, and gets 0 of 10
+  multi-reference utterances right. The typical failure is a book name misheard as a
+  *different real book* (`John` → `jon` → **Jonah 3:16**), which the parser cannot
+  detect. Latency is a further blocker: the model is not streaming, so fixed windows
+  put "latency to final" at 15–30 s.
+  Nothing captures audio, no provider is selected, and `LiveTranscriptSource` stays
+  unimplemented. The benchmark harness ships at `scripts/asr-benchmark/`; no weights,
+  audio or transcripts are committed.
+  Cheapest next moves, both testable against evidence already captured: bias the
+  decoder toward the 66 book names, and add voice-activity detection to replace fixed
+  windows. Real consented church audio and the operator-review test come after those.
 - **Automatic acceptance or automatic Take — out of scope.** Distinct from the above
   and not a later phase of it. A finite corpus with no observed errors would not
   establish that auto-airing scripture is safe; it needs a different argument
