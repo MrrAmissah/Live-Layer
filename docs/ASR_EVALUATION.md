@@ -783,7 +783,7 @@ measurement, and Gate A requires **all** criteria to hold.
 | --- | --- | --- |
 | 1 | Nothing stages, queues or airs automatically; accept is a press and Take a second | **Met** — shipped in #26. `voiceAssist.ts` has no transition to the draft except `accept`, and the Scripture workspace has no Take at all. |
 | 2 | Candidates show alternatives *and the reasoning for each reading* | **Met** — `VoiceAssistPreview` renders each candidate's canonical alongside its `interpretation`. |
-| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | **Not established — strongly adverse preliminary evidence.** Real church audio remains unmeasured, so the criterion as written has no result. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. On evidence that adverse there is no justification for proceeding to the live-assist product phase and the real-audio validation it would require. That is an evidence-based stop decision, not a claim that the real-audio metric was measured. |
+| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | *(Stage 5, superseded — see the re-adjudication above.)* **Not established — strongly adverse preliminary evidence.** Real church audio remains unmeasured, so the criterion as written has no result. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. On evidence that adverse there is no justification for proceeding to the live-assist product phase and the real-audio validation it would require. That is an evidence-based stop decision, not a claim that the real-audio metric was measured. |
 | 4 | Misleading-top on **real audio** measured and reported | **No evidence.** Measured on synthetic speech only (§5.3). Cannot be synthesised. |
 | 5 | Latency to final short enough to be useful during a service | **Fails.** ≈15.6 s at 15 s chunks, ≈31.4 s at 30 s. The model is not the bottleneck; the buffering window is, and the endpointing that would fix it is not built. |
 | 6 | Operator testing shows wrong candidates are *reliably noticed* at review | **No evidence.** Not tested. This is the control the whole gate depends on, and §6 already says it has to be tested rather than asserted. |
@@ -895,7 +895,7 @@ consent and dignity, not just data handling.
 | Benchmark harness | **Shipped** (`scripts/asr-benchmark/`) |
 | Apple Silicon benchmark | **Run 2026-08-11.** Results in §5. |
 | Machine fast enough? | **Yes** — RTF 0.037–0.052 on Metal, measured peak RSS 501 MB. |
-| Recognition accurate enough? | **Not on the evidence available** — ~32% misleading-top on favourable synthetic audio, 0/10 on multiple references. Real church audio unmeasured. |
+| Recognition accurate enough? | **Improved, still unproven on real audio** — after remediation, misleading-top 3.8% same-transcript and 3.6% held-out, multiple references 5/5 (§9). Was ~32% and 0/10 before (§5.3). Real church audio remains unmeasured. |
 | Gate A criterion 3 (accuracy, real audio) | **Not established** — adverse signal gone; misleading-top 3.8% same-transcript, 3.6% held-out (§9). |
 | Gate A criterion 4 (misleading-top, real audio) | **No evidence** — needs a real service. |
 | Gate A criterion 5 (latency) | **Met** — 0.649 s median after endpointing (§9). |
@@ -908,8 +908,11 @@ consent and dignity, not just data handling.
 | A selected provider | **Not chosen.** |
 | Gate B (automatic acceptance / Take) | **Out of scope**, unchanged. |
 
-`docs/OBS_SETUP.md` will gain a speech section when there is a runnable service to set
-up, and not before. On this evidence, that is not soon.
+A runnable local speech service now exists, so the condition this document set has
+been met: `scripts/speech-service/server.py`, with setup in
+`scripts/asr-benchmark/README.md` and an operator-facing pointer in
+`docs/OBS_SETUP.md`. It is documented as a **validation-stage** capability, because
+that is what it is.
 
 ## 9. Remediation — what changed, and what it measured
 

@@ -180,6 +180,33 @@ This sends the rendered OBS video feed across the network. It does **not** make
 `/control` share uploaded assets or libraries with a second computer. Use the
 LAN control relay above for beta Take/Clear from a second device.
 
+## Speech assist (validation stage — optional, off by default)
+
+The Scripture workspace can listen to a microphone and turn a spoken reference into
+candidate passages for you to review. **It is unvalidated**: it has never been
+measured on real church audio, it refuses far more often than it answers, and every
+suggestion still needs reading before you accept it. Typing works exactly as before,
+whether the microphone is on or not, and nothing reaches air without an Accept and a
+separate Take.
+
+It needs a local recogniser running on this machine. Nothing is uploaded and no
+audio is stored:
+
+```sh
+~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py \
+  --repo ~/LiveLayer-ASR-Eval/models/w2v-bert-en
+```
+
+Full setup — the virtualenv and the model download — is in
+[`scripts/asr-benchmark/README.md`](../scripts/asr-benchmark/README.md); the
+evidence behind it, including what it still gets wrong, is
+[`ASR_EVALUATION.md`](ASR_EVALUATION.md) §9.
+
+With the service running, open `/control/scripture` and press **Start listening**.
+The browser will ask for microphone permission once. If you refuse it, or the
+service is not running, the panel says so and you type the reference — which is the
+normal way to work and is never slower than it was.
+
 ## Verifying the overlay
 
 - Put the Browser source **above an actual camera/video scene** (not a black

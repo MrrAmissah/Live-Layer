@@ -1,11 +1,13 @@
 import type { LanguageTag, LiveTranscriptSource, TranscriptEvent } from './transcriptSource';
 import {
   DEFAULT_ENDPOINTER,
+  createFramer,
   emptyEndpointer,
   pushFrame,
-  toFrames,
+  pushSamples,
   type EndpointerConfig,
-  type EndpointerState
+  type EndpointerState,
+  type Framer
 } from './utteranceEndpointer';
 
 /**
@@ -100,6 +102,12 @@ export function createLiveTranscriptSource(
   let context: AudioContext | null = null;
   let node: ScriptProcessorNode | null = null;
   let endpointer: EndpointerState = emptyEndpointer();
+  /**
+   * Framing is a STREAM, not a per-callback operation. Framing each audio callback
+   * independently discarded whatever did not fill a whole 20 ms frame — 64 of every
+   * 1024 samples at 16 kHz, on every callback, for as long as the microphone was on.
+   */
+  let framer: Framer = createFramer(config.sampleRate);
   let segment = 0;
   let pending = 0;
   /**
@@ -116,8 +124,18 @@ export function createLiveTranscriptSource(
    * BEFORE teardown, so nothing in flight can win the race.
    */
   let session = 0;
-  /** Utterances endpointed before the socket opened. Flushed on open, dropped on failure. */
+  /**
+   * Utterances endpointed before the socket opened, flushed on open.
+   *
+   * **Bounded.** The socket may never open — the service might not be running at
+   * all — and an unbounded queue of raw audio behind a connection that never
+   * arrives is a memory leak that grows for as long as someone keeps talking. Two
+   * utterances is enough to cover a connection handshake and no more; beyond that
+   * the oldest is dropped and the operator is told, rather than silently losing
+   * audio after the UI has implied it was captured.
+   */
   let queued: Float32Array[] = [];
+  const MAX_QUEUED_UTTERANCES = 2;
 
   const report = (status: ListeningStatus, detail = '', speaking = false) =>
     options.onStatus?.({ status, detail, speaking });
@@ -158,6 +176,7 @@ export function createLiveTranscriptSource(
     stream = null;
     socket = null;
     endpointer = emptyEndpointer();
+    framer = createFramer(config.sampleRate);
     pending = 0;
     queued = [];
   };
@@ -173,6 +192,13 @@ export function createLiveTranscriptSource(
      */
     if (socket.readyState === WebSocket.CONNECTING) {
       queued.push(utterance);
+      if (queued.length > MAX_QUEUED_UTTERANCES) {
+        queued.shift();
+        report(
+          'starting',
+          'Still connecting to the local speech service — the earliest utterance was dropped.'
+        );
+      }
       return;
     }
     if (socket.readyState !== WebSocket.OPEN) return;
@@ -309,12 +335,21 @@ export function createLiveTranscriptSource(
         node = context.createScriptProcessor(1024, 1, 1);
         node.onaudioprocess = (event) => {
           if (mine !== session || !listening) return;
-          const input = event.inputBuffer.getChannelData(0);
-          for (const frame of toFrames(Float32Array.from(input), config.sampleRate)) {
+          // Carried across callbacks: samples that do not fill a frame wait for the
+          // next block rather than being discarded.
+          const framed = pushSamples(framer, event.inputBuffer.getChannelData(0));
+          framer = framed.framer;
+          for (const frame of framed.frames) {
             const result = pushFrame(endpointer, frame, config);
             endpointer = result.state;
             if (result.utterance) send(mine, result.utterance);
-            else if (pending === 0) report('listening', '', result.speaking);
+            else if (pending === 0) {
+              report(
+                result.calibrating ? 'starting' : 'listening',
+                result.calibrating ? 'Listening for the room…' : '',
+                result.speaking
+              );
+            }
           }
         };
         source.connect(node);
