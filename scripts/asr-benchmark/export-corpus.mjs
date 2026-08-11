@@ -29,6 +29,7 @@ export async function loadAsrModule() {
     entry,
     [
       `export { SERVICE_CORPUS, CORPUS_GROUPS } from ${JSON.stringify(join(ROOT, 'src/lib/asr/serviceCorpus.ts'))};`,
+      `export { HELD_OUT_CORPUS, HELD_OUT_GROUPS } from ${JSON.stringify(join(ROOT, 'src/lib/asr/heldOutCorpus.ts'))};`,
       `export { scoreCorpus, scoreUtterance } from ${JSON.stringify(join(ROOT, 'src/lib/asr/referenceOutcome.ts'))};`,
       `export { corpusErrorRate, wordErrorRate } from ${JSON.stringify(join(ROOT, 'src/lib/asr/transcriptMetrics.ts'))};`
     ].join('\n')
