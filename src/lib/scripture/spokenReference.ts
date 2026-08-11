@@ -355,14 +355,34 @@ function numberedSiblings(stem: string): string[] {
  * actually said, and a note naming what was heard, so the operator reviewing the
  * candidate can see it was recovered rather than transcribed.
  */
-function recoveredNames(phrase: string): { name: string; penalty: number; note: string }[] {
+function recoveredNames(
+  phrase: string,
+  ordinal: number | undefined
+): { names: { name: string; penalty: number; note: string }[]; usedOrdinal: boolean } {
   const recoveries = recoverSpokenBook(phrase);
-  return recoveries.flatMap((recovery) => {
+  let usedOrdinal = false;
+
+  const names = recoveries.flatMap((recovery) => {
     const note = describeRecovery(recovery);
-    // A recovered STEM expands to its family, exactly as a clean stem does, so
-    // "corintians thirteen four" offers both Corinthians rather than picking one.
-    const names = recovery.isStem ? numberedSiblings(recovery.target.toLowerCase()) : [recovery.target];
-    return names.map((name, index) => ({
+    /**
+     * A spoken ordinal selects the sibling, and it has to be applied HERE rather
+     * than after the family is expanded. Doing it afterwards meant composing
+     * "second" with "1 Corinthians", which is not a book, so the ordinal was
+     * silently dropped and "second corintians five seventeen" produced **1**
+     * Corinthians 5:17. Found on the held-out corpus.
+     */
+    if (ordinal !== undefined) {
+      const stem = recovery.isStem ? recovery.target.toLowerCase() : recovery.target.toLowerCase();
+      const exact = BIBLE_BOOKS.find((book) => book.name.toLowerCase() === `${ordinal} ${stem}`);
+      if (exact) {
+        usedOrdinal = true;
+        return [{ name: exact.name, penalty: 8 + recovery.distance * 4, note }];
+      }
+    }
+    // No ordinal: a recovered STEM expands to its whole family, exactly as a clean
+    // stem does, so "corintians thirteen four" offers both rather than picking one.
+    const expanded = recovery.isStem ? numberedSiblings(recovery.target.toLowerCase()) : [recovery.target];
+    return expanded.map((name, index) => ({
       name,
       // Distance first, then sibling order — a one-edit recovery of the right
       // family beats a two-edit recovery of a different book.
@@ -370,6 +390,8 @@ function recoveredNames(phrase: string): { name: string; penalty: number; note: 
       note: recovery.isStem ? `${note}, "${name.slice(0, 1)}" was not spoken` : note
     }));
   });
+
+  return { names, usedOrdinal };
 }
 
 interface BookMatch {
@@ -444,19 +466,6 @@ function collectBookMatches(tokens: string[]): BookMatch[] {
       const hit = readBook(tokens, at, span);
       const siblings = numberedSiblings(phrase);
       /**
-       * Recovery is attempted only for a SINGLE token that nothing matched, and
-       * only where numbers follow it. Both guards matter: multi-token spans are
-       * where ordinary phrases live, and without the number requirement any noun
-       * near a book name would become scripture. It is also tried last, so a word
-       * the speaker actually said always wins over one we reconstructed.
-       */
-      const recovered =
-        !hit && !siblings.length && span === 1 && numberFollows(tokens, at + span)
-          ? recoveredNames(phrase)
-          : [];
-      if (!hit && !siblings.length && !recovered.length) continue;
-
-      /**
        * The ordinal usually sits immediately before the book — "first John". But
        * "the first book of Kings" is also ordinary formal phrasing, and there the
        * ordinal is three tokens back. Missing it produced BOTH a spurious ambiguity
@@ -466,6 +475,10 @@ function collectBookMatches(tokens: string[]): BookMatch[] {
        * Only the exact `<ordinal> book of` shape is skipped over. Skipping filler
        * generally would swallow "chapter three of John" and turn it into 3 John.
        */
+      const eligibleForRecovery =
+        !hit && !siblings.length && span === 1 && numberFollows(tokens, at + span);
+      if (!hit && !siblings.length && !eligibleForRecovery) continue;
+
       let ordinalAt = at - 1;
       if (tokens[at - 1] === 'of' && tokens[at - 2] === 'book') ordinalAt = at - 3;
       const previous = ordinalAt >= 0 ? tokens[ordinalAt] : undefined;
@@ -483,12 +496,31 @@ function collectBookMatches(tokens: string[]): BookMatch[] {
         }
       }
 
+      /**
+       * Recovery is attempted only for a SINGLE token that nothing matched, and
+       * only where numbers follow it. Both guards matter: multi-token spans are
+       * where ordinary phrases live, and without the number requirement any noun
+       * near a book name would become scripture. It runs after the ordinal is
+       * known, because the ordinal selects which sibling a recovered family means.
+       */
+      const recovery = eligibleForRecovery
+        ? recoveredNames(phrase, ordinal)
+        : { names: [], usedOrdinal: false };
+      const recovered = recovery.names;
+      if (!hit && !siblings.length && !recovered.length) continue;
+
       if (hit) {
         // A phrase that is a book in its own right is taken at its word rather
         // than expanded into its numbered siblings.
         found.push({ at, used: span, names: [{ name: hit, penalty: 0, note: '' }] });
       } else if (recovered.length) {
-        found.push({ at, used: span, names: recovered });
+        // When the ordinal was consumed the span starts at the ordinal, so the
+        // locator does not later read "third" as a chapter number.
+        found.push(
+          recovery.usedOrdinal
+            ? { at: ordinalAt, used: span + (at - ordinalAt), names: recovered }
+            : { at, used: span, names: recovered }
+        );
       } else {
         // A bare stem that is NOT a book is genuinely ambiguous; offer the family.
         found.push({
