@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
-import { defaultTranscriptSource, isLiveSource } from '../../lib/scripture/transcriptSource';
+import { defaultTranscriptSource, isLiveSource, type TranscriptSource } from '../../lib/scripture/transcriptSource';
+import { createLiveTranscriptSource, type LiveSourceStatus } from '../../lib/scripture/liveTranscriptSource';
 import {
   EMPTY_STREAM,
   applyTranscriptEvent,
@@ -45,7 +46,23 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   const [state, setState] = useState<VoiceAssistState>(IDLE);
   const [draftTranscript, setDraftTranscript] = useState('');
   const { lookup, cancel } = useScriptureLookup();
-  const source = defaultTranscriptSource;
+  /**
+   * Listening is OFF until the operator turns it on, every time. There is no
+   * remembered preference and no auto-start: a microphone that switches itself on
+   * because it did last week is not something an operator can reason about
+   * mid-service.
+   */
+  const [listen, setListen] = useState(false);
+  const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false });
+  /**
+   * Created once. Re-creating the source on a status change would tear down the
+   * microphone it is reporting about — the same unstable-callback shape that once
+   * cancelled every scripture lookup in flight.
+   */
+  const liveRef = useRef<ReturnType<typeof createLiveTranscriptSource> | null>(null);
+  if (!liveRef.current) liveRef.current = createLiveTranscriptSource({ onStatus: setMic });
+  const live = liveRef.current;
+  const source: TranscriptSource = listen ? live : defaultTranscriptSource;
 
   // Generation guard: a retrieval that resolves after the operator moved on must
   // not repopulate the panel. Same rule as the typed lookup path.
@@ -53,6 +70,13 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   const [stream, setStream] = useState<TranscriptStreamState>(EMPTY_STREAM);
   // The reducer's input, so applying an event never depends on render timing.
   const streamRef = useRef<TranscriptStreamState>(EMPTY_STREAM);
+
+  /**
+   * The microphone must never outlive the panel that owns it. Unmounting the
+   * workspace with listening on would leave a live capture with no visible
+   * indicator and no way to stop it.
+   */
+  useEffect(() => () => live.stop(), [live]);
 
   useEffect(() => {
     const unsubscribe = source.subscribe((event) => {
@@ -140,9 +164,45 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         <span className="ll-tag">{source.label}</span>
       </header>
       <p className="voice-assist__note">
-        No microphone and no speech provider yet. Type what was said to check how it would be interpreted — nothing
-        reaches the graphic until you accept a reading.
+        Nothing reaches the graphic until you accept a reading, and Take is a second, separate press. Typing works
+        whether or not the microphone is on.
       </p>
+
+      {/* Explicit start and stop, every time. The label says which action the press
+          performs, not which state the app is in — "Listening…" on a button is a
+          status pretending to be a verb. */}
+      <div className="voice-assist__mic" data-listening={listen || undefined}>
+        <button
+          type="button"
+          className={`btn btn--md ${listen ? 'btn--danger' : 'btn--secondary'}`}
+          aria-pressed={listen}
+          onClick={() => {
+            if (listen) {
+              live.stop();
+              setListen(false);
+            } else {
+              setListen(true);
+              void live.start();
+            }
+          }}
+        >
+          {listen ? 'Stop listening' : 'Start listening'}
+        </button>
+        <span className="voice-assist__mic-state" role="status" aria-live="polite">
+          {listen ? (
+            <>
+              <span
+                className="voice-assist__mic-dot"
+                data-speaking={mic.speaking || undefined}
+                aria-hidden
+              />
+              {mic.detail || (mic.speaking ? 'Hearing you…' : 'Listening — say a reference')}
+            </>
+          ) : (
+            mic.detail || 'Microphone off.'
+          )}
+        </span>
+      </div>
       {/* Interim text is displayed for responsiveness and never parsed. A manual
           source produces none, so this is inert today by construction. */}
       {interimText(stream) ? (
