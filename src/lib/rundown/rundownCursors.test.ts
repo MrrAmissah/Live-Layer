@@ -136,9 +136,24 @@ describe('ordering', () => {
 });
 
 describe('deleting the item a cursor points at', () => {
-  it('drops the selection instead of leaving it dangling', () => {
+  /**
+   * This used to assert the selection was CLEARED. It is now moved back one item
+   * instead, which keeps the original property — never a dangling cursor — and
+   * fixes what clearing it caused once `getNextTakeableItem` existed: no selection
+   * means anchor `-1`, i.e. "the first item that is not done", so deleting the row
+   * you were standing on silently re-aimed Take Next at the top of the rundown.
+   */
+  it('moves the selection back one item rather than leaving it dangling', () => {
     setSelectedItem(rundownId, ids[1]);
     deleteItem(rundownId, ids[1]);
+    expect(current()!.selectedItemId).toBe(ids[0]);
+    // The cursor still resolves to a real, surviving item — the point of the original test.
+    expect(getSelectedItem(current())?.id).toBe(ids[0]);
+  });
+
+  it('clears the selection when the deleted item was the first, having no previous', () => {
+    setSelectedItem(rundownId, ids[0]);
+    deleteItem(rundownId, ids[0]);
     expect(current()!.selectedItemId).toBeUndefined();
     expect(getSelectedItem(current())).toBeUndefined();
   });

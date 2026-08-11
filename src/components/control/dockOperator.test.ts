@@ -404,13 +404,29 @@ describe('the blocked-Take reason survives (issue #22)', () => {
 });
 
 describe('the dock queue promises only what the store can do', () => {
-  it('reorders with explicit up/down, never a drag handle', () => {
-    // moveItem is a ±1 adjacent swap; a drag handle would promise
-    // drop-anywhere reordering the store cannot perform.
+  /**
+   * This used to assert there was NO drag handle, because `moveItem` is a ±1
+   * adjacent swap and a handle would have promised drop-anywhere reordering the
+   * store could not perform. `moveItemTo` performs it, so the premise is gone and
+   * the assertion is inverted — but the property it protected is not: the queue
+   * still promises only what the store can do.
+   */
+  it('drags to an absolute position, because the store can now do that', () => {
+    expect(queue).toContain('draggable');
+    expect(queue).toContain('moveItemTo');
+    // Not a ±1 swap dressed up as a handle.
+    expect(queue).not.toMatch(/onDrop[^}]*moveItemUp/);
+  });
+
+  it('keeps up/down, which are the touch and keyboard path to the same call', () => {
+    // HTML5 drag does not work by touch and is unreachable by keyboard, so
+    // removing these would make reordering mouse-only.
     expect(queue).toContain('moveItemUp');
     expect(queue).toContain('moveItemDown');
-    expect(queue).not.toContain('dragHandle');
-    expect(queue).not.toContain('draggable');
+  });
+
+  it('only allows dragging in reorder mode, so a service click cannot start one', () => {
+    expect(queue).toMatch(/draggable=\{reordering\}/);
   });
 
   it('marks the row behind our last command, without claiming it is on air', () => {

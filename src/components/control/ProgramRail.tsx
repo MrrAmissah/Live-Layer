@@ -94,6 +94,7 @@ function OutputCard({ program, output }: { program: ProgramState; output: Output
 
 interface ProgramRailProps {
   onTake: () => void;
+  onTakeNext: () => void;
   onClear: () => void;
   onTakeInstance: (item: GraphicInstance) => void;
   /** Load a queue entry into the editor (owner also reveals the editor). */
@@ -107,7 +108,7 @@ interface ProgramRailProps {
  * primary Take/Clear, live settings, and the quick queue — grouped by dividers,
  * not nested cards.
  */
-export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
+export default function ProgramRail({ onTake, onTakeNext, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
   const output = useLiveLayerStore((state) => state.outputStatus);
   // The rail rides along in every workspace, so it hands the editable list to
@@ -142,7 +143,7 @@ export default function ProgramRail({ onTake, onClear, onTakeInstance, onEditIns
         <OutputCard program={program} output={output} />
 
         <div className="program-rail__actions">
-          <LiveActions surface="studio" onTake={onTake} onClear={onClear} sending={sending} />
+          <LiveActions surface="studio" onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} />
         </div>
       </div>
 

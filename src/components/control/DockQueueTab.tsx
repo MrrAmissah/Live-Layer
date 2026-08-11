@@ -3,6 +3,7 @@ import { useRundowns } from '../../hooks/useRundowns';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import {
   getQueueCursors,
+  getNextTakeableItem,
   MAX_ITEMS_PER_RUNDOWN,
   MAX_RUNDOWNS
 } from '../../lib/rundown/rundownStore';
@@ -175,19 +176,24 @@ function QueueCard({
   if (!rundown) return null;
 
   const items = rundown.items;
-  const { selected, selectedIndex, nextItem } = getQueueCursors(rundown);
+  const { selected, selectedIndex } = getQueueCursors(rundown);
   const lastSentItemId = rundown.activeItemId;
   /**
-   * What Take will send next if the operator advances — the item after the
-   * selection, from the same cursors the studio summary reads. It answers the
-   * one question the queue could not: rows carried a number and, for one row,
-   * LAST SENT, and nothing said what was coming.
+   * The row **Take Next would actually send** — not merely the row after the
+   * selection.
+   *
+   * Those differ the moment a done item sits in between, and the badge has to be
+   * the one that matches the button: marking NEXT on a done row that Take Next
+   * would skip past tells the operator the queue is about to do something it is
+   * not. `getNextTakeableItem` is the same rule `planTakeNext` and
+   * `ControlPage.onTakeNext` use, so the badge, the cue and the graphic that airs
+   * cannot disagree.
    *
    * Only ever ONE extra marker on a row, and never on the selected row: the
    * selection already has its own treatment, and "next" beside "you are here"
    * is noise. Nothing here is an on-air claim — NEXT is a position in a list.
    */
-  const nextItemId = nextItem?.id;
+  const nextItemId = getNextTakeableItem(rundown)?.id;
   const searching = query.trim().length > 0;
   const hits = filterRundownItems(items, query);
   const full = items.length >= MAX_ITEMS_PER_RUNDOWN;

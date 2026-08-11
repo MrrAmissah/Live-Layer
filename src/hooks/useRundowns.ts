@@ -154,6 +154,9 @@ export function useRundowns() {
     deleteItem: (itemId: string) => activeRundownId && run(() => store.deleteItem(activeRundownId, itemId)),
     moveItemUp: (itemId: string) => activeRundownId && run(() => store.moveItem(activeRundownId, itemId, 'up')),
     moveItemDown: (itemId: string) => activeRundownId && run(() => store.moveItem(activeRundownId, itemId, 'down')),
+    /** Absolute reposition, for a drag. Publishes nothing and moves no cursor. */
+    moveItemTo: (itemId: string, toIndex: number) =>
+      activeRundownId && run(() => store.moveItemTo(activeRundownId, itemId, toIndex)),
     toggleDone: (itemId: string) => activeRundownId && run(() => store.toggleItemDone(activeRundownId, itemId)),
     setSelectedItem: (itemId: string | undefined) => activeRundownId && run(() => store.setSelectedItem(activeRundownId, itemId))
   };

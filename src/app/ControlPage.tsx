@@ -11,8 +11,11 @@ import {
   getRundown,
   getSelectedItem,
   setActiveItem,
+  setSelectedItem,
   cloneRundownGraphic
 } from '../lib/rundown/rundownStore';
+import { planTakeNext } from '../lib/rundown/takeNext';
+import { isTakeNextShortcut } from '../lib/takeNextShortcut';
 import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
 import type { LastAction } from '../components/control/StatusBadge';
@@ -195,6 +198,75 @@ export default function ControlPage() {
     }
     });
 
+  /**
+   * Take Next — send the next takeable item and move the operator onto it.
+   *
+   * Goes through `publishShow`, the same single publish boundary Take uses, so
+   * there is still exactly one path to air and one in-flight guard. It is not a
+   * second Take: it re-decides the target from `planTakeNext` at press time rather
+   * than trusting whatever a surface last rendered, because the queue can change
+   * between the cue being drawn and the button being pressed.
+   *
+   * **Both cursors advance together, and only on success.** `selectedItemId` moves
+   * so the next press continues down the rundown; `activeItemId` moves because that
+   * item is now what was last sent. Advancing either before the command is out
+   * would leave the operator's cursor claiming a position nothing aired from —
+   * the same rule `onTake` already follows.
+   *
+   * A refusal is silent here by design: the control is disabled with its cause
+   * shown (`planTakeNext`), so reaching this function with no item means the queue
+   * changed under a press that was already legal. Doing nothing is correct; airing
+   * something the operator was not shown would not be.
+   */
+  const onTakeNext: () => void = () =>
+    runCommand(async () => {
+      const activeRundownId = getActiveRundownId();
+      if (!activeRundownId) return;
+      const plan = planTakeNext({
+        rundown: getRundown(activeRundownId),
+        readinessOf: (item) => resolveGraphicReadiness(item.graphic.templateId, item.graphic.values)
+      });
+      if (!plan.item) return;
+      const item = plan.item;
+      if (await publishShow(cloneRundownGraphic(item.graphic), { sourceType: 'rundown', sourceId: item.id })) {
+        setSelectedItem(activeRundownId, item.id);
+        setActiveItem(activeRundownId, item.id);
+      }
+    });
+
+  /**
+   * The keyboard binding for Take Next, bound once at the container that owns the
+   * handler — so the dock and the studio behave identically and there is no second
+   * listener to drift.
+   *
+   * Deliberately NOT bound to Take or Clear. Take Next is the only action worth a
+   * shortcut during a service (progression is the repeated act), and every extra
+   * keyboard route to air is another way to air something by accident.
+   *
+   * `onTakeNext` re-decides its target and no-ops when the plan refuses, so this
+   * listener does not need to know whether the button is currently enabled — it
+   * cannot fire something the rule would not allow.
+   */
+  /** Always the latest handler, so the listener below can bind exactly once. */
+  const onTakeNextRef = useRef(onTakeNext);
+  onTakeNextRef.current = onTakeNext;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!isTakeNextShortcut(event)) return;
+      // Only once the rule has said yes: preventing default on a near-miss would
+      // swallow an ordinary Enter somewhere else on the surface.
+      event.preventDefault();
+      onTakeNextRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // Bound once. The handler is reached through a ref so that re-creating
+    // `onTakeNext` each render cannot detach and re-attach the listener
+    // mid-service — the same instability that once cancelled every scripture
+    // lookup in flight (`useScriptureLookup`).
+  }, []);
+
   const onClear = () =>
     runCommand(async () => {
       const commandId = await publishClear();
@@ -277,6 +349,7 @@ export default function ControlPage() {
       <PackSwitchGuardProvider>
         <DockShell
           onTake={onTake}
+          onTakeNext={onTakeNext}
           onClear={onClear}
           lastAction={lastAction}
           lastTakenAt={lastTakenAt}
@@ -298,6 +371,7 @@ export default function ControlPage() {
         rail={
           <ProgramRail
             onTake={onTake}
+            onTakeNext={onTakeNext}
             onClear={onClear}
             onTakeInstance={onTakeInstance}
             onEditInstance={openGraphicInEditor}
@@ -308,7 +382,7 @@ export default function ControlPage() {
            scroll, so the actions also render as a bar the frame always shows.
            CSS decides which of the two is in the tree at a given width, so there
            is never a second Take on screen or in the accessibility tree. */
-        liveBar={<StudioLiveBar onTake={onTake} onClear={onClear} sending={sending} />}
+        liveBar={<StudioLiveBar onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} />}
       />
     </PackSwitchGuardProvider>
   );

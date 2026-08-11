@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import { useRundowns } from './useRundowns';
 import { getSelectedItem } from '../lib/rundown/rundownStore';
+import { planTakeNext, describeTakeNextCue, type TakeNextPlan } from '../lib/rundown/takeNext';
 import { describeTakeBlock, resolveGraphicReadiness } from '../lib/graphicReadiness';
 import type { TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
@@ -65,6 +66,21 @@ export function useLiveTakeContext() {
   // cast is safe; TemplatePreview merges it over the registry theme regardless.
   const preview = previewSource;
 
+  /**
+   * What Take Next would send, decided by the same rule `ControlPage.onTakeNext`
+   * re-runs at press time. Surfaces render the cue and the disabled state from
+   * this, so the sentence under the button and the graphic that would air can
+   * never come from two different decisions.
+   *
+   * Readiness is resolved per candidate item rather than reusing `readiness`
+   * above: that one describes the SELECTED item, and Take Next sends a different
+   * one.
+   */
+  const takeNextPlan: TakeNextPlan = planTakeNext({
+    rundown,
+    readinessOf: (item) => resolveGraphicReadiness(item.graphic.templateId, item.graphic.values)
+  });
+
   return {
     rundown,
     rundownActive,
@@ -75,6 +91,10 @@ export function useLiveTakeContext() {
     durationSeconds,
     preview,
     /** Why Take is unavailable. Empty when it is available. */
-    notReadyReason
+    notReadyReason,
+    /** The Take Next decision: its target, its refusal, and how many rows it passes over. */
+    takeNext: takeNextPlan,
+    /** One line for the cue — the target, or the reason there is none. */
+    takeNextCue: describeTakeNextCue(takeNextPlan)
   };
 }
