@@ -1,6 +1,12 @@
 import { BIBLE_BOOKS } from './bibleBooks';
 import { parseScriptureReference, type CanonicalReference } from './parseReference';
-import { matchSpokenBook, recoverSpokenBook, describeRecovery, recoverStructuralWord } from './spokenBookLexicon';
+import {
+  matchSpokenBook,
+  recoverSpokenBook,
+  describeRecovery,
+  recoverStructuralWord,
+  recoverNumberWord
+} from './spokenBookLexicon';
 
 /**
  * Spoken text → candidate references. A SEPARATE boundary in front of the strict
@@ -136,6 +142,15 @@ const HOMOPHONE_NUMBERS: Record<string, number> = {
   to: 2,
   free: 3,
   tree: 3,
+  /**
+   * Heard from the recogniser on the shortest form of all — "John three sixteen"
+   * came back as `jon thee sixteen`, and the reference was refused outright. It
+   * belongs to the same family as `free` and `tree` above, and carries the same
+   * `foundSoFar` guard, which matters more here than for the others: `thee` is
+   * ordinary speech in a church that reads the King James, so it is read as a
+   * number only while a reference is still incomplete and never once one is.
+   */
+  thee: 3,
   sex: 6,
   ceven: 7
 };
@@ -431,6 +446,14 @@ function numberFollows(tokens: string[], from: number): boolean {
      * anyway, which is the same guard the locator applies.
      */
     if (recoverStructuralWord(token)) continue;
+    /**
+     * A DAMAGED NUMBER is still the book's anchor. `let us read romans eig twenty
+     * eight` failed here and not in the locator: `eig` sits between the book and
+     * its numbers, so `romans` looked unanchored and the utterance was refused
+     * outright — while `romens eight twenty eight` resolved cleanly, because a
+     * damaged book is repaired and a damaged number was not.
+     */
+    if (readRepairedNumber(tokens, i, tokens.length, 0, false)) return true;
     return false;
   }
   return false;
@@ -583,6 +606,46 @@ interface Locator {
   listAfter: Set<number>;
 }
 
+/**
+ * A number word the recogniser cut short, read only where the locator continues.
+ *
+ * `let us read romans eig twenty eight` — a real transcript. Without this the
+ * chapter is simply gone, and the whole reference with it. The confirmation that
+ * makes it safe is the token AFTER: a repaired number must be followed by a number
+ * that needed no repair, which is what keeps the repair inside a reference instead
+ * of loose in prose. That check deliberately does not recurse — two damaged words
+ * in a row confirm nothing, and guessing twice is how a fabricated verse is built.
+ */
+function readRepairedNumber(
+  tokens: string[],
+  at: number,
+  until: number,
+  soFar: number,
+  zerosAsNoise: boolean
+): { value: number; used: number } | null {
+  const repaired = recoverNumberWord(tokens[at] ?? '');
+  if (!repaired) return null;
+
+  let confirmed = false;
+  for (let i = at + 1; i < until; i += 1) {
+    if (readNumber(tokens, i, soFar + 1, zerosAsNoise)) {
+      confirmed = true;
+      break;
+    }
+    const token = tokens[i];
+    if (FILLER.has(token) || STRUCTURAL_AFTER_REPAIR.has(token)) continue;
+    break;
+  }
+  if (!confirmed) return null;
+
+  const patched = [...tokens];
+  patched[at] = repaired;
+  return readNumber(patched, at, soFar, zerosAsNoise);
+}
+
+/** Words that may legitimately sit between a repaired chapter and its verse. */
+const STRUCTURAL_AFTER_REPAIR = new Set(['chapter', 'chapters', 'verse', 'verses', 'colon']);
+
 /** True when the next meaningful token in the span reads as a number. */
 function numberFollowsAt(
   tokens: string[],
@@ -593,6 +656,7 @@ function numberFollowsAt(
 ): boolean {
   for (let i = from; i < until; i += 1) {
     if (readNumber(tokens, i, soFar, zerosAsNoise)) return true;
+    if (readRepairedNumber(tokens, i, until, soFar, zerosAsNoise)) return true;
     const token = tokens[i];
     if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
     return false;
@@ -641,7 +705,9 @@ function readLocator(
       continue;
     }
 
-    const num = readNumber(tokens, i, numbers.length, zerosAsNoise);
+    const num =
+      readNumber(tokens, i, numbers.length, zerosAsNoise) ??
+      readRepairedNumber(tokens, i, until, numbers.length, zerosAsNoise);
     if (num) {
       if (pendingRange) rangeAfter.add(numbers.length - 1);
       if (pendingList) listAfter.add(numbers.length - 1);

@@ -593,3 +593,71 @@ describe('the strict parser is not weakened', () => {
     expect(parseScriptureReference('John 3:16').ok).toBe(true);
   });
 });
+
+describe('a reference whose NUMBER was damaged, not its book', () => {
+  /**
+   * Every transcript below came out of the recogniser during the rehearsal that
+   * preceded the human gate — synthetic speech, but the real model and the real
+   * browser endpointer, so the damage is what it actually produces rather than
+   * what a corruption function imagines.
+   *
+   * The asymmetry these fix: `romens eight twenty eight` already read as Romans
+   * 8:28, because a damaged BOOK is repaired. `romans eig twenty eight` was refused
+   * outright, because a damaged NUMBER was not — and refusing loses the whole
+   * reference, not just its chapter.
+   */
+  it('reads a chapter the recogniser cut short', () => {
+    expect(best('let us read romans eig twenty eight')).toBe('Romans 8:28');
+    expect(best('let us read romans eigh twenty eight')).toBe('Romans 8:28');
+    expect(best('psalm twent three one')).toBe('Psalms 23:1');
+  });
+
+  it('lets a damaged number anchor the book it belongs to', () => {
+    // The failure was HERE and not in the locator: `eig` sits between the book and
+    // its numbers, so `romans` looked unanchored and nothing was offered at all.
+    expect(best('jon thre sixteen')).toBe('John 3:16');
+  });
+
+  /**
+   * `three` came back as `thee` on the shortest form of all. That is a homophone
+   * rather than a truncation, so it is handled by the homophone table — the same
+   * mechanism that already carries `free` and `tree` — and inherits its guard.
+   */
+  it('reads `thee` as three only while a reference is still incomplete', () => {
+    expect(best('jon thee sixteen')).toBe('John 3:16');
+    expect(problemOf('i say unto thee that the lord is good')).toBe('no-book');
+    expect(problemOf('blessed art thou among women and blessed is thee')).toBe('no-book');
+    // A complete reference followed by KJV prose keeps the reference and nothing more.
+    expect(best('unto thee o lord do i lift up my soul psalm twenty five one')).toBe('Psalms 25:1');
+  });
+
+  /**
+   * The repair is confirmed by what comes AFTER it. A damaged number with nothing
+   * following confirms nothing, and inventing the second half of a reference is
+   * the exact failure this layer exists to prevent — so it stays coarse instead.
+   */
+  it('will not repair a number that nothing follows', () => {
+    expect(best('john three sixtee')).toBe('John 3');
+    expect(problemOf('romans eig')).toBe('no-numbers');
+  });
+
+  it('still refuses to find numbers in prose', () => {
+    expect(best('romans eight verse one for there is therefore now no condemnation')).toBe('Romans 8:1');
+    expect(best('acts two there were about three thousand souls added')).toBe('Acts 2');
+    expect(problemOf('my sermon even touches on grace')).toBe('no-book');
+    expect(best('i have a mine of gold in psalm twenty three')).toBe('Psalms 23');
+  });
+
+  /**
+   * A KNOWN BOUND, written down as a test because it is what the operator sees.
+   *
+   * Half an utterance can name a reference that does not exist: "…verse sixty" is
+   * a perfectly good parse a moment before the speaker says "sixteen". There is no
+   * per-chapter verse data bundled, so nothing here can reject it. The panel is
+   * what protects the operator — a provisional card is published only once its
+   * passage has actually been retrieved, so a verse with no text is never shown.
+   */
+  it('cannot tell that John 3:60 is not a verse — the lookup is what catches it', () => {
+    expect(best('turn with me to jon chapter three vers sixty')).toBe('John 3:60');
+  });
+});

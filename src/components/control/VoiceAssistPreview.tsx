@@ -147,12 +147,9 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
        * labelled as updating, and the final result confirms or replaces it.
        */
       if (!event.isFinal && event.text.trim()) {
-        const provisional = receiveTranscript(event.text);
-        if (provisional.status === 'candidates' && provisional.candidates.length) {
-          const mine = ++generation.current;
-          setProvisional(true);
-          setState(provisional);
-          void resolveCandidate(provisional, 0, mine, timelineRef.current, true);
+        const guess = receiveTranscript(event.text);
+        if (guess.status === 'candidates' && guess.candidates.length) {
+          void previewProvisional(guess, ++generation.current, timelineRef.current);
         }
         return;
       }
@@ -218,12 +215,49 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * nothing. That rule already existed for the manual path; auto-resolution needs
    * it more, because utterances can now arrive faster than a lookup completes.
    */
+  /**
+   * Show a guess from speech still in progress — but only once its text is in hand.
+   *
+   * A half-heard reference does not merely mis-hear a number, it can invent a
+   * reference that does not exist: the rehearsal produced `John 3:60` from
+   * "…verse sixty" a moment before the speaker said "sixteen". That parses, so an
+   * ordinary resolve would put "John 3:60" on the card and leave it sitting in
+   * "Retrieving the passage…" until the final arrived — a fabricated reference,
+   * displayed, with nothing to contradict it.
+   *
+   * So the provisional card is gated on the LOOKUP, not on the parse. Nothing is
+   * published unless a real passage came back, which means a reference that cannot
+   * exist is silently never shown. Finals keep the opposite rule: there the
+   * operator does need to see what was heard even when retrieval fails, because
+   * that is the point at which they act.
+   *
+   * It also never tears the card down. `beginResolving` would blank a passage the
+   * operator is already reading on every revision; the previous reading simply
+   * stands until a better one is ready to replace it.
+   */
+  const previewProvisional = async (source: VoiceAssistState, mine: number, timelineId: number | null) => {
+    const candidate = source.candidates[0];
+    if (!candidate) return;
+    if (timelineId !== null) {
+      liveLatency.mark(timelineId, 'first-candidate');
+      liveLatency.mark(timelineId, 'lookup-start');
+    }
+    const found = await lookup(candidate.reference.canonical, translationId);
+    // Stale, or a reference the Bible has no such verse for. Either way, say nothing.
+    if (generation.current !== mine || !found) return;
+    if (timelineId !== null) {
+      liveLatency.mark(timelineId, 'lookup-done');
+      liveLatency.mark(timelineId, 'first-verse');
+    }
+    setProvisional(true);
+    setState(passageResolved(source, found.result));
+  };
+
   const resolveCandidate = async (
     source: VoiceAssistState,
     index: number,
     mine: number,
-    timelineId: number | null,
-    isProvisional = false
+    timelineId: number | null
   ) => {
     const candidate = source.candidates[index];
     if (!candidate) return;
@@ -243,13 +277,9 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     const found = await lookup(wanted, translationId);
     if (generation.current !== mine) return; // a newer revision owns the panel now
     if (!found) {
-      // A provisional miss is not worth alarming the operator about — the final
-      // pass will speak for itself. A final miss must be stated.
-      if (!isProvisional) {
-        setState((previous) =>
-          resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
-        );
-      }
+      setState((previous) =>
+        resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
+      );
       return;
     }
     if (timelineId !== null) {

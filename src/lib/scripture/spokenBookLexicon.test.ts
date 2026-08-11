@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { matchSpokenBook, recoverSpokenBook, recoverStructuralWord, SPOKEN_BOOK_FORMS } from './spokenBookLexicon';
+import {
+  matchSpokenBook,
+  recoverSpokenBook,
+  recoverStructuralWord,
+  recoverNumberWord,
+  SPOKEN_BOOK_FORMS
+} from './spokenBookLexicon';
 import { parseSpokenReference } from './spokenReference';
 import { parseScriptureReference } from './parseReference';
 import { BIBLE_BOOKS } from './bibleBooks';
@@ -223,5 +229,75 @@ describe('recovering the joints of a spoken reference', () => {
   it('only recovers where a number actually follows', () => {
     // A broken joint introduces a number. Without one it is just a word.
     expect(canon('jon chapter three vers')).toEqual([['John 3']]);
+  });
+});
+
+describe('a number word the recogniser cut short', () => {
+  /**
+   * Found the same way `vers` was — by listening to what actually comes back.
+   * `romens eight twenty eight` already resolved to Romans 8:28 because a damaged
+   * BOOK is repaired; `romans eig twenty eight` was refused outright, because a
+   * damaged NUMBER was not. The asymmetry was the whole defect.
+   */
+  it('completes a truncated number', () => {
+    expect(recoverNumberWord('eig')).toBe('eight');
+    expect(recoverNumberWord('eigh')).toBe('eight');
+    expect(recoverNumberWord('thre')).toBe('three');
+    expect(recoverNumberWord('twent')).toBe('twenty');
+    expect(recoverNumberWord('sixtee')).toBe('sixteen');
+    expect(recoverNumberWord('seve')).toBe('seven');
+  });
+
+  it('takes the completion that adds fewest letters, when that is unambiguous', () => {
+    // `eig` prefixes eight, eighteen AND eighty. Fewest missing letters wins.
+    expect(recoverNumberWord('eig')).toBe('eight');
+    expect(recoverNumberWord('eighte')).toBe('eighteen');
+  });
+
+  it('refuses when two completions are equally close', () => {
+    // `fourt` is one letter from `fourth` and two from `fourteen` — fine. But a
+    // genuine tie has to be refused rather than settled quietly.
+    expect(recoverNumberWord('sixt')).toBeNull(); // sixth AND sixty, both +2
+    expect(recoverNumberWord('fift')).toBeNull(); // fifth AND fifty, both +2
+  });
+
+  it('leaves a word that is already a number alone', () => {
+    expect(recoverNumberWord('eight')).toBeNull();
+    expect(recoverNumberWord('twenty')).toBeNull();
+  });
+
+  /**
+   * The guard that makes the whole rule safe. `recoverStructuralWord` allows any
+   * edit within a budget; this one requires the token to be a strict PREFIX,
+   * because that is the damage actually observed and because ordinary English is
+   * one edit away from half the number line.
+   */
+  it('does not turn ordinary English into a number', () => {
+    for (const word of ['even', 'then', 'mine', 'nice', 'line', 'wine', 'sever', 'thin', 'night']) {
+      expect(recoverNumberWord(word), word).toBeNull();
+    }
+  });
+
+  /**
+   * This function repairs a SHAPE and nothing else — `tent` really is a truncated
+   * `tenth`, and it cannot tell that nobody meant it that way. The discrimination
+   * lives at the call site, which requires a real number to follow, so the pair has
+   * to be checked together rather than trusting either half alone.
+   */
+  it('leaves the prose judgement to the caller, which requires a number after it', () => {
+    expect(recoverNumberWord('tent')).toBe('tenth');
+    expect(canon('we pitched a tent in the wilderness')).toBeNull();
+    expect(canon('exodus tent commandments were given')).toBeNull();
+  });
+
+  it('excludes `for`, which is a real prefix of `forty` and constant in preaching', () => {
+    // "Romans eight verse one, FOR there is therefore now no condemnation".
+    expect(recoverNumberWord('for')).toBeNull();
+  });
+
+  it('needs enough of a word to be recognisable', () => {
+    expect(recoverNumberWord('e')).toBeNull();
+    expect(recoverNumberWord('tw')).toBeNull();
+    expect(recoverNumberWord('')).toBeNull();
   });
 });

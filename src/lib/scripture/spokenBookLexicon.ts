@@ -290,3 +290,83 @@ export function recoverStructuralWord(token: string): string | null {
   }
   return tied ? null : best;
 }
+
+/**
+ * Spoken number words, for the same repair applied to a damaged *number*.
+ *
+ * Kept as a plain list rather than imported from the parser's value tables: what
+ * matters here is the spelling that was damaged, not what it is worth.
+ */
+const NUMBER_WORDS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
+  'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy',
+  'eighty', 'ninety', 'hundred',
+  'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth',
+  'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth', 'sixteenth',
+  'seventeenth', 'eighteenth', 'nineteenth', 'twentieth'
+];
+
+/**
+ * A number word the recogniser cut short — `eig` for `eight`, `thre` for `three`.
+ *
+ * Found the same way `vers` was: reading real transcripts. `romens eight twenty
+ * eight` already recovered to **Romans 8:28** because a damaged *book* is repaired,
+ * while `romans eig twenty eight` was refused outright, because a damaged *number*
+ * was not. Same defect, same discovery, one of them fixed.
+ *
+ * ## Why this rule is shaped differently from the two above
+ *
+ * `recoverSpokenBook` and `recoverStructuralWord` allow any edit within a small
+ * budget, guarded by a four-character floor. `eig` clears neither: it is three
+ * characters and two edits from `eight`. Both of those guards have to relax, so
+ * something has to buy the safety back — and here it is the shape of the damage
+ * rather than its size. The token must be a **strict prefix** of the number word.
+ *
+ * That is not an arbitrary tightening; it is the failure actually observed. CTC
+ * drops the tail of a word under time pressure (`thre`, `eigh`, `sixtee`, `twent`),
+ * and requiring a prefix is what stops the enormous surface of ordinary English
+ * from reaching a number. `even` is one edit from `seven` and `then` is one edit
+ * from `ten` — under the structural-word rule both would become numbers; under this
+ * one neither is a prefix of anything and both are left alone.
+ *
+ * Three further guards, each earning its place:
+ *
+ * - **Unique shortest completion.** `eig` prefixes `eight`, `eighteen` AND `eighty`.
+ *   Fewest missing letters wins — `eight` — and only when that minimum is unique,
+ *   so a genuine coin-flip is refused rather than decided quietly.
+ * - **`for` is excluded by name.** It is a strict prefix of `forty` and one of the
+ *   most common words in English, and a preacher quoting a verse says it constantly
+ *   ("Romans eight verse one, **for** there is therefore now no condemnation").
+ * - **The caller must confirm a number follows.** As with the other two recoveries,
+ *   this is the discriminator: the repaired word has to sit inside a locator that
+ *   continues into real numbers, not float free in a sentence.
+ *
+ * What this deliberately does NOT repair: a damaged number with nothing after it,
+ * such as a trailing `sixtee`. There is no following number to confirm it against,
+ * and inventing the last half of a reference is precisely the failure this whole
+ * remediation exists to prevent. Such an utterance is refused, and refusing is the
+ * correct outcome — the operator can see the transcript and say it again.
+ */
+export function recoverNumberWord(token: string): string | null {
+  const heard = token.trim().toLowerCase();
+  if (heard.length < 3 || !VOWEL.test(heard)) return null;
+  if (NUMBER_WORDS.includes(heard)) return null; // already correct
+  if (heard === 'for') return null;
+
+  let best: string | null = null;
+  let fewestMissing = Number.POSITIVE_INFINITY;
+  let tied = false;
+  for (const target of NUMBER_WORDS) {
+    if (!target.startsWith(heard)) continue;
+    const missing = target.length - heard.length;
+    if (missing < fewestMissing) {
+      fewestMissing = missing;
+      best = target;
+      tied = false;
+    } else if (missing === fewestMissing) {
+      tied = true;
+    }
+  }
+  return tied ? null : best;
+}
