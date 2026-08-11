@@ -77,21 +77,29 @@ of the five.
 
 ## What to watch, and what it means
 
-**While you are still speaking**, a card may appear labelled *"Updating while
-you speak"*. That is a guess made from the audio so far, and it is allowed to be
-wrong — it is recognised again the moment you stop.
+**While you are still speaking** the transcript updates continuously — that is
+the recogniser re-reading everything you have said so far, several times a
+second. It revises freely, and it is meant to.
 
-**One thing to expect and not be alarmed by:** the guess can be a real but
-different verse. In rehearsal, "John three sixteen" produced **John 3:6**
-partway through, before correcting to John 3:16. That is the honest behaviour of
-recognising an unfinished sentence, which is why the card says it is still
-updating and why nothing is accepted automatically.
+**The passage card does not.** A guess made from unfinished speech has to be
+heard **twice in a row** before it fills the card. The reason is a specific
+failure: "John three sixteen" produced **John 3:6** from a snapshot cut a moment
+before the last syllable — a real verse, retrievable, and not what was said.
+Flashing that and correcting it a second later would teach you that the card
+cannot be trusted, which costs more than the second it saved. If a reference has
+been heard once and is being confirmed, the panel says *"Detecting reference…"*.
 
-A guess that names only a chapter — "John 3" — is deliberately **not** shown
-while you are still speaking. It retrieves perfectly well, which is the problem:
-it would fill the card with the whole chapter for a moment and then collapse to
-one verse. Mid-sentence, a chapter with no verse is almost always a reference
-you have not finished saying.
+A guess naming only a chapter — "John 3" — is not shown mid-sentence either. It
+retrieves perfectly well, which is the problem: it would fill the card with the
+whole chapter and then collapse to one verse. Mid-sentence, a chapter with no
+verse is almost always a reference you have not finished saying.
+
+**What this costs.** For a short reference said on its own, waiting to hear it
+twice usually means waiting for the end of the utterance anyway — so the card
+fills when you stop, not before. Where it pays off is when you say the reference
+and keep talking: rehearsing "John three sixteen, for God so loved the world…",
+the passage appeared **2.8 s before** the speaker finished and stayed put. Either
+way the transcript is moving the whole time.
 
 **When you stop speaking**, the label changes to *"Ready to review"*. That is
 the answer being judged.
@@ -152,13 +160,16 @@ So that the human run starts from a known position rather than from hope. All of
 it used the **real browser endpointer**, the **real recogniser** and the **real
 parser** — the only synthetic part is the voice.
 
-Six utterances covering all five references were synthesised with the same voice
-and rate as the Stage 5 corpus (`say -v Tessa -r 165`), padded with room tone,
-and pushed through the endpointer in 1024-sample blocks exactly as a
-`ScriptProcessor` delivers them.
+Nine utterances were synthesised with the same voice and rate as the Stage 5
+corpus (`say -v Tessa -r 165`), padded with room tone, and pushed through the
+endpointer in 1024-sample blocks exactly as a `ScriptProcessor` delivers them.
+Six cover the five references below; three more exist to catch the rule from the
+other side — two genuine John 3:6 utterances, so that a real short verse is not
+made unreachable, and one long quoting sentence, so that early display is not
+lost where it matters.
 
-**All six produced the correct reference at the final stage.** Two defects were
-found and fixed on the way there:
+**All nine produced the correct reference.** Three defects were found and fixed
+on the way there:
 
 - `Romans 8:28` was **refused outright**. The recogniser returns `romans eig
   twenty eight`; a damaged *book* was already repaired but a damaged *number*
@@ -167,44 +178,53 @@ found and fixed on the way there:
   because "…verse sixty" parses perfectly a moment before you say "sixteen".
   Provisional cards are now published only once their passage has actually been
   retrieved, so a reference that cannot exist is never shown.
+- A provisional could display **John 3:6** for "John three sixteen" — a verse
+  that does exist, which is worse. A guess must now be heard twice before the
+  card fills.
 
 Measured over those six utterances, from the moment speech starts:
 
 | | |
 |---|---|
-| First words back on screen | **0.65 s** median |
-| Final answer after you stop | **0.12 s** median inference |
-| Provisional passes per utterance | 5 median (range 2–6) |
-| Provisional inference | 83 ms median |
+| First words back on screen | **0.64 s** median |
+| First reference parsed at all | 1.87 s median |
+| First reference stable enough to display | 2.32 s (reached early in 1 of 9) |
+| Final answer after you stop | **0.13 s** median inference |
+| Provisional passes per utterance | 5 median (range 2–10) |
 | Bible lookup | ~1 ms cached, ~0.31 s when the passage is new |
 
 The first line is the one that answers the complaint. Words appear at about
 **0.65 s**, long before any reference is understood — that is the difference
 between watching it work and speaking into silence.
 
-**A verse arriving early is the smaller effect, and it is uneven.** Written out
-per utterance rather than as a median, because a median hides which half you are
-in:
+**Every one of the nine displayed the correct reference, and none displayed a
+wrong one at any point.** What each card actually showed, revision by revision:
 
-| Utterance | Verse visible early | vs. waiting for the endpoint |
-|---|---|---|
-| "John three sixteen" | 1.06 s | 0.84 s earlier — but as John 3:**6**, corrected at the end |
-| "Turn with me to John chapter three verse sixteen" | — | nothing early |
-| "Let us read Romans eight twenty eight" | 2.34 s | 0.56 s earlier, correct |
-| "Psalm twenty three one" | 1.46 s | 0.64 s earlier, correct |
-| "First John four eight" | — | nothing early |
-| "Let us read first John chapter four verse eight" | — | nothing early |
+| Utterance | Withheld along the way | Card showed | When |
+|---|---|---|---|
+| "John three sixteen" | John 3:**6** (heard once) | John 3:16 | 1.90 s |
+| "Turn with me to John chapter three verse sixteen" | John 3, John 3:**60** | John 3:16 | 3.60 s |
+| "Let us read Romans eight twenty eight" | Romans 8:28 (heard once) | Romans 8:28 | 2.91 s |
+| "Psalm twenty three one" | Psalms 23, Psalms 23:1 (once) | Psalms 23:1 | 2.11 s |
+| "First John four eight" | — | 1 John 4:8 | 1.87 s |
+| "Let us read first John chapter four verse eight" | 1 John 4 (chapter only) | 1 John 4:8 | 3.56 s |
+| "John three six" *(genuinely 3:6)* | John 3:6 (heard once) | **John 3:6** | 1.66 s |
+| "Let us read John chapter three verse six" *(genuinely 3:6)* | John 3 (chapter only) | **John 3:6** | 3.29 s |
+| "John three sixteen, for God so loved the world…" | John 3 (chapter only) | John 3:16 | **2.33 s**, 2.8 s before the end |
 
-So **three of six** show a verse before the speaker stops, by roughly 0.6–0.8 s,
-and one of those three shows a wrong one first. The other three show only the
-moving transcript until the end — two because their guesses were chapter-only
-and are deliberately withheld, one because it is too short for a provisional to
-have a complete reference at all.
+The last three rows are the ones that prove the rule is bounded rather than
+merely strict. A genuine John 3:6 still displays — the rule delays a reading by
+one revision, it never makes one unreachable. And a reference said early in a
+longer sentence displays well before the speaker stops and then stays put,
+which is where progressive recognition actually pays.
 
-That is a real improvement and a modest one, and it is worth being clear about
-which part is doing the work: the **transcript at 0.65 s** is what removes the
-feeling of speaking into silence. The early verse is a bonus that arrives for
-some phrasings and not others.
+**The cost, stated plainly.** For the five gate references the stability rule
+removes early display entirely: each of them names its verse in only one
+provisional before the final, so "heard twice" and "wait for the end" amount to
+the same thing, and the card fills 0.5–0.9 s later than it would have. What was
+bought for that is the John 3:6 flash, which is gone. The **transcript at
+0.64 s** is what carries the live feeling; the early passage is a bonus for
+longer phrasings.
 
 In the rehearsal itself **nothing was dropped**: at 83 ms of inference against a
 400 ms cadence the recogniser is idle most of every interval, which is what the
@@ -218,8 +238,16 @@ the first request after the service had sat idle, and 0.05 s on every request
 after that — Metal releasing what it is not using, not compilation, which was
 already paid at startup. A service is started before a meeting and left alone,
 so the operator's *first* reference was reliably the slowest thing they would
-ever see. The recogniser now runs a half-second heartbeat of silence while idle;
-after 90 seconds untouched the first real request costs **0.16 s**.
+ever see.
+
+The wake-up is now paid when the socket opens — pressing "Start listening" warms
+the recogniser while you are still reaching for the microphone — and repeated
+quietly for as long as that connection stays open. The first real request after
+connecting costs **0.14 s**. Two things had to be measured rather than assumed to
+get there: warming with digital silence cost more than a real utterance of the
+same length, and skipping the connect-time warm because a request had been served
+recently put the 1.5 s straight back — recent work is not evidence that the GPU
+is still resident.
 
 ### What the rehearsal could not test
 

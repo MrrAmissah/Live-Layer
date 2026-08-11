@@ -30,8 +30,10 @@ export type LatencyStage =
   | 'speech-start'
   /** First provisional transcript for this utterance came back. */
   | 'first-interim'
-  /** First Scripture candidate from any revision. */
+  /** First Scripture candidate from any revision, stable or not. */
   | 'first-candidate'
+  /** First candidate that two consecutive revisions agreed on — the display gate. */
+  | 'first-stable'
   /** First verse text on screen, provisional or final. */
   | 'first-verse'
   /** Voice activity detected the end of the utterance. */
@@ -64,6 +66,8 @@ export interface LatencyBreakdown {
   firstInterimMs: number | null;
   /** Speech start → first Scripture candidate. */
   firstCandidateMs: number | null;
+  /** Speech start → the first candidate allowed to fill the passage card. */
+  firstStableMs: number | null;
   /** Speech start → first verse on screen. The live-production metric. */
   firstVerseMs: number | null;
   /** Endpoint → the authoritative transcript. */
@@ -104,6 +108,8 @@ export interface LatencySummary {
   medianFirstInterimMs: number;
   /** Speech start → first Scripture candidate. */
   medianFirstCandidateMs: number;
+  /** Speech start → the first candidate stable enough to display. */
+  medianFirstStableMs: number;
   /** Speech start → first verse visible. THE live-production metric. */
   medianFirstVerseMs: number;
   medianTotalMs: number;
@@ -158,6 +164,7 @@ export function createLatencyRecorder(): LatencyRecorder {
         // What the operator experiences while speaking.
         firstInterimMs: gap(marks, 'speech-start', 'first-interim'),
         firstCandidateMs: gap(marks, 'speech-start', 'first-candidate'),
+        firstStableMs: gap(marks, 'speech-start', 'first-stable'),
         firstVerseMs: gap(marks, 'speech-start', 'first-verse'),
         finalAfterEndpointMs: gap(marks, 'endpoint', 'transcript'),
         totalMs: gap(marks, 'endpoint', 'rendered'),
@@ -181,6 +188,7 @@ export function createLatencyRecorder(): LatencyRecorder {
         samples: done.length,
         medianFirstInterimMs: Math.round(pick('speech-start', 'first-interim')),
         medianFirstCandidateMs: Math.round(pick('speech-start', 'first-candidate')),
+        medianFirstStableMs: Math.round(pick('speech-start', 'first-stable')),
         medianFirstVerseMs: Math.round(pick('speech-start', 'first-verse')),
         medianTotalMs: Math.round(median(totals)),
         p95TotalMs: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0),

@@ -13,6 +13,12 @@ import InputLevelMeter from './InputLevelMeter';
 import DetectedScripture from './DetectedScripture';
 import { liveLatency } from '../../lib/scripture/liveLatency';
 import {
+  decideDisplay,
+  forgetAgreement,
+  NO_AGREEMENT,
+  type StabilityState
+} from '../../lib/scripture/provisionalStability';
+import {
   IDLE,
   accept as acceptCandidate,
   beginResolving,
@@ -59,6 +65,14 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   const [listen, setListen] = useState(false);
   /** True while the card is showing a guess from speech still in progress. */
   const [provisional, setProvisional] = useState(false);
+  /**
+   * A reference has been heard once and is waiting to be heard again.
+   *
+   * Shown as a plain sentence, never as a count. The operator does not need to
+   * know that this is two passes of a recogniser agreeing — they need to know
+   * that something is happening and the card has not stalled.
+   */
+  const [detecting, setDetecting] = useState(false);
   const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
@@ -67,6 +81,12 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    */
   /** Timeline id for the utterance currently being turned into a passage. */
   const timelineRef = useRef<number | null>(null);
+  /**
+   * How many consecutive revisions have named the reference now being considered.
+   * A ref, not state: it is read and written inside the transcript handler, and a
+   * re-render between two revisions must not lose or replay a vote.
+   */
+  const agreementRef = useRef<StabilityState>(NO_AGREEMENT);
   const liveRef = useRef<ReturnType<typeof createLiveTranscriptSource> | null>(null);
   if (!liveRef.current) {
     liveRef.current = createLiveTranscriptSource({
@@ -154,13 +174,45 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-interim');
         const guess = receiveTranscript(event.text);
         if (guess.status === 'candidates' && guess.candidates.length) {
-          void previewProvisional(guess, ++generation.current, timelineRef.current);
+          if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-candidate');
+          /**
+           * Heard once is not enough to fill the dominant card. `John 3:6` came
+           * from a snapshot cut a moment before "sixteen" — a real verse, and not
+           * the one that was said. A reference the speaker actually finished
+           * survives the next revision; a fragment usually does not.
+           *
+           * Keyed to the segment, so the previous utterance cannot donate a vote
+           * to this one, and reset by disagreement rather than decayed.
+           */
+          const decision = decideDisplay(agreementRef.current, {
+            segmentId: event.segmentId,
+            reference: guess.candidates[0].reference.canonical,
+            isFinal: false
+          });
+          agreementRef.current = decision.state;
+          // Every revision supersedes the last, so a retrieval already running for
+          // a reading recognition has moved off can no longer land.
+          if (decision.invalidatePending) generation.current += 1;
+          if (decision.display) {
+            if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-stable');
+            setDetecting(false);
+            void previewProvisional(guess, generation.current, timelineRef.current);
+          } else {
+            // Something was heard that looks like a reference, and it has not been
+            // confirmed yet. Say that, rather than leaving the surface blank while
+            // the operator wonders whether anything is happening.
+            setDetecting(true);
+          }
         }
         return;
       }
 
       if (update.finalText !== null) {
         setProvisional(false);
+        setDetecting(false);
+        // The authoritative answer supersedes every provisional vote; nothing from
+        // this utterance may count toward the next one.
+        agreementRef.current = forgetAgreement();
         generation.current += 1;
         const next = receiveTranscript(update.finalText);
         setState(next);
@@ -188,6 +240,13 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     if (listen) unsubscribes.push(live.subscribe(interpret));
     return () => {
       for (const unsubscribe of unsubscribes) unsubscribe();
+      /**
+       * Stop clears the votes. Agreement is a claim about ONE utterance in ONE
+       * listening session; carrying a vote across a Stop would let the last thing
+       * said before the microphone was released count as the first half of the
+       * agreement for the first thing said after it.
+       */
+      agreementRef.current = forgetAgreement();
       /**
        * Cancel the request itself, not just its continuation. `runScriptureLookup`
        * consults the hook's `isCurrent()` BEFORE writing the cache, so a guard
@@ -389,6 +448,12 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       ) : state.transcript ? (
         <p className="live-heard">
           Heard <span className="live-heard__text">“{state.transcript}”</span>
+        </p>
+      ) : null}
+
+      {detecting && !state.passage ? (
+        <p className="live-heard live-heard--detecting" aria-live="off">
+          Detecting reference…
         </p>
       ) : null}
 

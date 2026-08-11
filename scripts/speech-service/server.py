@@ -53,7 +53,7 @@ def parse_frame(message: bytes):
     return session, utterance, revision, bool(final), pcm
 
 
-async def handle(websocket, recogniser, verbose: bool) -> None:
+async def handle(websocket, recogniser, verbose: bool, keep_warm_seconds: float = 0.0) -> None:
     """One connection, one worker, a slot for the newest provisional request.
 
     Progressive recognition sends a snapshot every few hundred milliseconds while
@@ -77,7 +77,9 @@ async def handle(websocket, recogniser, verbose: bool) -> None:
                 continue
             try:
                 started = time.perf_counter()
+                last_served["at"] = time.perf_counter()
                 text, inference = recogniser.transcribe(job["pcm"])
+                last_served["at"] = time.perf_counter()
                 if verbose:
                     # Shape and timing only — never the transcript, which is the
                     # content of what someone said (docs/ASR_EVALUATION.md §7).
@@ -103,6 +105,7 @@ async def handle(websocket, recogniser, verbose: bool) -> None:
                 }))
 
     task = asyncio.create_task(worker())
+    warm = asyncio.create_task(keep_warm(recogniser, keep_warm_seconds, verbose))
     try:
         async for message in websocket:
             if isinstance(message, str):
@@ -129,32 +132,66 @@ async def handle(websocket, recogniser, verbose: bool) -> None:
             waiting.set()
     finally:
         task.cancel()
+        warm.cancel()
+
+
+# When the recogniser last did real work, so the idle heartbeat can stay out of
+# the way. A dict because it is written from the request path and read from the
+# heartbeat, and both are plain closures over module state.
+last_served = {"at": 0.0}
 
 
 async def keep_warm(recogniser, every: float, verbose: bool) -> None:
-    """Keep the GPU resident, because the operator's FIRST reference is the one
-    that decides whether they trust this.
+    """Keep the GPU resident **while an operator is listening**, because their
+    first reference is the one that decides whether they trust this.
 
-    Warming once at startup is not enough and measurement is why: the same
+    Warming once at startup is not enough, and measurement is why: the same
     half-second clip costs **2.29 s** on the first request after the service has
-    sat idle, and 0.05 s on every request after it. Not lazy compilation — that
-    was already paid — but Metal releasing what it is not using. A service is
-    started deliberately before a meeting and then left alone for an hour, which
-    is exactly the gap that produces the cold number, and the operator pays it on
-    the first thing they say.
+    sat idle and 0.05 s on every request after it. Not lazy compilation — that was
+    paid at startup — but Metal releasing what it is not using. A service is
+    started before a meeting and then left alone, so warming at startup warms the
+    wrong moment.
 
-    So a heartbeat of silence every few seconds. It cannot overlap a real request:
-    inference is synchronous and this shares the event loop with the worker, so
-    the two take strict turns. Nothing is transmitted, nothing is stored, and the
-    audio is zeros.
+    Scoped to a CONNECTION rather than to the process, and that is deliberate.
+    Pressing "Start listening" opens the socket seconds before anyone speaks,
+    which is exactly when the wake-up should be paid; the rest of the time nobody
+    is listening and there is nothing to keep warm. Each beat costs about a
+    second of GPU — the wake-up itself, not the audio, which is why shortening the
+    buffer did not help — so burning that continuously against an idle machine
+    would be paying a real cost for nothing.
     """
     if every <= 0:
         return
-    silence = np.zeros(int(SR * 0.5), dtype=np.float32)
+    # Faint noise, not digital zeros. Silence is a degenerate input — the first
+    # version of this used 0.5 s of zeros and each heartbeat cost 1.4 s, more than
+    # ten times a real utterance of the same length, because the decode has nothing
+    # to anchor on. It is also 0.2 s rather than 0.5 s: this exists to keep Metal
+    # resident, and the shortest buffer that does that is the cheapest way to.
+    rng = np.random.default_rng(7)
+    tick = (rng.standard_normal(int(SR * 0.2)) * 1e-3).astype(np.float32)
+    first = True
     while True:
-        await asyncio.sleep(every)
+        if not first:
+            await asyncio.sleep(every)
+            # Never warm a recogniser that is already working. Inference is
+            # synchronous and shares this event loop, so a beat in progress DELAYS
+            # the next real utterance by however long it takes — measured doing
+            # exactly that, with an operator's first snapshot waiting 1.5 s behind
+            # a beat it had no way to see.
+            #
+            # Only PERIODIC beats are skipped this way. The beat below, on connect,
+            # is unconditional: this guard once suppressed it too, on the reasoning
+            # that a recent request meant the GPU was still warm, and the very next
+            # measurement disproved it — a connection opened seconds after another
+            # one closed skipped its warm and paid 1.5 s on the operator's first
+            # word. Recency of work is not evidence of residency.
+            if time.perf_counter() - last_served["at"] < every:
+                continue
+        # The connection has just opened. Pay the wake-up NOW, while the operator
+        # is still reaching for the microphone, rather than on their first word.
+        first = False
         started = time.perf_counter()
-        recogniser.transcribe(silence)
+        recogniser.transcribe(tick)
         if verbose:
             print(f"  warm {time.perf_counter() - started:.3f}s", flush=True)
 
@@ -178,16 +215,12 @@ async def main_async(args) -> int:
     recogniser.transcribe(np.zeros(SR, dtype=np.float32))
     print(f"ready on ws://{args.host}:{args.port} — local only, no audio is stored", flush=True)
 
-    warm = asyncio.create_task(keep_warm(recogniser, args.keep_warm_seconds, args.verbose))
 
-    try:
-        async with websockets.serve(
-            lambda ws: handle(ws, recogniser, args.verbose),
-            args.host, args.port, max_size=32 * 1024 * 1024
-        ):
-            await asyncio.Future()
-    finally:
-        warm.cancel()
+    async with websockets.serve(
+        lambda ws: handle(ws, recogniser, args.verbose, args.keep_warm_seconds),
+        args.host, args.port, max_size=32 * 1024 * 1024
+    ):
+        await asyncio.Future()
     return 0
 
 

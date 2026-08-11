@@ -9471,6 +9471,9 @@ body.gfx-transparent {
 .control-root .live-heard { margin: 0; font-size: 12.5px; color: var(--ll-muted); }
 .control-root .live-heard__text { color: var(--ll-text); font-weight: 620; }
 .control-root .live-heard--interim { opacity: 0.65; font-style: italic; }
+/* A reference was heard once and is being confirmed. Quieter than the passage it
+   may become, so it reads as activity rather than as an answer. */
+.control-root .live-heard--detecting { opacity: 0.8; font-style: italic; letter-spacing: 0.01em; }
 .control-root .live-problem { margin: 0; font-size: 12.5px; line-height: 1.5; color: #f5c77e; }
 
 /* The detected passage — visually dominant, because it is the decision. */
