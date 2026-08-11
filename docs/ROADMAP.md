@@ -125,17 +125,19 @@ rundown while the service is happening.
   abbreviation table (`jon` is a declared alias of Jonah, so "John" became
   Jonah 3:16), and the pipeline buffered fixed windows instead of detecting when
   the speaker stopped.
-  Fixing those took the wrong-passage rate from **34% to 1.2%** and latency to
-  **0.65 s**, measured against an 83-case corpus frozen before the work began
-  ([ASR_EVALUATION.md](ASR_EVALUATION.md) §9).
+  Fixing those moved misleading-top from **34.0% to 3.8%** on the same Stage 5
+  transcripts and **12.0% to 3.6%** end-to-end on a held-out corpus frozen before
+  the work began, with latency **15.6 s → 0.649 s**
+  ([ASR_EVALUATION.md](ASR_EVALUATION.md) §9). DONDO's own acoustic limits remain.
   So the reviewed microphone assist now exists: explicit Start/Stop listening, a
   visible listening state, local inference only (`scripts/speech-service/`), final
   transcript → the existing candidate flow → operator reads the passage → explicit
   Accept → a separate Take. Typing is always immediately available and every
   failure degrades to it.
-  **It is not validated.** Gate A criteria 4 and 6 — misleading-top on real church
-  audio, and operator testing that wrong candidates get noticed — still have no
-  evidence, and need a real service to get any. The residual weakness is acoustic
+  **Gate A remains NOT CLEARED** — criterion 3 is unestablished and 4 and 6 have no
+  evidence. What changed is the development decision: the engineering evidence is
+  sufficient to build the reviewed assist **for real-world validation**, and it
+  ships as an explicitly unvalidated validation-stage capability. The residual weakness is acoustic
   and out of reach of parser work: less common book names are mangled beyond safe
   recovery and **refuse**, so roughly 60% of named passages return nothing under
   degraded audio. If DONDO is replaced, the seam is `LiveTranscriptSource` and the

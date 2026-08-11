@@ -15,20 +15,26 @@ available, the assistant was fully correct for about a third of utterances and
 offered a *confidently wrong passage* for about another third, with a 15.6-second
 latency to final. Two blockers, one of them a safety failure.
 
-Both turned out to be ours rather than the model's. The wrong passages came from
-the spoken parser reading the **typed** abbreviation table — `jon` is a declared
-alias of Jonah, so a recogniser's rendering of "John" produced Jonah 3:16. The
-latency came from buffering fixed windows rather than detecting when the speaker
-stopped. Fixing those took the wrong-passage rate from **34% to 1.2%** and latency
-from **15.6 s to 0.65 s**, measured against an 83-case corpus frozen before any of
-it was written.
+Two **integration** blockers were ours rather than the model's. The wrong passages
+came from the spoken parser reading the **typed** abbreviation table — `jon` is a
+declared alias of Jonah, so a recogniser's rendering of "John" produced Jonah 3:16.
+The latency came from buffering fixed windows rather than detecting when the speaker
+stopped. Fixing those, measured against an 83-case corpus frozen beforehand:
 
-What remains is acoustic and out of reach of parser work: the model mangles less
-common book names badly, and those **refuse** rather than err. So the assistant is
-now safe and modestly useful — it says nothing far more often than it says something
-wrong — and that is the basis on which the reviewed microphone assist was built.
-It is **not validated**: Gate A criteria 4 and 6 need real-service evidence this
-feature is what makes collectable.
+| like-for-like | before | after |
+| --- | --- | --- |
+| misleading-top, same Stage 5 transcripts | 34.0% | **3.8%** |
+| misleading-top, held-out end-to-end | 12.0% | **3.6%** |
+| latency to final | 15.6 s | **0.649 s** |
+
+**DONDO itself still has substantial acoustic limits.** It mangles less common book
+names badly, and those **refuse** rather than err — roughly 60% of named passages
+return nothing under degraded audio. The assistant is now safe and modestly useful:
+it says nothing far more often than it says something wrong.
+
+That is enough to justify **building** the reviewed assist for real-world
+validation. It is not enough to trust it: **Gate A remains NOT CLEARED**, because
+criterion 3 is unestablished and 4 and 6 have no evidence.
 
 This document records what the candidate model claims, what our own harness
 measures, the architecture a live recogniser fits behind, what the benchmark found,
@@ -716,7 +722,7 @@ May be considered when **all** of these hold:
 Note what is *not* on this list: a zero misleading-top rate. Under review, that number
 is a cost to keep low and visible, not a veto.
 
-### Gate A re-adjudication — after remediation: **CLEARED TO BUILD, NOT TO TRUST**
+### Gate A re-adjudication — after remediation: **STILL NOT CLEARED**
 
 §9 records what the remediation changed. Against the same seven criteria:
 
@@ -724,25 +730,31 @@ is a cost to keep low and visible, not a veto.
 | --- | --- | --- | --- |
 | 1 | Nothing stages/queues/airs automatically | Met | **Met** |
 | 2 | Candidates show alternatives and reasoning | Met | **Met** — recovered books additionally carry `heard "jon"` |
-| 3 | Top-1/top-k good enough to save time | Not established, **strongly adverse** | **Not established, and the adverse signal is gone.** The wrong-passage rate that justified stopping is now 1.2% |
+| 3 | Top-1/top-k good enough to save time | Not established, **strongly adverse** | **Still not established** — but the adverse signal is gone: misleading-top 34.0% → 3.8% same-transcript, 12.0% → 3.6% held-out |
 | 4 | Misleading-top on **real audio** measured | No evidence | **No evidence** |
 | 5 | Latency short enough to be useful | **Fails** (15.6 s) | **Met** — 0.649 s median, 0.764 s p95 |
 | 6 | Operator testing catches wrong candidates | No evidence | **No evidence** |
 | 7 | Typing always available | Met | **Met** |
 
-**Criterion 5 moved from failure to pass, and criterion 3's adverse evidence is
-gone.** Those were the two that stopped Stage 5. What remains — 4 and 6 — are not
-merely unmeasured; they are **unmeasurable without the feature existing**. You
-cannot measure misleading-top on real church audio through a microphone that is not
-built, and you cannot test whether an operator notices a wrong candidate at a review
-step they have never seen. Stage 5 refused to build because the evidence said the
-thing would not work. That is no longer what the evidence says.
+**Gate A requires all of its criteria, and three of them do not hold. It is NOT
+CLEARED**, and nothing below softens that.
 
-So the decision is to **build the reviewed assist, and not to declare it validated**.
-It ships as an operator-reviewed aid with typing always immediately available,
-refusing far more often than it errs, and Gate A stays formally uncleared until
-criteria 4 and 6 have real-service evidence — which this feature is what makes
-collectable.
+What changed is the *development* decision, which is a different question. Criterion
+5 moved from failure to pass, and criterion 3's adverse evidence is gone — those were
+the two that stopped Stage 5, and Stage 5 refused to build because the evidence said
+the thing would not work. That is no longer what the evidence says.
+
+So the decision is: **the engineering evidence is sufficient to build the
+operator-reviewed assist for real-world validation.** It ships as an explicitly
+unvalidated, validation-stage capability with typing always immediately available,
+refusing far more often than it errs.
+
+Criteria 4 and 6 are **not** logically impossible to measure without the feature —
+criterion 4 could in principle be measured offline on consented real church audio,
+and criterion 6 benefits from real interaction but is not strictly gated on this
+implementation. What the built feature changes is practicality: it makes in-situ
+collection and operator validation feasible rather than a separate research
+exercise.
 
 **What has NOT changed:** no automatic acceptance, no automatic staging, no
 automatic queueing, no Auto-Take. Gate B remains out of scope and untouched.
@@ -884,11 +896,12 @@ consent and dignity, not just data handling.
 | Apple Silicon benchmark | **Run 2026-08-11.** Results in §5. |
 | Machine fast enough? | **Yes** — RTF 0.037–0.052 on Metal, measured peak RSS 501 MB. |
 | Recognition accurate enough? | **Not on the evidence available** — ~32% misleading-top on favourable synthetic audio, 0/10 on multiple references. Real church audio unmeasured. |
-| Gate A criterion 3 (accuracy, real audio) | **Not established** — the adverse signal is gone; wrong-passage 1.2% (§9). |
+| Gate A criterion 3 (accuracy, real audio) | **Not established** — adverse signal gone; misleading-top 3.8% same-transcript, 3.6% held-out (§9). |
 | Gate A criterion 4 (misleading-top, real audio) | **No evidence** — needs a real service. |
 | Gate A criterion 5 (latency) | **Met** — 0.649 s median after endpointing (§9). |
 | Gate A criterion 6 (operator testing) | **No evidence** — needs operators using it. |
-| **Gate A overall** | **Cleared to build, not to trust** (§6). |
+| **Gate A overall** | **NOT CLEARED** — 3 unestablished, 4 and 6 no evidence (§6). |
+| Development decision | Evidence sufficient to **build for validation**, not to trust. |
 | Speech-specific book lexicon + recovery | **Shipped** (§9). |
 | Utterance endpointing | **Shipped** (§9). |
 | Microphone capture | **Built, operator-reviewed, off by default.** |
@@ -902,8 +915,13 @@ up, and not before. On this evidence, that is not soon.
 
 Stage 5 stopped because the assistant was right about a third of the time and
 confidently wrong about a third. This section records the targeted fix and its
-result. The headline: **the wrong-passage rate fell from 34% to 1.2%, and latency
-from 15.6 s to 0.65 s.**
+result.
+
+The headline, stated like-for-like: **misleading-top fell from 34.0% to 3.8% on the
+same Stage 5 transcripts, and from 12.0% to 3.6% end-to-end on held-out audio;
+latency fell from 15.6 s to 0.649 s.** The narrower "wrong book or chapter" subtype
+is 1.2% — a *different, stricter* metric than the 34%, and the two are not
+comparable.
 
 ### The held-out corpus, frozen first
 

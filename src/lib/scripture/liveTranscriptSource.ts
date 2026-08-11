@@ -11,12 +11,14 @@ import {
 /**
  * The capture source §4 declared and Stage 5 refused to build.
  *
- * It is built now because the two things that stopped it are fixed and measured
- * (§9): the wrong-passage rate fell from 34% to 1.2% once the spoken path stopped
- * reading the typed abbreviation table, and latency fell from 15.6 s to 0.65 s once
- * fixed windows were replaced by endpointing. It is **not** built because the
- * feature is validated — Gate A criteria 4 and 6 still have no evidence, and they
- * need a real service to get any.
+ * It is built now because the two INTEGRATION blockers that stopped it are fixed and
+ * measured (§9): misleading-top fell from 34.0% to 3.8% on the same transcripts once
+ * the spoken path stopped reading the typed abbreviation table, and latency fell from
+ * 15.6 s to 0.649 s once fixed windows were replaced by endpointing.
+ *
+ * It is **not** built because the feature is validated. **Gate A remains NOT
+ * CLEARED** — criterion 3 is unestablished, 4 and 6 have no evidence, and DONDO's
+ * own acoustic limits are unchanged. This exists so that validation can happen.
  *
  * ## Where the model is, and is not
  *
@@ -100,6 +102,22 @@ export function createLiveTranscriptSource(
   let endpointer: EndpointerState = emptyEndpointer();
   let segment = 0;
   let pending = 0;
+  /**
+   * Which listening session owns the current callbacks.
+   *
+   * `if (listening)` is not enough and the difference is not theoretical. A socket
+   * response already in flight when the operator presses Stop would still have been
+   * emitted; worse, after Stop → Start the flag is true again, so a reply belonging
+   * to the OLD session would have been interpreted as the new one's first utterance
+   * — a transcript from before the operator stopped, offered as a candidate for what
+   * they just said.
+   *
+   * Every callback captures the session it was created in and compares. Bumped
+   * BEFORE teardown, so nothing in flight can win the race.
+   */
+  let session = 0;
+  /** Utterances endpointed before the socket opened. Flushed on open, dropped on failure. */
+  let queued: Float32Array[] = [];
 
   const report = (status: ListeningStatus, detail = '', speaking = false) =>
     options.onStatus?.({ status, detail, speaking });
@@ -124,6 +142,9 @@ export function createLiveTranscriptSource(
 
   /** Release everything, in an order that cannot leave the microphone live. */
   const teardown = () => {
+    // Invalidate FIRST: any callback that fires during teardown belongs to a session
+    // that no longer exists.
+    session += 1;
     listening = false;
     try { node?.disconnect(); } catch { /* already gone */ }
     try { context?.close(); } catch { /* already gone */ }
@@ -138,10 +159,23 @@ export function createLiveTranscriptSource(
     socket = null;
     endpointer = emptyEndpointer();
     pending = 0;
+    queued = [];
   };
 
-  const send = (utterance: Float32Array) => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  const send = (mine: number, utterance: Float32Array) => {
+    if (mine !== session || !socket) return;
+    /**
+     * The socket may still be CONNECTING when the first utterance is endpointed.
+     * Dropping it here is what "the first thing you say never works" looks like, so
+     * it is queued until the socket opens and sent then — or discarded if the
+     * connection never comes up, in which case the error path has already told the
+     * operator to type.
+     */
+    if (socket.readyState === WebSocket.CONNECTING) {
+      queued.push(utterance);
+      return;
+    }
+    if (socket.readyState !== WebSocket.OPEN) return;
     // 16-bit PCM: what the model's feature extractor wants, and a quarter the bytes
     // of float32 over the socket.
     const pcm = new Int16Array(utterance.length);
@@ -178,6 +212,10 @@ export function createLiveTranscriptSource(
 
     async start() {
       if (listening) return;
+      // A fresh session for this start. Everything below captures `mine`, so any
+      // callback surviving from a previous session compares unequal and does nothing.
+      session += 1;
+      const mine = session;
       report('starting', 'Asking for the microphone…');
       const getMedia =
         options.getMedia ?? ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
@@ -192,6 +230,7 @@ export function createLiveTranscriptSource(
           }
         });
       } catch (error) {
+        if (mine !== session) return; // stopped while the permission prompt was open
         teardown();
         const denied = (error as DOMException)?.name === 'NotAllowedError';
         report(
@@ -206,7 +245,21 @@ export function createLiveTranscriptSource(
       try {
         socket = (options.createSocket ?? ((url) => new WebSocket(url)))(serviceUrl);
         socket.binaryType = 'arraybuffer';
+        socket.addEventListener('open', () => {
+          if (mine !== session) return;
+          // Flush anything endpointed while the socket was still connecting.
+          const backlog = queued;
+          queued = [];
+          for (const utterance of backlog) send(mine, utterance);
+          report('listening', '');
+        });
         socket.addEventListener('message', (event) => {
+          /**
+           * The session check is the whole point. A response already in flight when
+           * Stop was pressed — or one belonging to the session BEFORE a Stop/Start —
+           * must not become a candidate for what the operator just said.
+           */
+          if (mine !== session) return;
           pending = Math.max(0, pending - 1);
           try {
             const payload = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
@@ -217,6 +270,8 @@ export function createLiveTranscriptSource(
           if (listening) report('listening', '', false);
         });
         socket.addEventListener('error', () => {
+          // An old socket erroring must not tear down a newer listening session.
+          if (mine !== session) return;
           teardown();
           report(
             'unavailable',
@@ -224,10 +279,9 @@ export function createLiveTranscriptSource(
           );
         });
         socket.addEventListener('close', () => {
-          if (listening) {
-            teardown();
-            report('stopped', 'The local speech service closed the connection.');
-          }
+          if (mine !== session || !listening) return;
+          teardown();
+          report('stopped', 'The local speech service closed the connection.');
         });
 
         context = new AudioContext({ sampleRate: config.sampleRate });
@@ -237,12 +291,12 @@ export function createLiveTranscriptSource(
         // deprecated API doing arithmetic on 20 ms of audio, not a hot path.
         node = context.createScriptProcessor(1024, 1, 1);
         node.onaudioprocess = (event) => {
-          if (!listening) return;
+          if (mine !== session || !listening) return;
           const input = event.inputBuffer.getChannelData(0);
           for (const frame of toFrames(Float32Array.from(input), config.sampleRate)) {
             const result = pushFrame(endpointer, frame, config);
             endpointer = result.state;
-            if (result.utterance) send(result.utterance);
+            if (result.utterance) send(mine, result.utterance);
             else if (pending === 0) report('listening', '', result.speaking);
           }
         };
@@ -250,8 +304,16 @@ export function createLiveTranscriptSource(
         node.connect(context.destination);
 
         listening = true;
-        report('listening', '');
+        /**
+         * Capture is live, but the connection may not be. Saying "Listening" before
+         * the socket is open would claim a working pipeline that cannot yet deliver
+         * a transcript; audio endpointed in the meantime is queued rather than lost,
+         * and the `open` handler reports the honest state.
+         */
+        if (socket.readyState === WebSocket.OPEN) report('listening', '');
+        else report('starting', 'Connecting to the local speech service…');
       } catch {
+        if (mine !== session) return;
         teardown();
         report('unavailable', 'Could not start listening. Type the reference instead.');
       }

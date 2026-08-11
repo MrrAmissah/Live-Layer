@@ -60,9 +60,38 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * cancelled every scripture lookup in flight.
    */
   const liveRef = useRef<ReturnType<typeof createLiveTranscriptSource> | null>(null);
-  if (!liveRef.current) liveRef.current = createLiveTranscriptSource({ onStatus: setMic });
+  if (!liveRef.current) {
+    liveRef.current = createLiveTranscriptSource({
+      onStatus: (status) => {
+        setMic(status);
+        /**
+         * A live source that has STOPPED must not leave the UI in listening mode.
+         * It used to: `listen` stayed true after a permission refusal, so the panel
+         * showed "Type the reference instead" while the button still read "Stop
+         * listening" and the operator had no working input at all.
+         */
+        if (status.status === 'denied' || status.status === 'unavailable' || status.status === 'stopped') {
+          setListen(false);
+        }
+      }
+    });
+  }
   const live = liveRef.current;
-  const source: TranscriptSource = listen ? live : defaultTranscriptSource;
+  /**
+   * The two sources are ADDITIVE, not alternatives.
+   *
+   * This used to be `listen ? live : manual`, with `submit` refusing when the source
+   * was live — so turning the microphone on silently disabled typing, and the panel
+   * could tell an operator to "type the reference instead" while Interpret did
+   * nothing. Typing is the fallback the whole design rests on; it cannot be the
+   * thing that switches off when the fallback is needed.
+   *
+   * The manual source stays subscribed for the life of the panel. The live one is
+   * subscribed only while listening. They emit distinct `segmentId`s, so the
+   * reducer treats them as different utterances and neither can duplicate the
+   * other.
+   */
+  const manual = defaultTranscriptSource;
 
   // Generation guard: a retrieval that resolves after the operator moved on must
   // not repopulate the panel. Same rule as the typed lookup path.
@@ -79,7 +108,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   useEffect(() => () => live.stop(), [live]);
 
   useEffect(() => {
-    const unsubscribe = source.subscribe((event) => {
+    const interpret = (event: Parameters<Parameters<TranscriptSource['subscribe']>[0]>[0]) => {
       /**
        * Only a fresh, in-order, FINAL event is interpreted. An interim guess is
        * shown but never parsed — it is a moving target, and offering a passage the
@@ -99,9 +128,12 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         generation.current += 1;
         setState(receiveTranscript(update.finalText));
       }
-    });
+    };
+    // Manual always; live only while listening.
+    const unsubscribes = [manual.subscribe(interpret)];
+    if (listen) unsubscribes.push(live.subscribe(interpret));
     return () => {
-      unsubscribe();
+      for (const unsubscribe of unsubscribes) unsubscribe();
       /**
        * Cancel the request itself, not just its continuation. `runScriptureLookup`
        * consults the hook's `isCurrent()` BEFORE writing the cache, so a guard
@@ -113,23 +145,17 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
        */
       cancel();
     };
-  }, [source, cancel]);
+  }, [manual, live, listen, cancel]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     /**
-     * Narrowed, not optional-chained. `submit` exists only on a manual source and
-     * `start`/`stop` only on a live one — the union makes the invalid combinations
-     * unrepresentable, so the call site has to say which kind it is holding rather
-     * than hoping a method is there.
-     *
-     * What the union does NOT do is make this component handle a live source: there
-     * is no capture UI here, and registering one as the default would make Interpret
-     * inert. Only a manual source exists today, and adding a live one is a change to
-     * this panel as well as to the port.
+     * ALWAYS the manual source, whether or not the microphone is on. Typing is the
+     * fallback every failure path points at, so it cannot depend on the state of the
+     * thing that failed.
      */
-    if (isLiveSource(source)) return;
-    source.submit(draftTranscript);
+    if (isLiveSource(manual)) return;
+    manual.submit(draftTranscript);
   };
 
   const resolve = async () => {
@@ -161,7 +187,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       <header className="voice-assist__head">
         <span className="ll-kicker">Voice assist · preview</span>
         {/* Honest about what this is. A manual source must not imply listening. */}
-        <span className="ll-tag">{source.label}</span>
+        <span className="ll-tag">{listen ? live.label : manual.label}</span>
       </header>
       <p className="voice-assist__note">
         Nothing reaches the graphic until you accept a reading, and Take is a second, separate press. Typing works

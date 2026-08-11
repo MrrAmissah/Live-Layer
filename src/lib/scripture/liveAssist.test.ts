@@ -83,30 +83,72 @@ describe('deciding when the speaker has stopped', () => {
   });
 });
 
+/**
+ * Minimal fakes: the source must be testable without a microphone OR a Web Audio
+ * implementation. Node has neither, and without this stub `start()` throws after
+ * registering its socket listeners — which the session guard then correctly treats
+ * as a dead session, so every later assertion fails for the wrong reason.
+ */
+class FakeAudioContext {
+  createMediaStreamSource() {
+    return { connect: () => undefined };
+  }
+  createScriptProcessor() {
+    return { connect: () => undefined, disconnect: () => undefined, onaudioprocess: null };
+  }
+  close() {
+    return Promise.resolve();
+  }
+}
+(globalThis as unknown as { AudioContext: unknown }).AudioContext = FakeAudioContext;
+(globalThis as unknown as { WebSocket: unknown }).WebSocket ??= { CONNECTING: 0, OPEN: 1 };
+
 /** Minimal fakes: the source must be testable without a microphone. */
-function harness(overrides: { failMedia?: string } = {}) {
-  const sent: ArrayBuffer[] = [];
+function harness(overrides: { failMedia?: string; readyState?: number } = {}) {
   const tracks = [{ stop: vi.fn() }];
-  const socketListeners: Record<string, ((event: unknown) => void)[]> = {};
-  const socket = {
-    readyState: 1,
-    binaryType: '',
-    send: (data: ArrayBuffer) => sent.push(data),
-    close: vi.fn(),
-    addEventListener: (type: string, fn: (event: unknown) => void) => {
-      (socketListeners[type] ??= []).push(fn);
-    }
-  };
   const statuses: { status: string; detail: string }[] = [];
+  /**
+   * A NEW socket per connection, because that is what the browser does. Reusing one
+   * object made every session share a listener map, so a message aimed at an old
+   * session was also delivered to the new session's handler — the harness would have
+   * hidden exactly the bug these tests exist to catch.
+   */
+  const sockets: {
+    readyState: number;
+    sent: ArrayBuffer[];
+    listeners: Record<string, ((event: unknown) => void)[]>;
+    close: ReturnType<typeof vi.fn>;
+  }[] = [];
+  const createSocket = () => {
+    const listeners: Record<string, ((event: unknown) => void)[]> = {};
+    const socket = {
+      readyState: overrides.readyState ?? 1,
+      binaryType: '',
+      sent: [] as ArrayBuffer[],
+      listeners,
+      send(data: ArrayBuffer) {
+        socket.sent.push(data);
+      },
+      close: vi.fn(),
+      addEventListener: (type: string, fn: (event: unknown) => void) => {
+        (listeners[type] ??= []).push(fn);
+      }
+    };
+    sockets.push(socket);
+    return socket as unknown as WebSocket;
+  };
   const source = createLiveTranscriptSource({
     getMedia: overrides.failMedia
       ? () => Promise.reject(Object.assign(new Error('no'), { name: overrides.failMedia }))
       : () => Promise.resolve({ getTracks: () => tracks } as unknown as MediaStream),
-    createSocket: () => socket as unknown as WebSocket,
+    createSocket,
     onStatus: (s) => statuses.push({ status: s.status, detail: s.detail })
   });
-  const fire = (type: string, event: unknown) => socketListeners[type]?.forEach((fn) => fn(event));
-  return { source, sent, tracks, statuses, fire, socket };
+  /** Fire at a specific socket; defaults to the most recent one. */
+  const fireOn = (index: number, type: string, event: unknown) =>
+    sockets[index]?.listeners[type]?.forEach((fn) => fn(event));
+  const fire = (type: string, event: unknown) => fireOn(sockets.length - 1, type, event);
+  return { source, tracks, statuses, fire, fireOn, sockets };
 }
 
 describe('the live source, as a transcript port', () => {
@@ -223,5 +265,86 @@ describe('what the live source refuses to be', () => {
     expect(Object.keys(event!).sort()).toEqual(
       ['isFinal', 'language', 'segmentId', 'sequence', 'sourceId', 'text'].sort()
     );
+  });
+});
+
+
+describe('a stopped session can never speak again', () => {
+  it('discards a response that was already in flight when Stop was pressed', async () => {
+    const { source, fire } = harness();
+    await source.start();
+    const events: unknown[] = [];
+    source.subscribe((e) => events.push(e));
+    source.stop();
+    // The service replies to an utterance sent before the operator stopped.
+    fire('message', { data: JSON.stringify({ text: 'John three sixteen' }) });
+    expect(events).toHaveLength(0);
+  });
+
+  it('discards an OLD session response arriving after Stop then Start', async () => {
+    // The dangerous one: `listening` is true again, so a flag check would let a
+    // transcript from before the stop be offered as the new session's first result.
+    const { source, fireOn } = harness();
+    await source.start();
+    source.stop();
+    await source.start();
+    const events: unknown[] = [];
+    source.subscribe((e) => events.push(e));
+    // Socket 0 belongs to the session that already ended.
+    fireOn(0, 'message', { data: JSON.stringify({ text: 'from the previous session' }) });
+    expect(events).toHaveLength(0);
+  });
+
+  it('still accepts a response belonging to the CURRENT session', async () => {
+    const { source, fire } = harness();
+    await source.start();
+    source.stop();
+    await source.start();
+    const events: { text: string }[] = [];
+    source.subscribe((e) => events.push({ text: e.text }));
+    fire('message', { data: JSON.stringify({ text: 'Romans eight one' }) });
+    expect(events).toEqual([{ text: 'Romans eight one' }]);
+  });
+
+  it('an old socket erroring cannot tear down a newer session', async () => {
+    const { source, fireOn } = harness();
+    await source.start();
+    source.stop();
+    await source.start();
+    expect(source.isListening()).toBe(true);
+    fireOn(0, 'error', {}); // the session that already ended
+    expect(source.isListening()).toBe(true);
+  });
+
+  it('an old socket closing cannot stop a newer session', async () => {
+    const { source, fireOn } = harness();
+    await source.start();
+    source.stop();
+    await source.start();
+    fireOn(0, 'close', {});
+    expect(source.isListening()).toBe(true);
+  });
+});
+
+describe('connection readiness is reported honestly', () => {
+  it('does not claim Listening while the socket is still CONNECTING', async () => {
+    const { source, statuses } = harness({ readyState: 0 });
+    await source.start();
+    const last = statuses[statuses.length - 1];
+    expect(last.status).toBe('starting');
+    expect(last.detail).toMatch(/connecting/i);
+  });
+
+  it('claims Listening once the socket opens', async () => {
+    const { source, statuses, fire } = harness({ readyState: 0 });
+    await source.start();
+    fire('open', {});
+    expect(statuses[statuses.length - 1].status).toBe('listening');
+  });
+
+  it('claims Listening immediately when the socket is already open', async () => {
+    const { source, statuses } = harness();
+    await source.start();
+    expect(statuses[statuses.length - 1].status).toBe('listening');
   });
 });
