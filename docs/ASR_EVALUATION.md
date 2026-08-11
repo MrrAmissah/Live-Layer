@@ -11,11 +11,17 @@ are committed; the harness that produced the numbers is, at
 `scripts/asr-benchmark/`.
 
 The short version: **the machine is roughly 20× faster than it needs to be, and the
-recognition is not accurate enough to build an operator-assist on.** On the most
+recognition is nowhere near good enough to justify going further.** On the most
 favourable audio available — a synthetic voice reading in a silent room — the
 assistant is fully correct for about a third of utterances and offers a confidently
-wrong passage for about another third. That is a substantive failure of Gate A's
-usefulness bar, not merely an absence of evidence.
+wrong passage for about another third.
+
+Two things follow, and they are different in kind. Gate A's **latency** criterion
+**fails on measurement**, which alone is enough to withhold the gate. Its
+**accuracy** criterion is scored against *real church audio*, which has not been
+recorded — so it is **not established**, with strongly adverse preliminary evidence.
+The decision not to go and gather that recording is a judgement about where to spend
+a congregation's consent and an operator's time, not a claim to have measured it.
 
 This document records what the candidate model claims, what our own harness
 measures, the architecture a live recogniser would have to fit behind, what the
@@ -409,10 +415,11 @@ audio, and 1110 s of wall clock had elapsed without finishing, so RTF ≥ 1110 �
 1.54. Slower than real time either way, which is all the stop condition needs.
 
 **Metal is the backend.** MPS float32 runs at RTF 0.037–0.052 — roughly 20–27× faster
-than real time — in under 500 MB, while CPU is 5–8× slower and needs 3–4 GB.
+than real time — in about 0.5 GB (measured peak **501 MB**), while CPU is 5–8×
+slower and needs 3–4 GB.
 
 **Float16 is not worth taking.** It is marginally faster and costs 3.8 GB against
-float32's 0.5 GB. The gap is a loading artefact rather than a model-size effect:
+float32's 501 MB. The gap is a loading artefact rather than a model-size effect:
 float32 weights are memory-mapped from `safetensors` and paged in lazily, while
 casting to float16 materialises them. Either way the measured footprint is what the
 machine pays, and float32 pays less.
@@ -630,7 +637,7 @@ are not.
 ### 5.5 What this establishes, and what it does not
 
 **Establishes.** On this machine DONDO's English checkpoint is comfortably fast
-enough — RTF 0.037–0.052, under 500 MB, Metal — and holds that over a full 90-minute
+enough — RTF 0.037–0.052, ≤501 MB, Metal — and holds that over a full 90-minute
 service with 3.2% drift, no memory growth, and no sustained effect on OBS beyond a
 +53% frame-render cost the compositor absorbs easily. **None of §5's performance stop
 conditions is what blocks this feature.** It also establishes that the *pipeline*, not
@@ -653,12 +660,17 @@ conditions, with the direction of its error unknown.
 service: no PA system, no congregation, no spontaneous or genuinely code-switched
 delivery, no Ghanaian speaker, and no preacher moving relative to a microphone.
 
-What makes the result decisive anyway is its *distance* from the bar. Gate A asks
+What it decides is not the criterion but **whether to go and measure it**. Gate A asks
 whether the assistant saves the operator time. At roughly one utterance in three
 correct and one in three confidently wrong — and none of ten multi-reference
-utterances right — it is not near the line from either side. Real audio would have to
-move the number a very long way, in the favourable direction, for the answer to
-change.
+utterances right — the result is not near the line from either side, and real audio
+would have to move it a very long way in the favourable direction to change that.
+
+Gathering the real number costs a congregation's informed consent, a recorded service
+and an operator's time (§7). Spending that to confirm a result this adverse is not a
+good use of any of it. So the criterion stays **unmeasured and not established**, and
+the work stops here on the strength of the preliminary evidence — a decision about
+effort, not a measurement we did not take.
 
 **Does not establish anything about a fine-tuned model.** Everything here is the
 base checkpoint. The paper's own position is that these models "may underperform on
@@ -699,33 +711,54 @@ is a cost to keep low and visible, not a veto.
 
 ### Gate A adjudication — 2026-08-11: **NOT CLEARED**
 
-Against the §5 run. Two criteria fail on evidence that was actually measured; two
-more have no evidence and cannot be given any by this harness.
+Against the §5 run.
+
+| criterion | verdict |
+| --- | --- |
+| 3 — top-1/top-k on real church audio | **Not established** — strongly adverse preliminary evidence |
+| 4 — misleading-top on real audio | **No evidence** |
+| 5 — latency to final | **Fails** |
+| 6 — operator testing | **No evidence** |
+| **Gate A** | **NOT CLEARED** |
+
+**On criterion 3, the verdict is deliberately "not established" rather than
+"fails".** The criterion's measurement definition is *real church audio*, and no
+real-audio number exists. §5.5 says so itself. Labelling it a failure would mean
+scoring a criterion against a measurement it does not name — moving the gatepost
+after seeing a bad result, which is exactly the move this document exists to refuse.
+It does not weaken the conclusion by one step: criterion 5 fails outright on
+measurement, and Gate A requires **all** criteria to hold.
 
 | # | Criterion | Verdict |
 | --- | --- | --- |
 | 1 | Nothing stages, queues or airs automatically; accept is a press and Take a second | **Met** — shipped in #26. `voiceAssist.ts` has no transition to the draft except `accept`, and the Scripture workspace has no Take at all. |
 | 2 | Candidates show alternatives *and the reasoning for each reading* | **Met** — `VoiceAssistPreview` renders each candidate's canonical alongside its `interpretation`. |
-| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | **Fails.** No real-audio number exists. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. An assistant right about a third of the time and confidently wrong about a third costs the operator time. That is not near the bar from either side, and §5.5 explains why the missing Ghanaian accent is not a reason to expect the gap to close. |
+| 3 | Top-1/top-k on **real church audio** good enough to save time rather than cost it | **Not established — strongly adverse preliminary evidence.** Real church audio remains unmeasured, so the criterion as written has no result. What does exist — synthetic read speech in a silent room, three voices — is 30–38% fully correct against 30–34% wrong-leading, 0/10 on multiple references, and **top-k identical to top-1** (`offered` = 0 everywhere), so a longer candidate list recovers nothing. On evidence that adverse there is no justification for proceeding to the live-assist product phase and the real-audio validation it would require. That is an evidence-based stop decision, not a claim that the real-audio metric was measured. |
 | 4 | Misleading-top on **real audio** measured and reported | **No evidence.** Measured on synthetic speech only (§5.3). Cannot be synthesised. |
 | 5 | Latency to final short enough to be useful during a service | **Fails.** ≈15.6 s at 15 s chunks, ≈31.4 s at 30 s. The model is not the bottleneck; the buffering window is, and the endpointing that would fix it is not built. |
 | 6 | Operator testing shows wrong candidates are *reliably noticed* at review | **No evidence.** Not tested. This is the control the whole gate depends on, and §6 already says it has to be tested rather than asserted. |
 | 7 | Typing remains immediately available and never worse | **Met** — the typed path is untouched and remains the only path. |
 
-**Criterion 3 is the one that matters, and it is a substantive failure, not a gap.**
-It would be convenient to file this entire result under "we lack real church audio",
-because that is true of criteria 4 and 6 and it leaves the door open. It is not true
-of 3. The measurement that exists was taken in far better acoustic conditions than a
-sanctuary, and it still lands a long way below "saves time" — with the
-multi-reference group at zero. Real audio is the missing evidence for 4 and 6; it is
-not a plausible rescue for 3.
+**Criterion 3 is the one that decides the product question, and the honest label for
+it is "not established".** It would be easy to write "fails" — the numbers are awful
+and the instinct is to score them against the gate. But the gate says *real church
+audio*, and that was not measured. Criteria 3, 4 and 6 all await the same missing
+evidence; 3 differs only in that we have a strong preliminary signal about how it
+would go, taken in far better acoustic conditions than a sanctuary and still landing a
+long way below "saves time", with the multi-reference group at zero.
 
-Criterion 5 fails independently of all of that, and would still fail if recognition
-were perfect.
+That signal is not a verdict on the criterion. It is a reason not to spend a
+congregation's consent, a service, and an operator's afternoon gathering the real
+measurement yet. **Stopping here is a decision about where to spend effort, not a
+claim to have measured the thing the criterion names.**
+
+Criterion 5 is different: it **fails outright**, on measurement, and would still fail
+if recognition were perfect. Gate A requires *all* criteria to hold, so one measured
+failure is sufficient on its own.
 
 **So live capture is not built, and this is the §5 stop.** Not because the machine is
 too slow — it is 20× faster than it needs to be — but because the transcripts are not
-good enough to build an assistant on, and the pipeline that would deliver them is
+good enough to justify going further, and the pipeline that would deliver them is
 15 seconds late. `LiveTranscriptSource` remains unimplemented, deliberately.
 
 ### What would change this verdict
@@ -811,10 +844,14 @@ consent and dignity, not just data handling.
 | Release gates for reviewed vs unattended | **Defined** (§6) |
 | Benchmark harness | **Shipped** (`scripts/asr-benchmark/`) |
 | Apple Silicon benchmark | **Run 2026-08-11.** Results in §5. |
-| Machine fast enough? | **Yes** — RTF 0.037 on Metal, peak RSS under 500 MB. |
-| Recognition accurate enough? | **No** — ~32% misleading-top on favourable synthetic audio; 0/10 on multiple references. |
-| Gate A | **Not cleared** (§6). Criteria 3 and 5 fail on measured evidence; 4 and 6 have none. |
-| Microphone capture | **Not built.** Deliberately, and now with a measured reason. |
+| Machine fast enough? | **Yes** — RTF 0.037–0.052 on Metal, measured peak RSS 501 MB. |
+| Recognition accurate enough? | **Not on the evidence available** — ~32% misleading-top on favourable synthetic audio, 0/10 on multiple references. Real church audio unmeasured. |
+| Gate A criterion 3 (accuracy, real audio) | **Not established** — strongly adverse preliminary evidence (§6). |
+| Gate A criterion 4 (misleading-top, real audio) | **No evidence.** |
+| Gate A criterion 5 (latency) | **Fails** on measurement — ≈15.6 s / ≈31.4 s. |
+| Gate A criterion 6 (operator testing) | **No evidence.** |
+| **Gate A overall** | **NOT CLEARED** (§6). |
+| Microphone capture | **Not built.** Deliberately. |
 | A selected provider | **Not chosen.** |
 | Gate B (automatic acceptance / Take) | **Out of scope**, unchanged. |
 

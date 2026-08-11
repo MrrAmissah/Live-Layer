@@ -84,7 +84,8 @@ local presets, rundowns, and selected-rundown import/export. See
 - **Operator-reviewed live speech assist — evaluated, and not proceeding.** The Apple
   Silicon benchmark was **run on 2026-08-11** and **Gate A was not cleared**
   ([ASR_EVALUATION.md](ASR_EVALUATION.md) §5–§6). The machine is not the problem:
-  DONDO's English checkpoint runs at real-time factor 0.037 on Metal in under 500 MB.
+  DONDO's English checkpoint runs at real-time factor 0.037–0.052 on Metal in about
+  0.5 GB (measured peak 501 MB).
   The recognition is. On synthetic read speech in a silent room — conditions more
   favourable than any service — it offers a confidently wrong leading passage for
   about a third of utterances, is fully correct for about a third, and gets 0 of 10
