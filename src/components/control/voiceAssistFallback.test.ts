@@ -97,7 +97,11 @@ describe('the panel no longer claims to be typed-only', () => {
     expect(panel).not.toMatch(/No microphone and no speech provider yet/);
   });
 
-  it('says typing works whether or not the microphone is on', () => {
-    expect(panel).toMatch(/Typing works\s*\n?\s*whether or not the microphone is on/);
+  it('keeps typing visibly available as its own labelled control', () => {
+    // The reassuring sentence was removed with the rest of the helper prose when
+    // the panel was rebuilt for live operation — a wall of text is not what an
+    // operator reads mid-service. What must remain is the CONTROL.
+    expect(panel).toContain('Type what was said');
+    expect(panel).toContain('className="live-type"');
   });
 });

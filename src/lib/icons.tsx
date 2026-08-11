@@ -11,6 +11,10 @@ import type { SVGProps } from 'react';
  */
 
 const PATHS = {
+  // Microphone — the live capture control. A real icon, not an emoji: this sits
+  // beside Take on an operator surface and has to match its weight.
+  mic: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" /><path d="M5 10v1a7 7 0 0 0 14 0v-1" /><path d="M12 18v3" /><path d="M8 21h8" /></>,
+  micOff: <><path d="M9 5a3 3 0 0 1 6 0v4" /><path d="M15 13.5a3 3 0 0 1-6-1.5V9" /><path d="M5 10v1a7 7 0 0 0 10.6 6" /><path d="M19 11v-1" /><path d="M12 18v3" /><path d="M8 21h8" /><path d="M3 3l18 18" /></>,
   // Broadcast / Take — signal waves
   broadcast: <><path d="M4.9 19.1a10 10 0 0 1 0-14.2" /><path d="M7.8 16.2a6 6 0 0 1 0-8.4" /><path d="M16.2 7.8a6 6 0 0 1 0 8.4" /><path d="M19.1 4.9a10 10 0 0 1 0 14.2" /><circle cx="12" cy="12" r="2" /></>,
   // Clear — circle with slash

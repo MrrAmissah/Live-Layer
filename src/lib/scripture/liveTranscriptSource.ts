@@ -1,7 +1,9 @@
 import type { LanguageTag, LiveTranscriptSource, TranscriptEvent } from './transcriptSource';
+import { liveLatency } from './liveLatency';
 import {
   DEFAULT_ENDPOINTER,
   createFramer,
+  frameDb,
   emptyEndpointer,
   pushFrame,
   pushSamples,
@@ -76,12 +78,35 @@ export interface LiveSourceStatus {
   detail: string;
   /** True while the operator's voice is actually being heard. */
   speaking: boolean;
+  /**
+   * Actual input level, 0–1, derived from the measured frame RMS.
+   *
+   * A REAL measurement, never an animation. An operator watching a meter that
+   * moves whether or not audio is arriving learns nothing from it, and the one
+   * question this surface has to answer instantly is "is LiveLayer hearing me".
+   * Mapped from dBFS across a range wide enough to show a quiet room as visibly
+   * quiet and speech as visibly loud.
+   */
+  level: number;
 }
+
+/** dBFS → 0–1 for display. −65 dB reads as silence, −10 dB as a full meter. */
+export const levelFromDb = (db: number): number => {
+  if (!Number.isFinite(db)) return 0;
+  return Math.max(0, Math.min(1, (db + 65) / 55));
+};
 
 export interface LiveTranscriptSourceOptions {
   serviceUrl?: string;
   endpointer?: EndpointerConfig;
   onStatus?: (status: LiveSourceStatus) => void;
+  /**
+   * The timeline id for an utterance whose transcript just arrived, so the caller
+   * can continue timing through parsing, lookup and render. Timings only — the
+   * transcript itself travels by the ordinary `TranscriptEvent`, whose shape is
+   * fixed and asserted.
+   */
+  onUtteranceTiming?: (timelineId: number) => void;
   /** Injected for tests; defaults to the real browser APIs. */
   getMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createSocket?: (url: string) => WebSocket;
@@ -136,9 +161,28 @@ export function createLiveTranscriptSource(
    */
   let queued: Float32Array[] = [];
   const MAX_QUEUED_UTTERANCES = 2;
+  /** Timeline ids awaiting their response, FIFO — the service answers in order. */
+  let timing: number[] = [];
 
-  const report = (status: ListeningStatus, detail = '', speaking = false) =>
-    options.onStatus?.({ status, detail, speaking });
+  /**
+   * Latest measured level, published on a timer rather than per audio frame.
+   *
+   * Frames arrive every 20 ms; re-rendering React that often for a meter is waste
+   * an operator surface cannot afford while OBS is compositing. The audio path
+   * keeps measuring every frame — only the UI notification is coalesced.
+   */
+  let level = 0;
+  let lastStatus: ListeningStatus = 'idle';
+  let lastDetail = '';
+  let lastSpeaking = false;
+  let meterTimer: ReturnType<typeof setInterval> | null = null;
+
+  const report = (status: ListeningStatus, detail = '', speaking = false) => {
+    lastStatus = status;
+    lastDetail = detail;
+    lastSpeaking = speaking;
+    options.onStatus?.({ status, detail, speaking, level });
+  };
 
   const emit = (text: string) => {
     const trimmed = text.trim();
@@ -177,8 +221,12 @@ export function createLiveTranscriptSource(
     socket = null;
     endpointer = emptyEndpointer();
     framer = createFramer(config.sampleRate);
+    timing = [];
     pending = 0;
     queued = [];
+    if (meterTimer) clearInterval(meterTimer);
+    meterTimer = null;
+    level = 0;
   };
 
   const send = (mine: number, utterance: Float32Array) => {
@@ -209,6 +257,11 @@ export function createLiveTranscriptSource(
       pcm[i] = Math.max(-32768, Math.min(32767, Math.round(utterance[i] * 32767)));
     }
     pending += 1;
+    // The clock the operator feels starts the moment the endpointer decided.
+    const id = liveLatency.begin();
+    liveLatency.mark(id, 'endpoint');
+    liveLatency.mark(id, 'sent');
+    timing.push(id);
     report('recognising', 'Recognising…');
     socket.send(pcm.buffer);
   };
@@ -304,8 +357,17 @@ export function createLiveTranscriptSource(
            */
           if (mine !== session) return;
           pending = Math.max(0, pending - 1);
+          const timelineId = timing.shift();
           try {
             const payload = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
+            if (timelineId !== undefined) {
+              liveLatency.mark(timelineId, 'transcript');
+              if (typeof payload.inference_seconds === 'number') {
+                liveLatency.inference(timelineId, payload.inference_seconds);
+              }
+              if (!payload.text) liveLatency.refuse(timelineId);
+              else options.onUtteranceTiming?.(timelineId);
+            }
             if (payload.text) emit(String(payload.text));
           } catch {
             /* a malformed frame is dropped rather than parsed as a reference */
@@ -340,15 +402,19 @@ export function createLiveTranscriptSource(
           const framed = pushSamples(framer, event.inputBuffer.getChannelData(0));
           framer = framed.framer;
           for (const frame of framed.frames) {
+            // Measured every frame; published to the UI on the timer below.
+            level = levelFromDb(frameDb(frame));
             const result = pushFrame(endpointer, frame, config);
             endpointer = result.state;
             if (result.utterance) send(mine, result.utterance);
             else if (pending === 0) {
-              report(
-                result.calibrating ? 'starting' : 'listening',
-                result.calibrating ? 'Listening for the room…' : '',
-                result.speaking
-              );
+              const status = result.calibrating ? 'starting' : 'listening';
+              const detail = result.calibrating ? 'Listening for the room…' : '';
+              // Only when something CHANGED — the meter has its own cadence, and
+              // re-reporting identical status per frame is pure re-render.
+              if (status !== lastStatus || detail !== lastDetail || result.speaking !== lastSpeaking) {
+                report(status, detail, result.speaking);
+              }
             }
           }
         };
@@ -356,6 +422,12 @@ export function createLiveTranscriptSource(
         node.connect(context.destination);
 
         listening = true;
+        // ~20 Hz: fast enough to read as live, slow enough not to re-render React
+        // at audio-frame frequency.
+        meterTimer = setInterval(() => {
+          if (mine !== session) return;
+          options.onStatus?.({ status: lastStatus, detail: lastDetail, speaking: lastSpeaking, level });
+        }, 50);
         /**
          * Capture is live, but the connection may not be. Saying "Listening" before
          * the socket is open would claim a working pipeline that cannot yet deliver

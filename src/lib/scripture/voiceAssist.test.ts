@@ -356,13 +356,22 @@ describe('the panel cannot air or stage on its own', () => {
   });
 
   it('invalidates an in-flight retrieval when the selection changes', () => {
-    // Without this the passage and the highlighted candidate can disagree.
-    const onClick = code.slice(code.indexOf('aria-pressed={index === state.selected}'));
-    const bumpAt = onClick.indexOf('generation.current += 1');
-    const selectAt = onClick.indexOf('selectCandidate(previous, index)');
+    /**
+     * Without this the passage and the highlighted candidate can disagree. The
+     * property is unchanged; only its location moved when choosing an alternative
+     * became `chooseCandidate`, which now also retrieves the newly chosen reading
+     * rather than waiting for a Retrieve press.
+     */
+    const choose = code.slice(code.indexOf('const chooseCandidate'));
+    const bumpAt = choose.indexOf('++generation.current');
+    const selectAt = choose.indexOf('selectCandidate(state, index)');
     expect(bumpAt).toBeGreaterThan(-1);
     expect(selectAt).toBeGreaterThan(-1);
+    // The generation must be bumped BEFORE the new selection is resolved.
     expect(bumpAt).toBeLessThan(selectAt);
+    // …and the retrieval it starts carries that generation, so a newer utterance
+    // makes it stale rather than letting it overwrite the panel.
+    expect(choose).toContain('resolveCandidate(next, index, mine, null)');
   });
 
   it('cancels the hook on unmount, so a pending retrieval cannot repopulate the cache', () => {
@@ -382,6 +391,13 @@ describe('the panel cannot air or stage on its own', () => {
   it('gates the accept button on the model, not just on the button', () => {
     expect(code).toContain('const outcome = acceptCandidate(state);');
     expect(code).toMatch(/if \(!outcome\) return;/);
-    expect(code).toContain('disabled={!canAccept(state)}');
+    /**
+     * The gate moved into `DetectedScripture` when the passage card became its own
+     * component; the panel computes it from the model and passes it down, so the
+     * button still cannot be enabled by markup alone.
+     */
+    expect(code).toContain('canAccept={canAccept(state)}');
+    const card = readFileSync('src/components/control/DetectedScripture.tsx', 'utf8');
+    expect(card).toContain('disabled={!canAccept}');
   });
 });

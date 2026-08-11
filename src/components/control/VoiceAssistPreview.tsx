@@ -8,6 +8,10 @@ import {
   interimText,
   type TranscriptStreamState
 } from '../../lib/scripture/transcriptStream';
+import { Icon } from '../../lib/icons';
+import InputLevelMeter from './InputLevelMeter';
+import DetectedScripture from './DetectedScripture';
+import { liveLatency } from '../../lib/scripture/liveLatency';
 import {
   IDLE,
   accept as acceptCandidate,
@@ -53,15 +57,20 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * mid-service.
    */
   const [listen, setListen] = useState(false);
-  const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false });
+  const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
    * microphone it is reporting about — the same unstable-callback shape that once
    * cancelled every scripture lookup in flight.
    */
+  /** Timeline id for the utterance currently being turned into a passage. */
+  const timelineRef = useRef<number | null>(null);
   const liveRef = useRef<ReturnType<typeof createLiveTranscriptSource> | null>(null);
   if (!liveRef.current) {
     liveRef.current = createLiveTranscriptSource({
+      onUtteranceTiming: (id) => {
+        timelineRef.current = id;
+      },
       onStatus: (status) => {
         setMic(status);
         /**
@@ -126,7 +135,25 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       setStream(update.state);
       if (update.finalText !== null) {
         generation.current += 1;
-        setState(receiveTranscript(update.finalText));
+        const next = receiveTranscript(update.finalText);
+        setState(next);
+        /**
+         * Retrieve the strongest reading immediately, rather than making the
+         * operator press Retrieve and then wait.
+         *
+         * The manual step was the wrong safety boundary. What must stay manual is
+         * ACCEPTING a passage into the graphic and TAKING it to air — reading the
+         * Bible text is what the operator does to decide, so making them ask for it
+         * first only delays the decision. This is preview automation: it fills the
+         * card they are about to judge. Nothing is accepted, staged, queued or
+         * published here.
+         */
+        if (next.status === 'candidates' && next.candidates.length) {
+          void resolveStrongest(next, generation.current, timelineRef.current);
+        } else if (timelineRef.current !== null) {
+          liveLatency.refuse(timelineRef.current);
+          timelineRef.current = null;
+        }
       }
     };
     // Manual always; live only while listening.
@@ -158,19 +185,46 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     manual.submit(draftTranscript);
   };
 
-  const resolve = async () => {
-    const candidate = state.candidates[state.selected];
+  /**
+   * Retrieve one candidate's passage.
+   *
+   * `mine` is captured from the SAME generation the caller already bumped, so a
+   * newer utterance arriving mid-flight makes this resolution stale and it writes
+   * nothing. That rule already existed for the manual path; auto-resolution needs
+   * it more, because utterances can now arrive faster than a lookup completes.
+   */
+  const resolveCandidate = async (
+    source: VoiceAssistState,
+    index: number,
+    mine: number,
+    timelineId: number | null
+  ) => {
+    const candidate = source.candidates[index];
     if (!candidate) return;
-    const mine = ++generation.current;
     setState((previous) => beginResolving(previous));
+    if (timelineId !== null) liveLatency.mark(timelineId, 'lookup-start');
 
     const found = await lookup(candidate.reference.canonical, translationId);
-    if (generation.current !== mine) return; // stale
+    if (generation.current !== mine) return; // a newer utterance owns the panel now
     if (!found) {
-      setState((previous) => resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type it in.'));
+      setState((previous) =>
+        resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
+      );
       return;
     }
+    if (timelineId !== null) liveLatency.mark(timelineId, 'lookup-done');
     setState((previous) => passageResolved(previous, found.result));
+  };
+
+  const resolveStrongest = (source: VoiceAssistState, mine: number, timelineId: number | null) =>
+    resolveCandidate(source, 0, mine, timelineId);
+
+  /** Operator picked a different reading: retrieve that one instead. */
+  const chooseCandidate = (index: number) => {
+    const mine = ++generation.current;
+    const next = selectCandidate(state, index);
+    setState(next);
+    void resolveCandidate(next, index, mine, null);
   };
 
   const onAcceptClick = () => {
@@ -180,27 +234,20 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     onAccept(outcome.passage, translationId);
   };
 
+  const strongest = state.candidates[0];
   const chosen = state.candidates[state.selected];
+  const alternatives = state.candidates.filter((_, index) => index !== state.selected);
+  const resolving = state.status === 'resolving';
+  const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
 
   return (
-    <section className="voice-assist" aria-label="Voice assist preview">
-      <header className="voice-assist__head">
-        <span className="ll-kicker">Voice assist · preview</span>
-        {/* Honest about what this is. A manual source must not imply listening. */}
-        <span className="ll-tag">{listen ? live.label : manual.label}</span>
-      </header>
-      <p className="voice-assist__note">
-        Nothing reaches the graphic until you accept a reading, and Take is a second, separate press. Typing works
-        whether or not the microphone is on.
-      </p>
-
-      {/* Explicit start and stop, every time. The label says which action the press
-          performs, not which state the app is in — "Listening…" on a button is a
-          status pretending to be a verb. */}
-      <div className="voice-assist__mic" data-listening={listen || undefined}>
+    <section className="live-scripture" aria-label="Live Scripture">
+      {/* --- listening: the first question an operator has mid-service is whether
+          LiveLayer is hearing anything at all, so it is the top of the surface. --- */}
+      <div className="live-mic" data-listening={listen || undefined}>
         <button
           type="button"
-          className={`btn btn--md ${listen ? 'btn--danger' : 'btn--secondary'}`}
+          className={`btn btn--md live-mic__toggle ${listen ? 'btn--danger' : 'btn--secondary'}`}
           aria-pressed={listen}
           onClick={() => {
             if (listen) {
@@ -212,34 +259,86 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
             }
           }}
         >
+          <Icon name={listen ? 'micOff' : 'mic'} size={16} />
           {listen ? 'Stop listening' : 'Start listening'}
         </button>
-        <span className="voice-assist__mic-state" role="status" aria-live="polite">
-          {listen ? (
-            <>
-              <span
-                className="voice-assist__mic-dot"
-                data-speaking={mic.speaking || undefined}
-                aria-hidden
-              />
-              {mic.detail || (mic.speaking ? 'Hearing you…' : 'Listening — say a reference')}
-            </>
-          ) : (
-            mic.detail || 'Microphone off.'
-          )}
-        </span>
+
+        <div className="live-mic__readout">
+          {/* A REAL level, not an animation: bars react to measured frame RMS, so a
+              still meter means no audio is arriving and the operator can trust it. */}
+          <InputLevelMeter level={mic.level} active={listen} speaking={mic.speaking} />
+          <span className="live-mic__state" role="status" aria-live="polite">
+            {listen
+              ? mic.detail || (mic.speaking ? 'Hearing speech' : 'Listening — say a reference')
+              : mic.detail || 'Microphone off'}
+          </span>
+        </div>
       </div>
-      {/* Interim text is displayed for responsiveness and never parsed. A manual
-          source produces none, so this is inert today by construction. */}
-      {interimText(stream) ? (
-        <p className="voice-assist__interim" aria-live="off">
-          Hearing: {interimText(stream)}
+
+      {/* The words we heard, subdued: the operator judges the PASSAGE, not the
+          transcript, so this explains rather than competes. */}
+      {state.transcript ? (
+        <p className="live-heard">
+          Heard <span className="live-heard__text">“{state.transcript}”</span>
+        </p>
+      ) : interimText(stream) ? (
+        <p className="live-heard live-heard--interim" aria-live="off">
+          {interimText(stream)}
         </p>
       ) : null}
 
-      <form className="voice-assist__form" onSubmit={submit}>
-        <label className="voice-assist__field">
-          <span className="field__label">Transcript</span>
+      {problem ? (
+        <p className="live-problem" role="alert">
+          {state.message}
+        </p>
+      ) : null}
+
+      {/* --- the detected passage, dominant --- */}
+      {strongest || resolving ? (
+        <DetectedScripture
+          reference={chosen?.reference.canonical ?? strongest?.reference.canonical ?? ''}
+          interpretation={chosen?.interpretation ?? strongest?.interpretation ?? ''}
+          passage={state.passage}
+          resolving={resolving}
+          accepted={state.status === 'accepted'}
+          canAccept={canAccept(state)}
+          onAccept={onAcceptClick}
+          onDismiss={() => setState((previous) => rejectCandidate(previous))}
+          onRendered={() => {
+            if (timelineRef.current !== null) {
+              liveLatency.mark(timelineRef.current, 'rendered');
+              timelineRef.current = null;
+            }
+          }}
+        />
+      ) : null}
+
+      {/* --- other readings, secondary --- */}
+      {alternatives.length ? (
+        <div className="live-alts">
+          <span className="ll-kicker">Other possible readings</span>
+          <div className="live-alts__list" role="group" aria-label="Other possible readings">
+            {state.candidates.map((candidate, index) =>
+              index === state.selected ? null : (
+                <button
+                  key={candidate.reference.canonical}
+                  type="button"
+                  className="live-alt"
+                  onClick={() => chooseCandidate(index)}
+                >
+                  <span className="live-alt__ref">{candidate.reference.canonical}</span>
+                  <span className="live-alt__why">{candidate.interpretation}</span>
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* --- typing: always available, whether or not the microphone is on --- */}
+      <form className="live-type" onSubmit={submit}>
+        <label className="live-type__field">
+          <span className="field__label">Type what was said</span>
           <input
             className="field__input"
             value={draftTranscript}
@@ -251,81 +350,6 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
           Interpret
         </button>
       </form>
-
-      <p className="field__hint voice-assist__status" role="status" aria-live="polite">
-        {state.status === 'no-match' || state.status === 'provider-unavailable' ? '' : state.message}
-      </p>
-      <p className="field__hint field__hint--error voice-assist__status" role="alert">
-        {state.status === 'no-match' || state.status === 'provider-unavailable' ? state.message : ''}
-      </p>
-
-      {state.candidates.length ? (
-        <div className="voice-assist__candidates" role="group" aria-label="Reference candidates">
-          {state.candidates.map((candidate, index) => (
-            <button
-              key={candidate.reference.canonical}
-              type="button"
-              className={`voice-cand${index === state.selected ? ' voice-cand--active' : ''}`}
-              aria-pressed={index === state.selected}
-              onClick={() => {
-                /**
-                 * Bump the generation, or a retrieval already in flight for the
-                 * PREVIOUS candidate lands afterwards and is written onto this
-                 * one — leaving the highlighted chip saying 2 Timothy while the
-                 * passage block says 1 Timothy, and Accept applying the reading
-                 * the operator had just moved away from.
-                 */
-                generation.current += 1;
-                setState((previous) => selectCandidate(previous, index));
-              }}
-            >
-              <span className="voice-cand__ref">{candidate.reference.canonical}</span>
-              {/* Why this reading — the operator is choosing between interpretations,
-                  so the reasoning has to be visible, not just the answer. */}
-              <span className="voice-cand__why">{candidate.interpretation}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {chosen ? (
-        <div className="voice-assist__actions">
-          <button
-            type="button"
-            className="btn btn--secondary btn--md"
-            onClick={() => void resolve()}
-            disabled={state.status === 'resolving'}
-          >
-            {state.status === 'resolving' ? 'Looking up…' : `Retrieve ${chosen.reference.canonical}`}
-          </button>
-        </div>
-      ) : null}
-
-      {state.passage ? (
-        <div className="voice-assist__passage">
-          <header className="voice-assist__passage-head">
-            <h4 className="voice-assist__ref">{state.passage.reference}</h4>
-            <span className="ll-tag">{state.passage.translation}</span>
-          </header>
-          <p className="voice-assist__text">{state.passage.text}</p>
-          {state.passage.attribution ? (
-            <p className="voice-assist__attribution">{state.passage.attribution}</p>
-          ) : null}
-          <div className="voice-assist__actions">
-            {/* Accept is the only exit. Dismiss changes nothing at all. */}
-            <button type="button" className="btn btn--md" onClick={onAcceptClick} disabled={!canAccept(state)}>
-              Accept into Scripture draft
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost btn--md"
-              onClick={() => setState((previous) => rejectCandidate(previous))}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
