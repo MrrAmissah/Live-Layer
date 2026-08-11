@@ -220,8 +220,9 @@ export function createLiveTranscriptSource(
       const getMedia =
         options.getMedia ?? ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
 
+      let granted: MediaStream;
       try {
-        stream = await getMedia({
+        granted = await getMedia({
           audio: {
             channelCount: 1,
             echoCancellation: true,
@@ -241,6 +242,22 @@ export function createLiveTranscriptSource(
         );
         return;
       }
+
+      /**
+       * Stopped while the permission prompt was open.
+       *
+       * Without this the start continued: a socket opened, capture began, and —
+       * because `teardown()` had already run and cleared `stream` — the microphone
+       * granted a moment later was never tracked. A live, untracked microphone that
+       * `stop()` cannot reach is the one failure an operator cannot see, and it is
+       * exactly what this source promises cannot happen. The track is released here
+       * rather than assigned.
+       */
+      if (mine !== session) {
+        for (const track of granted.getTracks()) track.stop();
+        return;
+      }
+      stream = granted;
 
       try {
         socket = (options.createSocket ?? ((url) => new WebSocket(url)))(serviceUrl);
@@ -320,9 +337,15 @@ export function createLiveTranscriptSource(
     },
 
     stop() {
-      const wasListening = listening;
       teardown();
-      if (wasListening) report('stopped', '');
+      /**
+       * Reported unconditionally, not just when fully listening. Stopping while the
+       * permission prompt was still open left the status line reading "Asking for
+       * the microphone…" over a source that had already been torn down — the button
+       * said Start and the text said we were still asking. A stale status about
+       * audio capture is exactly the thing an operator cannot afford to misread.
+       */
+      report('stopped', '');
     }
   };
 }

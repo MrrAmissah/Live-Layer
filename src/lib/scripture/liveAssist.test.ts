@@ -243,6 +243,30 @@ describe('stopping releases the microphone', () => {
     const { source } = harness();
     expect(() => source.stop()).not.toThrow();
   });
+
+  it('reports stopped even when the permission prompt was still open', async () => {
+    // Otherwise the status line keeps saying "Asking for the microphone…" over a
+    // source that has already been torn down.
+    const { source, statuses } = harness();
+    const starting = source.start();
+    source.stop();
+    await starting;
+    const last = statuses[statuses.length - 1];
+    expect(last.status).toBe('stopped');
+    expect(last.detail).toBe('');
+    expect(source.isListening()).toBe(false);
+  });
+
+  it('releases a microphone granted AFTER the operator stopped', async () => {
+    // The dangerous version of the above: teardown had already cleared `stream`, so
+    // a track arriving late was never tracked and stop() could not reach it.
+    const { source, tracks } = harness();
+    const starting = source.start();
+    source.stop();
+    await starting;
+    expect(tracks[0].stop).toHaveBeenCalled();
+    expect(source.isListening()).toBe(false);
+  });
 });
 
 describe('what the live source refuses to be', () => {
