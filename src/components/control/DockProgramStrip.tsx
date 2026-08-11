@@ -10,6 +10,7 @@ import type { LastAction } from './StatusBadge';
 
 interface DockProgramStripProps {
   onTake: () => void;
+  onTakeNext: () => void;
   onClear: () => void;
   sending?: boolean;
   lastAction: LastAction;
@@ -43,7 +44,7 @@ interface DockProgramStripProps {
  * that never changes. The recovery sentence stays — it is the honest
  * disclosure that makes the strip trustworthy after a reload.
  */
-export default function DockProgramStrip({ onTake, onClear, sending = false, lastAction }: DockProgramStripProps) {
+export default function DockProgramStrip({ onTake, onTakeNext, onClear, sending = false, lastAction }: DockProgramStripProps) {
   const program = useLiveLayerStore((state) => state.program);
   const output = useLiveLayerStore((state) => state.outputStatus);
   /**
@@ -121,7 +122,7 @@ export default function DockProgramStrip({ onTake, onClear, sending = false, las
         </span>
       </div>
 
-      <LiveActions surface="dock" onTake={onTake} onClear={onClear} sending={sending} lastAction={lastAction} />
+      <LiveActions surface="dock" onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} lastAction={lastAction} />
     </section>
   );
 }

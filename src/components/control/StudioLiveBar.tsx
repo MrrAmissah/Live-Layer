@@ -6,6 +6,7 @@ import LiveActions from './LiveActions';
 
 interface StudioLiveBarProps {
   onTake: () => void;
+  onTakeNext: () => void;
   onClear: () => void;
   sending?: boolean;
 }
@@ -28,7 +29,7 @@ interface StudioLiveBarProps {
  * The status readout is the same `describeProgramStatus` vocabulary the rail
  * uses. It reports what was commanded, never a confirmed live.
  */
-export default function StudioLiveBar({ onTake, onClear, sending = false }: StudioLiveBarProps) {
+export default function StudioLiveBar({ onTake, onTakeNext, onClear, sending = false }: StudioLiveBarProps) {
   const program = useLiveLayerStore((state) => state.program);
   const output = useLiveLayerStore((state) => state.outputStatus);
   // Same cadence rule as every Program surface: awake while `showing`, so a
@@ -45,7 +46,7 @@ export default function StudioLiveBar({ onTake, onClear, sending = false }: Stud
         </span>
         <span className="studio-livebar__phrase">{status.phrase}</span>
       </div>
-      <LiveActions surface="studio" onTake={onTake} onClear={onClear} sending={sending} />
+      <LiveActions surface="studio" onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} />
     </div>
   );
 }

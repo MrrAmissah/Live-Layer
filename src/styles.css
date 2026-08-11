@@ -7607,7 +7607,18 @@ body.gfx-transparent {
     letter-spacing: 0.02em;
   }
 }
+/* Explicit placement rather than auto-flow, so DOM order cannot scatter the new
+   rows. Everything that can APPEAR AND DISAPPEAR stays below the Take/Clear
+   pair — the blocked reason, the cue and Take Next all come and go, and above
+   the buttons each would move Take out from under the operator's pointer
+   mid-press (the stage 2b fixed-height contract). */
+.control-root .dock-program__actions .dock-program__take { grid-row: 1; grid-column: 1; }
+.control-root .dock-program__actions .dock-program__clear { grid-row: 1; grid-column: 2; }
 .control-root .dock-program__actions .live-actions__blocked { grid-row: 2; grid-column: 1 / -1; margin: 0; }
+.control-root .dock-program__actions .dock-program__cue { grid-row: 3; grid-column: 1 / -1; }
+.control-root .dock-program__actions .dock-program__take-next { grid-row: 4; grid-column: 1 / -1; }
+/* The dock is short; Take Next matches the compact button height there. */
+.control-root .dock-program__take-next { min-height: 38px; border-radius: 5px; font-size: 12.5px; }
 .control-root .dock-program__take {
   min-height: 40px;
   gap: 8px;
@@ -9047,7 +9058,79 @@ body.gfx-transparent {
   font-size: 13px; font-weight: 620; color: var(--ll-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.control-root .live-actions { display: flex; gap: 10px; }
+.control-root .live-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* --- drag reorder -------------------------------------------------------
+   Only in reorder mode, so an ordinary row click cannot start a drag during a
+   service. The row being carried fades; the gap it would land in gets a line,
+   drawn on the neighbouring row's edge so no layout shifts under the pointer. */
+.control-root .dock-queue__row[draggable='true'] { cursor: grab; }
+.control-root .dock-queue__row[data-dragging] { opacity: 0.4; cursor: grabbing; }
+.control-root .dock-queue__row[data-dropbefore] { box-shadow: inset 0 2px 0 var(--ll-select-edge); }
+.control-root .dock-queue__row[data-dropafter] { box-shadow: inset 0 -2px 0 var(--ll-select-edge); }
+
+/* --- Take Next -----------------------------------------------------------
+   Progression during a live service. Same family as Take (it also puts a
+   graphic on air) but deliberately NOT the same green: mid-service the operator
+   must tell the two apart at a glance without reading, so Take keeps the solid
+   fill and this is an outline of it. Outlined also reads as the calmer of the
+   two, which matches the fact that it is the one you press repeatedly. */
+.control-root .live-actions__cue,
+.control-root .dock-program__cue {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  font-weight: 620;
+  color: var(--ll-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A cue that is really a refusal is amber, like the Take blocker — same reason:
+   something to resolve, not something that failed. */
+.control-root .live-actions__cue[data-blocked],
+.control-root .dock-program__cue[data-blocked] { color: #f5c77e; }
+
+.control-root .take-next-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  flex-basis: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  transition: filter 0.12s ease, background 0.12s ease;
+}
+.control-root .take-next-btn:hover:not(:disabled) { background: rgba(34, 197, 94, 0.2); filter: brightness(1.06); }
+.control-root .take-next-btn:active:not(:disabled) { filter: brightness(0.95); }
+.control-root .take-next-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.45); }
+.control-root .take-next-btn__key {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ll-muted);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--ll-border-soft);
+}
+/* The shortcut hint is a pointer-and-keyboard affordance; on a touch dock it is
+   noise taking width from the label. */
+@media (hover: none) {
+  .control-root .take-next-btn__key { display: none; }
+}
 
 /* --- library sub-navigation --------------------------------------------- */
 .control-root .library-subnav {

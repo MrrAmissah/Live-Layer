@@ -60,13 +60,50 @@ local presets, rundowns, and selected-rundown import/export. See
   content and raw tokens travel; the last-sent cursor, the selection and `done`
   do not, because those are a record of a service being run.
 
+## Phase 5 — rundown live operation (shipped locally)
+
+The rundown was good at *preparation*; this makes running one feel like a
+rundown while the service is happening.
+
+- **Take Next** — sends the next item and moves the operator onto it. Goes
+  through the one existing publish boundary and the one in-flight guard, so
+  there is still exactly one path to air. Both cursors advance **only after the
+  command is out**: a cursor that moved without a graphic going out is a cursor
+  lying about where the operator is.
+- **"Next" has a single definition** — *the first item after the selection that
+  is not done*, derived at read time, never stored. Anchored on the **selection**
+  rather than on what was last sent, because `Clear` nulls `activeItemId`: an
+  anchor on last-sent would be destroyed by an ordinary mid-service Clear and
+  fall back to the top of the rundown, putting the opening graphic one keypress
+  from air. Correct after reorder, skip, duplicate, reload and an item taken
+  twice (`getNextTakeableItem`).
+- **Honest refusal** — at the end, or when the rest are done, or when the next
+  graphic is unready, Take Next is disabled *with the cause on screen*. It never
+  wraps to the top. Three dead ends are told apart, because "the rest are marked
+  done" is something the operator can undo and "nothing follows this" is not.
+- **Done is the skip mechanism** — move past an item without deleting it. Take
+  **never** sets `done` itself: an aired item would become permanently
+  unreachable, and re-showing a lower third is ordinary.
+- **Drag reorder** — order is operational once Take Next exists, so it is
+  reorderable by drag as well as by the up/down buttons (which remain: HTML5
+  drag is unreachable by touch and by keyboard). Reordering publishes nothing,
+  moves no cursor, and rewrites no record of what was already sent.
+- **Keyboard** — `Ctrl/Cmd + Enter`, chosen to be hard to hit by accident and
+  refused inside any field. Take and Clear deliberately have no shortcut.
+- **Deliberately NOT included: auto-advance.** Manual Take Next establishes the
+  semantics first; auto-advance changes timing and failure behaviour and should
+  answer to evidence from real use rather than ship beside this because the two
+  appear together on a roadmap.
+
 ## Next — content & confidence
 
 > Phase 2 is QA'd and OBS-ready. Rundown / queue mode is implemented for the
 > current local-first phase; selected-rundown import/export packs are ready for
 > manual browser/OBS round-trip confirmation before Full Backup work starts.
 
-- **Rundown / queue mode** — build/run an ordered list of graphics live. **Complete for this phase.** Future: Take Next, auto-advance, drag-reorder, per-item brand.
+- **Rundown / queue mode** — build/run an ordered list of graphics live. **Take
+  Next, drag-reorder and done/skip are shipped** (see Phase 5 below). Future:
+  auto-advance, per-item brand.
 - **More template layouts** — additional lower-third styles, full-frame title/section
   cards, scoreboard/ticker, headshot slot for lower thirds.
 - **Operator animation picker** — surface slide vs fade in `/control` (the data path exists).

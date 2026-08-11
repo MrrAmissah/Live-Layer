@@ -12,6 +12,7 @@ import DockSettingsTab from './DockSettingsTab';
 
 interface DockShellProps {
   onTake: () => void;
+  onTakeNext: () => void;
   onClear: () => void;
   lastAction: LastAction;
   /**
@@ -39,7 +40,7 @@ interface DockShellProps {
  * GraphicStage render per hidden tab is a real cost. Settings is a real tab now,
  * carrying only preferences and information that already have behaviour.
  */
-export default function DockShell({ onTake, onClear, lastAction, sending = false }: DockShellProps) {
+export default function DockShell({ onTake, onTakeNext, onClear, lastAction, sending = false }: DockShellProps) {
   const [tab, setTab] = useState<DockTab>('live');
   const relay = useRelayStatus();
 
@@ -49,7 +50,7 @@ export default function DockShell({ onTake, onClear, lastAction, sending = false
       <div className="dock">
         <DockHeader relay={relay} />
         <DockTabBar active={tab} onChange={setTab} />
-        <DockProgramStrip onTake={onTake} onClear={onClear} sending={sending} lastAction={lastAction} />
+        <DockProgramStrip onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} lastAction={lastAction} />
         <div className="dock-scroll">
           {tab === 'live' ? <DockLiveTab /> : null}
           {tab === 'queue' ? (

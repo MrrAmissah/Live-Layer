@@ -182,11 +182,94 @@ export function getSelectedItem(rundown: Rundown | undefined): RundownItem | und
   return rundown.items.find((item) => item.id === rundown.selectedItemId);
 }
 
+/**
+ * The item after the selection, done or not. This is the NAVIGATION cursor — what
+ * a "next" arrow steps onto — and it deliberately includes done items, because
+ * stepping onto one to un-mark it is a thing operators do.
+ *
+ * For what **Take Next** would send, use `getNextTakeableItem`.
+ */
 export function getNextItem(rundown: Rundown | undefined): RundownItem | undefined {
   if (!rundown) return undefined;
   const index = rundown.items.findIndex((item) => item.id === rundown.selectedItemId);
   if (index < 0) return rundown.items[0];
   return rundown.items[index + 1];
+}
+
+/**
+ * What Take Next would send: **the first item after the selection that is not done.**
+ *
+ * ## Why the selection anchors this, and not `activeItemId`
+ *
+ * Those two cursors diverge the moment an operator previews ahead without taking,
+ * so one of them has to own "next". It must be the selection, and the reason is a
+ * correctness failure rather than a preference: **`onClear` sets `activeItemId` to
+ * `undefined`**. Clearing a lower third between segments is routine, not
+ * end-of-service — so an anchor on last-sent would be destroyed mid-service by an
+ * ordinary Clear, fall back to "no anchor", and put the *opening* graphic one
+ * keypress from air forty minutes in. `deleteItem` and `sanitizeRundown` null it
+ * too. The selection survives all three.
+ *
+ * ## Why it is derived rather than stored
+ *
+ * A persisted `nextItemId` would be a fourth cursor that can dangle, and
+ * `sanitizeRundown` would need a third repair branch to catch it after a reorder,
+ * delete or reload. Deriving from `items` order plus the selection is total: every
+ * mutation changes the array, and next is simply recomputed. There is nothing to
+ * keep in sync and nothing to repair.
+ *
+ * ## The anchor
+ *
+ * `-1` when nothing is selected (or the selection dangled and `sanitizeRundown`
+ * dropped it), which `slice(0)` turns into "the first item that is not done". That
+ * is the same rule, not a special case — unlike `getNextItem`/`getPreviousItem`,
+ * which disagree about the no-selection case.
+ *
+ * Correct after: **reorder** (order is read at call time and cursors are ids, so a
+ * selection rides along with its item), **skip** (the `done` predicate is the
+ * mechanism), **duplicate** (the copy lands after its source with `done: false`,
+ * so it becomes the next candidate — a duplicate is new work), **reload**
+ * (`sanitizeRundown` drops a dangling selection, giving anchor `-1`), and **an item
+ * taken twice** (this reads neither `activeItemId` nor any take history, and Take
+ * never sets `done`, so nothing here degrades on a re-take).
+ */
+export function getNextTakeableItem(rundown: Rundown | undefined): RundownItem | undefined {
+  if (!rundown) return undefined;
+  const anchor = rundown.items.findIndex((item) => item.id === rundown.selectedItemId);
+  return rundown.items.slice(anchor + 1).find((item) => !item.done);
+}
+
+/**
+ * Done items **passed over to reach** the next takeable item — the run of them
+ * between the anchor and the first item that is not done.
+ *
+ * Named for the thing it counts, because the previous name
+ * (`countSkippedAfterSelection`) described a position and the implementation
+ * followed the name rather than the meaning: it counted every done item in the
+ * tail. For `A(selected) B(done) C(takeable) D(done)` that returned **2**, and the
+ * cue told the operator Take Next was "skipping 2 done items" to reach C. It skips
+ * one. D sits *after* the item being sent and has not been passed over at all —
+ * it may never be, since the operator can un-mark it before getting there.
+ *
+ * That mattered more than a wrong number: the cue exists precisely to explain why
+ * the rundown appears to jump, so an inflated count makes the explanation itself
+ * the thing the operator has to distrust.
+ *
+ * When **everything** after the anchor is done there is no takeable target, and
+ * the whole remaining run has genuinely been passed over — so the count is the
+ * rest of the list, which keeps the refusal ("everything after X is marked done")
+ * truthful.
+ *
+ * Deliberately the same scan `getNextTakeableItem` performs: that one takes the
+ * first `!done` item, this one takes its index. They cannot disagree about where
+ * the run of skipped items ends.
+ */
+export function countDoneBeforeNextTakeable(rundown: Rundown | undefined): number {
+  if (!rundown) return 0;
+  const anchor = rundown.items.findIndex((item) => item.id === rundown.selectedItemId);
+  const rest = rundown.items.slice(anchor + 1);
+  const target = rest.findIndex((item) => !item.done);
+  return target < 0 ? rest.length : target;
 }
 
 export function getPreviousItem(rundown: Rundown | undefined): RundownItem | undefined {
@@ -382,13 +465,36 @@ export function updateItem(
   return updated;
 }
 
+/**
+ * Remove an item and keep the cursors honest.
+ *
+ * `activeItemId` is dropped when it pointed here: nothing may claim a deleted item
+ * is on air.
+ *
+ * The selection is **moved to the previous surviving item** rather than cleared,
+ * which it used to be. Clearing it looked harmless and was not: `getNextTakeableItem`
+ * reads the selection as its anchor, and no selection means anchor `-1`, i.e. "the
+ * first item that is not done". So deleting the row you were sitting on silently
+ * re-aimed Take Next at the TOP of the rundown — the opening graphic, one press
+ * from air, mid-service.
+ *
+ * Previous rather than next, deliberately: the item that shifted into the deleted
+ * one's place then becomes the next takeable one, instead of being skipped past.
+ * Deleting the first item leaves no previous, and clearing is then correct — anchor
+ * `-1` genuinely does mean "start from the top" when the top is what was removed.
+ */
 export function deleteItem(rundownId: string, itemId: string): void {
-  mutateRundown(read(), rundownId, (rundown) => ({
-    ...rundown,
-    items: rundown.items.filter((item) => item.id !== itemId),
-    activeItemId: rundown.activeItemId === itemId ? undefined : rundown.activeItemId,
-    selectedItemId: rundown.selectedItemId === itemId ? undefined : rundown.selectedItemId
-  }));
+  mutateRundown(read(), rundownId, (rundown) => {
+    const index = rundown.items.findIndex((item) => item.id === itemId);
+    const items = rundown.items.filter((item) => item.id !== itemId);
+    return {
+      ...rundown,
+      items,
+      activeItemId: rundown.activeItemId === itemId ? undefined : rundown.activeItemId,
+      selectedItemId:
+        rundown.selectedItemId === itemId ? items[index - 1]?.id : rundown.selectedItemId
+    };
+  });
 }
 
 export function duplicateItem(rundownId: string, itemId: string): RundownItem | undefined {
@@ -421,6 +527,39 @@ export function moveItem(rundownId: string, itemId: string, direction: 'up' | 'd
     if (index < 0 || target < 0 || target >= rundown.items.length) return rundown;
     const items = [...rundown.items];
     [items[index], items[target]] = [items[target], items[index]];
+    return { ...rundown, items };
+  });
+}
+
+/**
+ * Move an item to an absolute position — what a drag lands on, where `moveItem`
+ * is a single step.
+ *
+ * Once Take Next exists, order is **operational** rather than preparatory: it
+ * decides what airs next. So this states what it does not touch, because those
+ * are now live-service guarantees rather than tidiness:
+ *
+ * - **Program is untouched.** Nothing here publishes; the store has no channel.
+ * - **`activeItemId` is untouched.** Dragging a row does not change what was
+ *   already sent, and must not rewrite that record — the item that aired is still
+ *   the item that aired, wherever it now sits in the list.
+ * - **`selectedItemId` is untouched.** Both cursors are ids, so they follow their
+ *   items rather than their positions, and dragging past the operator's cursor
+ *   cannot silently re-aim Take Next at a different graphic.
+ * - **No graphic is rewritten.** Only the array order changes.
+ *
+ * `toIndex` is clamped rather than validated: a drag can end past either end of
+ * the list, and refusing a gesture the operator clearly meant is worse than
+ * putting the row at the edge they dragged it to.
+ */
+export function moveItemTo(rundownId: string, itemId: string, toIndex: number): void {
+  mutateRundown(read(), rundownId, (rundown) => {
+    const from = rundown.items.findIndex((item) => item.id === itemId);
+    if (from < 0) return rundown;
+    const items = [...rundown.items];
+    const [moved] = items.splice(from, 1);
+    const target = Math.max(0, Math.min(toIndex, items.length));
+    items.splice(target, 0, moved);
     return { ...rundown, items };
   });
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRundowns } from '../../hooks/useRundowns';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
-import { getQueueCursors } from '../../lib/rundown/rundownStore';
+import { getQueueCursors, getNextTakeableItem } from '../../lib/rundown/rundownStore';
 import { describeGraphic } from '../../lib/graphicTitle';
 import { Icon } from '../../lib/icons';
 
@@ -14,19 +14,49 @@ import { Icon } from '../../lib/icons';
  * buttons (mode-aware), never duplicated here — so there is one Take.
  * Nothing here posts a realtime message; only ControlPage's Take/Clear do.
  *
- * Reordering is an explicit mode with per-row up/down — deliberately NOT a
- * drag handle, because the store can only swap adjacent items
- * (`moveItem(±1)`) and a handle promises drop-anywhere it cannot deliver.
+ * Reordering is an explicit mode. It used to offer per-row up/down ONLY, and the
+ * note here said a drag handle was refused because the store could just swap
+ * adjacent items (`moveItem(±1)`) — a handle would promise drop-anywhere it
+ * could not deliver. `moveItemTo` now delivers it, so the handle exists and this
+ * note records why it may.
+ *
+ * The up/down buttons stay, and are not redundant: HTML5 drag does not work by
+ * touch, and it is unreachable by keyboard. They are the accessible path to the
+ * same store call.
+ *
+ * Order is operational once Take Next exists — it decides what airs next — so
+ * reordering still publishes nothing, moves no cursor, and rewrites no record of
+ * what was already sent (`moveItemTo`).
  */
 export default function RundownQueue() {
   const rd = useRundowns();
   const { activeItemId } = useLiveTakeContext();
   const [reordering, setReordering] = useState(false);
+  /** The row being dragged, and the gap it is currently over. */
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const rundown = rd.activeRundown;
   if (!rundown) return null;
 
   const items = rundown.items;
   const { selectedIndex, selected, nextItem, prevItem } = getQueueCursors(rundown);
+  /** Badge the row Take Next would send, not merely the row after the cursor. */
+  const nextTakeableId = getNextTakeableItem(rundown)?.id;
+
+  const endDrag = () => {
+    setDragId(null);
+    setDropIndex(null);
+  };
+
+  const onDrop = (index: number) => {
+    if (!dragId) return endDrag();
+    const from = items.findIndex((item) => item.id === dragId);
+    // Dropping into a gap AFTER the row's own position removes it first, so the
+    // target shifts down by one. Without this every downward drag lands one row
+    // short of where the operator let go.
+    rd.moveItemTo(dragId, from >= 0 && index > from ? index - 1 : index);
+    endDrag();
+  };
 
   const onPrev = () => {
     if (prevItem) rd.setSelectedItem(prevItem.id);
@@ -76,6 +106,30 @@ export default function RundownQueue() {
                 className="dock-queue__row"
                 data-selected={item.id === rundown.selectedItemId || undefined}
                 data-done={item.done || undefined}
+                data-dragging={item.id === dragId || undefined}
+                data-dropbefore={dropIndex === index || undefined}
+                data-dropafter={dropIndex === items.length && index === items.length - 1 || undefined}
+                draggable={reordering}
+                onDragStart={(event) => {
+                  setDragId(item.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                  // Firefox refuses to start a drag with no payload set.
+                  event.dataTransfer.setData('text/plain', item.id);
+                }}
+                onDragOver={(event) => {
+                  if (!dragId) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  // Past the midpoint means "after this row", which is the gap
+                  // below it — so the indicator sits where the row will land.
+                  const box = event.currentTarget.getBoundingClientRect();
+                  setDropIndex(event.clientY - box.top > box.height / 2 ? index + 1 : index);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  onDrop(dropIndex ?? index);
+                }}
+                onDragEnd={endDrag}
               >
                 <button
                   type="button"
@@ -94,6 +148,12 @@ export default function RundownQueue() {
                 </button>
                 <span className="dock-queue__cluster">
                   {isLastSent ? <span className="rd-sent">LAST SENT</span> : null}
+                  {/* Never on the selected row: "next" beside "you are here" is
+                      noise, and the selection already has its own treatment.
+                      This is a position in a list, not an on-air claim. */}
+                  {item.id === nextTakeableId && item.id !== rundown.selectedItemId ? (
+                    <span className="dock-qitem__next">NEXT</span>
+                  ) : null}
                   {reordering ? (
                     <>
                       <button
