@@ -18,6 +18,8 @@ import {
   NO_AGREEMENT,
   type StabilityState
 } from '../../lib/scripture/provisionalStability';
+import { readCorrection } from '../../lib/scripture/referenceCorrection';
+import type { CanonicalReference } from '../../lib/scripture/parseReference';
 import {
   IDLE,
   accept as acceptCandidate,
@@ -73,6 +75,35 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * that something is happening and the card has not stalled.
    */
   const [detecting, setDetecting] = useState(false);
+  /**
+   * The last passage that PARSED, VALIDATED and RETRIEVED — the durable half.
+   *
+   * Deliberately outside the reducer. `receiveTranscript` builds a fresh state for
+   * every utterance, which is correct for a recognition ATTEMPT and was quietly
+   * catastrophic for the passage: a preacher who said "no, verse three" lost a
+   * verse that was right, because a fragment the parser refused replaced a result
+   * it had already confirmed.
+   *
+   * Keeping it out here means no reducer path can clear it, because no reducer
+   * path can reach it. That is the invariant enforced by shape rather than by
+   * every future transition remembering to copy a field. It is cleared in exactly
+   * two places: a successful replacement, and the operator pressing Dismiss.
+   */
+  const [confirmed, setConfirmed] = useState<{ reference: CanonicalReference; passage: ScriptureLookupResult } | null>(
+    null
+  );
+  /** The same value, readable inside the transcript handler without re-subscribing. */
+  const confirmedRef = useRef<typeof confirmed>(null);
+  const remember = (reference: CanonicalReference, passage: ScriptureLookupResult) => {
+    confirmedRef.current = { reference, passage };
+    setConfirmed(confirmedRef.current);
+  };
+  const forgetConfirmed = () => {
+    confirmedRef.current = null;
+    setConfirmed(null);
+  };
+  /** Set while a correction is being retrieved, and while one has just failed. */
+  const [correction, setCorrection] = useState<'' | 'working' | 'failed'>('');
   const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
@@ -214,7 +245,28 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         // this utterance may count toward the next one.
         agreementRef.current = forgetAgreement();
         generation.current += 1;
+        /**
+         * A correction is tried FIRST, because a correction and a failed
+         * recognition look identical to the ordinary path: both are fragments with
+         * no book in them. "No, verse three" was being refused and then clearing a
+         * passage that was correct.
+         *
+         * It only fires when a confirmed passage is already on screen, and it
+         * never runs on a provisional — amending a reference that is itself still
+         * a guess would compound two uncertainties into one confident answer.
+         */
+        const amendment = readCorrection(update.finalText, confirmedRef.current?.reference ?? null);
+        if (amendment) {
+          void applyCorrection(amendment, generation.current);
+          return;
+        }
+
         const next = receiveTranscript(update.finalText);
+        /**
+         * A refusal reports itself, and changes nothing else. The recognition
+         * attempt is transient; the passage the operator is reading is not, and
+         * an utterance that produced no reference is not evidence against it.
+         */
         setState(next);
         /**
          * Retrieve the strongest reading immediately, rather than making the
@@ -329,6 +381,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       liveLatency.mark(timelineId, 'first-verse');
     }
     setProvisional(true);
+    remember(candidate.reference, found.result);
     /**
      * Functional, like every other write here. `source` was captured BEFORE a
      * lookup that takes ~0.31 s when the passage is not cached, so writing it back
@@ -373,7 +426,44 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       liveLatency.mark(timelineId, 'lookup-done');
       liveLatency.mark(timelineId, 'first-verse');
     }
+    // Durable from here: this one parsed, validated and retrieved.
+    remember(candidate.reference, found.result);
+    setCorrection('');
     setState((previous) => passageResolved(previous, found.result));
+  };
+
+  /**
+   * Amend the displayed reference — as a transaction, never as a clear-then-fill.
+   *
+   * The passage the operator is reading stays exactly where it is until a
+   * REPLACEMENT has been retrieved. That ordering is the whole point: the failure
+   * this fixes was a correction that emptied the card and then could not fill it,
+   * leaving the operator with nothing mid-service and no way back to the verse
+   * that had been right.
+   */
+  const applyCorrection = async (amendment: NonNullable<ReturnType<typeof readCorrection>>, mine: number) => {
+    setCorrection('working');
+    const found = await lookup(amendment.reference.canonical, translationId);
+    // A newer utterance owns the panel now — this correction has been superseded
+    // and must not land on top of whatever replaced it.
+    if (generation.current !== mine) return;
+    if (!found) {
+      // Say so, and leave the good passage alone. A correction that cannot be
+      // retrieved is a failed correction, not a reason to lose the verse.
+      setCorrection('failed');
+      return;
+    }
+    setCorrection('');
+    setProvisional(false);
+    remember(amendment.reference, found.result);
+    setState((previous) =>
+      passageResolved(
+        { ...previous, status: 'candidates', problem: null, message: '',
+          candidates: [{ raw: amendment.reference.canonical, reference: amendment.reference,
+            interpretation: amendment.interpretation, score: 1 }], selected: 0 },
+        found.result
+      )
+    );
   };
 
   const resolveStrongest = (source: VoiceAssistState, mine: number, timelineId: number | null) =>
@@ -463,17 +553,49 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         </p>
       ) : null}
 
+      {correction === 'working' ? (
+        <p className="live-heard live-heard--detecting" aria-live="polite">
+          Updating reference…
+        </p>
+      ) : null}
+      {correction === 'failed' ? (
+        /* Stated as its own failure, beside the passage that is still correct —
+           never as a reason to take that passage away. */
+        <p className="live-problem" role="alert">
+          Couldn’t confirm that correction. Showing the last confirmed passage.
+        </p>
+      ) : null}
+
       {/* --- the detected passage, dominant --- */}
-      {strongest || resolving ? (
+      {/*
+        Rendered from the DURABLE half whenever the current attempt has nothing.
+        `state` is a recognition attempt and is rebuilt for every utterance;
+        `confirmed` is the last passage that actually parsed, validated and
+        retrieved. A refusal, a failed lookup, an unstable provisional or a
+        correction that could not be confirmed all leave `confirmed` untouched, so
+        the operator keeps reading the verse that was right until something valid
+        replaces it or they dismiss it themselves.
+      */}
+      {strongest || resolving || confirmed ? (
         <DetectedScripture
-          reference={chosen?.reference.canonical ?? strongest?.reference.canonical ?? ''}
-          interpretation={chosen?.interpretation ?? strongest?.interpretation ?? ''}
-          passage={state.passage}
-          resolving={resolving}
+          reference={
+            state.passage
+              ? chosen?.reference.canonical ?? strongest?.reference.canonical ?? ''
+              : confirmed?.reference.canonical ?? chosen?.reference.canonical ?? strongest?.reference.canonical ?? ''
+          }
+          interpretation={state.passage ? chosen?.interpretation ?? strongest?.interpretation ?? '' : ''}
+          passage={state.passage ?? confirmed?.passage ?? null}
+          resolving={resolving && !confirmed}
           accepted={state.status === 'accepted'}
           canAccept={canAccept(state)}
           onAccept={onAcceptClick}
-          onDismiss={() => setState((previous) => rejectCandidate(previous))}
+          onDismiss={() => {
+            // The operator's explicit clear — the ONE thing besides a valid
+            // replacement that may remove a confirmed passage.
+            forgetConfirmed();
+            setCorrection('');
+            setState((previous) => rejectCandidate(previous));
+          }}
           provisional={provisional}
           onRendered={() => {
             if (timelineRef.current !== null) {

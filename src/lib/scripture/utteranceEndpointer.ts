@@ -72,9 +72,24 @@ export interface EndpointerConfig {
    * At 400 ms against ~0.78 s of work, roughly every second snapshot would be
    * thrown away by the service's latest-wins slot. Nothing breaks — that slot
    * exists precisely so nothing backlogs — but it is GPU spent on answers no one
-   * will ever see, on a fanless machine, for no gain in how often the card can
-   * change. 800 ms matches the work to the capacity: each snapshot lands about as
-   * the next is taken.
+   * will ever see, on a fanless machine.
+   *
+   * **600 ms, chosen by replaying real schedules against the real service** in
+   * real time, three passes each, median of nine utterances:
+   *
+   * ```
+   *   cadence   stale work   first transcript
+   *     500 ms     16.7%         1237 ms
+   *     600 ms      5.9%         1339 ms
+   *     700 ms      0.0%         1435 ms
+   *     800 ms      0.0%         1556 ms
+   * ```
+   *
+   * 600 ms buys 217 ms off the number the operator actually feels for 5.9% waste;
+   * 500 ms buys a further 102 ms for nearly three times that. The first snapshot
+   * is what sets this figure, and it is gated by BOTH this cadence and
+   * `minSnapshotMs` — a variant that lowered only the latter changed nothing,
+   * measuring identically to the plain cadence, because the cadence was binding.
    */
   snapshotEveryMs: number;
   /** Don't snapshot until there is enough speech to be worth recognising. */
@@ -109,7 +124,7 @@ export const DEFAULT_ENDPOINTER: EndpointerConfig = {
   maxUtteranceMs: 15000,
   calibrationMs: 400,
   preRollMs: 200,
-  snapshotEveryMs: 800,
+  snapshotEveryMs: 600,
   minSnapshotMs: 600
 };
 
