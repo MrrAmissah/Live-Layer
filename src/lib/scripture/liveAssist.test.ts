@@ -477,11 +477,27 @@ describe('connection readiness is reported honestly', () => {
     expect(statuses[statuses.length - 1].status).toBe('starting');
   });
 
-  it('claims Listening once the server acknowledges the session', async () => {
+  /**
+   * The acknowledgement is necessary and not sufficient. The restart defect sat
+   * exactly here: the server accepted session 2 and reset its VAD state, and the
+   * browser reported listening over an audio context that was suspended and
+   * producing nothing. Three facts have to hold — server ready, capture running,
+   * and PCM actually arriving.
+   */
+  it('does not claim Listening on the acknowledgement alone', async () => {
     const { source, statuses, fire } = harness({ readyState: 0 });
     await source.start();
     fire('open', {});
     fire('message', { data: JSON.stringify({ type: 'ready', session: 1 }) });
+    expect(statuses[statuses.length - 1].status).toBe('starting');
+  });
+
+  it('claims Listening once the session is acknowledged AND audio is flowing', async () => {
+    const { source, statuses, fire } = harness({ readyState: 0 });
+    await source.start();
+    fire('open', {});
+    fire('message', { data: JSON.stringify({ type: 'ready', session: 1 }) });
+    pushAudio(block(1024, 0.05, 3, false));
     expect(statuses[statuses.length - 1].status).toBe('listening');
   });
 

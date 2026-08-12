@@ -265,6 +265,32 @@ export function createLiveTranscriptSource(
    */
   let utteranceNo = 0;
   let revisionNo = 0;
+  /**
+   * How much audio this session has actually produced.
+   *
+   * Counted because "the session started" and "the session is capturing" are
+   * different claims, and only the second one matters. A restart that reported
+   * listening while producing zero frames is the defect these exist to make
+   * visible — both in the development trail and in the tests.
+   */
+  let pcmFrames = 0;
+  let pcmSamples = 0;
+  /** The server has this session and has reset its VAD state. */
+  let serverReady = false;
+
+  /**
+   * Listening means the WHOLE chain is proven, not one end of it.
+   *
+   * Three separate facts, and the restart bug lived in the gap between them: the
+   * server acknowledged the session (transport and VAD state are ready), the
+   * audio context reached `running` (capture CAN produce audio), and PCM has
+   * actually arrived (capture IS producing audio). The second session satisfied
+   * the first and failed the other two while reporting itself healthy.
+   */
+  const announceIfReady = (mine: number) => {
+    if (mine !== session || !serverReady || pcmFrames === 0) return;
+    if (lastStatus !== 'listening') report('listening', '');
+  };
   /** Timeline id per utterance, so provisional and final share one measurement. */
   const timelines = new Map<number, number>();
   /** Utterances whose final answer has arrived; later provisionals are stale. */
@@ -337,6 +363,10 @@ export function createLiveTranscriptSource(
     socket = null;
     endpointer = emptyEndpointer();
     framer = createFramer(config.sampleRate);
+    trace(session, 'session-audio', `${pcmFrames} frames, ${pcmSamples} samples`);
+    pcmFrames = 0;
+    pcmSamples = 0;
+    serverReady = false;
     timelines.clear();
     finalised.clear();
     pending = 0;
@@ -540,10 +570,10 @@ export function createLiveTranscriptSource(
              * whether that level is a voice.
              */
             if (payload.type === 'ready') {
-              trace(mine, 'session-ready', 'server accepted the session');
-              // The server has this session and has reset its VAD state. This, not
-              // `onopen`, is when the operator is genuinely being listened to.
-              report('listening', '');
+              trace(mine, 'session-ready', `server accepted; ${pcmFrames} PCM frames so far`);
+              serverReady = true;
+              // Not enough on its own — the audio path has to be producing too.
+              announceIfReady(mine);
               return;
             }
 
@@ -617,6 +647,33 @@ export function createLiveTranscriptSource(
         });
 
         context = new AudioContext({ sampleRate: config.sampleRate });
+        /**
+         * Resume it, and then CHECK. This is the restart bug.
+         *
+         * A context constructed outside a user-gesture call stack starts
+         * **suspended** in Chrome, and a suspended context never fires
+         * `onaudioprocess` — so no PCM leaves the page and no transcript can
+         * possibly arrive. `start()` awaits `getUserMedia` before building the
+         * audio graph, which puts the construction outside that stack every time;
+         * the first session survives on the page's sticky activation from the
+         * click, and later ones, created moments after the previous context was
+         * closed, do not.
+         *
+         * The symptom was exact: the second Start "appears to start" — permission
+         * is held, the socket opens, the server acknowledges the session — and
+         * then nothing is ever heard, because the microphone's audio was never
+         * being read in the first place.
+         */
+        await context.resume?.();
+        trace(mine, 'audio-context', context.state ?? 'unknown');
+        if (context.state === 'suspended' || context.state === 'closed') {
+          // Said plainly rather than reported as listening. A session that cannot
+          // read the microphone is not a session, and claiming otherwise is what
+          // left the operator talking to something that was never going to answer.
+          teardown();
+          report('unavailable', 'Could not start the audio input. Stop and start listening again.');
+          return;
+        }
         const source = context.createMediaStreamSource(stream);
         // ScriptProcessor rather than AudioWorklet: the dock runs in OBS's embedded
         // Chromium, and a worklet needs a separately served module file. This is a
@@ -642,6 +699,17 @@ export function createLiveTranscriptSource(
            * else; no code path reads it to decide anything.
            */
           level = levelFromDb(frameDb(block));
+          if (pcmFrames === 0) {
+            trace(mine, 'pcm-first', `${block.length} samples`);
+            pcmFrames += 1;
+            pcmSamples += block.length;
+            // The last of the three facts. Announced here rather than assumed,
+            // because a session that never reaches this line is the whole defect.
+            announceIfReady(mine);
+          } else {
+            pcmFrames += 1;
+            pcmSamples += block.length;
+          }
           // Every sample, exactly once, in order. No framing and therefore no
           // remainder to lose — the accumulator that meets Silero's fixed 512-sample
           // frame lives on the server, where the frames are actually needed.

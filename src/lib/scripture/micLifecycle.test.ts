@@ -16,23 +16,62 @@ import { createLiveTranscriptSource } from './liveTranscriptSource';
  * one invariant an operator cannot verify for themselves and cannot recover from.
  */
 
+/**
+ * Chrome's actual AudioContext semantics, which the previous fake did not model.
+ *
+ * A context constructed outside a user-gesture call stack starts **suspended**,
+ * and a suspended context never fires `onaudioprocess` — no PCM leaves the page.
+ * `start()` awaits `getUserMedia` before building the audio graph, so by the time
+ * the context exists the synchronous gesture stack is long gone.
+ *
+ * The old fake reported `state = 'running'` from birth, which is why every
+ * lifecycle test passed while the second listening session produced no transcript
+ * in a real browser.
+ */
 class FakeAudioContext {
   sampleRate = 16000;
-  state = 'running';
+  state: 'suspended' | 'running' | 'closed' = 'suspended';
   static throwOnConstruct = false;
+  static live: FakeAudioContext[] = [];
   constructor() {
     if (FakeAudioContext.throwOnConstruct) throw new Error('AudioContext unavailable');
+    FakeAudioContext.live.push(this);
   }
   createMediaStreamSource() {
+    if (this.state === 'closed') throw new Error('context is closed');
     return { connect: () => undefined };
   }
   createScriptProcessor() {
-    return { connect: () => undefined, disconnect: () => undefined, onaudioprocess: null };
+    if (this.state === 'closed') throw new Error('context is closed');
+    const node = { connect: () => undefined, disconnect: () => undefined, onaudioprocess: null };
+    processors.push({ node, context: this });
+    return node;
+  }
+  resume() {
+    if (this.state !== 'closed') this.state = 'running';
+    return Promise.resolve();
   }
   close() {
     this.state = 'closed';
     return Promise.resolve();
   }
+}
+
+/** Every processor handed out, with the context that owns it. */
+const processors: { node: { onaudioprocess: ((event: unknown) => void) | null }; context: FakeAudioContext }[] = [];
+
+/**
+ * Deliver one audio block, as the browser would — which means ONLY when the
+ * owning context is actually running.
+ */
+function deliverAudio(samples: Float32Array): number {
+  let delivered = 0;
+  for (const { node, context } of processors) {
+    if (context.state !== 'running' || !node.onaudioprocess) continue;
+    node.onaudioprocess({ inputBuffer: { getChannelData: () => samples } });
+    delivered += 1;
+  }
+  return delivered;
 }
 (globalThis as unknown as { AudioContext: unknown }).AudioContext = FakeAudioContext;
 (globalThis as unknown as { WebSocket: unknown }).WebSocket ??= { CONNECTING: 0, OPEN: 1, CLOSED: 3 };
@@ -289,5 +328,71 @@ describe('the panel that owns the microphone keeps its identity', () => {
   it('reorders with CSS instead', () => {
     expect(workspace).toContain('scripture-workspace__live');
     expect(workspace).toContain('scripture-workspace__manual');
+  });
+});
+
+
+describe('the SECOND listening session must work as well as the first', () => {
+  /**
+   * Human evidence: the first session works, the second "barely responds and
+   * frequently produces no transcript at all". Every existing lifecycle test
+   * passed, because they asserted that the microphone was released — not that
+   * audio was ever produced again.
+   *
+   * The property that was missing: **PCM must actually flow on every session.**
+   */
+  const block = (n: number, amplitude: number): Float32Array => {
+    const out = new Float32Array(n);
+    let seed = 7;
+    for (let i = 0; i < n; i += 1) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      out[i] = ((seed / 0x7fffffff) * 2 - 1) * amplitude;
+    }
+    return out;
+  };
+
+  it('produces PCM on the second and third sessions, not only the first', async () => {
+    processors.length = 0;
+    FakeAudioContext.live.length = 0;
+    const h = harness();
+    const sentPerSession: number[] = [];
+
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await h.source.start();
+      h.fire('open');
+      const before = h.sockets[h.sockets.length - 1].sent.length;
+      deliverAudio(block(1024, 0.2));
+      deliverAudio(block(1024, 0.2));
+      sentPerSession.push(h.sockets[h.sockets.length - 1].sent.length - before);
+      h.source.stop();
+    }
+
+    // The failure this pins: [2, 0, 0] — the first session speaks, the rest are mute.
+    expect(sentPerSession, 'a later session produced no PCM at all').toEqual([2, 2, 2]);
+  });
+
+  it('never leaves the audio path suspended when it reports listening', async () => {
+    processors.length = 0;
+    FakeAudioContext.live.length = 0;
+    const h = harness();
+    await h.source.start();
+    h.fire('open');
+    const current = FakeAudioContext.live[FakeAudioContext.live.length - 1];
+    expect(current.state, 'reported ready over a context that cannot deliver audio').toBe('running');
+    h.source.stop();
+  });
+
+  it('closes each session’s context rather than reusing a dead one', async () => {
+    processors.length = 0;
+    FakeAudioContext.live.length = 0;
+    const h = harness();
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await h.source.start();
+      h.fire('open');
+      h.source.stop();
+    }
+    // Every context that was retired is closed, and none is reused after closing.
+    const closed = FakeAudioContext.live.filter((c) => c.state === 'closed');
+    expect(closed.length).toBe(FakeAudioContext.live.length);
   });
 });
