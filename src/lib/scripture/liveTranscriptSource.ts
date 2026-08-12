@@ -308,60 +308,50 @@ export function createLiveTranscriptSource(
     level = 0;
   };
 
-  const send = (mine: number, utterance: Float32Array, isFinal: boolean) => {
-    if (mine !== session || !socket) return;
-    /**
-     * The socket may still be CONNECTING when the first utterance is endpointed.
-     * Dropping it here is what "the first thing you say never works" looks like, so
-     * it is queued until the socket opens and sent then — or discarded if the
-     * connection never comes up, in which case the error path has already told the
-     * operator to type.
-     */
-    if (socket.readyState === WebSocket.CONNECTING) {
-      queued.push(utterance);
-      if (queued.length > MAX_QUEUED_UTTERANCES) {
-        queued.shift();
-        report(
-          'starting',
-          'Still connecting to the local speech service — the earliest utterance was dropped.'
-        );
-      }
-      return;
-    }
-    if (socket.readyState !== WebSocket.OPEN) return;
-    // 16-bit PCM: what the model's feature extractor wants, and a quarter the bytes
-    // of float32 over the socket.
-    const pcm = new Int16Array(utterance.length);
-    for (let i = 0; i < utterance.length; i += 1) {
-      pcm[i] = Math.max(-32768, Math.min(32767, Math.round(utterance[i] * 32767)));
-    }
-    // 16-byte header: session, utterance, revision, final. Identity travels WITH
-    // the audio so the service can drop stale provisional work and the browser can
-    // refuse a late one.
-    const header = new ArrayBuffer(16);
+  /** Uplink header: session, sequence, control. 16-bit PCM follows for audio. */
+  const CONTROL_AUDIO = 0;
+  const CONTROL_START = 1;
+  const CONTROL_STOP = 2;
+
+  const uplink = (mine: number, kind: number, pcm?: Int16Array) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const header = new ArrayBuffer(12);
     const view = new DataView(header);
     view.setUint32(0, mine, true);
-    view.setUint32(4, utteranceNo, true);
-    view.setUint32(8, (revisionNo += 1), true);
-    view.setInt32(12, isFinal ? 1 : 0, true);
+    view.setUint32(4, (revisionNo += 1), true);
+    view.setInt32(8, kind, true);
+    if (!pcm) {
+      socket.send(header);
+      return;
+    }
     const frame = new Uint8Array(header.byteLength + pcm.byteLength);
     frame.set(new Uint8Array(header), 0);
-    frame.set(new Uint8Array(pcm.buffer), header.byteLength);
-
-    if (isFinal) {
-      pending += 1;
-      let id = timelines.get(utteranceNo);
-      if (id === undefined) {
-        id = liveLatency.begin();
-        timelines.set(utteranceNo, id);
-      }
-      liveLatency.mark(id, 'endpoint');
-      liveLatency.mark(id, 'sent');
-      // No "Recognising…" banner: a provisional card is usually already on screen,
-      // and replacing it with a status would hide the useful thing.
-    }
-    socket.send(frame.buffer);
+    frame.set(new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength), header.byteLength);
+    socket.send(frame);
   };
+
+  /**
+   * Transport one block of microphone audio. No judgement is applied to it.
+   *
+   * While the socket is still connecting, audio is DROPPED rather than queued —
+   * the opposite of the rule the old uplink used, and deliberately. That one sent
+   * complete utterances, so queuing meant not losing something the operator had
+   * said. This one sends a continuous stream, and a queue of stream would replay
+   * seconds of stale audio into the VAD the moment the socket opened, segmenting a
+   * burst of the past as though it were the present. The connect-time warm-up
+   * covers the gap, and a connection that never opens is already reported.
+   */
+  const send = (mine: number, block: Float32Array) => {
+    if (mine !== session || !socket || socket.readyState !== WebSocket.OPEN) return;
+    // 16-bit PCM: what the feature extractor wants, and a quarter the bytes of
+    // float32 over the socket.
+    const pcm = new Int16Array(block.length);
+    for (let i = 0; i < block.length; i += 1) {
+      pcm[i] = Math.max(-32768, Math.min(32767, Math.round(block[i] * 32767)));
+    }
+    uplink(mine, CONTROL_AUDIO, pcm);
+  };
+
 
   return {
     id,
@@ -468,10 +458,14 @@ export function createLiveTranscriptSource(
         socket.binaryType = 'arraybuffer';
         socket.addEventListener('open', () => {
           if (mine !== session) return;
-          // Flush anything endpointed while the socket was still connecting.
-          const backlog = queued;
           queued = [];
-          for (const utterance of backlog) send(mine, utterance, true);
+          /**
+           * Declare the session before any audio arrives. The server resets Silero
+           * on this, so the recurrent state cannot carry the tail of a previous
+           * session into the first frames of this one — which is what makes
+           * Stop → Start a genuinely independent stream rather than a resumption.
+           */
+          uplink(mine, CONTROL_START);
           report('listening', '');
         });
         socket.addEventListener('message', (event) => {
@@ -489,6 +483,28 @@ export function createLiveTranscriptSource(
              * from less audio than the answer already on screen.
              */
             if (payload.session !== undefined && payload.session !== mine) return;
+
+            /**
+             * Speech state now comes FROM the server, because the server is what
+             * decides it. The browser measures a level for the meter and is told
+             * whether that level is a voice.
+             */
+            if (payload.type === 'vad') {
+              const speaking = Boolean(payload.speech);
+              if (speaking) {
+                // The utterance's identity and clock exist from the moment speech
+                // starts, so a snapshot has something to be timed against.
+                const id = liveLatency.begin();
+                timelines.set(Number(payload.utterance ?? 0), id);
+                liveLatency.mark(id, 'speech-start');
+              } else {
+                const id = timelines.get(Number(payload.utterance ?? 0));
+                if (id !== undefined) liveLatency.mark(id, 'endpoint');
+              }
+              report(speaking ? 'recognising' : 'listening', '', speaking);
+              return;
+            }
+
             const utterance = Number(payload.utterance ?? 0);
             const isFinal = Boolean(payload.final);
             if (!isFinal && finalised.has(utterance)) return;
@@ -542,54 +558,28 @@ export function createLiveTranscriptSource(
         node = context.createScriptProcessor(1024, 1, 1);
         node.onaudioprocess = (event) => {
           if (mine !== session || !listening) return;
-          // Carried across callbacks: samples that do not fill a frame wait for the
-          // next block rather than being discarded.
-          const framed = pushSamples(framer, event.inputBuffer.getChannelData(0));
-          framer = framed.framer;
-          for (const frame of framed.frames) {
-            // Measured every frame; published to the UI on the timer below.
-            level = levelFromDb(frameDb(frame));
-            const wasSpeaking = endpointer.inSpeech;
-            const result = pushFrame(endpointer, frame, config);
-            endpointer = result.state;
-            // A new utterance begins the moment speech starts, so its identity and
-            // its clock exist before the first snapshot rather than at the endpoint.
-            if (!wasSpeaking && result.state.inSpeech) {
-              utteranceNo += 1;
-              const id = liveLatency.begin();
-              timelines.set(utteranceNo, id);
-              liveLatency.mark(id, 'speech-start');
-            }
-            // Provisional first — the operator sees work happening while talking.
-            /**
-             * The silence shield, and it sits HERE — before the socket, not after
-             * the transcript.
-             *
-             * Whisper will invent words for anything. Measured on this machine,
-             * three seconds of digital silence decoded confidently as "Thank you.",
-             * and its own `no_speech_prob` was 0.000 for that and for every other
-             * input including real speech. There is no threshold on the model's own
-             * output that separates them, so the only authority left is the
-             * microphone — and the cheapest place to obey it is to never send the
-             * audio at all.
-             *
-             * A segment that cannot prove speech is not a transcript, not a
-             * correction, not a no-match, and not a reason to change anything the
-             * operator is reading. It is dropped, silently, here.
-             */
-            const audible = result.evidence !== null && looksLikeSpeech(result.evidence);
-            if (result.snapshot && audible) send(mine, result.snapshot, false);
-            if (result.utterance && audible) send(mine, result.utterance, true);
-            else if (pending === 0) {
-              const status = result.calibrating ? 'starting' : 'listening';
-              const detail = result.calibrating ? 'Listening for the room…' : '';
-              // Only when something CHANGED — the meter has its own cadence, and
-              // re-reporting identical status per frame is pure re-render.
-              if (status !== lastStatus || detail !== lastDetail || result.speaking !== lastSpeaking) {
-                report(status, detail, result.speaking);
-              }
-            }
-          }
+          const block = event.inputBuffer.getChannelData(0);
+          /**
+           * Two things, and only two: measure a level for the meter, and transport
+           * the samples.
+           *
+           * The browser used to decide here whether audio deserved to reach the
+           * recogniser, using an energy threshold. That failed human testing in
+           * both directions at once — the operator had to lean toward the
+           * microphone for normal speech to register, and silence still got through
+           * often enough for Whisper to answer "Thank you." No threshold fixes
+           * that, because loudness is not what separates a voice from a room. The
+           * judgement now lives behind Silero on the server and this is a pipe.
+           *
+           * The level is still measured HERE, because a meter must respond to the
+           * microphone rather than to a round trip. It drives a display and nothing
+           * else; no code path reads it to decide anything.
+           */
+          level = levelFromDb(frameDb(block));
+          // Every sample, exactly once, in order. No framing and therefore no
+          // remainder to lose — the accumulator that meets Silero's fixed 512-sample
+          // frame lives on the server, where the frames are actually needed.
+          send(mine, block);
         };
         source.connect(node);
         node.connect(context.destination);
@@ -617,6 +607,13 @@ export function createLiveTranscriptSource(
     },
 
     stop() {
+      /**
+       * Tell the server BEFORE tearing down, so it drops the partial utterance,
+       * the pre-roll and Silero's recurrent state rather than carrying them into
+       * whatever the operator says next. Sent while the socket is still open —
+       * `teardown` closes it.
+       */
+      uplink(session, CONTROL_STOP);
       teardown();
       /**
        * Reported unconditionally, not just when fully listening. Stopping while the

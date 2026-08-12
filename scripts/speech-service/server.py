@@ -31,29 +31,43 @@ import argparse, asyncio, json, pathlib, struct, sys, time
 
 import numpy as np
 
+from segmenter import Segmenter, DEFAULT_CONFIG, load_vad
+
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "asr-benchmark"))
 
 SR = 16000
 
 
-# 16 bytes of header before the PCM: session, utterance, revision, final flag.
-# Identity travels WITH the audio because arrival order is not identity — a slow
-# provisional result can land after the final one it was superseded by, and
-# "whatever arrived last" would then overwrite the authoritative answer.
-HEADER = struct.Struct("<IIIi")
+# 12 bytes of header before the PCM: session, sequence, control.
+#
+# The uplink is now a CONTINUOUS STREAM rather than pre-segmented utterances. The
+# browser used to decide what counted as speech and send only that; it decided
+# badly in both directions at once — quiet speech discarded, silence forwarded —
+# and no threshold could fix it, because loudness is not what separates a voice
+# from a room. Segmentation moved to the server, behind Silero, so the browser now
+# transports audio and owns no judgement about it.
+#
+# `session` still travels with every frame: Stop → Start must be a completely
+# independent stream, and audio from a session the operator has ended must not be
+# able to arrive late and be segmented into the next one.
+UPLINK = struct.Struct("<IIi")
+
+CONTROL_AUDIO = 0
+CONTROL_START = 1
+CONTROL_STOP = 2
 
 
-def parse_frame(message: bytes):
-    """(session, utterance, revision, is_final, pcm) — or None if unheadered."""
-    if len(message) < HEADER.size:
+def parse_uplink(message: bytes):
+    """(session, sequence, control, pcm) — or None if unheadered."""
+    if len(message) < UPLINK.size:
         return None
-    session, utterance, revision, final = HEADER.unpack_from(message, 0)
-    pcm = np.frombuffer(message, dtype=np.int16, offset=HEADER.size).astype(np.float32) / 32768.0
-    return session, utterance, revision, bool(final), pcm
+    session, sequence, control = UPLINK.unpack_from(message, 0)
+    pcm = np.frombuffer(message, dtype=np.int16, offset=UPLINK.size).astype(np.float32) / 32768.0
+    return session, sequence, control, pcm
 
 
-async def handle(websocket, recogniser, verbose: bool, keep_warm_seconds: float = 0.0) -> None:
+async def handle(websocket, recogniser, vad, verbose: bool, keep_warm_seconds: float = 0.0) -> None:
     """One connection, one worker, a slot for the newest provisional request.
 
     Progressive recognition sends a snapshot every few hundred milliseconds while
@@ -66,6 +80,11 @@ async def handle(websocket, recogniser, verbose: bool, keep_warm_seconds: float 
     pending: dict | None = None          # the one queued request, newest wins
     waiting = asyncio.Event()
     stats = {"dropped": 0, "max_depth": 0}
+    #: One segmenter per connection, holding this session's Silero state.
+    segmenter = Segmenter(model=vad, config=DEFAULT_CONFIG)
+    #: The session the operator is currently listening in, or None between them.
+    live_session: int | None = None
+    utterance_no = 0
 
     async def worker():
         nonlocal pending
@@ -88,6 +107,7 @@ async def handle(websocket, recogniser, verbose: bool, keep_warm_seconds: float 
                           f"{len(job['pcm'])/SR:.2f}s -> {inference:.3f}s "
                           f"({len(text.strip())} chars)", flush=True)
                 await websocket.send(json.dumps({
+                    "type": "transcript",
                     "session": job["session"],
                     "utterance": job["utterance"],
                     "revision": job["revision"],
@@ -99,6 +119,7 @@ async def handle(websocket, recogniser, verbose: bool, keep_warm_seconds: float 
                 }))
             except Exception as exc:  # a bad frame must not kill the session
                 await websocket.send(json.dumps({
+                    "type": "transcript",
                     "session": job["session"], "utterance": job["utterance"],
                     "revision": job["revision"], "final": job["final"],
                     "text": "", "error": f"{type(exc).__name__}",
@@ -113,23 +134,65 @@ async def handle(websocket, recogniser, verbose: bool, keep_warm_seconds: float 
                 # rather than interpreted — this endpoint has no command surface.
                 await websocket.send(json.dumps({"ok": True}))
                 continue
-            frame = parse_frame(message)
+            frame = parse_uplink(message)
             if frame is None:
                 continue
-            session, utterance, revision, final, pcm = frame
-            if len(pcm) < SR // 10:  # under 100 ms is not an utterance
+            session, _sequence, control, pcm = frame
+
+            if control == CONTROL_START:
+                # A new listening session. Silero carries recurrent state between
+                # frames, so inheriting it would mean judging the first frames of
+                # this session against the tail of the last one.
+                live_session = session
+                segmenter.reset()
+                utterance_no = 0
+                pending = None
+                if verbose:
+                    print(f"  session {session} start", flush=True)
                 continue
-            job = {"session": session, "utterance": utterance, "revision": revision,
-                   "final": final, "pcm": pcm}
-            if pending is not None:
-                # Something newer arrived before the old one started. Drop it here,
-                # where it costs nothing, rather than on the GPU.
-                if pending["final"] and not final:
-                    continue  # never displace a final with a provisional
-                stats["dropped"] += 1
-                stats["max_depth"] = max(stats["max_depth"], 2)
-            pending = job
-            waiting.set()
+
+            if control == CONTROL_STOP:
+                # Everything in flight belongs to a session the operator has ended.
+                live_session = None
+                segmenter.reset()
+                pending = None
+                if verbose:
+                    print(f"  session {session} stop", flush=True)
+                continue
+
+            # Audio from a session that has been stopped, or from before the
+            # current one began, is discarded rather than segmented. Without this a
+            # frame still in the socket buffer at Stop could open an utterance in
+            # the NEXT session.
+            if live_session is None or session != live_session:
+                continue
+
+            for event in segmenter.push(pcm):
+                if event.kind == "speech-start":
+                    utterance_no += 1
+                    await websocket.send(json.dumps(
+                        {"type": "vad", "session": session, "utterance": utterance_no, "speech": True}
+                    ))
+                    continue
+                if event.audio is None:
+                    continue
+
+                final = event.kind == "final"
+                if final:
+                    await websocket.send(json.dumps(
+                        {"type": "vad", "session": session, "utterance": utterance_no, "speech": False}
+                    ))
+                job = {"session": session, "utterance": utterance_no, "revision": event.revision,
+                       "final": final, "pcm": event.audio}
+                if pending is not None:
+                    # Something newer arrived before the old one started. Drop it
+                    # here, where it costs nothing, rather than on the GPU.
+                    if pending["final"] and not final:
+                        continue  # never displace a final with a provisional
+                    stats["dropped"] += 1
+                    stats["max_depth"] = max(stats["max_depth"], 2)
+                pending = job
+                waiting.set()
     finally:
         task.cancel()
         warm.cancel()
@@ -292,6 +355,8 @@ async def main_async(args) -> int:
         return 2
 
     recogniser = load_engine(args)
+    print("loading Silero VAD …", flush=True)
+    vad = load_vad()
     # Warm up before announcing readiness, so the first utterance of a service does
     # not pay lazy kernel compilation while the operator is waiting. Faint noise
     # rather than digital silence: Whisper decodes silence by looping, and one
@@ -302,7 +367,7 @@ async def main_async(args) -> int:
 
 
     async with websockets.serve(
-        lambda ws: handle(ws, recogniser, args.verbose, args.keep_warm_seconds),
+        lambda ws: handle(ws, recogniser, vad, args.verbose, args.keep_warm_seconds),
         args.host, args.port, max_size=32 * 1024 * 1024
     ):
         await asyncio.Future()

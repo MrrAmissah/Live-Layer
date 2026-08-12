@@ -477,68 +477,133 @@ describe('connection readiness is reported honestly', () => {
   });
 });
 
-describe('the wire protocol the local recogniser parses', () => {
+describe('the continuous uplink', () => {
   /**
-   * Identity travels WITH the audio, in a 16-byte little-endian header the service
-   * reads as `struct('<IIIi')`. It is not metadata for logging: progressive
-   * recognition means several answers are in flight for one utterance, and arrival
-   * order is not identity. A provisional that took longer than the final it was
-   * superseded by would otherwise overwrite the only answer that has to be right.
+   * The browser no longer decides what counts as speech; it transports audio and
+   * measures a meter. The uplink is therefore a STREAM, and what these tests pin
+   * is the property a stream has to have: every sample the microphone produced
+   * arrives once, in order, inside the session that produced it.
+   *
+   * An earlier framer in this file dropped whatever did not fill a 20 ms frame on
+   * every callback — 64 of every 1024 samples, continuously — so "no samples are
+   * lost" is a claim this codebase has been wrong about before.
    */
-  const speak = async (blocks: number) => {
-    const { source, sockets } = harness();
-    await source.start();
-    // Room tone first, so the detector has a floor to measure speech against.
-    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 5 + i, false));
-    for (let i = 0; i < blocks; i += 1) pushAudio(block(1024, 0.25, 100 + i));
-    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 900 + i, false));
-    return sockets[0].sent.map(readHeader);
+  const UPLINK_BYTES = 12;
+  const CONTROL_AUDIO = 0;
+  const CONTROL_START = 1;
+  const CONTROL_STOP = 2;
+
+  /** Control frames go out as ArrayBuffer, audio frames as a Uint8Array view. */
+  const bytes = (frame: unknown): ArrayBuffer =>
+    frame instanceof ArrayBuffer ? frame : ((frame as Uint8Array).buffer as ArrayBuffer);
+
+  const readHeader = (frame: unknown) => {
+    const view = new DataView(bytes(frame));
+    return {
+      session: view.getUint32(0, true),
+      sequence: view.getUint32(4, true),
+      control: view.getInt32(8, true),
+      samples: (bytes(frame).byteLength - UPLINK_BYTES) / 2
+    };
   };
+  const samplesOf = (frame: unknown) => new Int16Array(bytes(frame).slice(UPLINK_BYTES));
 
-  it('puts a readable header in front of every frame of audio', async () => {
-    const frames = await speak(60);
-    expect(frames.length).toBeGreaterThan(0);
-    for (const frame of frames) {
-      expect(frame.session).toBeGreaterThan(0);
-      expect(frame.utterance).toBeGreaterThan(0);
-      expect(frame.revision).toBeGreaterThan(0);
-      // 16-bit PCM, so a whole number of samples with nothing left over.
-      expect(Number.isInteger(frame.samples)).toBe(true);
-      expect(frame.samples).toBeGreaterThan(0);
+  async function capture(blocks: Float32Array[]) {
+    const { source, sockets, fire } = harness();
+    await source.start();
+    // The session is declared when the socket OPENS, so the fake has to open —
+    // otherwise these tests would assert a stream that never started.
+    fire('open', {});
+    for (const b of blocks) pushAudio(b);
+    return { sent: sockets[0].sent.map((f) => ({ ...readHeader(f), pcm: samplesOf(f) })), source };
+  }
+
+  it('declares the session before any audio', async () => {
+    const { sent } = await capture([block(1024, 0.2, 1)]);
+    expect(sent[0].control).toBe(CONTROL_START);
+    expect(sent[0].samples).toBe(0);
+    expect(sent.slice(1).every((f) => f.control === CONTROL_AUDIO)).toBe(true);
+  });
+
+  it('transports every sample exactly once, in order', async () => {
+    // Distinct, recoverable values: sample i carries i, so any loss, duplication
+    // or reordering is visible rather than merely plausible.
+    const total = 1024 * 5 + 373; // deliberately not a multiple of anything
+    const ramp = new Float32Array(total);
+    for (let i = 0; i < total; i += 1) ramp[i] = ((i % 20000) + 1) / 32767;
+    const blocks: Float32Array[] = [];
+    for (let at = 0; at < total; at += 1024) blocks.push(ramp.subarray(at, Math.min(at + 1024, total)));
+
+    const { sent } = await capture(blocks);
+    const audio = sent.filter((f) => f.control === CONTROL_AUDIO);
+    const flat: number[] = [];
+    for (const frame of audio) for (const v of frame.pcm) flat.push(v);
+
+    expect(flat).toHaveLength(total);
+    for (let i = 0; i < total; i += 1) expect(flat[i], `sample ${i}`).toBe((i % 20000) + 1);
+  });
+
+  it('is invariant to the size of the browser’s callbacks', async () => {
+    // 1024 is common but it is not a contract, and nothing downstream may depend
+    // on it: the accumulator that meets Silero's fixed frame size is on the server.
+    const total = 4096;
+    const ramp = new Float32Array(total);
+    for (let i = 0; i < total; i += 1) ramp[i] = (i + 1) / 32767;
+    const flatten = async (chunk: number) => {
+      const blocks: Float32Array[] = [];
+      for (let at = 0; at < total; at += chunk) blocks.push(ramp.subarray(at, Math.min(at + chunk, total)));
+      const { sent } = await capture(blocks);
+      const out: number[] = [];
+      for (const f of sent.filter((x) => x.control === CONTROL_AUDIO)) for (const v of f.pcm) out.push(v);
+      return out;
+    };
+    const reference = await flatten(1024);
+    for (const chunk of [128, 480, 1500, 4096]) {
+      expect(await flatten(chunk), `chunk ${chunk}`).toEqual(reference);
     }
   });
 
-  it('numbers revisions within one utterance, and ends it with exactly one final', async () => {
-    const frames = await speak(60);
-    const finals = frames.filter((f) => f.final === 1);
-    expect(finals).toHaveLength(1);
-    // Every frame belongs to the same utterance…
-    expect(new Set(frames.map((f) => f.utterance)).size).toBe(1);
-    // …and revisions rise, so the newest is identifiable without a clock.
-    const revisions = frames.map((f) => f.revision);
-    expect(revisions).toEqual([...revisions].sort((a, b) => a - b));
-    expect(new Set(revisions).size).toBe(revisions.length);
-    // The final is the last word on this utterance.
-    expect(frames[frames.length - 1].final).toBe(1);
+  it('carries the session on every frame, so stopped audio cannot be segmented', async () => {
+    const { sent } = await capture([block(1024, 0.2, 1), block(1024, 0.2, 2)]);
+    expect(new Set(sent.map((f) => f.session)).size).toBe(1);
+    expect(sent[0].session).toBeGreaterThan(0);
   });
 
-  it('sends each provisional as more audio than the one before it', async () => {
-    // A snapshot is the utterance SO FAR — it grows, it is not a fresh window.
-    const provisionals = (await speak(60)).filter((f) => f.final === 0);
-    expect(provisionals.length).toBeGreaterThan(1);
-    for (let i = 1; i < provisionals.length; i += 1) {
-      expect(provisionals[i].samples).toBeGreaterThan(provisionals[i - 1].samples);
-    }
+  it('tells the server to reset when the operator stops', async () => {
+    const { source, sockets, fire } = harness();
+    await source.start();
+    fire('open', {});
+    pushAudio(block(1024, 0.2, 1));
+    source.stop();
+    const frames = sockets[0].sent.map(readHeader);
+    // Stop is the last thing on the wire and carries no audio: the server drops
+    // the partial utterance, the pre-roll and Silero's state on it.
+    expect(frames[frames.length - 1].control).toBe(CONTROL_STOP);
+    expect(frames[frames.length - 1].samples).toBe(0);
   });
 
-  it('sends the final as the whole utterance, not just its tail', async () => {
-    const frames = await speak(60);
-    const last = frames[frames.length - 1];
-    const biggestProvisional = Math.max(...frames.filter((f) => f.final === 0).map((f) => f.samples));
-    expect(last.samples).toBeGreaterThanOrEqual(biggestProvisional);
+  it('sends nothing at all once stopped', async () => {
+    const { source, sockets, fire } = harness();
+    await source.start();
+    fire('open', {});
+    pushAudio(block(1024, 0.25, 4));
+    source.stop();
+    const after = sockets[0].sent.length;
+    pushAudio(block(1024, 0.25, 5));
+    pushAudio(block(1024, 0.25, 6));
+    expect(sockets[0].sent.length).toBe(after);
+  });
+
+  it('makes no judgement about whether the audio is speech', async () => {
+    // The whole point of the migration. Near-silence is transported exactly like
+    // speech; deciding is the server's job now, and a browser that filtered first
+    // would be a ceiling the VAD could never see past.
+    const quiet = await capture([block(1024, 0.00005, 7, false)]);
+    const loud = await capture([block(1024, 0.3, 7)]);
+    expect(quiet.sent.filter((f) => f.control === CONTROL_AUDIO)).toHaveLength(1);
+    expect(loud.sent.filter((f) => f.control === CONTROL_AUDIO)).toHaveLength(1);
   });
 });
-
 describe('what the microphone is actually asked for', () => {
   /**
    * The first human microphone test returned `"jon thr ixteen"` for "John three
