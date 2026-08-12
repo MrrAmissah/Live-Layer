@@ -168,6 +168,7 @@ describe('an impossible verse can never reach the operator', () => {
   const realVerses: Record<string, number> = {
     'Genesis 1': 31,
     'Genesis 12': 20,
+    'Genesis 24': 67,
     'Psalms 2': 12,
     'Psalms 23': 6,
     'John 3': 36,
@@ -207,6 +208,33 @@ describe('an impossible verse can never reach the operator', () => {
   it('still resolves the references the microphone produced', () => {
     expect(displayed('John 316')).toBe('John 3:16');
     expect(displayed('Romans 828')).toBe('Romans 8:28');
+  });
+
+  /**
+   * Genuine compact ambiguity DOES exist, and an earlier report of mine said it
+   * did not. `Genesis 125` is Genesis 1:25 and Genesis 12:5 — both real verses.
+   * Silently taking the first would hide a choice the operator is entitled to
+   * make, so the panel retrieves the siblings and offers the survivors.
+   */
+  const survivors = (spoken: string): string[] => {
+    const parsed = parseSpokenReference(spoken);
+    if (!parsed.ok) return [];
+    return parsed.candidates
+      .filter((c) => c.compact && retrieve(c.reference.canonical))
+      .map((c) => c.reference.canonical);
+  };
+
+  it('exposes real ambiguity rather than picking one', () => {
+    expect(survivors('Genesis 125')).toEqual(['Genesis 1:25', 'Genesis 12:5']);
+  });
+
+  it('does not manufacture ambiguity when only one split is real', () => {
+    expect(survivors('Psalm 234')).toEqual(['Psalms 23:4']);
+    expect(survivors('John 316')).toEqual(['John 3:16']);
+  });
+
+  it('leaves nothing at all when neither split is real', () => {
+    expect(survivors('Genesis 1234')).toEqual([]);
   });
 
   it('never offers an unverified split as an alternative reading', () => {

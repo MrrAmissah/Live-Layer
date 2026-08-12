@@ -490,8 +490,29 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       liveLatency.mark(timelineId, 'lookup-done');
       liveLatency.mark(timelineId, 'first-verse');
     }
+    /**
+     * A compact split that retrieved is not necessarily the ONLY one that would.
+     *
+     * `Genesis 125` splits into 1:25 and 12:5 and **both verses exist** — that is
+     * real ambiguity, and picking the first silently would hide it. So the other
+     * splits are retrieved too, and any that also exist are offered as
+     * alternatives. Bounded: a four-digit locator has at most three splits.
+     *
+     * This is the only place alternatives can come from for a compact reading,
+     * because an unretrieved split is never offered — the whole point of the
+     * marking is that its verse is unproven until the provider says otherwise.
+     */
+    let alternatives = candidate.compact ? [] : source.candidates.slice(1);
+    if (candidate.compact) {
+      const siblings = source.candidates.filter((c, i) => i !== index && c.compact);
+      for (const sibling of siblings) {
+        const also = await lookup(sibling.reference.canonical, translationId);
+        if (generation.current !== mine) return;
+        if (also) alternatives = [...alternatives, sibling];
+      }
+    }
     // Durable from here: this one parsed, validated and retrieved.
-    remember(candidate.reference, found.result, source.transcript, source.candidates.slice(1));
+    remember(candidate.reference, found.result, source.transcript, alternatives);
     setCorrection('');
     setState((previous) => passageResolved(previous, found.result));
   };
@@ -567,19 +588,30 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
   const spanCandidates = newestReference(state.groups)?.target
     ? state.groups[state.groups.length - 1].candidates
     : state.candidates;
-  const alternatives = spanCandidates.filter(
+  /**
+   * Compact splits that were RETRIEVED and survived, put on the stack by
+   * `resolveCandidate`. These are the only compact readings the operator may see
+   * as alternatives, and they are real ambiguity: `Genesis 125` is both Genesis
+   * 1:25 and Genesis 12:5, and both verses exist.
+   */
+  const verifiedCompact = stack.alternatives.filter((c) => c.compact);
+  const alternatives = [...verifiedCompact, ...spanCandidates].filter(
     (candidate) =>
       candidate.reference.canonical !== state.candidates[state.selected]?.reference.canonical &&
       /**
-       * Never offer an unverified compact split as a reading to choose from.
+       * Never offer an UNVERIFIED compact split as a reading to choose from.
        *
        * `Genesis 1234` survives the chapter check as both 1:234 and 12:34, and
        * neither verse exists — the parser has no per-chapter verse data to know
-       * that. Retrieval eliminates them, and until it has, presenting them as
-       * "other possible readings" would put two impossible passages in front of
-       * the operator and call them alternatives.
+       * that. Presenting those as "other possible readings" would put two
+       * impossible passages in front of the operator and call them alternatives.
+       *
+       * Compact splits that DID retrieve are a different matter and reach the
+       * operator by a different route: `resolveCandidate` retrieves the siblings
+       * and puts the survivors on the stack, so `Genesis 125` — where 1:25 and
+       * 12:5 both exist — is presented as the genuine ambiguity it is.
        */
-      !candidate.compact
+      (!candidate.compact || verifiedCompact.includes(candidate))
   );
   const resolving = state.status === 'resolving';
   const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
