@@ -47,6 +47,15 @@ export interface VoiceAssistState {
   /** Exactly what was transcribed. Never normalised behind the operator. */
   transcript: string;
   candidates: SpokenCandidate[];
+  /**
+   * The same readings, grouped by the reference each belongs to and in SPOKEN
+   * order. Kept alongside the flat list because the two answer different
+   * questions: `candidates` is "what could this be", groups is "how many separate
+   * things were said, and in what order". One recognition window can carry two
+   * complete references — the operator is on the later one — and a flat list
+   * ranked by score cannot express that.
+   */
+  groups: { candidates: SpokenCandidate[] }[];
   /** Index into `candidates`, or -1. */
   selected: number;
   /** The retrieved passage awaiting review. */
@@ -61,6 +70,7 @@ export const IDLE: VoiceAssistState = {
   status: 'idle',
   transcript: '',
   candidates: [],
+  groups: [],
   selected: -1,
   passage: null,
   message: '',
@@ -95,6 +105,7 @@ export function receiveTranscript(transcript: string): VoiceAssistState {
     status: 'candidates',
     transcript: trimmed,
     candidates: parsed.candidates,
+    groups: parsed.groups,
     // Pre-selecting the top reading is a convenience for the eye, NOT a decision:
     // `review` still requires retrieval and `accepted` still requires a press.
     selected: 0,

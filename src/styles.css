@@ -9477,6 +9477,11 @@ body.gfx-transparent {
 /* The speech that caused the passage now on screen. Quieter than the passage,
    louder than nothing — the operator must be able to see why it changed. */
 .control-root .live-heard--cause { opacity: 0.72; font-size: 0.9em; }
+/* History, not doubt — compact, beneath the dominant card, and visually nothing
+   like the alternatives list it used to be wrongly filed under. */
+.control-root .live-previous { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.control-root .live-previous__label { font-size: 0.78em; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.06em; }
+.control-root .live-previous__ref { font-variant-numeric: tabular-nums; }
 .control-root .live-problem { margin: 0; font-size: 12.5px; line-height: 1.5; color: #f5c77e; }
 
 /* The detected passage — visually dominant, because it is the decision. */

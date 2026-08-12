@@ -19,7 +19,16 @@ import {
   type StabilityState
 } from '../../lib/scripture/provisionalStability';
 import { readCorrection } from '../../lib/scripture/referenceCorrection';
+import {
+  EMPTY_STACK,
+  promote,
+  recallPrevious,
+  clearStack,
+  newestReference,
+  type PassageStack
+} from '../../lib/scripture/passageStack';
 import type { CanonicalReference } from '../../lib/scripture/parseReference';
+import type { SpokenCandidate } from '../../lib/scripture/spokenReference';
 import {
   IDLE,
   accept as acceptCandidate,
@@ -89,19 +98,24 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * every future transition remembering to copy a field. It is cleared in exactly
    * two places: a successful replacement, and the operator pressing Dismiss.
    */
-  const [confirmed, setConfirmed] = useState<{ reference: CanonicalReference; passage: ScriptureLookupResult } | null>(
-    null
-  );
+  const [stack, setStack] = useState<PassageStack>(EMPTY_STACK);
   /** The same value, readable inside the transcript handler without re-subscribing. */
-  const confirmedRef = useRef<typeof confirmed>(null);
-  const remember = (reference: CanonicalReference, passage: ScriptureLookupResult) => {
-    confirmedRef.current = { reference, passage };
-    setConfirmed(confirmedRef.current);
+  const stackRef = useRef<PassageStack>(EMPTY_STACK);
+  const remember = (
+    reference: CanonicalReference,
+    passage: ScriptureLookupResult,
+    heard: string,
+    alternatives: SpokenCandidate[] = []
+  ) => {
+    stackRef.current = promote(stackRef.current, { reference, passage, heard }, alternatives);
+    setStack(stackRef.current);
   };
   const forgetConfirmed = () => {
-    confirmedRef.current = null;
-    setConfirmed(null);
+    stackRef.current = clearStack();
+    setStack(stackRef.current);
   };
+  const confirmed = stack.current;
+  const confirmedRef = stackRef as unknown as { current: { reference: CanonicalReference } | null };
   /** Set while a correction is being retrieved, and while one has just failed. */
   const [correction, setCorrection] = useState<'' | 'working' | 'failed'>('');
   /**
@@ -267,7 +281,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
          * never runs on a provisional — amending a reference that is itself still
          * a guess would compound two uncertainties into one confident answer.
          */
-        const amendment = readCorrection(update.finalText, confirmedRef.current?.reference ?? null);
+        const amendment = readCorrection(update.finalText, stackRef.current.current?.reference ?? null);
         if (amendment) {
           void applyCorrection(amendment, generation.current, update.finalText);
           return;
@@ -293,7 +307,16 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
          */
         if (next.status === 'candidates' && next.candidates.length) {
           setCausedBy(update.finalText);
-          void resolveStrongest(next, generation.current, timelineRef.current);
+          /**
+           * One window can carry two complete references — Whisper returned
+           * "John 3 16 Romans 8 28" for a single utterance, because the preacher
+           * said both. They are not competing readings: the operator is on the
+           * LATER one. Resolving the strongest candidate picked John and left them
+           * on the verse already moved off.
+           */
+          const newest = newestReference(next.groups);
+          const index = newest ? next.candidates.indexOf(newest.target) : 0;
+          void resolveCandidate(next, Math.max(0, index), generation.current, timelineRef.current);
         } else if (timelineRef.current !== null) {
           liveLatency.refuse(timelineRef.current);
           timelineRef.current = null;
@@ -394,7 +417,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       liveLatency.mark(timelineId, 'first-verse');
     }
     setProvisional(true);
-    remember(candidate.reference, found.result);
+    remember(candidate.reference, found.result, source.transcript);
     /**
      * Functional, like every other write here. `source` was captured BEFORE a
      * lookup that takes ~0.31 s when the passage is not cached, so writing it back
@@ -440,7 +463,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
       liveLatency.mark(timelineId, 'first-verse');
     }
     // Durable from here: this one parsed, validated and retrieved.
-    remember(candidate.reference, found.result);
+    remember(candidate.reference, found.result, source.transcript, source.candidates.slice(1));
     setCorrection('');
     setState((previous) => passageResolved(previous, found.result));
   };
@@ -473,7 +496,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     }
     setCorrection('');
     setProvisional(false);
-    remember(amendment.reference, found.result);
+    remember(amendment.reference, found.result, heard);
     setState((previous) =>
       passageResolved(
         { ...previous, status: 'candidates', problem: null, message: '',
@@ -504,7 +527,21 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
 
   const strongest = state.candidates[0];
   const chosen = state.candidates[state.selected];
-  const alternatives = state.candidates.filter((_, index) => index !== state.selected);
+  /**
+   * Other readings of the CURRENT span only.
+   *
+   * This was every candidate except the selected one, which is how a second
+   * reference the preacher actually said — "John three sixteen… Romans eight
+   * twenty eight" — was offered as an alternative interpretation of the first.
+   * Candidates from a different group are a different sentence, not a different
+   * reading, and they belong in Previous passage or nowhere.
+   */
+  const spanCandidates = newestReference(state.groups)?.target
+    ? state.groups[state.groups.length - 1].candidates
+    : state.candidates;
+  const alternatives = spanCandidates.filter(
+    (candidate) => candidate.reference.canonical !== state.candidates[state.selected]?.reference.canonical
+  );
   const resolving = state.status === 'resolving';
   const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
 
@@ -597,6 +634,13 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
 
       {/* --- the detected passage, dominant --- */}
       {/*
+        `previous` is rendered AFTER the card below, as its own compact row. It is
+        history, not doubt: the passage that was dominant until the preacher named
+        another one. It used to appear under "Other possible readings", which told
+        the operator that the newest thing they said was an alternative
+        interpretation of the oldest — false in both directions.
+      */}
+      {/*
         Rendered from the DURABLE half whenever the current attempt has nothing.
         `state` is a recognition attempt and is rebuilt for every utterance;
         `confirmed` is the last passage that actually parsed, validated and
@@ -636,13 +680,34 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         />
       ) : null}
 
+      {stack.previous ? (
+        <div className="live-previous">
+          <span className="live-previous__label">Previous passage</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm live-previous__ref"
+            // Recoverable, because a preacher who moves on and comes back is
+            // ordinary. A swap, not a rewrite: taking it back makes what was
+            // dominant the previous one.
+            onClick={() => {
+              stackRef.current = recallPrevious(stackRef.current);
+              setStack(stackRef.current);
+              setCausedBy(stackRef.current.current?.heard ?? '');
+            }}
+          >
+            {stack.previous.reference.canonical}
+          </button>
+        </div>
+      ) : null}
+
       {/* --- other readings, secondary --- */}
       {alternatives.length ? (
         <div className="live-alts">
           <span className="ll-kicker">Other possible readings</span>
           <div className="live-alts__list" role="group" aria-label="Other possible readings">
-            {state.candidates.map((candidate, index) =>
-              index === state.selected ? null : (
+            {alternatives.map((candidate) => {
+              const index = state.candidates.indexOf(candidate);
+              return (
                 <button
                   key={candidate.reference.canonical}
                   type="button"
@@ -652,8 +717,8 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
                   <span className="live-alt__ref">{candidate.reference.canonical}</span>
                   <span className="live-alt__why">{candidate.interpretation}</span>
                 </button>
-              )
-            )}
+              );
+            })}
           </div>
         </div>
       ) : null}
