@@ -111,10 +111,15 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
     reference: CanonicalReference,
     passage: ScriptureLookupResult,
     heard: string,
+    interpretation: string,
     alternatives: SpokenCandidate[] = []
   ) => {
-    stackRef.current = promote(stackRef.current, { reference, passage, heard }, alternatives);
+    stackRef.current = promote(stackRef.current, { reference, passage, heard, interpretation }, alternatives);
     setStack(stackRef.current);
+    // A passage that has just arrived has not been accepted. Tracked by reference
+    // rather than by a flag, so re-detecting what is already accepted does not
+    // silently offer to accept it twice.
+    setAcceptedRef(null);
   };
   const forgetConfirmed = () => {
     stackRef.current = clearStack();
@@ -140,6 +145,15 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    * operator just spoke, and never accumulates a history.
    */
   const [heard, setHeard] = useState('');
+  /**
+   * Which reference the operator has already accepted, or null.
+   *
+   * Keyed by canonical reference rather than a boolean on the transient state,
+   * because acceptance is a fact about a PASSAGE and the transient state is
+   * rebuilt by every utterance — including the ordinary preaching between two
+   * references.
+   */
+  const [acceptedRef, setAcceptedRef] = useState<string | null>(null);
   const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
@@ -305,7 +319,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
         setHeard(update.finalText);
         const amendment = readCorrection(update.finalText, stackRef.current.current?.reference ?? null);
         if (amendment) {
-          void applyCorrection(amendment, generation.current);
+          void applyCorrection(amendment, generation.current, update.finalText);
           return;
         }
 
@@ -438,7 +452,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       liveLatency.mark(timelineId, 'first-verse');
     }
     setProvisional(true);
-    remember(candidate.reference, found.result, source.transcript);
+    remember(candidate.reference, found.result, source.transcript, candidate.interpretation);
     /**
      * Functional, like every other write here. `source` was captured BEFORE a
      * lookup that takes ~0.31 s when the passage is not cached, so writing it back
@@ -518,7 +532,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       }
     }
     // Durable from here: this one parsed, validated and retrieved.
-    remember(candidate.reference, found.result, source.transcript, alternatives);
+    remember(candidate.reference, found.result, source.transcript, candidate.interpretation, alternatives);
     setCorrection('');
     setState((previous) => passageResolved(previous, found.result));
   };
@@ -532,7 +546,20 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    * leaving the operator with nothing mid-service and no way back to the verse
    * that had been right.
    */
-  const applyCorrection = async (amendment: NonNullable<ReturnType<typeof readCorrection>>, mine: number) => {
+  const applyCorrection = async (
+    amendment: NonNullable<ReturnType<typeof readCorrection>>,
+    mine: number,
+    /**
+     * The utterance that caused this correction, passed explicitly.
+     *
+     * It used to read the `heard` React state, which `setHeard` had only just been
+     * asked to update — so the value captured here could still be the PREVIOUS
+     * utterance, and the corrected passage would carry the wrong words into the
+     * stack. Invisible until that passage became Previous and was recalled, at
+     * which point the line said something nobody had said.
+     */
+    utterance: string
+  ) => {
     setCorrection('working');
     const found = await lookup(amendment.reference.canonical, translationId);
     // A newer utterance owns the panel now — this correction has been superseded
@@ -546,7 +573,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
     }
     setCorrection('');
     setProvisional(false);
-    remember(amendment.reference, found.result, heard);
+    remember(amendment.reference, found.result, utterance, amendment.interpretation);
     setState((previous) =>
       passageResolved(
         { ...previous, status: 'candidates', problem: null, message: '',
@@ -568,11 +595,23 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
     void resolveCandidate(next, index, mine, null);
   };
 
+  /**
+   * Accept the passage the operator is actually looking at.
+   *
+   * It used to accept from the transient recognition state, which meant the
+   * button went dead the moment the NEXT utterance was ordinary preaching: the
+   * card correctly kept showing John 3:16 from the durable stack, and Accept —
+   * reading `state.status === 'review'` — refused, because the latest attempt had
+   * been a no-match. In continuous listening that is most of the time.
+   *
+   * The displayed passage and the accepted passage now cannot diverge, because
+   * they are the same value.
+   */
   const onAcceptClick = () => {
-    const outcome = acceptCandidate(state);
-    if (!outcome) return; // not reviewable — the model refuses, not the button alone
-    setState(outcome.state);
-    onAccept(outcome.passage, translationId);
+    const current = stackRef.current.current;
+    if (!current || acceptedRef === current.reference.canonical) return;
+    setAcceptedRef(current.reference.canonical);
+    onAccept(current.passage, translationId);
   };
 
   const strongest = state.candidates[0];
@@ -613,7 +652,16 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
        * 12:5 both exist — is presented as the genuine ambiguity it is.
        */
       (!candidate.compact || verifiedCompact.includes(candidate))
-  );
+  )
+    /**
+     * Deduplicated by canonical reference. A verified compact sibling sits on the
+     * stack AND remains in the parser's candidate list, so `Genesis 125` — where
+     * 1:25 and 12:5 both exist — offered the identical reading twice. Two rows
+     * proposing the same passage is not a choice.
+     */
+    .filter((candidate, index, all) =>
+      all.findIndex((other) => other.reference.canonical === candidate.reference.canonical) === index
+    );
   const resolving = state.status === 'resolving';
   const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
 
@@ -732,7 +780,15 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
         replaces it or they dismiss it themselves.
       */}
       {/*
-        The dominant card shows a RETRIEVED passage or nothing at all.
+        The dominant card shows the DURABLE current passage, or nothing.
+
+        It reads `stack.current` and nothing else. It used to prefer the transient
+        `state.passage` and fall back to the stack, which gave the surface two
+        sources of truth for one card and they could disagree in both directions:
+        Accept went dead when the next utterance was ordinary preaching, because
+        it was reading the transient half; and clicking Previous swapped the stack
+        while the card kept rendering the old passage from the transient half.
+        One value now feeds the card, the Accept button and what Accept applies.
 
         It used to fall back to the parsed reference when no passage had arrived,
         so a reading that had merely been proposed appeared as a heading with
@@ -746,14 +802,14 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
         what was recognised and the failure line says it could not be retrieved —
         but nothing is presented as a passage until it is one.
       */}
-      {state.passage || confirmed ? (
+      {confirmed ? (
         <DetectedScripture
-          reference={(state.passage ?? confirmed?.passage)?.reference ?? ''}
-          interpretation={state.passage ? chosen?.interpretation ?? strongest?.interpretation ?? '' : ''}
-          passage={state.passage ?? confirmed?.passage ?? null}
-          resolving={resolving && !confirmed}
-          accepted={state.status === 'accepted'}
-          canAccept={canAccept(state)}
+          reference={confirmed.passage.reference}
+          interpretation={confirmed.interpretation}
+          passage={confirmed.passage}
+          resolving={false}
+          accepted={acceptedRef === confirmed.reference.canonical}
+          canAccept={acceptedRef !== confirmed.reference.canonical}
           onAccept={onAcceptClick}
           onDismiss={() => {
             // The operator's explicit clear — the ONE thing besides a valid
@@ -783,9 +839,21 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
             // ordinary. A swap, not a rewrite: taking it back makes what was
             // dominant the previous one.
             onClick={() => {
+              /**
+               * One transition, not a partial one. The stack swaps, the Heard line
+               * follows the restored passage, the transient recognition state is
+               * cleared so nothing left over from the utterance that produced the
+               * OTHER passage can reassert itself, and acceptance resets because a
+               * different passage is now on offer.
+               */
               stackRef.current = recallPrevious(stackRef.current);
               setStack(stackRef.current);
               setHeard(stackRef.current.current?.heard ?? '');
+              setAcceptedRef(null);
+              setCorrection('');
+              setState(IDLE);
+              // A newer retrieval must not land on top of a deliberate recall.
+              generation.current += 1;
             }}
           >
             {stack.previous.reference.canonical}

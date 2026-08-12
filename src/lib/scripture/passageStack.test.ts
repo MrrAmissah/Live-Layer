@@ -8,6 +8,7 @@ const confirmed = (reference: string, heard = reference) => {
   const parsed = parseScriptureReference(reference);
   if (!parsed.ok) throw new Error(`bad fixture: ${reference}`);
   return {
+    interpretation: `read as ${reference}`,
     reference: parsed.reference,
     passage: { reference, translation: 'KJV', text: `text of ${reference}` } as ScriptureLookupResult,
     heard

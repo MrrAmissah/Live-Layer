@@ -501,9 +501,45 @@ describe('connection readiness is reported honestly', () => {
     expect(statuses[statuses.length - 1].status).toBe('listening');
   });
 
-  it('claims Listening immediately when the socket is already open', async () => {
-    const { source, statuses } = harness();
+  /**
+   * The full readiness gate, stated as four cases.
+   *
+   * Three separate facts have to hold, and the restart defect lived in the gap
+   * between them: the server acknowledged the session and reset its VAD state,
+   * the audio context reached `running`, and PCM actually arrived. A shortcut
+   * that published "listening" on socket-open alone survived alongside this gate
+   * for a while, which meant the false positive it exists to prevent stayed
+   * reachable by the older path.
+   */
+  it('socket open alone is not listening', async () => {
+    const { source, statuses, fire } = harness();
     await source.start();
+    fire('open', {});
+    expect(statuses[statuses.length - 1].status).not.toBe('listening');
+  });
+
+  it('server ready without PCM is not listening', async () => {
+    const { source, statuses, fire } = harness();
+    await source.start();
+    fire('open', {});
+    fire('message', { data: JSON.stringify({ type: 'ready', session: 1 }) });
+    expect(statuses[statuses.length - 1].status).not.toBe('listening');
+  });
+
+  it('PCM without the server acknowledgement is not listening', async () => {
+    const { source, statuses, fire } = harness();
+    await source.start();
+    fire('open', {});
+    pushAudio(block(1024, 0.05, 3, false));
+    expect(statuses[statuses.length - 1].status).not.toBe('listening');
+  });
+
+  it('all three together is listening', async () => {
+    const { source, statuses, fire } = harness();
+    await source.start();
+    fire('open', {});
+    fire('message', { data: JSON.stringify({ type: 'ready', session: 1 }) });
+    pushAudio(block(1024, 0.05, 3, false));
     expect(statuses[statuses.length - 1].status).toBe('listening');
   });
 });

@@ -727,13 +727,20 @@ export function createLiveTranscriptSource(
           options.onStatus?.({ status: lastStatus, detail: lastDetail, speaking: lastSpeaking, level });
         }, 50);
         /**
-         * Capture is live, but the connection may not be. Saying "Listening" before
-         * the socket is open would claim a working pipeline that cannot yet deliver
-         * a transcript; audio endpointed in the meantime is queued rather than lost,
-         * and the `open` handler reports the honest state.
+         * Capture is live, and that is NOT enough to say so.
+         *
+         * This branch used to publish "listening" as soon as the socket was open,
+         * alongside the three-fact gate added later — so the false-positive the
+         * gate exists to prevent stayed reachable by the older path that was never
+         * removed. An open socket says a transport exists; it says nothing about
+         * whether the server has this session and reset its VAD state, or whether
+         * the audio graph is producing anything at all.
+         *
+         * `announceIfReady` is now the only thing that may say listening, and it
+         * requires the acknowledgement, a running context and real PCM.
          */
-        if (socket.readyState === WebSocket.OPEN) report('listening', '');
-        else report('starting', 'Connecting to the local speech service…');
+        report('starting', 'Connecting to the local speech service…');
+        announceIfReady(mine);
       } catch (error) {
         trace(mine, 'start-failed', (error as Error)?.name ?? 'unknown');
         // Torn down even if this session is already stale: `stream` may hold a

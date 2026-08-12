@@ -35,6 +35,8 @@ export interface ConfirmedPassage {
   passage: ScriptureLookupResult;
   /** The words that produced it, so a change is never invisible. */
   heard: string;
+  /** How this reading was reached, carried so a recalled passage keeps its reason. */
+  interpretation: string;
 }
 
 export interface PassageStack {

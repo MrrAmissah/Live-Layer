@@ -350,7 +350,10 @@ describe('the panel cannot air or stage on its own', () => {
   it('routes an accepted passage through the workspace, not around it', () => {
     // `onAccept` is the single exit, and it is the same handler the typed lookup
     // uses — so voice cannot acquire a private path to the draft.
-    expect(code).toContain('onAccept(outcome.passage, translationId)');
+    // Accept applies the DURABLE current passage — the one on screen — rather than
+    // whatever the latest recognition attempt produced. The exit is unchanged: one
+    // call to the workspace's handler, no private path to the draft.
+    expect(code).toContain('onAccept(current.passage, translationId)');
     const workspace = readFileSync('src/app/workspaces/ScriptureWorkspace.tsx', 'utf8');
     // Matched across whitespace: the property is that the panel is handed the
     // workspace's `accept`, not that the JSX happens to fit on one line. Pinning
@@ -393,15 +396,29 @@ describe('the panel cannot air or stage on its own', () => {
   });
 
   it('gates the accept button on the model, not just on the button', () => {
-    expect(code).toContain('const outcome = acceptCandidate(state);');
-    expect(code).toMatch(/if \(!outcome\) return;/);
     /**
-     * The gate moved into `DetectedScripture` when the passage card became its own
-     * component; the panel computes it from the model and passes it down, so the
-     * button still cannot be enabled by markup alone.
+     * The gate now reads the DURABLE stack rather than the transient recognition
+     * state, and that is a strengthening rather than a relaxation. Coupled to the
+     * transient half, Accept went dead the moment the next utterance was ordinary
+     * preaching: the card correctly kept showing John 3:16 and the button refused,
+     * because the latest attempt had been a no-match. In continuous listening that
+     * is most of the time.
+     *
+     * What must not change: the handler refuses on its own, and the button is
+     * disabled from the model rather than by markup.
      */
-    expect(code).toContain('canAccept={canAccept(state)}');
+    expect(code).toContain('const current = stackRef.current.current;');
+    expect(code).toMatch(/if \(!current \|\| acceptedRef === current\.reference\.canonical\) return;/);
+    expect(code).toContain('canAccept={acceptedRef !== confirmed.reference.canonical}');
     const card = readFileSync('src/components/control/DetectedScripture.tsx', 'utf8');
     expect(card).toContain('disabled={!canAccept}');
+  });
+
+  it('cannot accept anything the operator is not looking at', () => {
+    // One value feeds the card, the button's enabled state, and what Accept
+    // applies — so "what is displayed" and "what would be accepted" cannot drift.
+    expect(code).toContain('passage={confirmed.passage}');
+    expect(code).toContain('reference={confirmed.passage.reference}');
+    expect(code).not.toContain('acceptCandidate(state)');
   });
 });

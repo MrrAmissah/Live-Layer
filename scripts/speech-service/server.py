@@ -391,13 +391,18 @@ async def main_async(args) -> int:
     # measured warm-up on a second of zeros took 277 seconds to return.
     rng = np.random.default_rng(11)
     recogniser.transcribe((rng.standard_normal(SR) * 1e-3).astype(np.float32))
-    print(f"ready on ws://{args.host}:{args.port} — local only, no audio is stored", flush=True)
-
-
+    # "ready" is announced only AFTER the socket is bound.
+    #
+    # It used to be printed first, so an occupied 4179 told the operator the
+    # service was ready and then died underneath the message with EADDRINUSE.
+    # That happened during this stage's own testing, which is how it was found: a
+    # readiness line that can precede the failure it implicitly denies is worse
+    # than no line at all.
     async with websockets.serve(
         lambda ws: handle(ws, recogniser, vad, config, args.verbose, args.keep_warm_seconds),
         args.host, args.port, max_size=32 * 1024 * 1024
     ):
+        print(f"ready on ws://{args.host}:{args.port} — local only, no audio is stored", flush=True)
         await asyncio.Future()
     return 0
 

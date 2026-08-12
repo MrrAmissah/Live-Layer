@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseSpokenReference } from './spokenReference';
 import { readCorrection } from './referenceCorrection';
-import { EMPTY_STACK, promote, newestReference, type PassageStack } from './passageStack';
+import { EMPTY_STACK, promote, recallPrevious, newestReference, type PassageStack } from './passageStack';
+import { parseScriptureReference } from './parseReference';
 import { applyTranscriptEvent, EMPTY_STREAM, interimText } from './transcriptStream';
 import type { ScriptureLookupResult } from '../../types/scripture';
 
@@ -42,7 +43,12 @@ function panel() {
     // names no book of its own.
     const amendment = readCorrection(text, stack.current?.reference ?? null);
     if (amendment) {
-      stack = promote(stack, { reference: amendment.reference, passage: passage(amendment.reference.canonical), heard: text });
+      stack = promote(stack, {
+        reference: amendment.reference,
+        passage: passage(amendment.reference.canonical),
+        heard: text,
+        interpretation: amendment.interpretation
+      });
       return;
     }
     const parsed = parseSpokenReference(text);
@@ -51,7 +57,12 @@ function panel() {
     if (!newest) return;
     stack = promote(
       stack,
-      { reference: newest.target.reference, passage: passage(newest.target.reference.canonical), heard: text },
+      {
+        reference: newest.target.reference,
+        passage: passage(newest.target.reference.canonical),
+        heard: text,
+        interpretation: newest.target.interpretation
+      },
       newest.alternatives
     );
   };
@@ -330,5 +341,167 @@ describe('exactly one Heard line, updated in place', () => {
     l.final('John 3 16');
     l.dismiss();
     expect(l.rendered()).toEqual([]);
+  });
+});
+
+describe('the passage on screen is the passage Accept applies', () => {
+  /**
+   * Independent review found Accept coupled to the transient recognition state
+   * while the card deliberately fell back to the durable stack. So a passage the
+   * operator could see, labelled "Ready to review", could not be accepted:
+   *
+   *     John 3:16 resolves        → Accept enabled
+   *     ordinary preaching        → transient state becomes no-match
+   *                                 stack keeps John 3:16, card still shows it
+   *                                 → Accept DISABLED
+   *
+   * In continuous listening, ordinary preaching is most of what happens.
+   */
+  function panelWithAccept() {
+    let stack: PassageStack = EMPTY_STACK;
+    let accepted: string | null = null;
+    let attempt: 'review' | 'no-match' = 'no-match';
+    const confirm = (canonical: string) => {
+      const parsed = parseScriptureReference(canonical);
+      if (!parsed.ok) throw new Error(canonical);
+      stack = promote(stack, {
+        reference: parsed.reference,
+        passage: { reference: canonical, translation: 'KJV', text: `text of ${canonical}` } as ScriptureLookupResult,
+        heard: canonical,
+        interpretation: `read as ${canonical}`
+      });
+      accepted = null;
+      attempt = 'review';
+    };
+    return {
+      confirm,
+      /** An utterance that produced no reference: the transient half collapses. */
+      ordinarySpeech() {
+        attempt = 'no-match';
+      },
+      recall() {
+        stack = recallPrevious(stack);
+        accepted = null;
+        attempt = 'no-match'; // the transient half is cleared by the recall too
+      },
+      shown: () => stack.current?.passage.reference ?? null,
+      canAccept: () => Boolean(stack.current) && accepted !== stack.current?.reference.canonical,
+      accept() {
+        if (!stack.current || accepted === stack.current.reference.canonical) return null;
+        accepted = stack.current.reference.canonical;
+        return stack.current.passage.reference;
+      },
+      previous: () => stack.previous?.passage.reference ?? null,
+      transientStatus: () => attempt
+    };
+  }
+
+  it('keeps Accept available through ordinary preaching', () => {
+    const p = panelWithAccept();
+    p.confirm('John 3:16');
+    expect(p.canAccept()).toBe(true);
+
+    p.ordinarySpeech();
+    expect(p.shown(), 'the card must keep the passage').toBe('John 3:16');
+    expect(p.transientStatus()).toBe('no-match');
+    expect(p.canAccept(), 'Accept went dead while the passage was still on screen').toBe(true);
+  });
+
+  it('accepts the passage on screen, not the failed latest attempt', () => {
+    const p = panelWithAccept();
+    p.confirm('John 3:16');
+    p.ordinarySpeech();
+    expect(p.accept()).toBe('John 3:16');
+  });
+
+  it('will not accept the same passage twice', () => {
+    const p = panelWithAccept();
+    p.confirm('John 3:16');
+    expect(p.accept()).toBe('John 3:16');
+    expect(p.canAccept()).toBe(false);
+    expect(p.accept()).toBeNull();
+  });
+
+  it('offers Accept again when a new passage replaces the accepted one', () => {
+    const p = panelWithAccept();
+    p.confirm('John 3:16');
+    p.accept();
+    p.confirm('Romans 8:28');
+    expect(p.canAccept()).toBe(true);
+    expect(p.accept()).toBe('Romans 8:28');
+  });
+});
+
+describe('recalling the previous passage really promotes it', () => {
+  /**
+   * The UI advertises Previous as recoverable, and the swap only touched the
+   * stack: the card preferred the transient `state.passage`, which still held the
+   * passage being replaced, so clicking Previous changed the stack and the screen
+   * kept showing Romans.
+   */
+  function panelWithRecall() {
+    let stack: PassageStack = EMPTY_STACK;
+    let accepted: string | null = null;
+    const put = (canonical: string, heard: string) => {
+      const parsed = parseScriptureReference(canonical);
+      if (!parsed.ok) throw new Error(canonical);
+      stack = promote(stack, {
+        reference: parsed.reference,
+        passage: { reference: canonical, translation: 'KJV', text: `text of ${canonical}` } as ScriptureLookupResult,
+        heard,
+        interpretation: `read as ${canonical}`
+      });
+      accepted = null;
+    };
+    return {
+      put,
+      recall() {
+        stack = recallPrevious(stack);
+        accepted = null;
+      },
+      current: () => stack.current?.passage.reference ?? null,
+      previous: () => stack.previous?.passage.reference ?? null,
+      heard: () => stack.current?.heard ?? '',
+      canAccept: () => Boolean(stack.current) && accepted !== stack.current?.reference.canonical,
+      accept: () => stack.current?.passage.reference ?? null
+    };
+  }
+
+  it('makes the recalled passage current, and demotes the one it replaced', () => {
+    const p = panelWithRecall();
+    p.put('John 3:16', 'John 3 16');
+    p.put('Romans 8:28', 'Romans 8 28');
+    expect(p.current()).toBe('Romans 8:28');
+
+    p.recall();
+    expect(p.current(), 'the recalled passage did not become current').toBe('John 3:16');
+    expect(p.previous()).toBe('Romans 8:28');
+  });
+
+  it('brings the Heard line back with it', () => {
+    const p = panelWithRecall();
+    p.put('John 3:16', 'John 3 16');
+    p.put('Romans 8:28', 'Romans 8 28');
+    p.recall();
+    expect(p.heard()).toBe('John 3 16');
+  });
+
+  it('makes Accept apply the recalled passage', () => {
+    const p = panelWithRecall();
+    p.put('John 3:16', 'John 3 16');
+    p.put('Romans 8:28', 'Romans 8 28');
+    p.recall();
+    expect(p.canAccept()).toBe(true);
+    expect(p.accept(), 'Accept would have applied the passage that was replaced').toBe('John 3:16');
+  });
+
+  it('can be recalled back again', () => {
+    const p = panelWithRecall();
+    p.put('John 3:16', 'John 3 16');
+    p.put('Romans 8:28', 'Romans 8 28');
+    p.recall();
+    p.recall();
+    expect(p.current()).toBe('Romans 8:28');
+    expect(p.previous()).toBe('John 3:16');
   });
 });
