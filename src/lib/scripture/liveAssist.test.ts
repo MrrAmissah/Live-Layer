@@ -6,7 +6,12 @@ import {
   pushFrame,
   toFrames
 } from './utteranceEndpointer';
-import { createLiveTranscriptSource } from './liveTranscriptSource';
+import {
+  createLiveTranscriptSource,
+  CAPTURE_PROFILES,
+  captureProfileFromLocation,
+  type CaptureProfileName
+} from './liveTranscriptSource';
 import { applyTranscriptEvent, EMPTY_STREAM } from './transcriptStream';
 
 const FRAME = (DEFAULT_ENDPOINTER.sampleRate * 20) / 1000;
@@ -112,12 +117,24 @@ function pushAudio(samples: Float32Array) {
   lastProcessor?.onaudioprocess?.({ inputBuffer: { getChannelData: () => samples } });
 }
 
-const block = (n: number, amplitude: number, seedIn = 3): Float32Array => {
+/**
+ * A block of audio. `amplitude` sets the loud parts; `syllabic` gives it the
+ * shape speech has.
+ *
+ * The shape matters now. Flat-amplitude noise is precisely what the silence
+ * shield rejects — it has no dynamic range, which is what separates a voice from
+ * a room — so a test that used it as "speech" was asserting the protocol against
+ * something the pipeline is designed never to send. Real speech swings between
+ * loud vowels and near-silent stops, and so does this.
+ */
+const block = (n: number, amplitude: number, seedIn = 3, syllabic = true): Float32Array => {
   const out = new Float32Array(n);
   let seed = seedIn;
   for (let i = 0; i < n; i += 1) {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    out[i] = ((seed / 0x7fffffff) * 2 - 1) * amplitude;
+    // ~7 Hz envelope, roughly a syllable rate, dipping to near silence between.
+    const envelope = syllabic ? Math.pow(Math.abs(Math.sin((i / 16000) * Math.PI * 7)), 3) + 0.0002 : 1;
+    out[i] = ((seed / 0x7fffffff) * 2 - 1) * amplitude * envelope;
   }
   return out;
 };
@@ -143,9 +160,15 @@ function harness(
     readyState?: number;
     captureConstraints?: MediaStreamConstraints[];
     audioConstraints?: MediaTrackConstraints;
+    captureProfile?: CaptureProfileName;
+    onCaptureSettings?: (settings: MediaTrackSettings) => void;
   } = {}
 ) {
-  const tracks = [{ stop: vi.fn() }];
+  // A real MediaStreamTrack reports what Chrome honoured; the fake must too, or
+  // the settings-reporting path is untestable.
+  const tracks = [
+    { stop: vi.fn(), getSettings: () => ({ echoCancellation: false, noiseSuppression: false, autoGainControl: false }) }
+  ];
   const statuses: { status: string; detail: string }[] = [];
   /**
    * A NEW socket per connection, because that is what the browser does. Reusing one
@@ -179,11 +202,13 @@ function harness(
   };
   const source = createLiveTranscriptSource({
     audioConstraints: overrides.audioConstraints,
+    captureProfile: overrides.captureProfile,
+    onCaptureSettings: overrides.onCaptureSettings,
     getMedia: overrides.failMedia
       ? () => Promise.reject(Object.assign(new Error('no'), { name: overrides.failMedia }))
       : (constraints: MediaStreamConstraints) => {
           overrides.captureConstraints?.push(constraints);
-          return Promise.resolve({ getTracks: () => tracks } as unknown as MediaStream);
+          return Promise.resolve({ getTracks: () => tracks, getAudioTracks: () => tracks } as unknown as MediaStream);
         },
     createSocket,
     onStatus: (s) => statuses.push({ status: s.status, detail: s.detail })
@@ -464,9 +489,9 @@ describe('the wire protocol the local recogniser parses', () => {
     const { source, sockets } = harness();
     await source.start();
     // Room tone first, so the detector has a floor to measure speech against.
-    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 5 + i));
+    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 5 + i, false));
     for (let i = 0; i < blocks; i += 1) pushAudio(block(1024, 0.25, 100 + i));
-    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 900 + i));
+    for (let i = 0; i < 40; i += 1) pushAudio(block(1024, 0.0008, 900 + i, false));
     return sockets[0].sent.map(readHeader);
   };
 
@@ -541,5 +566,44 @@ describe('what the microphone is actually asked for', () => {
     const { source } = harness({ captureConstraints: asked, audioConstraints: { noiseSuppression: true } });
     await source.start();
     expect((asked[0].audio as MediaTrackConstraints).noiseSuppression).toBe(true);
+  });
+});
+
+describe('capture profiles', () => {
+  /**
+   * The previous stage turned Chrome's voice processing off on a hypothesis, and
+   * the operator then reported that listening felt somewhat worse. Both are real
+   * observations and neither is a measurement, so the setting is now a named
+   * profile a human can A/B rather than an opinion compiled into a call.
+   */
+  it('asks for exactly what the named profile declares', async () => {
+    for (const [name, expected] of Object.entries(CAPTURE_PROFILES)) {
+      const asked: MediaStreamConstraints[] = [];
+      const { source } = harness({ captureConstraints: asked, captureProfile: name as CaptureProfileName });
+      await source.start();
+      expect(asked[0].audio, name).toMatchObject(expected);
+    }
+  });
+
+  it('never asks for automatic gain, in any profile', () => {
+    // AGC is the one that fights the silence shield: it raises the gain when
+    // nobody is speaking, lifting room noise toward the level that reads as voice.
+    for (const [name, profile] of Object.entries(CAPTURE_PROFILES)) {
+      expect(profile.autoGainControl, name).toBe(false);
+    }
+  });
+
+  it('reads a profile from the URL and refuses anything else', () => {
+    expect(captureProfileFromLocation('?mic=cleanup')).toBe('cleanup');
+    expect(captureProfileFromLocation('?mic=echo-only')).toBe('echo-only');
+    expect(captureProfileFromLocation('?mic=whatever')).toBeNull();
+    expect(captureProfileFromLocation('')).toBeNull();
+  });
+
+  it('reports what Chrome actually honoured, which may not be what was asked', async () => {
+    const seen: MediaTrackSettings[] = [];
+    const { source } = harness({ onCaptureSettings: (s) => seen.push(s) });
+    await source.start();
+    expect(seen).toHaveLength(1);
   });
 });

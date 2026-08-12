@@ -254,6 +254,12 @@ export interface EndpointerResult {
    * the utterance actually ends.
    */
   snapshot: Float32Array | null;
+  /**
+   * What the microphone proves about `utterance` or `snapshot`. Present whenever
+   * audio is, so the caller can refuse to send silence to a model that will
+   * cheerfully invent words for it.
+   */
+  evidence: SpeechEvidence | null;
 }
 
 const concat = (frames: Float32Array[]): Float32Array => {
@@ -368,10 +374,12 @@ export function pushFrame(
       reason === 'endpoint'
         ? next.buffered.slice(0, Math.max(1, next.buffered.length - next.silentFrames + tailPad))
         : next.buffered;
+    const clip = concat(keep);
     return {
       state: reset(),
-      utterance: concat(keep),
+      utterance: clip,
       snapshot: null,
+      evidence: measureEvidence(clip, next.speechFrames, next.noiseFloorDb, config),
       speaking: false,
       calibrating: false,
       reason
@@ -382,7 +390,7 @@ export function pushFrame(
   if (next.inSpeech && next.silentFrames >= hangoverFrames) {
     // Too short to be an utterance: discard rather than send a cough to the model.
     if (next.speechFrames < minSpeechFrames) {
-      return { state: reset(), utterance: null, snapshot: null, speaking: false, calibrating: false, reason: '' };
+      return { state: reset(), utterance: null, snapshot: null, evidence: null, speaking: false, calibrating: false, reason: '' };
     }
     return release('endpoint');
   }
@@ -399,20 +407,164 @@ export function pushFrame(
    */
   const snapshotEvery = Math.max(1, Math.round(config.snapshotEveryMs / FRAME_MS));
   const minSnapshot = Math.max(1, Math.round(config.minSnapshotMs / FRAME_MS));
+  const snapshotAudioOf = () => concat(next.buffered);
   const dueSnapshot =
     next.inSpeech &&
     next.speechFrames >= minSnapshot &&
     next.speechFrames - next.lastSnapshotFrames >= snapshotEvery;
 
+  const snapshotAudio = dueSnapshot ? snapshotAudioOf() : null;
   return {
     // Still the whole buffer that gets recognised — pre-roll included, because the
     // book name lives in the onset. Only the *decision to send* counts speech.
     state: dueSnapshot ? { ...next, lastSnapshotFrames: next.speechFrames } : next,
     utterance: null,
     // Provisional: the same audio is recognised again when the utterance ends.
-    snapshot: dueSnapshot ? concat(next.buffered) : null,
+    snapshot: dueSnapshot ? snapshotAudio : null,
+    evidence: snapshotAudio ? measureEvidence(snapshotAudio, next.speechFrames, next.noiseFloorDb, config) : null,
     speaking: isSpeech,
     calibrating: stillCalibrating,
     reason: ''
   };
+}
+
+
+// --- did anyone actually speak? -----------------------------------------------
+
+/**
+ * What the microphone can prove about an utterance, independent of any model.
+ *
+ * Whisper cannot be asked this question. Measured on this machine, against the
+ * running service: `no_speech_prob` came back **0.000 for every input including
+ * digital silence**, and three seconds of pure zeros decoded confidently as
+ * "Thank you." with an `avg_logprob` of −0.213 — a BETTER score than real short
+ * speech ("Verse 3.", −0.393). Its own no-speech evidence does not separate the
+ * classes at all here, so it cannot be the authority, primary or secondary.
+ *
+ * Microphone physics can. These are the numbers, measured over the same inputs:
+ *
+ * ```
+ *   input            p90 dBFS   dynamic range
+ *   room noise −50      −49.6       14.6 dB
+ *   room noise −40      −39.6       24.6 dB
+ *   breath / movement   −41.5       18.7 dB
+ *   speech, short       −14.6       50.3 dB   ← "verse three"
+ *   speech, long        −13.7       50.8 dB
+ * ```
+ *
+ * Two independent separations, each about 25 dB wide. Speech swings between loud
+ * vowels and near-silent stops; steady noise does not swing, and a breath is both
+ * quiet and flat. That is a property of how speech is produced, not a statistic
+ * that happened to fit these clips.
+ */
+export interface SpeechEvidence {
+  /** Frames the detector judged voiced, in ms. */
+  voicedMs: number;
+  /** Length of the released utterance, in ms. */
+  totalMs: number;
+  /** Voiced frames as a fraction of the utterance. */
+  voicedRatio: number;
+  /** The noise floor this was judged against, dBFS. */
+  noiseFloorDb: number;
+  /** 90th-percentile frame energy, dBFS — how loud the loud parts are. */
+  loudDb: number;
+  /** 90th minus 10th percentile: how much the level moves. */
+  dynamicRangeDb: number;
+}
+
+export interface SpeechGate {
+  /** Below this, it is too short to be a reference — a cough is not an utterance. */
+  minVoicedMs: number;
+  /** Speech measured ~50 dB; the loudest false positive, 24.6 dB. */
+  minDynamicRangeDb: number;
+  /** How far the loud parts must sit above the measured floor. */
+  minLoudAboveFloorDb: number;
+}
+
+export const DEFAULT_SPEECH_GATE: SpeechGate = {
+  /** A cough is not an utterance: measured at 40 ms of voiced audio. */
+  minVoicedMs: 300,
+  /**
+   * What a room cannot do: swing.
+   *
+   * This is the check that rejects steady noise, and it works because the property
+   * is physical. Speech alternates loud vowels with near-silent stops many times a
+   * second; a fan, a hum or a laptop in a quiet study holds one level. Within a
+   * released utterance, steady noise measures a few dB of movement and speech
+   * measures tens.
+   *
+   * Kept LOOSE at 20 dB rather than set near the measured speech figure of ~50 dB,
+   * because that figure came from clean speech over a quiet floor. In a loud room
+   * the quiet parts of real speech sit on the room floor instead of near silence
+   * and the range shrinks — a threshold placed midway would refuse real references
+   * exactly where rooms are hardest.
+   */
+  minDynamicRangeDb: 20,
+  /**
+   * How far the loud parts sit above the floor the detector actually measured.
+   *
+   * This is what catches the short, quiet, ragged things a bare energy detector
+   * calls speech — a breath, a chair, a page turning — which have some movement in
+   * them but never much level. Measured: breath 18.6 dB above floor, room noise
+   * 25.2 dB, real speech 50.1 and 51.5 dB.
+   *
+   * 26 dB rather than the midpoint, and the reason is a case that failed on the
+   * way here: speech at −14 dBFS in a −45 dBFS room clears the floor by only
+   * ~31 dB, so a threshold set at 35 refused a real reference in a noisy building
+   * while looking perfectly defensible against the clean measurements. The two
+   * checks together are what make a loose one safe.
+   */
+  minLoudAboveFloorDb: 26
+};
+
+/** Frame energies in dBFS, for evidence. */
+function frameDbs(samples: Float32Array, frameSize: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i + frameSize <= samples.length; i += frameSize) {
+    let sum = 0;
+    for (let j = i; j < i + frameSize; j += 1) sum += samples[j] * samples[j];
+    out.push(10 * Math.log10(Math.max(sum / frameSize, 1e-12)));
+  }
+  return out;
+}
+
+export function measureEvidence(
+  audio: Float32Array,
+  voicedFrames: number,
+  noiseFloorDb: number,
+  config: EndpointerConfig = DEFAULT_ENDPOINTER
+): SpeechEvidence {
+  const frameSize = Math.round((config.sampleRate * FRAME_MS) / 1000);
+  const dbs = frameDbs(audio, frameSize).sort((a, b) => a - b);
+  const at = (q: number) => dbs[Math.min(dbs.length - 1, Math.floor(dbs.length * q))] ?? -120;
+  const totalMs = Math.round((audio.length / config.sampleRate) * 1000);
+  const loudDb = at(0.9);
+  return {
+    voicedMs: voicedFrames * FRAME_MS,
+    totalMs,
+    voicedRatio: totalMs ? (voicedFrames * FRAME_MS) / totalMs : 0,
+    noiseFloorDb,
+    loudDb,
+    dynamicRangeDb: loudDb - at(0.1)
+  };
+}
+
+/**
+ * May this audio be interpreted as speech at all?
+ *
+ * The hard shield in front of the parser and the correction layer. A segment that
+ * fails is not a transcript, not a correction, not a no-match, and not a reason to
+ * change anything the operator is reading. It is ignored — which is the only
+ * treatment of silence that cannot cost them a passage.
+ *
+ * **Known bound:** a very quiet speaker in a loud room can fail this and be
+ * ignored. That is the deliberate direction to fail in, and the level meter shows
+ * the operator why — but it is a real limit, not a theoretical one.
+ */
+export function looksLikeSpeech(evidence: SpeechEvidence, gate: SpeechGate = DEFAULT_SPEECH_GATE): boolean {
+  return (
+    evidence.voicedMs >= gate.minVoicedMs &&
+    evidence.dynamicRangeDb >= gate.minDynamicRangeDb &&
+    evidence.loudDb - evidence.noiseFloorDb >= gate.minLoudAboveFloorDb
+  );
 }

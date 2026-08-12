@@ -104,6 +104,18 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
   };
   /** Set while a correction is being retrieved, and while one has just failed. */
   const [correction, setCorrection] = useState<'' | 'working' | 'failed'>('');
+  /**
+   * The words that caused the passage to change.
+   *
+   * The human gate found this missing: the card correctly became John 3:17 and the
+   * operator never saw the speech that did it. A dominant Scripture replacement
+   * that appears without visible cause reads as the system changing its mind on
+   * its own, which is the opposite of the reviewability this whole feature rests
+   * on. Kept separate from the passage itself — one is what LiveLayer HEARD, the
+   * other is what it CONCLUDED, and conflating them is how the transcript
+   * disappeared behind a resolved candidate in the first place.
+   */
+  const [causedBy, setCausedBy] = useState('');
   const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
@@ -257,7 +269,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
          */
         const amendment = readCorrection(update.finalText, confirmedRef.current?.reference ?? null);
         if (amendment) {
-          void applyCorrection(amendment, generation.current);
+          void applyCorrection(amendment, generation.current, update.finalText);
           return;
         }
 
@@ -280,6 +292,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
          * published here.
          */
         if (next.status === 'candidates' && next.candidates.length) {
+          setCausedBy(update.finalText);
           void resolveStrongest(next, generation.current, timelineRef.current);
         } else if (timelineRef.current !== null) {
           liveLatency.refuse(timelineRef.current);
@@ -441,8 +454,13 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * leaving the operator with nothing mid-service and no way back to the verse
    * that had been right.
    */
-  const applyCorrection = async (amendment: NonNullable<ReturnType<typeof readCorrection>>, mine: number) => {
+  const applyCorrection = async (
+    amendment: NonNullable<ReturnType<typeof readCorrection>>,
+    mine: number,
+    heard: string
+  ) => {
     setCorrection('working');
+    setCausedBy(heard);
     const found = await lookup(amendment.reference.canonical, translationId);
     // A newer utterance owns the panel now — this correction has been superseded
     // and must not land on top of whatever replaced it.
@@ -553,6 +571,17 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
         </p>
       ) : null}
 
+      {/*
+        What LiveLayer heard, kept beside what it concluded.
+        Subdued, and never a substitute for the passage — but a Scripture
+        replacement must never feel like it happened on its own.
+      */}
+      {causedBy && (confirmed || state.passage) ? (
+        <p className="live-heard live-heard--cause" aria-live="off">
+          Heard <span className="live-heard__text">“{causedBy}”</span>
+        </p>
+      ) : null}
+
       {correction === 'working' ? (
         <p className="live-heard live-heard--detecting" aria-live="polite">
           Updating reference…
@@ -594,6 +623,7 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
             // replacement that may remove a confirmed passage.
             forgetConfirmed();
             setCorrection('');
+            setCausedBy('');
             setState((previous) => rejectCandidate(previous));
           }}
           provisional={provisional}

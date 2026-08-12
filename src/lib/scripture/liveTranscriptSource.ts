@@ -7,6 +7,7 @@ import {
   emptyEndpointer,
   pushFrame,
   pushSamples,
+  looksLikeSpeech,
   type EndpointerConfig,
   type EndpointerState,
   type Framer
@@ -113,10 +114,61 @@ export interface LiveTranscriptSourceOptions {
    * microphone sitting beside a loudspeaker.
    */
   audioConstraints?: MediaTrackConstraints;
+  /** Which capture profile to ask for. Development comparison only. */
+  captureProfile?: CaptureProfileName;
+  /**
+   * What Chrome ACTUALLY honoured, reported after the stream is granted.
+   *
+   * Asking for a constraint is not getting it — Chrome may quietly ignore any of
+   * them, and a comparison between profiles is worthless if both resolved to the
+   * same real settings. Development only; nothing renders this to an operator.
+   */
+  onCaptureSettings?: (settings: MediaTrackSettings) => void;
   /** Injected for tests; defaults to the real browser APIs. */
   getMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createSocket?: (url: string) => WebSocket;
 }
+
+/**
+ * How the microphone is asked for — as a named, switchable profile.
+ *
+ * The previous stage turned Chrome's voice-call processing off on a hypothesis:
+ * "jon thr ixteen" loses exactly the fricatives a spectral gate removes. The
+ * operator then reported listening felt somewhat WORSE. Both observations are
+ * real and neither is a measurement, so the setting stops being an opinion baked
+ * into a call and becomes something a human can A/B in one sitting.
+ *
+ * `autoGainControl` is off in every profile offered. It is the one of the three
+ * that actively fights the silence shield: it raises the gain when nobody is
+ * speaking, which lifts room noise toward the level the shield uses to recognise
+ * a voice. Nothing measured here argues for it, so nothing here offers it.
+ *
+ * **Development only.** Selected by URL query, never persisted, and absent from
+ * the operator's surface — a microphone-settings dashboard is not the product.
+ */
+export type CaptureProfileName = 'raw' | 'cleanup' | 'echo-only';
+
+export const CAPTURE_PROFILES: Record<CaptureProfileName, MediaTrackConstraints> = {
+  /** A. Nothing between the microphone and the recogniser. */
+  raw: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  /** B. Chrome's voice cleanup, minus the gain rider. */
+  cleanup: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+  /** C. Echo cancellation alone — for a laptop beside a loudspeaker. */
+  'echo-only': { echoCancellation: true, noiseSuppression: false, autoGainControl: false }
+};
+
+export const DEFAULT_CAPTURE_PROFILE: CaptureProfileName = 'raw';
+
+/** `?mic=cleanup` during a comparison. Nothing is remembered between sessions. */
+export function captureProfileFromLocation(search: string): CaptureProfileName | null {
+  const asked = new URLSearchParams(search).get('mic');
+  return asked && asked in CAPTURE_PROFILES ? (asked as CaptureProfileName) : null;
+}
+
+const captureProfile = (options: LiveTranscriptSourceOptions): MediaTrackConstraints => ({
+  ...CAPTURE_PROFILES[options.captureProfile ?? DEFAULT_CAPTURE_PROFILE],
+  ...(options.audioConstraints ?? {})
+});
 
 export function createLiveTranscriptSource(
   options: LiveTranscriptSourceOptions = {}
@@ -371,15 +423,7 @@ export function createLiveTranscriptSource(
          * genuinely different problem from a lectern feed, and this is the knob
          * that would fix it.
          */
-        granted = await getMedia({
-          audio: {
-            channelCount: 1,
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-            ...(options.audioConstraints ?? {})
-          }
-        });
+        granted = await getMedia({ audio: { channelCount: 1, ...captureProfile(options) } });
       } catch (error) {
         if (mine !== session) return; // stopped while the permission prompt was open
         teardown();
@@ -408,6 +452,16 @@ export function createLiveTranscriptSource(
         return;
       }
       stream = granted;
+      /**
+       * What Chrome actually gave us, which is not necessarily what was asked for.
+       * A profile comparison in which both profiles silently resolved to the same
+       * settings would look like "the profile makes no difference" and mean
+       * "the constraint was ignored".
+       */
+      if (options.onCaptureSettings) {
+        const track = granted.getAudioTracks?.()[0] ?? granted.getTracks()[0];
+        if (track?.getSettings) options.onCaptureSettings(track.getSettings());
+      }
 
       try {
         socket = (options.createSocket ?? ((url) => new WebSocket(url)))(serviceUrl);
@@ -507,8 +561,25 @@ export function createLiveTranscriptSource(
               liveLatency.mark(id, 'speech-start');
             }
             // Provisional first — the operator sees work happening while talking.
-            if (result.snapshot) send(mine, result.snapshot, false);
-            if (result.utterance) send(mine, result.utterance, true);
+            /**
+             * The silence shield, and it sits HERE — before the socket, not after
+             * the transcript.
+             *
+             * Whisper will invent words for anything. Measured on this machine,
+             * three seconds of digital silence decoded confidently as "Thank you.",
+             * and its own `no_speech_prob` was 0.000 for that and for every other
+             * input including real speech. There is no threshold on the model's own
+             * output that separates them, so the only authority left is the
+             * microphone — and the cheapest place to obey it is to never send the
+             * audio at all.
+             *
+             * A segment that cannot prove speech is not a transcript, not a
+             * correction, not a no-match, and not a reason to change anything the
+             * operator is reading. It is dropped, silently, here.
+             */
+            const audible = result.evidence !== null && looksLikeSpeech(result.evidence);
+            if (result.snapshot && audible) send(mine, result.snapshot, false);
+            if (result.utterance && audible) send(mine, result.utterance, true);
             else if (pending === 0) {
               const status = result.calibrating ? 'starting' : 'listening';
               const detail = result.calibrating ? 'Listening for the room…' : '';
