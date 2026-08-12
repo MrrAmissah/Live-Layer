@@ -1,4 +1,41 @@
-# FINAL gate — run this one
+# Lifecycle check — 8 steps, run this FIRST
+
+Not a Scripture test. Say nothing into the microphone. This only asks whether
+LiveLayer can take the microphone and give it back, because until it can, nothing
+below is worth measuring.
+
+Start the service and open `http://127.0.0.1:4173/control/scripture` as in the
+setup section below, then:
+
+1. Load the page.
+2. Press **Start listening**.
+3. Confirm the UI says **Listening** and the meter moves when you tap the desk.
+4. Confirm Chrome says the microphone is in use — the padlock or the address-bar
+   indicator, not the site-settings page, which can lag.
+5. Press **Stop listening**.
+6. Confirm the UI says **Microphone off**.
+7. Confirm Chrome **no longer** says the microphone is in use.
+8. Repeat steps 2–7 once more.
+
+Pass is all eight, twice. The specific failure this replaces: Chrome reporting
+the microphone in use while LiveLayer offered to Start, with no control that
+could turn it off.
+
+**What changed:** the live panel was being rendered in one of two places
+depending on whether you were listening, so pressing Start moved it in the
+component tree — which destroys and recreates it, and it is the thing that owns
+the microphone. It is now rendered once and the order is CSS. Separately, the
+indicator no longer turns on when the socket opens; the server acknowledges the
+session first.
+
+If step 3 or 4 fails, open the console and run `__liveMic.trail()` — it records
+the state transitions, with no audio or transcripts in it — and paste the output.
+
+Only after this passes twice does the gate below become worth running.
+
+---
+
+# FINAL gate — run this one after the lifecycle check
 
 Everything after it in this document is superseded. Six tests, one sitting.
 
