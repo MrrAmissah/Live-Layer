@@ -661,3 +661,43 @@ describe('a reference whose NUMBER was damaged, not its book', () => {
     expect(best('turn with me to jon chapter three vers sixty')).toBe('John 3:60');
   });
 });
+
+describe('a chapter and verse the recogniser ran together', () => {
+  /**
+   * Both transcripts below came from a real microphone at normal distance, and
+   * both were refused — the operator was told "John 316 is not a passage" having
+   * just said the most quoted verse in the Bible.
+   */
+  it('reads what the microphone actually produced', () => {
+    expect(best('John 316')).toBe('John 3:16');
+    expect(best('Romans 828')).toBe('Romans 8:28');
+    expect(best('let us read Romans 828')).toBe('Romans 8:28');
+  });
+
+  it('leaves a real chapter alone', () => {
+    // Psalms has 150 chapters, so 119 is a chapter someone meant — and 1:19 and
+    // 11:9 are both real verses, which is exactly why this must not fire.
+    expect(best('Psalm 119')).toBe('Psalms 119');
+    expect(best('John 21')).toBe('John 21');
+    expect(best('Romans 8')).toBe('Romans 8');
+  });
+
+  it('offers both readings rather than choosing when the canon allows two', () => {
+    // Genesis has 50 chapters: 1:234 and 12:34 both survive.
+    const readings = cands('Genesis 1234');
+    expect(readings).toContain('Genesis 1:234');
+    expect(readings).toContain('Genesis 12:34');
+  });
+
+  it('still refuses when no split is a passage', () => {
+    // Ruth has 4 chapters: 9:99, 99:9 and 999 are all impossible.
+    expect(problemOf('Ruth 999')).toBe('unresolvable');
+  });
+
+  it('does not touch numbers the SPEAKER separated into words', () => {
+    // "one hundred fifty one" is a person saying 151, not a recogniser running
+    // 150 and 1 together — and splitting it would give Psalms 1:51 instead of
+    // letting the ordinary reading find Psalms 150:1.
+    expect(best('Psalm one hundred fifty one')).toBe('Psalms 150:1');
+  });
+});

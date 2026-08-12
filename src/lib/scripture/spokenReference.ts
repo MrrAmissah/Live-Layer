@@ -1,5 +1,6 @@
 import { BIBLE_BOOKS } from './bibleBooks';
 import { parseScriptureReference, type CanonicalReference } from './parseReference';
+import { compactReadings } from './compactLocator';
 import {
   matchSpokenBook,
   recoverSpokenBook,
@@ -621,6 +622,16 @@ interface Locator {
   /** Index in `numbers` where a range began. */
   rangeAfter: Set<number>;
   listAfter: Set<number>;
+  /**
+   * Whether each number arrived as a literal run of digits rather than as words.
+   *
+   * The distinction matters for exactly one thing: a chapter and verse the
+   * recogniser ran together. "John 316" is digits Whisper wrote without a
+   * separator and may need splitting; "one hundred fifty one" is a speaker
+   * separating the words themselves, and splitting THAT would turn Psalm 151 into
+   * Psalm 1:51 rather than letting the ordinary reading find Psalms 150:1.
+   */
+  literal: boolean[];
 }
 
 /**
@@ -688,6 +699,7 @@ function readLocator(
   zerosAsNoise = false
 ): Locator {
   const numbers: number[] = [];
+  const literal: boolean[] = [];
   const rangeAfter = new Set<number>();
   const listAfter = new Set<number>();
   let pendingRange = false;
@@ -731,6 +743,7 @@ function readLocator(
       pendingRange = false;
       pendingList = false;
       numbers.push(num.value);
+      literal.push(/^\d+$/.test(tokens[i] ?? ''));
       i += num.used;
       continue;
     }
@@ -769,7 +782,7 @@ function readLocator(
     i += 1;
   }
 
-  return { numbers, rangeAfter, listAfter };
+  return { numbers, rangeAfter, listAfter, literal };
 }
 
 /**
@@ -811,6 +824,28 @@ function buildRawReferences(
   const [a, b, c] = numbers;
 
   if (numbers.length === 1) {
+    /**
+     * A chapter and verse run together as one number — `John 316`, `Romans 828`,
+     * both from a real microphone. Tried ONLY when the plain chapter reading is
+     * not a real passage, which is what keeps `Psalm 119` a chapter rather than
+     * becoming 1:19 or 11:9. The canon does the rejecting: John has 21 chapters,
+     * so `John 31:6` cannot exist and `John 3:16` is the only survivor.
+     */
+    if (!singleChapter && loc.literal[0] && !parseScriptureReference(`${book} ${a}`).ok) {
+      const readings = compactReadings(book, String(a));
+      for (const reading of readings) {
+        out.push({
+          raw: reading.reference.canonical,
+          // Said plainly, because the operator is being shown a reading of digits
+          // they did not separate and should be able to disagree with it.
+          why: `heard "${a}" as chapter ${reading.chapter}, verse ${reading.verse}`,
+          // Ambiguous splits are offered as competing candidates rather than
+          // resolved — two real passages and no way to tell which was meant.
+          score: readings.length === 1 ? 86 : 64
+        });
+      }
+      if (out.length) return out;
+    }
     out.push({ raw: `${book} ${a}`, why: singleChapter ? `verse ${a}` : `chapter ${a}`, score: 60 });
     return out;
   }

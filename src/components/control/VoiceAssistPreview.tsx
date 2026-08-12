@@ -588,8 +588,20 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
               still meter means no audio is arriving and the operator can trust it. */}
           <InputLevelMeter level={mic.level} active={listen} speaking={mic.speaking} />
           <span className="live-mic__state" role="status" aria-live="polite">
+            {/*
+              A passage being ready must never read as the session being over.
+              The card says "Ready to review" and the operator's next question is
+              whether they have to do something before saying the next reference.
+              They do not — so the microphone line keeps saying so, and says it
+              differently once a passage is up.
+            */}
             {listen
-              ? mic.detail || (mic.speaking ? 'Hearing speech' : 'Listening — say a reference')
+              ? mic.detail ||
+                (mic.speaking
+                  ? 'Hearing speech'
+                  : confirmed
+                    ? 'Listening for the next reference'
+                    : 'Listening — say a reference')
               : mic.detail || 'Microphone off'}
           </span>
         </div>
