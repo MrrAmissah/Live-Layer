@@ -161,8 +161,6 @@ export default function ScriptureWorkspace() {
     );
   };
 
-  const [listening, setListening] = useState(false);
-
   const composing = useMemo(
     () => currentTemplateId === SCRIPTURE_TEMPLATE_ID && draftReference.trim().length > 0,
     [currentTemplateId, draftReference]
@@ -171,13 +169,15 @@ export default function ScriptureWorkspace() {
   return (
     <WorkspacePanel kicker="Scripture">
       {/*
-        ORDER is CSS, not JSX position — and that distinction is the whole comment.
+        ONE permanent slot for the live panel, always first.
 
-        While the microphone is open the live panel belongs first: mid-service the
+        Two rules meet here, and they were learned separately and expensively.
+
+        The first: the live panel belongs at the top, because mid-service the
         operator is listening to a preacher and watching for a verse, and a manual
         query box above that is the right layout for preparing and the wrong one
         for running. The obvious way to express that is to render the panel in one
-        of two places depending on a flag.
+        of two places depending on whether the microphone is open.
 
         That is a bug, and it was shipped. Moving a component between two positions
         in the children array makes React unmount the old one and mount a fresh
@@ -187,16 +187,17 @@ export default function ScriptureWorkspace() {
         flight: Chrome reported the microphone in use and LiveLayer offered to
         start listening, with no control that could turn it off.
 
-        A component holding a hardware resource must keep its identity. It is
-        rendered ONCE, always in the same slot, and only its visual order changes.
+        The second: even done purely in CSS, moving it is wrong for the operator.
+        The control they just pressed changed position — Start sat below the lookup
+        panel, and the Stop that replaced it appeared at the top — so pressing a
+        button meant looking for it again, at the moment Stop matters most.
+
+        So it is rendered once, in one slot, at the top, in both states. Starting
+        and stopping change what the strip says, never where it is.
       */}
-      <div className="scripture-workspace" data-listening={listening || undefined}>
+      <div className="scripture-workspace">
         <div className="scripture-workspace__live">
-          <VoiceAssistPreview
-            onAccept={accept}
-            translationId={draft.translationId}
-            onListeningChange={setListening}
-          />
+          <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} />
         </div>
         <div className="scripture-workspace__manual">
           <ScriptureLookupPanel

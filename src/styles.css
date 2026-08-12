@@ -9441,6 +9441,21 @@ body.gfx-transparent {
 .control-root .live-mic {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   padding: 12px 14px;
+  /* Both states occupy the same height, so starting or stopping changes what the
+     strip SAYS and never where anything beneath it sits. The off state is the
+     shorter one — button and a line of text — so the height of the listening
+     state, which also carries the meter, is what gets reserved. */
+  min-height: 62px;
+  box-sizing: border-box;
+  /* Stays put while a long passage is scrolled. The scrolling ancestor is
+     `.studio__center`, and every element between it and this one is
+     `overflow: visible`, so sticky resolves against the centre column without
+     touching the fixed left and right rails. Opaque, because the passage text
+     scrolls underneath it. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ll-panel, #14161a);
   border-radius: var(--ll-radius-control);
   background: rgba(255, 255, 255, 0.022);
   border: 1px solid var(--ll-border-soft);
@@ -9487,27 +9502,53 @@ body.gfx-transparent {
    tree: the live panel owns the microphone, and a component that changes position
    in the children array is unmounted and remounted — which destroyed the capture
    session at the moment the operator started it. */
+/* The live panel is ALWAYS first, listening or not.
+
+   It used to swap places with the manual lookup when the microphone opened, which
+   meant the control the operator had just pressed moved: Start sat below the
+   lookup panel, and the Stop that replaced it appeared at the top of the
+   workspace. Pressing a button and then having to look for it is not something a
+   live surface may ask of anyone, and it is worse immediately after the press —
+   which is exactly when Stop matters most.
+
+   Fixing the order also satisfies what the swap was for: listening is the primary
+   Scripture workflow, so the live panel belongs at the top whether or not the
+   microphone happens to be on. */
 .control-root .scripture-workspace { display: flex; flex-direction: column; gap: 1rem; }
-.control-root .scripture-workspace__live { order: 1; }
-.control-root .scripture-workspace__manual { order: 0; }
-.control-root .scripture-workspace[data-listening] .scripture-workspace__live { order: 0; }
-.control-root .scripture-workspace[data-listening] .scripture-workspace__manual { order: 1; }
+.control-root .scripture-workspace__live { order: 0; }
+.control-root .scripture-workspace__manual { order: 1; }
 .control-root .live-problem { margin: 0; font-size: 12.5px; line-height: 1.5; color: #f5c77e; }
 
 /* The detected passage — visually dominant, because it is the decision. */
+/* The detected passage, in blue.
+
+   It is the thing a person monitoring the feed needs to find in one glance, and
+   as a neutral panel among neutral panels it did not read as the answer. Blue
+   also says something the operator needs: this is a PREVIEW. Green is on air and
+   red is danger in this surface, so neither may be borrowed for a card whose
+   whole point is that it has not been taken yet — a green "detected" card would
+   be telling the room something untrue. */
 .control-root .detected {
   display: flex; flex-direction: column; gap: 10px;
   padding: 16px 18px 14px;
   border-radius: var(--ll-radius-panel);
-  background: var(--ll-panel-strong);
-  border: 1px solid var(--ll-border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, rgba(47, 149, 248, 0.11), rgba(47, 149, 248, 0.045));
+  border: 1px solid rgba(47, 149, 248, 0.38);
+  /* A thicker leading edge, so the card is identifiable from the corner of the
+     eye without reading it. */
+  border-left: 3px solid var(--ll-blue);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 34px -26px rgba(47, 149, 248, 0.75);
 }
 .control-root .detected[data-resolving] { opacity: 0.92; }
 .control-root .detected__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .control-root .detected__ref {
   margin: 0; font-size: 21px; font-weight: 850; letter-spacing: 0.01em;
-  color: var(--ll-text-strong); line-height: 1.15;
+  /* Near-white with a blue cast: the reference has to stay the most legible thing
+     on the card, so the colour carries the identity and contrast is not spent on
+     it. */
+  color: #e8f2ff; line-height: 1.15;
 }
 .control-root .detected__why { margin: 0; font-size: 11.5px; color: var(--ll-muted); }
 .control-root .detected__text {
@@ -9544,5 +9585,14 @@ body.gfx-transparent {
   margin-left: auto; font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--ll-muted);
 }
-.control-root .detected[data-provisional] { border-color: rgba(245, 199, 126, 0.34); }
+/* Still updating: amber, and visibly NOT the settled blue. The two states have to
+   be distinguishable at a glance, because one is a guess from half a sentence and
+   the other is what the operator is being asked to judge. */
+.control-root .detected[data-provisional] {
+  background: linear-gradient(180deg, rgba(245, 199, 126, 0.09), rgba(245, 199, 126, 0.035));
+  border-color: rgba(245, 199, 126, 0.34);
+  border-left-color: #f5c77e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
 .control-root .detected[data-provisional] .detected__stage { color: #f5c77e; }
+.control-root .detected[data-provisional] .detected__ref { color: var(--ll-text-strong); }

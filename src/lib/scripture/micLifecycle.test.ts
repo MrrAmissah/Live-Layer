@@ -396,3 +396,46 @@ describe('the SECOND listening session must work as well as the first', () => {
     expect(closed.length).toBe(FakeAudioContext.live.length);
   });
 });
+
+describe('the listening control never moves', () => {
+  /**
+   * A screenshot review found Start rendered below the manual lookup panel and
+   * the Stop that replaced it at the TOP of the workspace. Pressing a button and
+   * then having to look for it is not something a live surface may ask, and it is
+   * worst immediately after the press — which is when Stop matters most.
+   *
+   * The cause was CSS order swapping on listening state. These pin the fix at
+   * both levels: one slot in the markup, and no rule that moves it.
+   */
+  const workspace = readFileSync(
+    new URL('../../app/workspaces/ScriptureWorkspace.tsx', import.meta.url),
+    'utf8'
+  );
+  const styles = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
+
+  it('gives the live panel a single fixed slot', () => {
+    expect(workspace).toContain('scripture-workspace__live');
+    // One instance, one position — asserted elsewhere too, and cheap to keep.
+    expect((workspace.match(/<VoiceAssistPreview/g) ?? [])).toHaveLength(1);
+  });
+
+  it('has no rule that reorders the workspace on listening state', () => {
+    // `[data-listening] … order:` is the exact shape that moved the control.
+    const reorder = /scripture-workspace\[data-listening\][^{]*\{[^}]*order/;
+    expect(reorder.test(styles), 'a listening-state rule still reorders the workspace').toBe(false);
+  });
+
+  it('puts the live panel above the manual lookup, in both states', () => {
+    const live = /\.scripture-workspace__live\s*\{[^}]*order:\s*(\d+)/.exec(styles);
+    const manual = /\.scripture-workspace__manual\s*\{[^}]*order:\s*(\d+)/.exec(styles);
+    expect(live).not.toBeNull();
+    expect(manual).not.toBeNull();
+    expect(Number(live![1])).toBeLessThan(Number(manual![1]));
+  });
+
+  it('reserves a fixed height for the strip so nothing below it shifts', () => {
+    // Off is button + one line; listening adds the meter. Reserving the taller
+    // state keeps the Scripture content beneath it still across a toggle.
+    expect(/\.live-mic\s*\{[^}]*min-height:/.test(styles)).toBe(true);
+  });
+});
