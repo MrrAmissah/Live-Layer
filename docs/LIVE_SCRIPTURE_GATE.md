@@ -1,4 +1,59 @@
-# Lifecycle check — 8 steps, run this FIRST
+# Continuity gate — one sitting, no stopping
+
+**Press Start listening once. Do not press Stop until the end.** That is the whole
+test: the last run found that carrying on from one reference to the next was "a
+hassle", so this one measures whether you can simply keep talking.
+
+Setup as in the section below. Then, in one continuous session:
+
+1. "John three sixteen" — wait for the passage.
+2. Say something ordinary: *"and that is the heart of the gospel this morning."*
+   → the passage must **stay exactly where it is.**
+3. "Romans eight twenty eight" — with no dismiss and no clearing.
+   → Romans becomes current, John moves to **Previous passage**.
+4. "No, verse three."
+   → Romans 8:3 becomes current, Romans 8:28 moves to Previous.
+5. Something ordinary again.
+   → nothing changes.
+6. "First John four eight."
+   → becomes current.
+
+Then press Stop.
+
+**What is being judged:** whether you had to do anything between references. Any
+dismiss, any clearing, any pause waiting for the panel to be ready, any moment
+showing nothing — note it. The microphone line should read *"Listening for the
+next reference"* the whole time a passage is up.
+
+Also watch the **Heard** line: it should show the utterance you just said, not
+everything you have said so far.
+
+## What changed, so you know what to look for
+
+`John 316` and `Romans 828` — the compact readings your microphone produced — now
+resolve. Not by a substitution: the possible splits are tried and the Bible's own
+chapter counts reject the wrong one. John has 21 chapters so `John 31:6` cannot
+exist; Romans has 16 so `Romans 82:8` cannot. Where the canon genuinely allows
+two readings, both are offered instead of one being picked.
+
+**Not fixed, and worth knowing before you start:** having to speak more strongly.
+I could not reproduce it. Attenuating clean speech down to −24 dB still resolves
+every reference without help, and a bounded gain stage after the VAD was measured
+and rejected because it changed nothing the parser cares about. So if step 1 needs
+you to lean in or raise your voice, that is unresolved — please say roughly how
+far away you were and whether raising your voice or getting closer helped more.
+
+## What to report
+
+- Did you complete all six steps without touching anything? (the actual question)
+- Did the passage ever disappear or the layout jump?
+- Did the Heard line accumulate across utterances?
+- Any reference that needed a raised voice or a second attempt
+- One sentence on whether it felt like a listener or like six lookups
+
+---
+
+# Lifecycle check — 8 steps, run this if Start listening misbehaves
 
 Not a Scripture test. Say nothing into the microphone. This only asks whether
 LiveLayer can take the microphone and give it back, because until it can, nothing
