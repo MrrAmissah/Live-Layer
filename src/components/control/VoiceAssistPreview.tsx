@@ -125,17 +125,21 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
   /** Set while a correction is being retrieved, and while one has just failed. */
   const [correction, setCorrection] = useState<'' | 'working' | 'failed'>('');
   /**
-   * The words that caused the passage to change.
+   * The last completed utterance, whatever it turned out to be.
    *
-   * The human gate found this missing: the card correctly became John 3:17 and the
-   * operator never saw the speech that did it. A dominant Scripture replacement
-   * that appears without visible cause reads as the system changing its mind on
-   * its own, which is the opposite of the reviewability this whole feature rests
-   * on. Kept separate from the passage itself — one is what LiveLayer HEARD, the
-   * other is what it CONCLUDED, and conflating them is how the transcript
-   * disappeared behind a resolved candidate in the first place.
+   * ONE value behind ONE line on screen. It began as a separate "what caused the
+   * passage to change" line, added because a card that became John 3:17 with no
+   * visible cause reads as the system changing its mind on its own. But the panel
+   * already rendered the current transcript, so a final that resolved printed both
+   * — the same words, twice, under the same word "Heard".
+   *
+   * A correction is why one value has to serve both: `receiveTranscript` is never
+   * called for "no, verse three", so the reducer's transcript would be stale
+   * exactly when the passage changed. Set on every completed utterance instead —
+   * resolved, refused or corrected — so the line always names the utterance the
+   * operator just spoke, and never accumulates a history.
    */
-  const [causedBy, setCausedBy] = useState('');
+  const [heard, setHeard] = useState('');
   const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
@@ -296,9 +300,12 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
          * never runs on a provisional — amending a reference that is itself still
          * a guess would compound two uncertainties into one confident answer.
          */
+        // The line on screen names the utterance that just ended, whatever it
+        // turns out to be: a reference, a correction, or ordinary preaching.
+        setHeard(update.finalText);
         const amendment = readCorrection(update.finalText, stackRef.current.current?.reference ?? null);
         if (amendment) {
-          void applyCorrection(amendment, generation.current, update.finalText);
+          void applyCorrection(amendment, generation.current);
           return;
         }
 
@@ -321,7 +328,6 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
          * published here.
          */
         if (next.status === 'candidates' && next.candidates.length) {
-          setCausedBy(update.finalText);
           /**
            * One window can carry two complete references — Whisper returned
            * "John 3 16 Romans 8 28" for a single utterance, because the preacher
@@ -526,13 +532,8 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    * leaving the operator with nothing mid-service and no way back to the verse
    * that had been right.
    */
-  const applyCorrection = async (
-    amendment: NonNullable<ReturnType<typeof readCorrection>>,
-    mine: number,
-    heard: string
-  ) => {
+  const applyCorrection = async (amendment: NonNullable<ReturnType<typeof readCorrection>>, mine: number) => {
     setCorrection('working');
-    setCausedBy(heard);
     const found = await lookup(amendment.reference.canonical, translationId);
     // A newer utterance owns the panel now — this correction has been superseded
     // and must not land on top of whatever replaced it.
@@ -669,13 +670,22 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
           point — the operator should see LiveLayer working, not a blank panel and
           then a result. Distinct from the meter: the meter says audio is arriving,
           this says what DONDO currently thinks it heard. */}
-      {interimText(stream) ? (
-        <p className="live-heard live-heard--interim" aria-live="off">
-          Hearing <span className="live-heard__text">“{interimText(stream)}”</span>
-        </p>
-      ) : state.transcript ? (
-        <p className="live-heard">
-          Heard <span className="live-heard__text">“{state.transcript}”</span>
+      {/*
+        ONE line, updated in place.
+
+        While the speaker is talking it shows the interim text — that is the whole
+        point of progressive recognition, that the operator sees LiveLayer working
+        rather than a blank panel and then a result. When the utterance ends the
+        final REPLACES it, and the next utterance replaces that. No history
+        accumulates in a live workspace, and nothing is ever printed twice.
+      */}
+      {interimText(stream) || heard ? (
+        <p
+          className={`live-heard${interimText(stream) ? ' live-heard--interim' : ''}`}
+          aria-live="off"
+        >
+          {interimText(stream) ? 'Hearing' : 'Heard'}{' '}
+          <span className="live-heard__text">“{interimText(stream) || heard}”</span>
         </p>
       ) : null}
 
@@ -688,17 +698,6 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       {problem ? (
         <p className="live-problem" role="alert">
           {state.message}
-        </p>
-      ) : null}
-
-      {/*
-        What LiveLayer heard, kept beside what it concluded.
-        Subdued, and never a substitute for the passage — but a Scripture
-        replacement must never feel like it happened on its own.
-      */}
-      {causedBy && (confirmed || state.passage) ? (
-        <p className="live-heard live-heard--cause" aria-live="off">
-          Heard <span className="live-heard__text">“{causedBy}”</span>
         </p>
       ) : null}
 
@@ -761,7 +760,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
             // replacement that may remove a confirmed passage.
             forgetConfirmed();
             setCorrection('');
-            setCausedBy('');
+            setHeard('');
             setState((previous) => rejectCandidate(previous));
           }}
           provisional={provisional}
@@ -786,7 +785,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
             onClick={() => {
               stackRef.current = recallPrevious(stackRef.current);
               setStack(stackRef.current);
-              setCausedBy(stackRef.current.current?.heard ?? '');
+              setHeard(stackRef.current.current?.heard ?? '');
             }}
           >
             {stack.previous.reference.canonical}

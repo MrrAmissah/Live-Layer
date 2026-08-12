@@ -9489,9 +9489,6 @@ body.gfx-transparent {
 /* A reference was heard once and is being confirmed. Quieter than the passage it
    may become, so it reads as activity rather than as an answer. */
 .control-root .live-heard--detecting { opacity: 0.8; font-style: italic; letter-spacing: 0.01em; }
-/* The speech that caused the passage now on screen. Quieter than the passage,
-   louder than nothing — the operator must be able to see why it changed. */
-.control-root .live-heard--cause { opacity: 0.72; font-size: 0.9em; }
 /* History, not doubt — compact, beneath the dominant card, and visually nothing
    like the alternatives list it used to be wrongly filed under. */
 .control-root .live-previous { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }

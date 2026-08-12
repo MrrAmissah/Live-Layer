@@ -244,3 +244,91 @@ describe('an impossible verse can never reach the operator', () => {
     expect(parsed.ok && parsed.candidates.every((c) => c.compact)).toBe(true);
   });
 });
+
+describe('exactly one Heard line, updated in place', () => {
+  /**
+   * Screenshot QA found the same transcript printed twice:
+   *
+   *     Heard "John 3.16"
+   *     Heard "John 3.16"
+   *
+   * Two renderers had grown independently — the panel's current transcript, and a
+   * separate line added so a passage never changes without visible cause. Both
+   * were right about what to show and wrong to both show it.
+   *
+   * This models the single slot: interim while speaking, final in its place, and
+   * the next utterance replacing that. What it pins is that ONE value feeds the
+   * line, so no future caller can reintroduce a second row.
+   */
+  function line() {
+    let interim = '';
+    let heard = '';
+    return {
+      /** A revision arriving while the speaker is still talking. */
+      interim(text: string) {
+        interim = text;
+      },
+      /** An utterance ending — resolved, refused or corrected, it makes no difference. */
+      final(text: string) {
+        interim = '';
+        heard = text;
+      },
+      dismiss() {
+        interim = '';
+        heard = '';
+      },
+      /** Exactly what the panel renders: at most one row. */
+      rendered(): string[] {
+        const shown = interim || heard;
+        if (!shown) return [];
+        return [`${interim ? 'Hearing' : 'Heard'} “${shown}”`];
+      }
+    };
+  }
+
+  it('shows one row while recognising, and one when it settles', () => {
+    const l = line();
+    l.interim('John 3');
+    expect(l.rendered()).toEqual(['Hearing “John 3”']);
+    l.final('John 3.16');
+    expect(l.rendered()).toEqual(['Heard “John 3.16”']);
+  });
+
+  it('never renders the same transcript twice', () => {
+    const l = line();
+    l.final('John 3.16');
+    const rows = l.rendered();
+    expect(rows).toHaveLength(1);
+    expect(rows.filter((r) => r.includes('John 3.16'))).toHaveLength(1);
+  });
+
+  it('replaces the previous utterance rather than accumulating history', () => {
+    const l = line();
+    l.final('John 3 16');
+    l.interim('Romans');
+    expect(l.rendered()).toEqual(['Hearing “Romans”']);
+    l.final('Romans 8 28');
+    expect(l.rendered()).toEqual(['Heard “Romans 8 28”']);
+    // The first utterance is gone from the live workspace — history lives in the
+    // passage stack, not in a growing transcript.
+    expect(l.rendered().join()).not.toContain('John');
+  });
+
+  it('shows the correction that changed the passage, in the same slot', () => {
+    const l = line();
+    l.final('Romans 8 28');
+    l.final('No, verse 3.');
+    expect(l.rendered()).toEqual(['Heard “No, verse 3.”']);
+  });
+
+  it('shows nothing at all before anything has been said', () => {
+    expect(line().rendered()).toEqual([]);
+  });
+
+  it('clears when the operator dismisses', () => {
+    const l = line();
+    l.final('John 3 16');
+    l.dismiss();
+    expect(l.rendered()).toEqual([]);
+  });
+});
