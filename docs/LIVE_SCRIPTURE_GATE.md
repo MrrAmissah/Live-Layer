@@ -190,6 +190,61 @@ it is not something a number can answer.
 
 ---
 
+## Correction gate — run this one first
+
+Shorter than the five-reference gate above and aimed at one thing: what happens
+when you change your mind mid-sentence, which is what preachers actually do.
+
+Same setup as above. For each pair, **wait for the passage to appear** before
+saying the second part.
+
+### A. Correcting the verse
+
+Say: **"Romans eight twenty eight"** → wait for Romans 8:28
+Then say: **"No, verse three"**
+
+Expected: Romans 8:28 stays on screen while it says *"Updating reference…"*, then
+becomes **Romans 8:3**. At no point should the card be empty.
+
+### B. Correcting with "instead"
+
+Say: **"John three sixteen"** → wait for John 3:16
+Then say: **"Verse seventeen instead"**
+
+Expected: John 3:16 remains until John 3:17 is ready, then swaps.
+
+### C. A correction that cannot be understood
+
+Say: **"First John four eight"** → wait for 1 John 4:8
+Then say something deliberately unusable: **"No, something… verse… uh…"**
+
+Expected: **1 John 4:8 stays exactly where it is**, and the panel says
+*"Couldn't confirm that correction."* No empty card, and no invented Scripture.
+This is the most important of the four — a failed correction must cost you
+nothing.
+
+### D. Natural self-correction
+
+Say a reference, and if it mishears you, correct yourself the way you naturally
+would, without stopping and restarting listening. Judge whether it follows you.
+
+### What to report
+
+For each: what the card showed **during** the correction and **after** it, and
+whether it ever went blank. Blank is a failure even if the final answer is right.
+
+Rehearsed on synthetic speech through the real recogniser, all three scripted
+sequences behave — including "Not 28, 3." for "not twenty eight, three", which is
+what the recogniser actually returns. What no rehearsal can tell us is whether
+the correction grammar covers the way *you* correct yourself, which is what D is
+for.
+
+**One thing it deliberately will not do:** a correction with nothing on screen is
+refused. "Verse three instead" said cold means nothing, and reading it would let
+a sermon's numbers become Scripture.
+
+---
+
 ## What was rehearsed before asking for this
 
 So that the human run starts from a known position rather than from hope. All of
