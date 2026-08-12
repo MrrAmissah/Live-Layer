@@ -352,7 +352,11 @@ describe('the panel cannot air or stage on its own', () => {
     // uses — so voice cannot acquire a private path to the draft.
     expect(code).toContain('onAccept(outcome.passage, translationId)');
     const workspace = readFileSync('src/app/workspaces/ScriptureWorkspace.tsx', 'utf8');
-    expect(workspace).toContain('<VoiceAssistPreview onAccept={accept}');
+    // Matched across whitespace: the property is that the panel is handed the
+    // workspace's `accept`, not that the JSX happens to fit on one line. Pinning
+    // the formatting made this fail for a line break, which teaches the next
+    // person to loosen the assertion rather than look at what it protects.
+    expect(/<VoiceAssistPreview\s+onAccept=\{accept\}/.test(workspace)).toBe(true);
   });
 
   it('invalidates an in-flight retrieval when the selection changes', () => {

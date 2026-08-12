@@ -463,10 +463,25 @@ describe('connection readiness is reported honestly', () => {
     expect(last.detail).toMatch(/connecting/i);
   });
 
-  it('claims Listening once the socket opens', async () => {
+  /**
+   * An open socket is transport, not readiness. Now that the SERVER owns
+   * segmentation, "listening" means the server has this session and has reset its
+   * VAD state — not that a TCP connection exists. Inferring the first from the
+   * second would feed the operator's first sentence to a segmenter still holding
+   * the previous session's state.
+   */
+  it('does not claim Listening merely because the socket opened', async () => {
     const { source, statuses, fire } = harness({ readyState: 0 });
     await source.start();
     fire('open', {});
+    expect(statuses[statuses.length - 1].status).toBe('starting');
+  });
+
+  it('claims Listening once the server acknowledges the session', async () => {
+    const { source, statuses, fire } = harness({ readyState: 0 });
+    await source.start();
+    fire('open', {});
+    fire('message', { data: JSON.stringify({ type: 'ready', session: 1 }) });
     expect(statuses[statuses.length - 1].status).toBe('listening');
   });
 

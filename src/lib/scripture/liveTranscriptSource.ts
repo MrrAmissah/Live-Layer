@@ -170,6 +170,43 @@ const captureProfile = (options: LiveTranscriptSourceOptions): MediaTrackConstra
   ...(options.audioConstraints ?? {})
 });
 
+/**
+ * A bounded, development-only record of what the capture lifecycle did.
+ *
+ * The defect that produced this — Chrome reporting the microphone in use while
+ * LiveLayer offered to start listening — was invisible from either side alone.
+ * The source behaved correctly and the UI reported correctly; what went wrong
+ * was the sequence between them. Reading `window.__liveMic.trail()` in the
+ * console shows that sequence.
+ *
+ * Timings and state names only. No audio, no transcripts — the same rule as the
+ * latency recorder, and for the same reason: a diagnostic is exactly the sort of
+ * place a sermon's contents leak in unnoticed.
+ */
+interface MicTrail {
+  at: number;
+  session: number;
+  event: string;
+  detail: string;
+}
+
+const TRAIL_LIMIT = 200;
+let trail: MicTrail[] = [];
+
+const trace = (session: number, event: string, detail = ''): void => {
+  trail = [...trail, { at: Math.round(performance.now()), session, event, detail }].slice(-TRAIL_LIMIT);
+};
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { __liveMic: unknown }).__liveMic = {
+    trail: () => trail,
+    /** Live tracks the page still owns — the number that must be 0 when idle. */
+    clear: () => {
+      trail = [];
+    }
+  };
+}
+
 export function createLiveTranscriptSource(
   options: LiveTranscriptSourceOptions = {}
 ): LiveTranscriptSource {
@@ -282,6 +319,7 @@ export function createLiveTranscriptSource(
 
   /** Release everything, in an order that cannot leave the microphone live. */
   const teardown = () => {
+    trace(session, 'teardown', `${stream?.getTracks().length ?? 0} track(s) to release`);
     // Invalidate FIRST: any callback that fires during teardown belongs to a session
     // that no longer exists.
     session += 1;
@@ -382,6 +420,7 @@ export function createLiveTranscriptSource(
       // callback surviving from a previous session compares unequal and does nothing.
       session += 1;
       const mine = session;
+      trace(mine, 'start', 'requesting permission');
       report('starting', 'Asking for the microphone…');
       const getMedia =
         options.getMedia ?? ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
@@ -438,10 +477,12 @@ export function createLiveTranscriptSource(
        * rather than assigned.
        */
       if (mine !== session) {
+        trace(mine, 'permission-late', 'stopped while asking — releasing the track');
         for (const track of granted.getTracks()) track.stop();
         return;
       }
       stream = granted;
+      trace(mine, 'permission-granted', `${granted.getTracks().length} track(s)`);
       /**
        * What Chrome actually gave us, which is not necessarily what was asked for.
        * A profile comparison in which both profiles silently resolved to the same
@@ -465,8 +506,17 @@ export function createLiveTranscriptSource(
            * session into the first frames of this one — which is what makes
            * Stop → Start a genuinely independent stream rather than a resumption.
            */
+          trace(mine, 'socket-open', 'sending START');
           uplink(mine, CONTROL_START);
-          report('listening', '');
+          /**
+           * Deliberately NOT 'listening' yet. An open socket means the transport
+           * exists; it does not mean the server has reset this session's VAD state
+           * and is willing to segment audio. The server acknowledges START, and
+           * `ready` below is what turns the indicator on — otherwise the first
+           * thing the operator says can be fed to a segmenter still holding the
+           * previous session's state.
+           */
+          report('starting', 'Preparing the recogniser…');
         });
         socket.addEventListener('message', (event) => {
           /**
@@ -489,6 +539,14 @@ export function createLiveTranscriptSource(
              * decides it. The browser measures a level for the meter and is told
              * whether that level is a voice.
              */
+            if (payload.type === 'ready') {
+              trace(mine, 'session-ready', 'server accepted the session');
+              // The server has this session and has reset its VAD state. This, not
+              // `onopen`, is when the operator is genuinely being listened to.
+              report('listening', '');
+              return;
+            }
+
             if (payload.type === 'vad') {
               const speaking = Boolean(payload.speech);
               if (speaking) {
@@ -538,6 +596,7 @@ export function createLiveTranscriptSource(
         socket.addEventListener('error', () => {
           // An old socket erroring must not tear down a newer listening session.
           if (mine !== session) return;
+          trace(mine, 'socket-error', 'releasing capture');
           teardown();
           report(
             'unavailable',
@@ -545,7 +604,14 @@ export function createLiveTranscriptSource(
           );
         });
         socket.addEventListener('close', () => {
-          if (mine !== session || !listening) return;
+          if (mine !== session) return;
+          trace(mine, 'socket-close', listening ? 'while listening' : 'during startup');
+          if (!listening) {
+            // A close BEFORE listening was established still owns a microphone.
+            teardown();
+            report('unavailable', 'The local speech service closed the connection.');
+            return;
+          }
           teardown();
           report('stopped', 'The local speech service closed the connection.');
         });
@@ -585,6 +651,7 @@ export function createLiveTranscriptSource(
         node.connect(context.destination);
 
         listening = true;
+        trace(mine, 'capture-live', 'audio nodes connected');
         // ~20 Hz: fast enough to read as live, slow enough not to re-render React
         // at audio-frame frequency.
         meterTimer = setInterval(() => {
@@ -599,9 +666,12 @@ export function createLiveTranscriptSource(
          */
         if (socket.readyState === WebSocket.OPEN) report('listening', '');
         else report('starting', 'Connecting to the local speech service…');
-      } catch {
-        if (mine !== session) return;
+      } catch (error) {
+        trace(mine, 'start-failed', (error as Error)?.name ?? 'unknown');
+        // Torn down even if this session is already stale: `stream` may hold a
+        // track this start acquired, and nothing else will release it.
         teardown();
+        if (mine !== session) return;
         report('unavailable', 'Could not start listening. Type the reference instead.');
       }
     },

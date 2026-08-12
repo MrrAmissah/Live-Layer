@@ -98,6 +98,14 @@ async def handle(websocket, recogniser, vad, config, verbose: bool, keep_warm_se
                 continue
             try:
                 started = time.perf_counter()
+                # The operator may have stopped while this was on the GPU. The
+                # browser refuses late results by session anyway, but a stopped
+                # session should not be answered at all — an inference nobody can
+                # act on is only a way for a stale transcript to exist.
+                if job["session"] != live_session:
+                    if verbose:
+                        print(f"  dropped result for stopped session {job['session']}", flush=True)
+                    continue
                 last_served["at"] = time.perf_counter()
                 text, inference = recogniser.transcribe(job["pcm"])
                 last_served["at"] = time.perf_counter()
@@ -108,6 +116,14 @@ async def handle(websocket, recogniser, vad, config, verbose: bool, keep_warm_se
                     print(f"  {kind} u{job['utterance']}r{job['revision']} "
                           f"{len(job['pcm'])/SR:.2f}s -> {inference:.3f}s "
                           f"({len(text.strip())} chars)", flush=True)
+                # Checked again HERE, not only before the decode. Inference takes
+                # ~0.8 s and the job is usually already running when Stop arrives,
+                # so the earlier check almost never fires — this is the one that
+                # actually keeps a stopped session's transcript off the wire.
+                if job["session"] != live_session:
+                    if verbose:
+                        print(f"  dropped result for stopped session {job['session']}", flush=True)
+                    continue
                 await websocket.send(json.dumps({
                     "type": "transcript",
                     "session": job["session"],
@@ -151,6 +167,14 @@ async def handle(websocket, recogniser, vad, config, verbose: bool, keep_warm_se
                 pending = None
                 if verbose:
                     print(f"  session {session} start", flush=True)
+                # Positively acknowledge. The browser must not infer readiness from
+                # `WebSocket.onopen`: the socket being open says the transport
+                # exists, not that this session's VAD state has been reset and the
+                # server is willing to segment its audio. Now that the server owns
+                # segmentation, that distinction is the difference between "the
+                # first thing you say is heard" and "the first thing you say is fed
+                # to a segmenter still holding the last session's state".
+                await websocket.send(json.dumps({"type": "ready", "session": session}))
                 continue
 
             if control == CONTROL_STOP:

@@ -171,43 +171,55 @@ export default function ScriptureWorkspace() {
   return (
     <WorkspacePanel kicker="Scripture">
       {/*
-        While the microphone is open, the live panel comes FIRST.
+        ORDER is CSS, not JSX position — and that distinction is the whole comment.
 
-        The order of this workspace is the order of the operator's attention. Mid
-        service they are listening to a preacher and watching for a verse, and the
-        questions they need answered are: is it hearing me, what does it think it
-        heard, and is that the right passage. A manual query box and a list of
-        recent passages above all of that is the right layout for preparing and
-        the wrong one for running — so the two swap, rather than one of them being
-        hidden. Typing stays available at all times, because it is the fallback
-        the whole feature rests on.
+        While the microphone is open the live panel belongs first: mid-service the
+        operator is listening to a preacher and watching for a verse, and a manual
+        query box above that is the right layout for preparing and the wrong one
+        for running. The obvious way to express that is to render the panel in one
+        of two places depending on a flag.
+
+        That is a bug, and it was shipped. Moving a component between two positions
+        in the children array makes React unmount the old one and mount a fresh
+        one — so the panel that owns the MICROPHONE was destroyed and recreated at
+        the exact moment the operator pressed Start. The new instance came up with
+        listening false while the old instance's `getUserMedia` was still in
+        flight: Chrome reported the microphone in use and LiveLayer offered to
+        start listening, with no control that could turn it off.
+
+        A component holding a hardware resource must keep its identity. It is
+        rendered ONCE, always in the same slot, and only its visual order changes.
       */}
-      {listening ? (
-        <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} onListeningChange={setListening} />
-      ) : null}
-      <ScriptureLookupPanel
-        query={draft.query}
-        translationId={draft.translationId}
-        passage={draft.passage}
-        fromCache={draft.fromCache}
-        onQueryChange={(query) => setScriptureDraft({ query })}
-        onTranslationChange={(translationId) => setScriptureDraft({ translationId, passage: null, fromCache: false })}
-        onPassage={(passage, fromCache) => setScriptureDraft({ passage, fromCache })}
-        onAccept={accept}
-        onQueue={queue}
-        onAddToRundown={addToRundown}
-        rundownActive={Boolean(activeRundownId)}
-        notice={notice}
-        recentsVersion={acceptedCount}
-        onDismissNotice={() => setNotice('')}
-        currentGraphicReference={composing ? draftReference : ''}
-      />
-      {/* Voice assist routes an accepted passage through the SAME `accept` handler
-          the typed lookup uses, so it writes the ordinary Scripture draft and
-          cannot reach Program by a path of its own. */}
-      {listening ? null : (
-        <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} onListeningChange={setListening} />
-      )}
+      <div className="scripture-workspace" data-listening={listening || undefined}>
+        <div className="scripture-workspace__live">
+          <VoiceAssistPreview
+            onAccept={accept}
+            translationId={draft.translationId}
+            onListeningChange={setListening}
+          />
+        </div>
+        <div className="scripture-workspace__manual">
+          <ScriptureLookupPanel
+            query={draft.query}
+            translationId={draft.translationId}
+            passage={draft.passage}
+            fromCache={draft.fromCache}
+            onQueryChange={(query) => setScriptureDraft({ query })}
+            onTranslationChange={(translationId) =>
+              setScriptureDraft({ translationId, passage: null, fromCache: false })
+            }
+            onPassage={(passage, fromCache) => setScriptureDraft({ passage, fromCache })}
+            onAccept={accept}
+            onQueue={queue}
+            onAddToRundown={addToRundown}
+            rundownActive={Boolean(activeRundownId)}
+            notice={notice}
+            recentsVersion={acceptedCount}
+            onDismissNotice={() => setNotice('')}
+            currentGraphicReference={composing ? draftReference : ''}
+          />
+        </div>
+      </div>
     </WorkspacePanel>
   );
 }

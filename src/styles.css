@@ -9482,6 +9482,16 @@ body.gfx-transparent {
 .control-root .live-previous { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
 .control-root .live-previous__label { font-size: 0.78em; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.06em; }
 .control-root .live-previous__ref { font-variant-numeric: tabular-nums; }
+/* The live panel and the manual lookup swap places when the microphone opens.
+   Done with flex order rather than by rendering the panel somewhere else in the
+   tree: the live panel owns the microphone, and a component that changes position
+   in the children array is unmounted and remounted — which destroyed the capture
+   session at the moment the operator started it. */
+.control-root .scripture-workspace { display: flex; flex-direction: column; gap: 1rem; }
+.control-root .scripture-workspace__live { order: 1; }
+.control-root .scripture-workspace__manual { order: 0; }
+.control-root .scripture-workspace[data-listening] .scripture-workspace__live { order: 0; }
+.control-root .scripture-workspace[data-listening] .scripture-workspace__manual { order: 1; }
 .control-root .live-problem { margin: 0; font-size: 12.5px; line-height: 1.5; color: #f5c77e; }
 
 /* The detected passage — visually dominant, because it is the decision. */
