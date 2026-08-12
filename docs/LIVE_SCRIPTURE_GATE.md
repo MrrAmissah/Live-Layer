@@ -20,9 +20,14 @@ lookup.
 
 ```
 cd ~/Documents/Live\ Layer
-~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py \
-    --repo ~/LiveLayer-ASR-Eval/models/w2v-bert-en --verbose
+HF_HOME=~/LiveLayer-ASR-Eval/hf \
+  ~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py --verbose
 ```
+
+That runs **Whisper large-v3-turbo** on MLX/Metal, which replaced the previous
+recogniser on measured evidence after the last gate failed — see
+`docs/ASR_EVALUATION.md` §10. To run the old one instead, add `--engine dondo`;
+that is the A/B below and nothing else needs changing.
 
 Wait for it to report that it is listening on `127.0.0.1:4179`. Loading the
 model takes a few seconds. `--verbose` prints audio length and inference time
@@ -43,7 +48,9 @@ already taken the dev server refuses to start rather than moving — if `npm run
 dev` fails, something else is on the port.
 
 Chrome will ask for microphone permission the first time you press Start
-listening. Grant it. If it does not ask, the site permission is already set —
+listening. Grant it. **If it does not re-prompt, reload the page once anyway** —
+the capture settings changed since the last gate and a tab holding an old
+microphone stream would still be using the old ones. If it does not ask, the site permission is already set —
 check the padlock in the address bar.
 
 ### Before you speak
@@ -53,6 +60,28 @@ check the padlock in the address bar.
   a microphone problem, not a recognition problem, and there is no point
   continuing until it moves.
 - Speak at the distance and volume you would actually use in the booth.
+
+---
+
+## Why this gate is being run again
+
+Two things changed since the run that failed, and the gate exists to find out
+whether either of them worked.
+
+**The recogniser was replaced.** "John three sixteen" came back as
+`"jon thr ixteen"` and no further parser patch was going to fix that. Three local
+engines were compared on identical audio with the parser frozen; Whisper
+large-v3-turbo nearly doubled how often the right verse leads the card, at the
+same wrong-answer rate, and more than halved refusals.
+
+**The microphone was being asked for the wrong thing.** `getUserMedia` was
+explicitly requesting echo cancellation, noise suppression and automatic gain —
+telephony processing that attenuates exactly the consonants that went missing.
+Note what `"jon thr ixteen"` loses: the `ee` of "three", the `s` of "sixteen".
+All three are now off.
+
+The second one is a hypothesis with a matching signature, **not a measurement** —
+it can only be measured with a real voice, which is what you are.
 
 ---
 
@@ -147,6 +176,13 @@ Five lines is enough:
 5. First John four eight              -> …
 ```
 
+### The A/B, only if the five above do not all pass
+
+Do not do this first, and do not do it at all if the run is clean. If something
+failed, restart the recogniser with `--engine dondo`, say the failing phrase or
+phrases again, and note both transcripts. That separates "the new engine is also
+wrong here" from "this got worse", and those lead to opposite next steps.
+
 Plus one sentence on **how it felt** — specifically whether something visibly
 happened while you were still speaking, or whether it still feels like speaking
 into silence and waiting. That was the complaint that stopped the last run, and
@@ -163,6 +199,14 @@ parser** — the only synthetic part is the voice.
 Nine utterances were synthesised with the same voice and rate as the Stage 5
 corpus (`say -v Tessa -r 165`), padded with room tone, and pushed through the
 endpointer in 1024-sample blocks exactly as a `ScriptProcessor` delivers them.
+They were then sent to the **live recogniser over the real socket**, so what is
+recorded below is what the running service actually returned.
+
+All nine again produce the correct reference on the new engine. The stability
+rule earns its place more here than it did before: Whisper's half-utterance
+guesses are confident and wrong in a different way — `John 3:6` for John 3:16,
+`1 John 4:1` for 1 John 4:8, `Psalms 20` for Psalm 23 — and every one of those was
+withheld rather than displayed.
 Six cover the five references below; three more exist to catch the rule from the
 other side — two genuine John 3:6 utterances, so that a real short verse is not
 made unreachable, and one long quoting sentence, so that early display is not
@@ -186,12 +230,20 @@ Measured over those six utterances, from the moment speech starts:
 
 | | |
 |---|---|
-| First words back on screen | **0.64 s** median |
-| First reference parsed at all | 1.87 s median |
-| First reference stable enough to display | 2.32 s (reached early in 1 of 9) |
-| Final answer after you stop | **0.13 s** median inference |
-| Provisional passes per utterance | 5 median (range 2–10) |
+| First words back on screen | **1.54 s** median |
+| First reference parsed at all | 1.61 s median |
+| First reference stable enough to display | 3.17 s (reached early in 1 of 9) |
+| Final answer after you stop | **0.81 s** median inference |
+| Provisional passes per utterance | 2 median (range 1–5) |
 | Bible lookup | ~1 ms cached, ~0.31 s when the passage is new |
+
+**These are worse than the last gate's numbers and that is the trade.** The
+previous recogniser answered in 0.13 s and got the first reference of a real
+human test wrong enough to produce nothing at all. Whisper takes about six times
+longer per pass. Words now appear at ~1.5 s rather than ~0.64 s, and the passage
+lands roughly 0.7 s later. If that feels too slow to use, say so — it is a real
+cost and it is the main thing this gate is asking you to judge alongside
+accuracy.
 
 The first line is the one that answers the complaint. Words appear at about
 **0.65 s**, long before any reference is understood — that is the difference

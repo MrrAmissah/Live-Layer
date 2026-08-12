@@ -107,6 +107,12 @@ export interface LiveTranscriptSourceOptions {
    * fixed and asserted.
    */
   onUtteranceTiming?: (timelineId: number) => void;
+  /**
+   * Override the capture constraints. The defaults turn Chrome's voice-call
+   * processing off, which is right for a lectern feed and wrong for a laptop
+   * microphone sitting beside a loudspeaker.
+   */
+  audioConstraints?: MediaTrackConstraints;
   /** Injected for tests; defaults to the real browser APIs. */
   getMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createSocket?: (url: string) => WebSocket;
@@ -340,12 +346,38 @@ export function createLiveTranscriptSource(
 
       let granted: MediaStream;
       try {
+        /**
+         * Chrome's voice-call processing is turned OFF, deliberately.
+         *
+         * `getUserMedia` enables echo cancellation, noise suppression and
+         * automatic gain by default, and this asked for all three explicitly.
+         * They are tuned to make a human on the other end of a call intelligible,
+         * not to preserve a signal for a recogniser — noise suppression is a
+         * spectral gate that attenuates exactly the low-energy, broadband parts of
+         * speech, which is what fricatives and consonant onsets are.
+         *
+         * The first human microphone test returned `"jon thr ixteen"` for "John
+         * three sixteen" — the vowels intact, the `ee` of "three" and the `s` of
+         * "sixteen" gone. That is the signature of a spectral gate, and the same
+         * words recognise cleanly when a file is fed to the same model over the
+         * same pipeline, because a file never passes through any of this.
+         *
+         * Echo cancellation is off for a second reason: it adapts against what the
+         * machine is PLAYING, and in a booth that is the programme audio. There is
+         * no echo path worth cancelling between a lectern microphone and a
+         * recogniser, and cancelling one that is not there costs signal.
+         *
+         * Left overridable, because a laptop microphone beside a loudspeaker is a
+         * genuinely different problem from a lectern feed, and this is the knob
+         * that would fix it.
+         */
         granted = await getMedia({
           audio: {
             channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            ...(options.audioConstraints ?? {})
           }
         });
       } catch (error) {

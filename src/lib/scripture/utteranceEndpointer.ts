@@ -60,12 +60,21 @@ export interface EndpointerConfig {
   /**
    * How often to recognise the utterance-so-far while speech continues.
    *
-   * Chosen against measured inference: a 2-3 s utterance costs ~0.13 s on MPS, so
-   * a 400 ms cadence leaves the recogniser idle most of the interval and cannot
-   * backlog — and if one ever overruns, the service keeps only the newest pending
-   * snapshot. Faster buys little: the operator cannot read a card that changes
-   * every 200 ms, and each snapshot is a whole re-encode of the utterance so far,
-   * which grows as they speak.
+   * **Re-derived when the recogniser changed, not carried over.** The old 400 ms
+   * was justified against a CTC model whose cost grew with the audio — ~0.13 s for
+   * a whole utterance — so the recogniser sat idle most of every interval. Whisper
+   * pads every input to a 30-second window internally, which makes inference
+   * effectively CONSTANT: measured across snapshots of one utterance it cost
+   * 0.725 s at 0.8 s of audio and 0.792 s at 4.4 s. That is not a slower version
+   * of the same shape; it is a different shape, and the reasoning that produced
+   * 400 ms does not survive it.
+   *
+   * At 400 ms against ~0.78 s of work, roughly every second snapshot would be
+   * thrown away by the service's latest-wins slot. Nothing breaks — that slot
+   * exists precisely so nothing backlogs — but it is GPU spent on answers no one
+   * will ever see, on a fanless machine, for no gain in how often the card can
+   * change. 800 ms matches the work to the capacity: each snapshot lands about as
+   * the next is taken.
    */
   snapshotEveryMs: number;
   /** Don't snapshot until there is enough speech to be worth recognising. */
@@ -100,7 +109,7 @@ export const DEFAULT_ENDPOINTER: EndpointerConfig = {
   maxUtteranceMs: 15000,
   calibrationMs: 400,
   preRollMs: 200,
-  snapshotEveryMs: 400,
+  snapshotEveryMs: 800,
   minSnapshotMs: 600
 };
 

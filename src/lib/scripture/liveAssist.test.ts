@@ -137,7 +137,14 @@ function readHeader(frame: ArrayBuffer) {
 (globalThis as unknown as { WebSocket: unknown }).WebSocket ??= { CONNECTING: 0, OPEN: 1 };
 
 /** Minimal fakes: the source must be testable without a microphone. */
-function harness(overrides: { failMedia?: string; readyState?: number } = {}) {
+function harness(
+  overrides: {
+    failMedia?: string;
+    readyState?: number;
+    captureConstraints?: MediaStreamConstraints[];
+    audioConstraints?: MediaTrackConstraints;
+  } = {}
+) {
   const tracks = [{ stop: vi.fn() }];
   const statuses: { status: string; detail: string }[] = [];
   /**
@@ -171,9 +178,13 @@ function harness(overrides: { failMedia?: string; readyState?: number } = {}) {
     return socket as unknown as WebSocket;
   };
   const source = createLiveTranscriptSource({
+    audioConstraints: overrides.audioConstraints,
     getMedia: overrides.failMedia
       ? () => Promise.reject(Object.assign(new Error('no'), { name: overrides.failMedia }))
-      : () => Promise.resolve({ getTracks: () => tracks } as unknown as MediaStream),
+      : (constraints: MediaStreamConstraints) => {
+          overrides.captureConstraints?.push(constraints);
+          return Promise.resolve({ getTracks: () => tracks } as unknown as MediaStream);
+        },
     createSocket,
     onStatus: (s) => statuses.push({ status: s.status, detail: s.detail })
   });
@@ -500,5 +511,35 @@ describe('the wire protocol the local recogniser parses', () => {
     const last = frames[frames.length - 1];
     const biggestProvisional = Math.max(...frames.filter((f) => f.final === 0).map((f) => f.samples));
     expect(last.samples).toBeGreaterThanOrEqual(biggestProvisional);
+  });
+});
+
+describe('what the microphone is actually asked for', () => {
+  /**
+   * The first human microphone test returned `"jon thr ixteen"` for "John three
+   * sixteen" — vowels intact, the `ee` of "three" and the `s` of "sixteen" gone.
+   * The same words recognise cleanly when a FILE goes through the same model and
+   * the same pipeline, and the only thing a file never passes through is Chrome's
+   * voice-call processing, which this asked for explicitly.
+   */
+  it('does not ask Chrome to clean up the audio before the recogniser sees it', async () => {
+    const asked: MediaStreamConstraints[] = [];
+    const { source } = harness({ captureConstraints: asked });
+    await source.start();
+    const audio = asked[0].audio as MediaTrackConstraints;
+    // A spectral gate tuned for telephony removes the quietest, broadest parts of
+    // speech — which is what a fricative is.
+    expect(audio.noiseSuppression).toBe(false);
+    expect(audio.autoGainControl).toBe(false);
+    // Nothing here echoes; cancelling an echo path that does not exist costs signal.
+    expect(audio.echoCancellation).toBe(false);
+    expect(audio.channelCount).toBe(1);
+  });
+
+  it('still lets a room that genuinely needs processing turn it back on', async () => {
+    const asked: MediaStreamConstraints[] = [];
+    const { source } = harness({ captureConstraints: asked, audioConstraints: { noiseSuppression: true } });
+    await source.start();
+    expect((asked[0].audio as MediaTrackConstraints).noiseSuppression).toBe(true);
   });
 });

@@ -56,14 +56,31 @@ const BOOK_ORDINALS: Record<string, number> = {
   '1st': 1,
   one: 1,
   i: 1,
+  /**
+   * The plain digit, which is how these books are actually WRITTEN — "1 John",
+   * "2 Kings", "3 John" — and which was missing while every other form was here.
+   *
+   * It went unnoticed for as long as the recogniser spelled numbers out. A
+   * recogniser that writes digits exposed it immediately and expensively: `1 John
+   * 4 8` resolved to **John 4:8**, and `2 Corinthians 5.17` to **1 Corinthians
+   * 5:17** — the wrong numbered book, confidently, which is the exact failure this
+   * layer exists to prevent. Five of the eight wrong leading answers in the
+   * shootout were this one gap.
+   *
+   * Deliberately NOT added while the comparison was running. Fixing a gap that one
+   * candidate's output shape reveals, mid-comparison, decides the comparison.
+   */
+  '1': 1,
   second: 2,
   '2nd': 2,
   two: 2,
   ii: 2,
+  '2': 2,
   third: 3,
   '3rd': 3,
   three: 3,
-  iii: 3
+  iii: 3,
+  '3': 3
 };
 
 const UNITS: Record<string, number> = {

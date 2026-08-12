@@ -352,7 +352,11 @@ describe('provisional snapshots while the speaker is still talking', () => {
 
   it('emits growing snapshots during a long utterance, then one final', () => {
     const { snapshots: seen, final } = snapshots(join(room(800), speech(3000), room(900)));
-    expect(seen.length).toBeGreaterThanOrEqual(4);
+    // Derived from the cadence rather than hard-coded, so re-deriving the cadence
+    // for a different recogniser does not silently invalidate this expectation —
+    // which is exactly what it did when Whisper moved it from 400 ms to 800 ms.
+    const expected = Math.floor(3000 / DEFAULT_ENDPOINTER.snapshotEveryMs);
+    expect(seen.length).toBeGreaterThanOrEqual(expected);
     // Each snapshot contains everything the previous one did, and more.
     for (let i = 1; i < seen.length; i += 1) expect(seen[i]).toBeGreaterThan(seen[i - 1]);
     expect(final).not.toBeNull();

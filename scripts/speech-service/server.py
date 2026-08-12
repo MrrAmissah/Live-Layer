@@ -196,6 +196,92 @@ async def keep_warm(recogniser, every: float, verbose: bool) -> None:
             print(f"  warm {time.perf_counter() - started:.3f}s", flush=True)
 
 
+
+class WhisperMlx:
+    """Whisper large-v3-turbo under MLX. The primary recogniser.
+
+    Chosen by measurement, not preference — `docs/ASR_EVALUATION.md` §10 has the
+    whole comparison. The short version: against the frozen 83-case held-out
+    corpus it puts the correct reference at the top of the operator's card 72.3%
+    of the time against the incumbent's 38.6%, at the same 3.6% wrong-lead rate,
+    while refusing 24% of utterances instead of 58%. The incumbent's apparent
+    safety was mostly silence.
+
+    ## Two properties that are NOT like the model it replaces
+
+    **Inference time does not depend on how much audio you send.** Whisper pads
+    every input to a 30-second window internally, so a 0.8 s snapshot and a 4.4 s
+    snapshot both cost about 0.75 s. The 400 ms snapshot cadence was justified
+    against a model whose cost grew with the audio and was ~0.13 s for a whole
+    utterance; that reasoning does not transfer, and the cadence was re-derived
+    from these measurements rather than re-tuned.
+
+    **It hallucinates on degenerate input rather than returning nothing.** A CTC
+    model emits blanks for silence; Whisper is a language model with an audio
+    encoder and will happily invent text — and, on one measured occasion, loop for
+    277 seconds on a second of digital zeros. Hence noise rather than silence
+    everywhere this warms itself, and hence `no_speech_threshold` left at its
+    default so the decoder can still say "nothing here".
+    """
+
+    def __init__(self, repo: str, language: str | None):
+        import mlx_whisper
+
+        self.mlx_whisper = mlx_whisper
+        self.repo = repo
+        self.language = language or "en"
+
+    def transcribe(self, pcm: np.ndarray):
+        started = time.perf_counter()
+        out = self.mlx_whisper.transcribe(
+            pcm,
+            path_or_hf_repo=self.repo,
+            language=self.language,
+            # Greedy and unconditioned. The provisional stability rule downstream
+            # counts CONSECUTIVE agreeing revisions, which only means anything if
+            # the recogniser returns the same text for the same audio; temperature
+            # fallback would make agreement a coin-flip. Measured deterministic
+            # across repeated runs of every gate phrase.
+            temperature=0.0,
+            condition_on_previous_text=False,
+            fp16=True,
+        )
+        return out["text"].strip(), time.perf_counter() - started
+
+
+class DondoCtc:
+    """The incumbent, kept for comparison rather than for production.
+
+    Retained because a recogniser swap is exactly the kind of change that wants a
+    way back, and because the human A/B that decides this runs both. It is one
+    flag, not a provider-selection surface: the operator has no reason to know
+    either name.
+    """
+
+    def __init__(self, repo: str, device: str, dtype: str, language: str | None):
+        from benchmark import Recogniser
+
+        self.model = Recogniser(repo, device, dtype, language=language)
+
+    def transcribe(self, pcm: np.ndarray):
+        return self.model.transcribe(pcm)
+
+
+DEFAULT_REPOS = {
+    "whisper": "mlx-community/whisper-large-v3-turbo",
+    "dondo": str(pathlib.Path.home() / "LiveLayer-ASR-Eval/models/w2v-bert-en"),
+}
+
+
+def load_engine(args):
+    repo = args.repo or DEFAULT_REPOS[args.engine]
+    if args.engine == "whisper":
+        print(f"loading {repo} on MLX/Metal …", flush=True)
+        return WhisperMlx(repo, args.language or None)
+    print(f"loading {repo} on {args.device}/{args.dtype} …", flush=True)
+    return DondoCtc(repo, args.device, args.dtype, args.language or None)
+
+
 async def main_async(args) -> int:
     try:
         import websockets
@@ -205,14 +291,13 @@ async def main_async(args) -> int:
               file=sys.stderr)
         return 2
 
-    from benchmark import Recogniser
-
-    print(f"loading {args.repo} on {args.device}/{args.dtype} …", flush=True)
-    recogniser = Recogniser(args.repo, args.device, args.dtype,
-                            language=args.language or None)
+    recogniser = load_engine(args)
     # Warm up before announcing readiness, so the first utterance of a service does
-    # not pay lazy kernel compilation while the operator is waiting.
-    recogniser.transcribe(np.zeros(SR, dtype=np.float32))
+    # not pay lazy kernel compilation while the operator is waiting. Faint noise
+    # rather than digital silence: Whisper decodes silence by looping, and one
+    # measured warm-up on a second of zeros took 277 seconds to return.
+    rng = np.random.default_rng(11)
+    recogniser.transcribe((rng.standard_normal(SR) * 1e-3).astype(np.float32))
     print(f"ready on ws://{args.host}:{args.port} — local only, no audio is stored", flush=True)
 
 
@@ -226,7 +311,9 @@ async def main_async(args) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", required=True, help="local checkpoint directory")
+    ap.add_argument("--engine", default="whisper", choices=["whisper", "dondo"],
+                    help="which local recogniser to run; whisper is the measured winner")
+    ap.add_argument("--repo", default="", help="override the checkpoint for the chosen engine")
     ap.add_argument("--host", default="127.0.0.1",
                     help="localhost by default; changing it exposes audio to the network")
     ap.add_argument("--port", type=int, default=4179)
