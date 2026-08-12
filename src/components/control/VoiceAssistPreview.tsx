@@ -468,6 +468,19 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
     const found = await lookup(wanted, translationId);
     if (generation.current !== mine) return; // a newer revision owns the panel now
     if (!found) {
+      /**
+       * A compact split whose verse does not exist. `Genesis 1234` survives the
+       * chapter check as both 1:234 and 12:34, and neither is a real verse —
+       * the parser cannot know that, because per-chapter verse counts are not
+       * bundled, so retrieval is what eliminates them. Fall through to the next
+       * split rather than failing the utterance: `Psalm 234` is 2:34 and 23:4,
+       * and only the second exists.
+       */
+      const next = source.candidates.findIndex((c, i) => i > index && c.compact);
+      if (candidate.compact && next !== -1) {
+        void resolveCandidate(source, next, mine, timelineId);
+        return;
+      }
       setState((previous) =>
         resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
       );
@@ -555,7 +568,18 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
     ? state.groups[state.groups.length - 1].candidates
     : state.candidates;
   const alternatives = spanCandidates.filter(
-    (candidate) => candidate.reference.canonical !== state.candidates[state.selected]?.reference.canonical
+    (candidate) =>
+      candidate.reference.canonical !== state.candidates[state.selected]?.reference.canonical &&
+      /**
+       * Never offer an unverified compact split as a reading to choose from.
+       *
+       * `Genesis 1234` survives the chapter check as both 1:234 and 12:34, and
+       * neither verse exists — the parser has no per-chapter verse data to know
+       * that. Retrieval eliminates them, and until it has, presenting them as
+       * "other possible readings" would put two impossible passages in front of
+       * the operator and call them alternatives.
+       */
+      !candidate.compact
   );
   const resolving = state.status === 'resolving';
   const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
@@ -676,13 +700,24 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
         the operator keeps reading the verse that was right until something valid
         replaces it or they dismiss it themselves.
       */}
-      {strongest || resolving || confirmed ? (
+      {/*
+        The dominant card shows a RETRIEVED passage or nothing at all.
+
+        It used to fall back to the parsed reference when no passage had arrived,
+        so a reading that had merely been proposed appeared as a heading with
+        "Retrieving the passage…" beneath it. That is how an impossible verse
+        could reach the operator: the parser validates chapters but no
+        per-chapter verse data is bundled, so `Genesis 1:234` parses, and only the
+        retrieval can discover that Genesis 1 has 31 verses.
+
+        Retrieval is therefore the last gate for FINALS as well as provisionals.
+        The operator is not left guessing what happened — the "Heard …" line says
+        what was recognised and the failure line says it could not be retrieved —
+        but nothing is presented as a passage until it is one.
+      */}
+      {state.passage || confirmed ? (
         <DetectedScripture
-          reference={
-            state.passage
-              ? chosen?.reference.canonical ?? strongest?.reference.canonical ?? ''
-              : confirmed?.reference.canonical ?? chosen?.reference.canonical ?? strongest?.reference.canonical ?? ''
-          }
+          reference={(state.passage ?? confirmed?.passage)?.reference ?? ''}
           interpretation={state.passage ? chosen?.interpretation ?? strongest?.interpretation ?? '' : ''}
           passage={state.passage ?? confirmed?.passage ?? null}
           resolving={resolving && !confirmed}

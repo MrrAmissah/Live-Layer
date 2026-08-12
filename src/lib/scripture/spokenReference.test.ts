@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSpokenReference, isAmbiguous, hasMultipleReferences } from './spokenReference';
+import { parseScriptureReference } from './parseReference';
 
 /**
  * Spoken normalisation is a SEPARATE boundary in front of the strict parser, not a
@@ -682,11 +683,31 @@ describe('a chapter and verse the recogniser ran together', () => {
     expect(best('Romans 8')).toBe('Romans 8');
   });
 
-  it('offers both readings rather than choosing when the canon allows two', () => {
-    // Genesis has 50 chapters: 1:234 and 12:34 both survive.
-    const readings = cands('Genesis 1234');
-    expect(readings).toContain('Genesis 1:234');
-    expect(readings).toContain('Genesis 12:34');
+  it('marks every compact split as needing its verse verified', () => {
+    /**
+     * Genesis has 50 chapters, so 1:234 and 12:34 both survive the CHAPTER check
+     * — and NEITHER is a real verse: Genesis 1 has 31, Genesis 12 has 20. The
+     * parser cannot know that, because per-chapter verse counts are not bundled.
+     *
+     * So it produces them marked, and retrieval eliminates them. What matters is
+     * that nothing unmarked escapes: a caller that displays a `compact` candidate
+     * without retrieving it first is the bug this flag exists to prevent.
+     */
+    const parsed = parseSpokenReference('Genesis 1234');
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.candidates.map((c) => c.reference.canonical)).toEqual(['Genesis 1:234', 'Genesis 12:34']);
+    expect(parsed.candidates.every((c) => c.compact)).toBe(true);
+  });
+
+  it('marks a single survivor too — one split is still an unverified verse', () => {
+    const parsed = parseSpokenReference('John 316');
+    expect(parsed.ok && parsed.candidates[0].compact).toBe(true);
+  });
+
+  it('leaves ordinary readings unmarked', () => {
+    const parsed = parseSpokenReference('John 3 16');
+    expect(parsed.ok && parsed.candidates[0].compact).toBeFalsy();
   });
 
   it('still refuses when no split is a passage', () => {
@@ -699,5 +720,28 @@ describe('a chapter and verse the recogniser ran together', () => {
     // 150 and 1 together — and splitting it would give Psalms 1:51 instead of
     // letting the ordinary reading find Psalms 150:1.
     expect(best('Psalm one hundred fifty one')).toBe('Psalms 150:1');
+  });
+});
+
+describe('a compact locator can never present an impossible verse', () => {
+  it('offers the canon-unique reading first', () => {
+    expect(cands('John 316')).toEqual(['John 3:16']);
+    expect(cands('Romans 828')).toEqual(['Romans 8:28']);
+  });
+
+  it('leaves the typed parser completely unchanged', () => {
+    // The strict parser is the typed path's authority and knows nothing about
+    // compact splitting — someone typing "John 316" made a visible typo.
+    expect(parseScriptureReference('John 316').ok).toBe(false);
+    expect(parseScriptureReference('Genesis 1234').ok).toBe(false);
+    const typed = parseScriptureReference('John 3:16');
+    expect(typed.ok && typed.reference.canonical).toBe('John 3:16');
+  });
+
+  it('keeps spoken-number provenance intact', () => {
+    // Words the SPEAKER separated are never treated as a compact run.
+    expect(best('Psalm one hundred fifty one')).toBe('Psalms 150:1');
+    expect(best('Psalm one hundred nineteen one')).toBe('Psalms 119:1');
+    expect(best('Psalm 119')).toBe('Psalms 119');
   });
 });

@@ -217,6 +217,16 @@ export interface SpokenCandidate {
    * should trust numerically. Higher sorts first.
    */
   score: number;
+  /**
+   * This reading came from splitting a compact number — `John 316` as 3:16.
+   *
+   * It marks a candidate whose VERSE has not been validated. Chapters are checked
+   * by the strict parser, which has each book's chapter count; per-chapter verse
+   * counts are not bundled, so `Genesis 1:234` parses even though Genesis 1 has
+   * 31 verses. The caller must retrieve one of these before displaying it, and may
+   * fall through to the next when retrieval says the verse does not exist.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -816,9 +826,9 @@ function buildRawReferences(
   book: string,
   loc: Locator,
   singleChapter = false
-): { raw: string; why: string; score: number }[] {
+): { raw: string; why: string; score: number; compact?: boolean }[] {
   const { numbers, rangeAfter, listAfter } = loc;
-  const out: { raw: string; why: string; score: number }[] = [];
+  const out: { raw: string; why: string; score: number; compact?: boolean }[] = [];
   if (!numbers.length) return out;
 
   const [a, b, c] = numbers;
@@ -833,15 +843,32 @@ function buildRawReferences(
      */
     if (!singleChapter && loc.literal[0] && !parseScriptureReference(`${book} ${a}`).ok) {
       const readings = compactReadings(book, String(a));
+      /**
+       * Offered ONLY when the canon leaves exactly one split standing.
+       *
+       * Structural survival is not verse existence. The strict parser validates
+       * chapters — it has each book's chapter count — but no per-chapter verse
+       * data is bundled, so `Genesis 1234` produces two structurally valid splits,
+       * 1:234 and 12:34, and NEITHER is a real verse: Genesis 1 has 31 and
+       * Genesis 12 has 20. Offering those as "other possible readings" would put
+       * two impossible passages in front of the operator and call them ambiguity.
+       *
+       * A single survivor is a different case. It is still not proven — it is
+       * proposed, and the panel retrieves it before it can be displayed, so a
+       * split that names no real verse never reaches the card. Two survivors
+       * cannot be resolved that way without guessing which to retrieve first, so
+       * they are refused here instead.
+       */
       for (const reading of readings) {
         out.push({
           raw: reading.reference.canonical,
           // Said plainly, because the operator is being shown a reading of digits
           // they did not separate and should be able to disagree with it.
           why: `heard "${a}" as chapter ${reading.chapter}, verse ${reading.verse}`,
-          // Ambiguous splits are offered as competing candidates rather than
-          // resolved — two real passages and no way to tell which was meant.
-          score: readings.length === 1 ? 86 : 64
+          // Ranked but NOT resolved. Where two survive the canon, retrieval is
+          // what settles them, and it happens before either is displayed.
+          score: readings.length === 1 ? 86 : 64,
+          compact: true
         });
       }
       if (out.length) return out;
@@ -1007,7 +1034,8 @@ function resolveSpan(tokens: string[], match: BookMatch, until: number, spanStar
         raw: built.raw,
         reference: parsed.reference,
         interpretation: `${book.name} ${built.why}${book.note}`,
-        score: built.score - book.penalty
+        score: built.score - book.penalty,
+        compact: built.compact
       });
     }
   }

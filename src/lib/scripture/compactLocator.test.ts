@@ -70,3 +70,31 @@ describe('what it must never do', () => {
     expect(all('Psalms', '11976')).toEqual([]);
   });
 });
+
+describe('structural survival is not verse existence', () => {
+  /**
+   * The correction that produced this section. `Genesis 1234` was reported as
+   * "genuine ambiguity between Genesis 1:234 and Genesis 12:34". It is neither:
+   * Genesis 1 has 31 verses and Genesis 12 has 20, so BOTH are impossible and the
+   * right answer is to refuse.
+   *
+   * The parser cannot know that — it validates chapters, because chapter counts
+   * are bundled and per-chapter verse counts are not. So this module reports what
+   * survives the CANON, the spoken path offers a compact reading only when
+   * exactly one does, and retrieval is the gate that proves it.
+   */
+  it('reports both splits as structurally possible, which is all it can know', () => {
+    expect(all('Genesis', '1234')).toEqual(['Genesis 1:234', 'Genesis 12:34']);
+  });
+
+  it('resolves nothing when more than one split survives', () => {
+    expect(reading('Genesis', '1234')).toBeNull();
+  });
+
+  it('accepts a chapter that exists even when the verse does not', () => {
+    // Genesis 1:234 parses — the strict parser has no verse data to refuse it
+    // with. Documented here so the next reader knows where the limit is, and why
+    // retrieval has to be the last gate rather than an optimisation.
+    expect(all('Genesis', '1234')).toContain('Genesis 1:234');
+  });
+});

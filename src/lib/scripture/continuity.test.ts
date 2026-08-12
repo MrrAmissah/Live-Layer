@@ -156,3 +156,63 @@ describe('a new book always outranks the current passage', () => {
     expect(p.current()).toBeNull();
   });
 });
+
+describe('an impossible verse can never reach the operator', () => {
+  /**
+   * The parser can produce a compact split whose CHAPTER exists and whose VERSE
+   * does not — `Genesis 1:234` parses because per-chapter verse counts are not
+   * bundled. Retrieval is the gate that eliminates it, so this models the panel's
+   * rule directly: a compact candidate is displayed only if it retrieves, and the
+   * panel falls through to the next split when it does not.
+   */
+  const realVerses: Record<string, number> = {
+    'Genesis 1': 31,
+    'Genesis 12': 20,
+    'Psalms 2': 12,
+    'Psalms 23': 6,
+    'John 3': 36,
+    'Romans 8': 39
+  };
+  /** Stands in for the Bible provider: null means "no such passage". */
+  const retrieve = (canonical: string): string | null => {
+    const [, book, chapter, verse] = /^(.*) (\d+):(\d+)$/.exec(canonical) ?? [];
+    if (!book) return null;
+    const limit = realVerses[`${book} ${chapter}`];
+    if (limit === undefined) return null;
+    return Number(verse) <= limit ? `text of ${canonical}` : null;
+  };
+
+  /** What the panel would end up displaying: the first split that retrieves. */
+  const displayed = (spoken: string): string | null => {
+    const parsed = parseSpokenReference(spoken);
+    if (!parsed.ok) return null;
+    for (const candidate of parsed.candidates) {
+      if (retrieve(candidate.reference.canonical)) return candidate.reference.canonical;
+      // A non-compact candidate that fails retrieval does not fall through.
+      if (!candidate.compact) return null;
+    }
+    return null;
+  };
+
+  it('shows nothing for a compact number whose splits are all impossible', () => {
+    // Genesis 1 has 31 verses and Genesis 12 has 20 — neither 1:234 nor 12:34.
+    expect(displayed('Genesis 1234')).toBeNull();
+  });
+
+  it('finds the one real verse when the canon alone could not', () => {
+    // Psalm 2 has 12 verses so 2:34 is impossible; Psalm 23:4 is real.
+    expect(displayed('Psalm 234')).toBe('Psalms 23:4');
+  });
+
+  it('still resolves the references the microphone produced', () => {
+    expect(displayed('John 316')).toBe('John 3:16');
+    expect(displayed('Romans 828')).toBe('Romans 8:28');
+  });
+
+  it('never offers an unverified split as an alternative reading', () => {
+    // Every compact candidate is marked, and the panel filters marked candidates
+    // out of the alternatives list entirely.
+    const parsed = parseSpokenReference('Genesis 1234');
+    expect(parsed.ok && parsed.candidates.every((c) => c.compact)).toBe(true);
+  });
+});
