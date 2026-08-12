@@ -1,3 +1,37 @@
+# Restart check — three sessions, run this FIRST
+
+Two minutes. Setup as in the section below, then, **without reloading the page**:
+
+1. **Start listening** → say "John three sixteen" → expect a transcript and
+   John 3:16. **Stop listening.**
+2. **Start listening** → say "Romans eight twenty eight" → expect a transcript and
+   Romans 8:28. **Stop listening.**
+3. **Start listening** → say "First John four eight" → expect a transcript and
+   1 John 4:8. **Stop listening.**
+
+No refresh, no permission reset, no restarting the Python service. Session 2 and
+session 3 must work exactly as well as session 1 — that is the whole test.
+
+**What was wrong:** the audio path was never verified to be running. Chrome starts
+an AudioContext *suspended* when it is created outside a click's call stack, and a
+suspended context never delivers audio — so the second session held the
+microphone, opened the socket, was acknowledged by the server, and read nothing.
+Everything visible was fine except the one thing nobody was checking.
+
+It now resumes the context and checks it reached `running`, and "Listening" means
+three things rather than one: the server acknowledged the session, the audio path
+is running, and PCM is actually arriving. If the audio path cannot start you will
+see *"Could not start the audio input. Stop and start listening again."* rather
+than a session that silently hears nothing.
+
+If a session does fail, run `__liveMic.trail()` in the console and paste it — it
+now records the context state and the PCM frame count per session.
+
+Only once all three sessions work does the continuity gate below become worth
+running.
+
+---
+
 # Continuity gate — one sitting, no stopping
 
 **Press Start listening once. Do not press Stop until the end.** That is the whole
