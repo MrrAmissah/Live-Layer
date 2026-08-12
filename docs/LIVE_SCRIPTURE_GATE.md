@@ -190,7 +190,82 @@ it is not something a number can answer.
 
 ---
 
-## Correction gate — run this one first
+## Microphone quality + correction gate — run THIS one, and only this one
+
+Four short tests. Nothing else should be attempted until these pass, and the
+five-reference and twenty-reference gates both wait behind them.
+
+### A. Silence (30 seconds)
+
+Press Start listening. **Say nothing for 30 seconds.** Do not mute anything and
+do not leave the room — normal ambient noise is the point.
+
+Expected: the meter twitches with the room, and **nothing else happens at all.**
+No words, no "thank you", no lookup, no card movement. If a passage was already
+on screen it stays exactly as it was.
+
+This is the production blocker. Measured on this machine, three seconds of pure
+digital silence made the recogniser say "Thank you." with complete confidence,
+and its own no-speech score gave no hint — 0.000 for silence and for real speech
+alike. Audio that cannot prove it contains a voice is now never sent, so the
+model never gets the chance. What the rehearsal cannot tell us is whether YOUR
+room passes that test, which is what these 30 seconds are.
+
+### B. Capture profile A/B
+
+Three profiles, switched by URL. Nothing is remembered between reloads.
+
+| | URL |
+|---|---|
+| A — raw (current default) | `http://127.0.0.1:4173/control/scripture?mic=raw` |
+| B — browser voice cleanup | `http://127.0.0.1:4173/control/scripture?mic=cleanup` |
+| C — echo cancellation only | `http://127.0.0.1:4173/control/scripture?mic=echo-only` |
+
+For **each** profile, say these three and write down the raw transcript only:
+
+1. "John three sixteen"
+2. "Romans eight twenty eight"
+3. "verse three"
+
+The third is the one that matters. It came back as **"versty"** on the last gate,
+and it transcribes correctly every single time on synthetic audio — so the fault
+is somewhere between your microphone and the model, which is exactly what
+changing profiles tests. Also worth doing: repeat test A briefly on whichever
+profile you prefer, since noise suppression changes what the shield sees.
+
+Report transcripts; do not judge the passages yet.
+
+### C. Correction
+
+Say **"Romans eight twenty eight"**, wait for Romans 8:28, then say **"no, verse
+three"**.
+
+Expected: you can **see the words** that caused the change — something like
+*Heard "no, verse 3."* — Romans 8:28 stays put while it says *Updating
+reference…*, and then becomes **Romans 8:3**.
+
+The visible transcript is new. Last time the passage changed correctly and you
+could not see what caused it, which makes a correct answer feel like the system
+changing its mind on its own.
+
+### D. Failed correction
+
+With **1 John 4:8** on screen, say something deliberately unusable —
+"no, something… verse… uh…".
+
+Expected: 1 John 4:8 **stays exactly where it is**, and the panel says it could
+not confirm the correction. No blank card, no invented passage.
+
+### What to report
+
+- **A:** anything at all appeared? (yes = fail)
+- **B:** nine raw transcripts, three per profile
+- **C:** was the transcript visible, did the card stay up, did it swap cleanly
+- **D:** did the passage survive
+
+---
+
+## Correction gate — the fuller version, AFTER the four tests above pass
 
 Shorter than the five-reference gate above and aimed at one thing: what happens
 when you change your mind mid-sentence, which is what preachers actually do.
