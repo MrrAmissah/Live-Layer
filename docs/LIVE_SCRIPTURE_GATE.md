@@ -1,4 +1,90 @@
-# Five-reference human sanity gate
+# FINAL gate — run this one
+
+Everything after it in this document is superseded. Six tests, one sitting.
+
+## Setup
+
+```
+cd ~/Documents/Live\ Layer
+HF_HOME=~/LiveLayer-ASR-Eval/hf \
+  ~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py --verbose
+```
+
+It now loads two models — Whisper and Silero VAD — so give it a moment. Then
+`npm run dev` and open **http://127.0.0.1:4173/control/scripture**. Reload once if
+the tab was already open.
+
+## A. Silence — 60 seconds
+
+Press Start listening and **say nothing for a full minute.** Do not mute; normal
+room noise is the point.
+
+Expected: the meter twitches with the room and **nothing else happens.** No
+words, no `"Thank you."`, no lookup, no card movement.
+
+This is the test that has failed twice. It should now be impossible rather than
+unlikely: the browser no longer decides what counts as speech, and Silero rated
+every silence, room-noise, breath, cough and chair recording at a speech
+probability of 0.09 or below, against 1.000 for speech. Whisper is never called,
+so it has nothing to hallucinate from. No text filtering was added.
+
+## B. Normal workstation distance — do not lean in
+
+Sitting normally, say:
+
+1. "John three sixteen"
+2. "Romans eight twenty eight"
+3. "First John four eight"
+
+Expected: all three detected **without moving closer.** If you find yourself
+leaning toward the Mac, that is the failure — note it, and roughly how close you
+had to get.
+
+## C. Replacement order
+
+Say "John three sixteen", wait for it, then say "Romans eight twenty eight".
+
+Expected: **Romans 8:28 becomes the dominant card** and John 3:16 moves beneath
+it under **PREVIOUS PASSAGE**. John must NOT appear under "Other possible
+readings" — that was the defect the screenshots caught, and it told you the
+newest thing you said was an alternative reading of the oldest.
+
+## D. Correction
+
+Get Romans 8:28 up, then say "no, verse three".
+
+Expected: you can see the words that caused it, Romans 8:28 stays put while it
+says *Updating reference…*, then Romans 8:3 becomes current and Romans 8:28 moves
+to Previous.
+
+## E. Failed correction
+
+With 1 John 4:8 up, say something unusable — "no, something… verse… uh…".
+
+Expected: 1 John 4:8 unchanged, a note that the correction could not be
+confirmed, no blank card, no invented passage.
+
+## F. Does it feel faster?
+
+A judgement, not a measurement. The transcript should appear while you are still
+speaking rather than after you finish.
+
+Measured on synthetic speech at real-time rate: first transcript **1.38 s** after
+speech starts, final **2.9 s**. Honest numbers from the real service, and neither
+has been through a real microphone — which is what you are for.
+
+## What to report
+
+- **A:** anything at all? (yes = fail)
+- **B:** all three at normal distance? if not, how close
+- **C:** did Romans become dominant, with John under Previous
+- **D:** transcript visible, no blank card, clean swap
+- **E:** did 1 John 4:8 survive
+- **F:** one sentence
+
+---
+
+# Five-reference human sanity gate (superseded)
 
 A short, honest check with a real microphone and a real voice, before anyone
 spends time on a twenty-reference run. Twenty minutes of a person's attention is

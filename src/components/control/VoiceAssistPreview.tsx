@@ -47,6 +47,12 @@ interface Props {
   /** Hand an accepted passage to the workspace. The ONLY way anything leaves here. */
   onAccept: (passage: ScriptureLookupResult, translationId: string) => void;
   translationId: string;
+  /**
+   * Whether the microphone is open, so the workspace can order itself around it.
+   * Reported rather than controlled: listening is started and stopped here, and
+   * the workspace only needs to know which panel the operator is using.
+   */
+  onListeningChange?: (listening: boolean) => void;
 }
 
 /**
@@ -63,7 +69,7 @@ interface Props {
  * into the ordinary Scripture draft — the same path the typed lookup uses. Program
  * is never touched.
  */
-export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
+export default function VoiceAssistPreview({ onAccept, translationId, onListeningChange }: Props) {
   const [state, setState] = useState<VoiceAssistState>(IDLE);
   const [draftTranscript, setDraftTranscript] = useState('');
   const { lookup, cancel } = useScriptureLookup();
@@ -194,6 +200,15 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * indicator and no way to stop it.
    */
   useEffect(() => () => live.stop(), [live]);
+
+  // Reported, not stored twice: the workspace re-orders around this and nothing
+  // else reads it.
+  useEffect(() => {
+    onListeningChange?.(listen);
+    // `onListeningChange` is intentionally not a dependency — an inline callback
+    // would re-fire this on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listen]);
 
   useEffect(() => {
     const interpret = (event: Parameters<Parameters<TranscriptSource['subscribe']>[0]>[0]) => {

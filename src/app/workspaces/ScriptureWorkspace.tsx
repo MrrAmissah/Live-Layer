@@ -161,6 +161,8 @@ export default function ScriptureWorkspace() {
     );
   };
 
+  const [listening, setListening] = useState(false);
+
   const composing = useMemo(
     () => currentTemplateId === SCRIPTURE_TEMPLATE_ID && draftReference.trim().length > 0,
     [currentTemplateId, draftReference]
@@ -168,6 +170,21 @@ export default function ScriptureWorkspace() {
 
   return (
     <WorkspacePanel kicker="Scripture">
+      {/*
+        While the microphone is open, the live panel comes FIRST.
+
+        The order of this workspace is the order of the operator's attention. Mid
+        service they are listening to a preacher and watching for a verse, and the
+        questions they need answered are: is it hearing me, what does it think it
+        heard, and is that the right passage. A manual query box and a list of
+        recent passages above all of that is the right layout for preparing and
+        the wrong one for running — so the two swap, rather than one of them being
+        hidden. Typing stays available at all times, because it is the fallback
+        the whole feature rests on.
+      */}
+      {listening ? (
+        <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} onListeningChange={setListening} />
+      ) : null}
       <ScriptureLookupPanel
         query={draft.query}
         translationId={draft.translationId}
@@ -188,7 +205,9 @@ export default function ScriptureWorkspace() {
       {/* Voice assist routes an accepted passage through the SAME `accept` handler
           the typed lookup uses, so it writes the ordinary Scripture draft and
           cannot reach Program by a path of its own. */}
-      <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} />
+      {listening ? null : (
+        <VoiceAssistPreview onAccept={accept} translationId={draft.translationId} onListeningChange={setListening} />
+      )}
     </WorkspacePanel>
   );
 }

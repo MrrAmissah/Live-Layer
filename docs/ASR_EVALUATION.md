@@ -1174,6 +1174,128 @@ Gate A remains **NOT CLEARED**.
 
 ---
 
+## 11. Silero VAD — the gate stops guessing at loudness
+
+The five-reference gate failed on both sides at once: the operator had to lean
+toward the microphone for normal speech to register, and silence still reached
+Whisper often enough to produce `"Thank you."` Those were never two settings to
+balance. **Loudness is not what separates a voice from a room**, so any threshold
+admitting a quiet speaker also admits a fan.
+
+### 11.1 Architecture
+
+```
+browser microphone
+  → continuous PCM (12-byte header: session, sequence, control)
+  → local Python service
+  → Silero VAD 6.2.1, torch build
+  → server-owned pre-roll / segmentation / endpointing
+  → progressive Whisper snapshots  →  final Whisper decode
+```
+
+The browser measures a level for the meter and transports samples. It owns no
+judgement. Silero was deliberately **not** placed behind the old energy gate: it
+can only recover speech it is allowed to see, and discarding quiet speech is
+exactly what that gate did wrong, so a prerequisite it cannot overrule would have
+been a permanent ceiling.
+
+Cost: **0.126 ms per 32 ms frame** warm (ONNX 0.118 ms — not worth a second
+runtime for 0.008 ms). About 255x real time.
+
+### 11.2 Parameters, swept not assumed
+
+47 cases: 12 negatives (digital silence, room noise −70 to −35 dBFS, breath,
+cough, chair, keys) and 35 positives (seven phrases × attenuation 0 to −24 dB,
+standing for microphone distance).
+
+Every threshold from **0.1 to 0.999** scores identically: 35/35 positives, 0/12
+false. That looked like a broken harness, so it was checked against controls that
+must fail — at 0.02 five negatives leak, at 0.99999 twenty-nine positives are
+missed — and against the raw probabilities, which explain it:
+
+| | peak speech probability |
+|---|---|
+| silence, room noise, breath, cough, chair, keys | **0.009 – 0.090** |
+| speech, including −24 dB attenuated | **1.000** |
+
+Two things the sweep caught that reasoning had not:
+
+- **Counting only finals was wrong.** A negative that triggers speech and never
+  ends emits *snapshots* the whole time and never produces a final, so it scored
+  as clean while streaming room tone to a model that invents words for it. Any
+  Whisper-bound event now counts as a failure.
+- **`min_silence_ms` could not be picked by convention.** It is added directly to
+  time-to-passage, and trades against splitting a hesitating speaker:
+
+  | pause held together? | 160 | 192 | 256 | **320** | 384 | 448 | 512 |
+  |---|---|---|---|---|---|---|---|
+  | 200 ms hesitation | y | y | y | **y** | y | y | y |
+  | 300 ms hesitation | n | y | y | **y** | y | y | y |
+  | 400 ms hesitation | n | n | n | **y** | y | y | y |
+
+  320 ms holds a 300 ms mid-reference hesitation together and saves 180 ms
+  against the browser hangover it replaces.
+
+Selected: threshold 0.5, negative 0.35, min speech 128 ms, min silence 320 ms,
+pre-roll 320 ms, tail pad 160 ms, first look 300 ms, cadence 600 ms.
+
+### 11.3 Results, streamed through the real service at real-time rate
+
+| input | Whisper calls |
+|---|---|
+| digital silence, room noise, breath, cough, chair, keys | **0** |
+| speech at 0 / −12 / −18 / −24 dB | detected, correct transcript |
+
+`"Thank you."` cannot occur because **Whisper is never invoked**. No text filter
+was added, and none is needed. `"verse three"` — the utterance a real microphone
+returned as `"Vestry"` — transcribes as `Verse 3` at every attenuation.
+
+### 11.4 First snapshot, on its own clock
+
+The old shape was effectively `max(first, every)`, so the cadence always won and
+lowering the first threshold measured as changing nothing. Now independent:
+
+| first look at | first transcript after speech starts |
+|---|---|
+| **300 ms** | **1381 ms** |
+| 400 ms | 1452 ms |
+| 500 ms | 1708 ms |
+
+Chosen on a consistent direction, not a decisive gap — n=4, and within-setting
+variance is real (one clip at 500 ms landed at 1078 ms, another at 1728 ms).
+
+### 11.5 `language="en"` is load-bearing
+
+| | median | p95 |
+|---|---|---|
+| `language="en"` | **756 ms** | 869 ms |
+| `language="en"`, `task="transcribe"` | 780 ms | 893 ms |
+| unspecified (detects language) | **1437 ms** | 1792 ms |
+
+Whisper spends nearly half the budget deciding what language English is. Already
+shipped; now measured. `task="transcribe"` changes nothing and is not added.
+
+### 11.6 4-bit turbo — REJECTED
+
+| | large-v3-turbo | turbo-q4 |
+|---|---|---|
+| held-out right-lead | **72.3%** | 71.1% |
+| held-out wrong-lead | 3.6% | **2.4%** |
+| held-out refused | **24%** | 27% |
+| service corpus | 75.5% / 0% / 25% | 75.5% / 0% / 25% |
+| gate phrases | 9/9 | 9/9 |
+| **median inference** | **777 ms** | **794 ms** |
+| cold first inference | 4.68 s | **2.90 s** |
+| peak RSS | 598 MB | **562 MB** |
+| on disk | 2.8 GB | **442 MB** |
+
+Accuracy is a wash. **There is no latency improvement** — 794 ms against 777 ms,
+slightly worse and inside the noise — and latency was the only thing that would
+have justified the change. Rejected on the criterion set before the measurement,
+not on the disk figure.
+
+---
+
 ## Sources
 
 - [arXiv:2607.21540 — DONDO: Open w2v-BERT Speech-Recognition Base Models for African Languages](https://arxiv.org/abs/2607.21540)
