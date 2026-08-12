@@ -31,6 +31,8 @@ import argparse, asyncio, json, pathlib, struct, sys, time
 
 import numpy as np
 
+from dataclasses import replace
+
 from segmenter import Segmenter, DEFAULT_CONFIG, load_vad
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -67,7 +69,7 @@ def parse_uplink(message: bytes):
     return session, sequence, control, pcm
 
 
-async def handle(websocket, recogniser, vad, verbose: bool, keep_warm_seconds: float = 0.0) -> None:
+async def handle(websocket, recogniser, vad, config, verbose: bool, keep_warm_seconds: float = 0.0) -> None:
     """One connection, one worker, a slot for the newest provisional request.
 
     Progressive recognition sends a snapshot every few hundred milliseconds while
@@ -81,7 +83,7 @@ async def handle(websocket, recogniser, vad, verbose: bool, keep_warm_seconds: f
     waiting = asyncio.Event()
     stats = {"dropped": 0, "max_depth": 0}
     #: One segmenter per connection, holding this session's Silero state.
-    segmenter = Segmenter(model=vad, config=DEFAULT_CONFIG)
+    segmenter = Segmenter(model=vad, config=config)
     #: The session the operator is currently listening in, or None between them.
     live_session: int | None = None
     utterance_no = 0
@@ -357,6 +359,8 @@ async def main_async(args) -> int:
     recogniser = load_engine(args)
     print("loading Silero VAD …", flush=True)
     vad = load_vad()
+    config = replace(DEFAULT_CONFIG, first_snapshot_ms=args.first_snapshot_ms,
+                     snapshot_every_ms=args.snapshot_every_ms)
     # Warm up before announcing readiness, so the first utterance of a service does
     # not pay lazy kernel compilation while the operator is waiting. Faint noise
     # rather than digital silence: Whisper decodes silence by looping, and one
@@ -367,7 +371,7 @@ async def main_async(args) -> int:
 
 
     async with websockets.serve(
-        lambda ws: handle(ws, recogniser, vad, args.verbose, args.keep_warm_seconds),
+        lambda ws: handle(ws, recogniser, vad, config, args.verbose, args.keep_warm_seconds),
         args.host, args.port, max_size=32 * 1024 * 1024
     ):
         await asyncio.Future()
@@ -386,6 +390,10 @@ def main() -> int:
     ap.add_argument("--dtype", default="float32")
     ap.add_argument("--language", default="", help="DONDO language for multilingual checkpoints")
     ap.add_argument("--verbose", action="store_true", help="log timings — never transcripts")
+    ap.add_argument("--first-snapshot-ms", type=int, default=DEFAULT_CONFIG.first_snapshot_ms,
+                    help="voiced speech before the FIRST provisional look")
+    ap.add_argument("--snapshot-every-ms", type=int, default=DEFAULT_CONFIG.snapshot_every_ms,
+                    help="voiced speech between subsequent provisional looks")
     ap.add_argument("--keep-warm-seconds", type=float, default=15.0,
                     help="idle heartbeat that keeps the GPU resident; 0 disables it")
     args = ap.parse_args()

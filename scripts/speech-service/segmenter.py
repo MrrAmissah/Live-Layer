@@ -80,8 +80,26 @@ class SegmenterConfig:
     speech_pad_ms: int = 160
     #: Safety valve. If this fires in normal use, something else is wrong.
     max_utterance_ms: int = 15000
-    #: Voiced audio before the FIRST provisional look. Independent of the cadence.
-    first_snapshot_ms: int = 400
+    #: Voiced audio before the FIRST provisional look.
+    #:
+    #: Genuinely independent of the cadence, which is the whole point — the old
+    #: shape was effectively `max(first, every)` so the cadence always won, and
+    #: lowering the first threshold measured as changing nothing at all.
+    #:
+    #: Measured end to end at real-time rate, median over four utterances:
+    #:
+    #:     first look at   first transcript after speech starts
+    #:        300 ms                1381 ms
+    #:        400 ms                1452 ms
+    #:        500 ms                1708 ms
+    #:
+    #: The ordering matches the theory and the sample is small (n=4, and one clip
+    #: at 500 ms landed at 1078 ms while another took 1728 ms), so this is chosen
+    #: on a consistent direction rather than a decisive gap. An early look often
+    #: decodes to a fragment; that is a transcript appearing sooner, and the
+    #: provisional stability rule already refuses to promote a reading no second
+    #: revision agrees with.
+    first_snapshot_ms: int = 300
     #: Voiced audio between subsequent provisional looks.
     snapshot_every_ms: int = 600
 
