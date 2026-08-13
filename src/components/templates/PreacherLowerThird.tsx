@@ -69,6 +69,11 @@ interface Props {
  */
 function nameSizeClass(name: string): string {
   const n = name.length;
+  // A fifth tier, because the names this church actually uses reach it:
+  // "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" is 37 characters, and at 44px it
+  // needed a plate wider than the frame. Stepping down is what keeps the last
+  // resort — a hard cut mid-word — out of reach.
+  if (n > 34) return 'l3-name-xs';
   if (n > 28) return 'l3-name-sm';
   if (n > 22) return 'l3-name-md';
   if (n > 16) return 'l3-name-lg';

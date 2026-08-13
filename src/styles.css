@@ -438,6 +438,11 @@ body.gfx-transparent {
      that will look wrong, and it is why nothing here sets a background. */
 
   /* wide — feed keeps 16:9 and letterboxes; identity sits in the top band. */
+  /* How wide a lower third may grow. 108px in from the left (the ticker
+     alignment, see `--gfx-ticker-left`) leaves 1704px to the mirrored margin —
+     the real limit, where 1500 was a guess that cut long names short. */
+  --gfx-l3-max-width: 1704px;
+
   --gfx-split-wide-camera-x: 0px;
   --gfx-split-wide-camera-y: 270px;
   --gfx-split-wide-camera-w: 960px;   /* 1920 x 0.5 */
@@ -779,7 +784,7 @@ body.gfx-transparent {
 .gfx-l3 .l3-stack {
   position: relative;
   width: fit-content;
-  max-width: 1500px;
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3 .l3-mask {
@@ -847,6 +852,29 @@ body.gfx-transparent {
 .gfx-l3 .l3-name-sm {
   font-size: 44px;
 }
+
+.gfx-l3 .l3-name-xs {
+  font-size: 38px;
+}
+
+/**
+ * THE TIERS ABOVE ONLY REACH A VARIANT THAT DOES NOT SIZE ITS OWN NAME.
+ *
+ * Nearly every variant does — `[data-variant='x'] .l3-name { font-size }` has
+ * the same specificity as `.gfx-l3 .l3-name-sm` and comes later in the file, so
+ * it wins. That is correct: each design's type is tuned to its own plate, and a
+ * shared 44px would flatten fifteen compositions into one.
+ *
+ * It does mean a step-down has to be written per variant, and only where the
+ * name genuinely runs out of frame. These two carry the largest type in the set
+ * — 62px, and 54px italic at 125% stretch — so a 37-character name (the real
+ * "Rev. Dr. Emmanuel Kwabena Owusu-Ansah") needed a plate wider than 1920 even
+ * after the content-fit fix, and was cut mid-word instead.
+ */
+.gfx-l3[data-variant='signature-medallion'] .l3-name.l3-name-sm { font-size: 52px; }
+.gfx-l3[data-variant='signature-medallion'] .l3-name.l3-name-xs { font-size: 44px; }
+.gfx-l3[data-variant='bold-plate'] .l3-name.l3-name-sm { font-size: 46px; }
+.gfx-l3[data-variant='bold-plate'] .l3-name.l3-name-xs { font-size: 38px; }
 
 .gfx-l3 .l3-role-line {
   display: inline-flex;
@@ -1398,7 +1426,7 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='event-style'] .l3-role-plate {
   height: 40px;
-  padding: 0 100px 0 166px;
+  padding: 0 116px 0 166px;
 }
 
 .gfx-l3[data-variant='event-style'] .l3-name {
@@ -1552,11 +1580,11 @@ body.gfx-transparent {
      truncating the org line. */
   width: fit-content;
   min-width: 980px;
-  max-width: 1500px;
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-mask {
-  max-width: none;
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='modern-minimal'] .l3-name-plate {
@@ -1608,12 +1636,31 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-stack {
-  width: 980px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 980px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='clean-broadcast'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-name-plate {
   box-sizing: border-box;
-  width: 820px;
+  min-width: 820px;
   height: 58px;
   padding: 0 40px 0 118px;
   background: #07091d !important;
@@ -1623,7 +1670,7 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='clean-broadcast'] .l3-role-plate {
   box-sizing: border-box;
-  width: 820px;
+  min-width: 820px;
   height: 28px;
   padding: 0 40px 0 118px;
   background: linear-gradient(90deg, #02796e, #0e9686) !important;
@@ -1681,7 +1728,26 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-stack {
-  width: 1240px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 1240px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='split-bar'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-name-plate,
@@ -1696,14 +1762,14 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='split-bar'] .l3-name-plate {
   box-sizing: border-box;
-  width: 1080px;
+  min-width: 1080px;
   height: 84px;
   padding: 0 260px 0 156px;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-role-plate {
   box-sizing: border-box;
-  width: 920px;
+  min-width: 920px;
   height: 42px;
   margin-left: 88px;
   padding: 0 72px;
@@ -1761,7 +1827,26 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='event-style'] .l3-stack {
-  width: 1280px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 1280px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='event-style'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='event-style'] .l3-name-plate,
@@ -1773,14 +1858,19 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='event-style'] .l3-name-plate {
   box-sizing: border-box;
-  width: 1080px;
+  min-width: 1080px;
   height: 70px;
-  padding: 0 176px 0 176px;
+  /* The gold end band is 18% of this plate's OWN width and the medallion sits
+     on it, so the name must clear a band that grows as the plate does. Solved
+     rather than nudged: p >= 0.18(176 + name + p) + 20 settles near 300 for the
+     longest name this church uses, so it clears at every length instead of only
+     the one that happened to be measured. */
+  padding: 0 300px 0 176px;
 }
 
 .gfx-l3[data-variant='event-style'] .l3-role-plate {
   box-sizing: border-box;
-  width: 1080px;
+  min-width: 1080px;
   height: 38px;
   padding: 0 176px;
   background: linear-gradient(90deg, #f3c858 0 12%, #8c1019 12% 82%, #f3c858 82% 100%) !important;
@@ -1828,12 +1918,31 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='subtle-elegance'] .l3-stack {
-  width: 980px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 980px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='subtle-elegance'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='subtle-elegance'] .l3-name-plate {
   box-sizing: border-box;
-  width: 780px;
+  min-width: 780px;
   height: 58px;
   padding: 0 44px 0 116px;
   background: #ffffff !important;
@@ -1844,7 +1953,7 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='subtle-elegance'] .l3-role-plate {
   box-sizing: border-box;
-  width: 860px;
+  min-width: 860px;
   height: 44px;
   margin-left: 64px;
   padding: 0 34px;
@@ -1885,13 +1994,32 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='canva-host-bar'] .l3-stack {
-  width: 1160px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 1160px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='canva-host-bar'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='canva-host-bar'] .l3-name-plate,
 .gfx-l3[data-variant='canva-host-bar'] .l3-role-plate {
   box-sizing: border-box;
-  width: 1240px;
+  min-width: 1240px;
   background:
     linear-gradient(90deg, #f3c858 0 118px, #8f111c 118px calc(100% - 178px), #f3c858 calc(100% - 178px) 100%) !important;
   border-radius: 0;
@@ -1906,6 +2034,11 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='canva-host-bar'] .l3-role-plate {
   height: 42px;
+  /* Right padding CLEARS THE MEDALLION, which is anchored to the layer's right
+     edge while the role line grows with its text. Before the bars were allowed
+     to grow the line was cut short and never reached it; now it does, so the
+     clearance has to be stated. Measured at 1920x1080 with the longest real
+     name and role this church uses. */
   padding: 0 228px 0 164px;
 }
 
@@ -1965,12 +2098,31 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='canva-celebration'] .l3-stack {
-  width: 1240px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 1240px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='canva-celebration'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='canva-celebration'] .l3-name-plate {
   box-sizing: border-box;
-  width: 1220px;
+  min-width: 1220px;
   height: 86px;
   padding: 0 296px 0 168px;
   background:
@@ -1984,7 +2136,7 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='canva-celebration'] .l3-role-plate {
   box-sizing: border-box;
-  width: 820px;
+  min-width: 820px;
   height: 42px;
   margin-left: 92px;
   padding: 0 70px;
@@ -2054,13 +2206,32 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='canva-ministry'] .l3-stack {
-  width: 1180px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 1180px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='canva-ministry'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='canva-ministry'] .l3-name-plate,
 .gfx-l3[data-variant='canva-ministry'] .l3-role-plate {
   box-sizing: border-box;
-  width: 1040px;
+  min-width: 1040px;
   background:
     radial-gradient(240px 120px at 82% 42%, rgba(232, 185, 60, 0.2), transparent 62%),
     linear-gradient(90deg, #2f1906 0%, #5b3209 44%, #1b0d03 100%) !important;
@@ -2075,9 +2246,14 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='canva-ministry'] .l3-role-plate {
-  width: 760px;
+  min-width: 760px;
   height: 38px;
   margin-left: 190px;
+  /* Right padding CLEARS THE MEDALLION, which is anchored to the layer's right
+     edge while the role line grows with its text. Before the bars were allowed
+     to grow the line was cut short and never reached it; now it does, so the
+     clearance has to be stated. Measured at 1920x1080 with the longest real
+     name and role this church uses. */
   padding: 0 42px;
   background: rgba(12, 7, 3, 0.92) !important;
   border: 1px solid rgba(232, 185, 60, 0.56);
@@ -2142,13 +2318,32 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-stack {
-  width: 1100px;
+  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
+     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+     mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
+     rendering fault rather than a long name. Ordinary names are unchanged
+     because they never reach the floor. */
+  width: fit-content;
+  min-width: 1100px;
+  max-width: var(--gfx-l3-max-width);
+}
+
+.gfx-l3[data-variant='soft-broadcast'] .l3-mask {
+  /* A REAL bound, not `none` and not `100%`.
+     `100%` is circular here — the stack is `fit-content`, sized by this mask —
+     so it resolves to no constraint and the plates grew past the frame. `none`
+     has the same effect and additionally lets the NAME overflow its own plate,
+     which is worse than the truncation it replaced: white type on the camera
+     instead of a cut word. An explicit cap makes `.l3-name-plate`'s and
+     `.l3-name`'s own `max-width: 100%` bite, so a name too long for any plate
+     ellipsises inside it. */
+  max-width: var(--gfx-l3-max-width);
 }
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-name-plate,
 .gfx-l3[data-variant='soft-broadcast'] .l3-role-plate {
   box-sizing: border-box;
-  width: 960px;
+  min-width: 960px;
   background:
     radial-gradient(circle at 18% 48%, rgba(18, 132, 255, 0.36), transparent 32%),
     radial-gradient(circle at 82% 38%, rgba(232, 185, 60, 0.13), transparent 28%),
@@ -2167,7 +2362,7 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-role-plate {
-  width: 820px;
+  min-width: 820px;
   height: 42px;
   margin-top: 8px;
   margin-left: 96px;
@@ -2317,7 +2512,10 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-mask {
-  max-width: none;
+  /* Its OWN cap, not the shared one: the strap's bar stops at 1352 by design
+     (the event ticker's right edge), so a name allowed to run to 1704 leaves
+     type hanging off the end of the bar onto the camera. */
+  max-width: 1352px;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-name-plate {
@@ -9925,3 +10123,59 @@ body.gfx-transparent {
 }
 .control-root .detected[data-provisional] .detected__stage { color: #f5c77e; }
 .control-root .detected[data-provisional] .detected__ref { color: var(--ll-text-strong); }
+
+/**
+ * THE ROLE STRIP FOLLOWS THE NAME PLATE, IT DOES NOT LEAD.
+ *
+ * On these four the trailing furniture — a medallion or an end slab — is
+ * anchored to the layer's right edge, so it moves with the widest plate. Once
+ * the bars were allowed to grow with the text, a role line longer than the name
+ * (a full role plus a full church name usually is) drove the stack wider than
+ * the name plate and then ran underneath that furniture.
+ *
+ * Percentage widths are the fix rather than another measured cap: a percentage
+ * child contributes nothing to a `fit-content` parent's intrinsic size, so the
+ * stack is sized by the NAME plate alone and the role strip fills whatever that
+ * comes to. The existing ellipsis shortens the line instead of pushing the bar.
+ * Chasing it with numbers does not converge — capping the plate moves the
+ * medallion too, because both are anchored to the same growing edge.
+ *
+ * Not applied globally: several variants deliberately run a narrow name plate
+ * over a wider role bar (`clean-broadcast` is 1236 over 1534), and that is the
+ * composition, not a defect.
+ */
+.gfx-l3[data-variant='canva-host-bar'] .l3-role-mask,
+.gfx-l3[data-variant='canva-ministry'] .l3-role-mask,
+.gfx-l3[data-variant='event-style'] .l3-role-mask,
+.gfx-l3[data-variant='split-bar'] .l3-role-mask,
+.gfx-l3[data-variant='canva-host-bar'] .l3-role-plate,
+.gfx-l3[data-variant='canva-ministry'] .l3-role-plate,
+.gfx-l3[data-variant='event-style'] .l3-role-plate,
+.gfx-l3[data-variant='split-bar'] .l3-role-plate {
+  /* `width: 0` is what actually removes the role line from the stack's
+     intrinsic sizing — a percentage width is treated as auto while a
+     `fit-content` parent measures its children, which is why `width: 100%`
+     alone left the stack exactly as wide as before. `min-width: 100%` then
+     fills whatever the name plate settled on. */
+  width: 0;
+  min-width: 100%;
+  max-width: 100%;
+}
+
+/**
+ * ...and where the role plate is INSET from the stack, the line needs a stop of
+ * its own.
+ *
+ * These three hang their role strip a little right of the name plate, so
+ * `min-width: 100%` puts its right edge past the stack — and past the medallion
+ * or end slab anchored there. A cap on the LINE converges where a cap on the
+ * plate did not: the stack no longer moves when the line shortens, because the
+ * name plate alone decides it.
+ *
+ * Each number is `furniture left edge − line left edge − optical gap`, measured
+ * at 1920x1080 with the longest role and church name this church uses. Ordinary
+ * roles never reach it; the existing ellipsis handles anything longer.
+ */
+.gfx-l3[data-variant='canva-ministry'] .l3-role-line { max-width: 956px; }
+.gfx-l3[data-variant='event-style'] .l3-role-line { max-width: 993px; }
+.gfx-l3[data-variant='split-bar'] .l3-role-line { max-width: 1061px; }
