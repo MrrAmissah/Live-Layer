@@ -91,18 +91,49 @@ function weakness(status: OutputStatusState, now: number): number {
 }
 
 /**
+ * Is this screen actually carrying the graphic right now?
+ *
+ * `sourceActive: false` means OBS is not compositing this source — usually
+ * because its scene is not the live one. `sourceVisible: false` means the eye
+ * is off. A page with no host binding claims neither, and is taken at its word.
+ */
+function isCarrying(status: OutputStatusState, now: number): boolean {
+  if (outputPresence(status, now) !== 'fresh') return false;
+  return status.sourceVisible !== false && status.sourceActive !== false;
+}
+
+/**
  * The one screen whose reading should speak for the rig.
  *
- * Program's status pill is a single phrase, and with several screens up the
- * only honest single phrase is the WEAKEST one: a desk that reads OUTPUT ACTIVE
- * while a second browser source sits hidden is making exactly the claim this
- * vocabulary exists to refuse. Forgotten screens are excluded — a reloaded tab's
- * dead session id must not hold the whole rig at UNVERIFIED forever.
+ * Program's status pill is a single phrase, and with several screens the only
+ * honest single phrase is the weakest — a desk reading OUTPUT ACTIVE while the
+ * source carrying air sits hidden is the claim this vocabulary exists to refuse.
+ *
+ * BUT THE WEAKEST OF *ALL* SCREENS IS THE WRONG ANSWER, and it made the desk
+ * useless the moment a second source existed. The main and split scenes are
+ * alternatives: exactly one is live, so the other's source is off-air BY
+ * DESIGN and reports hidden or inactive forever. Ranking it worst pinned the
+ * pill to SOURCE HIDDEN permanently — a fault the operator cannot fix, about a
+ * screen nobody is watching, which is how a status light becomes furniture.
+ *
+ * So the pill is decided by the screens that are actually carrying. It answers
+ * "is what I commanded reaching air", and a scene that is not live is not air.
+ *
+ * When NOTHING is carrying, every screen is back in the pool and the weakest
+ * speaks — because then the answer is genuinely bad news: no live source is
+ * showing this graphic, and that is worth saying however it happened.
+ *
+ * A screen that dies while another carries is NOT hidden by this. It stops
+ * being fresh, so it never counts as carrying, and it is reported by name
+ * through `describeStalledScreens` and on its own card. Two questions, two
+ * answers: this one is "is it on air", that one is "which screen stopped".
  *
  * Returns null when nothing is known, which the vocabulary already handles.
  */
 export function worstOutput(outputs: OutputStatusMap, now: number): OutputStatusState | null {
   const known = Object.values(outputs).filter((status) => now - status.lastSeenAt <= OUTPUT_FORGET_MS);
   if (!known.length) return null;
-  return known.reduce((worst, status) => (weakness(status, now) < weakness(worst, now) ? status : worst));
+  const carrying = known.filter((status) => isCarrying(status, now));
+  const pool = carrying.length ? carrying : known;
+  return pool.reduce((worst, status) => (weakness(status, now) < weakness(worst, now) ? status : worst));
 }

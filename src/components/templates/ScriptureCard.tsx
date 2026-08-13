@@ -17,11 +17,24 @@ interface Props {
   theme: TemplateDefinition['theme'];
 }
 
-/** Step the verse size down for long passages so it never blows past ~3 lines. */
+/**
+ * Step the verse size to the passage, so it never blows past the card.
+ *
+ * The steps are bands, and each layout decides what a band MEANS in its own
+ * stylesheet — a size that fills a 740px measure is lost in a 984px one. What
+ * this function owns is only where the bands sit.
+ *
+ * `xl` is the band that makes `split-tall` work. Without it the base band spans
+ * 0–130 characters, so it has to be sized for 130 — and a 59-character verse,
+ * which is most of them, then fills a third of a card that scripture is
+ * supposed to own. Variants that do not style `xl` simply inherit their base
+ * size, so this is additive.
+ */
 function verseSizeClass(text: string): string {
   if (text.length > 220) return 'scripture-verse-sm';
   if (text.length > 130) return 'scripture-verse-md';
-  return '';
+  if (text.length > 72) return '';
+  return 'scripture-verse-xl';
 }
 
 /**

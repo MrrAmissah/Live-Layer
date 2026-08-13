@@ -459,9 +459,9 @@ body.gfx-transparent {
   --gfx-split-tall-camera-w: 720px;
   --gfx-split-tall-camera-h: 1080px;
   --gfx-split-tall-safe-x: 772px;
-  --gfx-split-tall-safe-y: 212px;
+  --gfx-split-tall-safe-y: 244px;
   --gfx-split-tall-safe-w: 1096px;
-  --gfx-split-tall-safe-h: 762px;
+  --gfx-split-tall-safe-h: 610px;
 
   font-family: var(--gfx-font-text);
   color: var(--gfx-paper-cool);
@@ -3543,13 +3543,41 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='split-wide'] .scripture-verse-sm { font-size: 31px; line-height: 1.29; }
 .gfx-scripture[data-variant='split-wide'] .scripture-translation { font-size: 21px; }
 
-/* `tall` is wider and shorter: the measure takes more per line, so the same
-   verse needs fewer of them and can hold a larger size before it overflows. */
-.gfx-scripture[data-variant='split-tall'] .scripture-ref { font-size: 42px; }
-.gfx-scripture[data-variant='split-tall'] .scripture-verse { font-size: 50px; line-height: 1.3; }
-.gfx-scripture[data-variant='split-tall'] .scripture-verse-md { font-size: 42px; line-height: 1.29; }
-.gfx-scripture[data-variant='split-tall'] .scripture-verse-sm { font-size: 34px; line-height: 1.28; }
-.gfx-scripture[data-variant='split-tall'] .scripture-translation { font-size: 22px; }
+/**
+ * `tall` IS THE LAYOUT WHERE SCRIPTURE IS THE HERO.
+ *
+ * It is not a wider copy of `wide`, and setting it as one is what made it look
+ * lost: the same 50px in a 984px measure that `wide` uses in 740px reads as
+ * small type marooned in a big card. Here the camera is a narrow vertical slot
+ * and scripture owns the entire right half of the frame — the verse is the shot,
+ * so it is set to fill the card rather than to sit politely inside it.
+ *
+ * Sized against the card the plate actually paints (1096x610 at
+ * `--gfx-split-tall-safe-*`, re-cut 13 Aug), measured with `--plate`: a normal
+ * two-to-three line verse now occupies most of the height instead of a third of
+ * it, and the steps below keep the longest passage in the corpus inside the
+ * card. The step thresholds come from the shared `verseSizeClass`, but what each
+ * step MEANS is per layout, because the measure is.
+ */
+/**
+ * Each size is the largest that keeps its band's WORST case inside the card,
+ * solved rather than eyeballed. With measure W and usable verse height H, a
+ * passage of C characters needs about `C x 0.5 x F / W` lines, so
+ * `F <= sqrt(H x W / (0.62 x C))`. For tall (W 984, H ~398): 72 chars allows
+ * 93, 130 allows 69, 220 allows 53, 250 allows 50. Hence 80 / 68 / 53 / 46,
+ * each with headroom, and every one verified with `--plate` against the real
+ * card rather than trusted from the arithmetic.
+ */
+.gfx-scripture[data-variant='split-tall'] .scripture-ref { font-size: 54px; }
+.gfx-scripture[data-variant='split-tall'] .scripture-verse { font-size: 68px; line-height: 1.24; }
+/* After the base, not before: the element carries both classes and these tie on
+   specificity, so source order is what decides. Ordered wrong, `xl` silently
+   did nothing and a short verse stayed at the size chosen for a 130-character
+   one — the exact fault this band exists to fix. */
+.gfx-scripture[data-variant='split-tall'] .scripture-verse-xl { font-size: 80px; line-height: 1.22; }
+.gfx-scripture[data-variant='split-tall'] .scripture-verse-md { font-size: 53px; line-height: 1.26; }
+.gfx-scripture[data-variant='split-tall'] .scripture-verse-sm { font-size: 46px; line-height: 1.27; }
+.gfx-scripture[data-variant='split-tall'] .scripture-translation { font-size: 26px; }
 
 /* Fades rather than travels. The shared band animation slides up from the
    bottom of the frame, which is where these are not, and type sitting on a card

@@ -45,15 +45,12 @@ describe('one screen at a time', () => {
 });
 
 describe('presence across the whole rig', () => {
-  it('one quiet screen makes the whole reading stale', () => {
-    // The load-bearing rule. "Some of the outputs are alive" is not something an
-    // operator can act on, and reporting fresh while a screen is down is the
-    // exact failure the single record produced.
+  it('names a screen that has gone quiet, whatever the pill decides', () => {
+    // `stalledOutputs` is the "which screen stopped" answer, and it is separate
+    // from the pill's "is it on air" answer on purpose — see the pill tests
+    // below, where a quiet OFF-AIR screen deliberately stops speaking for the
+    // rig. Losing it here would put that failure back into silence.
     const outputs = rig(screen('a'), screen('b', { lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }));
-    // `worstOutput` is what every surface reduces through, and it must pick the
-    // quiet one so the pill falls to UNVERIFIED rather than reporting the
-    // survivor's healthy reading.
-    expect(worstOutput(outputs, NOW)?.outputId).toBe('b');
     expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['b']);
   });
 
@@ -85,28 +82,59 @@ describe('which screen speaks for the rig', () => {
     expect(worstOutput({}, NOW)).toBeNull();
   });
 
-  it('prefers a stale screen over every live one', () => {
-    const outputs = rig(screen('live'), screen('gone', { lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }));
-    expect(worstOutput(outputs, NOW)?.outputId).toBe('gone');
+  /**
+   * THE RULE THAT MAKES A TWO-SCREEN RIG READABLE.
+   *
+   * The main and split scenes are alternatives — exactly one is live — so the
+   * other's browser source is off-air by design and reports hidden or inactive
+   * for the whole service. Letting the weakest of ALL screens speak pinned the
+   * pill to SOURCE HIDDEN permanently: a fault nobody can fix, about a screen
+   * nobody is watching. A status light that is always red is furniture.
+   */
+  it('ignores a screen that is off-air by design', () => {
+    expect(
+      worstOutput(rig(screen('live'), screen('other-scene', { sourceVisible: false })), NOW)?.outputId
+    ).toBe('live');
+    expect(
+      worstOutput(rig(screen('live'), screen('other-scene', { sourceActive: false })), NOW)?.outputId
+    ).toBe('live');
   });
 
-  it('prefers hidden over inactive, and inactive over active', () => {
+  it('ignores a screen that has gone quiet while another is carrying', () => {
+    // The pill answers "is what I commanded reaching air". It is; the split
+    // screen dying in a scene nobody is cutting to does not change that, and
+    // `describeStalledScreens` names it regardless.
+    const outputs = rig(screen('live'), screen('gone', { lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }));
+    expect(worstOutput(outputs, NOW)?.outputId).toBe('live');
+    expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['gone']);
+  });
+
+  it('speaks for the rig again the moment NOTHING is carrying', () => {
+    // Now it is real news: no live source is showing this graphic. That covers
+    // a scene without the Live Layer source in it, and the case that matters —
+    // the operator cuts TO the split scene and its source is dead.
     expect(
-      worstOutput(rig(screen('active'), screen('hidden', { sourceVisible: false })), NOW)?.outputId
-    ).toBe('hidden');
+      worstOutput(rig(screen('a', { sourceVisible: false }), screen('b', { sourceActive: false })), NOW)?.outputId
+    ).toBe('a'); // hidden outranks inactive
+    const dead = rig(
+      screen('main-offair', { sourceVisible: false }),
+      screen('split-dead', { lastSeenAt: NOW - OUTPUT_STALE_MS - 1 })
+    );
+    expect(worstOutput(dead, NOW)?.outputId).toBe('split-dead'); // stale outranks all
+  });
+
+  it('still ranks the weakest WITHIN the screens that are carrying', () => {
+    // Two sources in the same live scene, one with its eye off: that is a real
+    // fault on air, and the pill must say so.
     expect(
-      worstOutput(rig(screen('active'), screen('off', { sourceActive: false })), NOW)?.outputId
-    ).toBe('off');
-    expect(
-      worstOutput(rig(screen('off', { sourceActive: false }), screen('hidden', { sourceVisible: false })), NOW)
-        ?.outputId
-    ).toBe('hidden');
+      worstOutput(rig(screen('ok'), screen('eye-off', { sourceVisible: false }), screen('ok2')), NOW)?.outputId
+    ).toBe('ok');
   });
 
   it('prefers an unbound page over an active source, because it claims less', () => {
-    // A plain browser tab reports no host binding at all. Reading the OBS source
-    // instead would let the desk say OUTPUT ACTIVE about a screen whose state
-    // nobody has measured.
+    // A plain browser tab reports no host binding at all, so it is taken at its
+    // word and counts as carrying — but it claims less than an OBS source that
+    // says it is active, so it is still the one that speaks.
     const outputs = rig(screen('obs'), screen('tab', { sourceActive: null, sourceVisible: null }));
     expect(worstOutput(outputs, NOW)?.outputId).toBe('tab');
   });
