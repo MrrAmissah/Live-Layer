@@ -134,6 +134,7 @@ export default function StudioRundownPanel({ showItems = true }: { showItems?: b
                 lastSent={item.id === activeItemId}
                 onSelect={() => rd.setSelectedItem(item.id)}
                 onToggleDone={() => rd.toggleDone(item.id)}
+                onSetSceneCue={(cue) => rd.setSceneCue(item.id, cue)}
                 onMoveUp={() => rd.moveItemUp(item.id)}
                 onMoveDown={() => rd.moveItemDown(item.id)}
                 onDuplicate={() => rd.duplicateItem(item.id)}

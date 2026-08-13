@@ -10,6 +10,7 @@ interface Props {
   onMoveDown: (itemId: string) => void;
   onDuplicate: (itemId: string) => void;
   onDelete: (itemId: string) => void;
+  onSetSceneCue: (itemId: string, cue: string) => void;
 }
 
 /** Items of the active rundown (R2 — management only). */
@@ -21,7 +22,8 @@ export default function RundownItemList({
   onMoveUp,
   onMoveDown,
   onDuplicate,
-  onDelete
+  onDelete,
+  onSetSceneCue
 }: Props) {
   return (
     <div className="rd-items">
@@ -45,6 +47,7 @@ export default function RundownItemList({
               onMoveDown={() => onMoveDown(item.id)}
               onDuplicate={() => onDuplicate(item.id)}
               onDelete={() => onDelete(item.id)}
+              onSetSceneCue={(cue) => onSetSceneCue(item.id, cue)}
             />
           ))}
         </ul>

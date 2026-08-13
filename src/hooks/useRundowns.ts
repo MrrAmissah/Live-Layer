@@ -3,6 +3,7 @@ import type { GraphicInstance } from '../types/graphics';
 import type { Rundown, RundownItem, RundownItemSource, RundownStoreState } from '../types/rundown';
 import { useLiveLayerStore } from '../store/useLiveLayerStore';
 import * as store from '../lib/rundown/rundownStore';
+import { writeSceneCue } from '../lib/rundown/sceneCue';
 import { templateRegistry } from '../components/templates/registry';
 import { createDraftValues } from '../lib/draftSeed';
 
@@ -158,6 +159,17 @@ export function useRundowns() {
     moveItemTo: (itemId: string, toIndex: number) =>
       activeRundownId && run(() => store.moveItemTo(activeRundownId, itemId, toIndex)),
     toggleDone: (itemId: string) => activeRundownId && run(() => store.toggleItemDone(activeRundownId, itemId)),
+    /**
+     * The OBS scene this item cuts to when it airs. Stored as an `obs:` line in
+     * the item's notes so any other note the operator keeps survives beside it
+     * (`lib/rundown/sceneCue.ts`). Publishes nothing — a cue is preparation.
+     */
+    setSceneCue: (itemId: string, cue: string) =>
+      activeRundownId &&
+      run(() => {
+        const item = store.getRundown(activeRundownId)?.items.find((entry) => entry.id === itemId);
+        store.updateItem(activeRundownId, itemId, { notes: writeSceneCue(item?.notes, cue) ?? '' });
+      }),
     setSelectedItem: (itemId: string | undefined) => activeRundownId && run(() => store.setSelectedItem(activeRundownId, itemId))
   };
 }

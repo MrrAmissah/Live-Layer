@@ -91,7 +91,8 @@ describe('the decision table', () => {
       phrase: 'Send failed',
       tone: 'failed'
     });
-    expect(describeProgramStatus(program({ status: 'clear' }), null, NOW)).toEqual({ pill: 'CLEAR', phrase: 'Clear' , tone: 'idle' });
+    // Deliberately not the word "CLEAR": that is what the button beside it says.
+    expect(describeProgramStatus(program({ status: 'clear' }), null, NOW)).toEqual({ pill: 'NO GRAPHIC', phrase: 'Clear', tone: 'idle' });
   });
 });
 

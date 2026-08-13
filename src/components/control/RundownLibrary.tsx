@@ -140,6 +140,7 @@ export default function RundownLibrary() {
             selectedItemId={active.selectedItemId}
             onSelect={(id) => rd.setSelectedItem(active.selectedItemId === id ? undefined : id)}
             onToggleDone={(id) => rd.toggleDone(id)}
+            onSetSceneCue={(id, cue) => rd.setSceneCue(id, cue)}
             onMoveUp={(id) => rd.moveItemUp(id)}
             onMoveDown={(id) => rd.moveItemDown(id)}
             onDuplicate={(id) => rd.duplicateItem(id)}

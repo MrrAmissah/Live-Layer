@@ -1,5 +1,6 @@
 import { templateRegistry } from '../templates/registry';
 import type { RundownItem } from '../../types/rundown';
+import { readSceneCue } from '../../lib/rundown/sceneCue';
 
 function templateName(templateId: string): string {
   return templateRegistry.find((item) => item.id === templateId)?.name ?? templateId;
@@ -22,6 +23,8 @@ interface Props {
   onMoveDown: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  /** Set or clear this item's OBS scene cue. Empty string removes it. */
+  onSetSceneCue: (cue: string) => void;
 }
 
 /**
@@ -40,8 +43,10 @@ export default function RundownItemCard({
   onMoveUp,
   onMoveDown,
   onDuplicate,
-  onDelete
+  onDelete,
+  onSetSceneCue
 }: Props) {
+  const cue = readSceneCue(item.notes) ?? '';
   return (
     <li className={`rd-item ${selected ? 'rd-item--selected' : ''} ${item.done ? 'rd-item--done' : ''}`}>
       <button type="button" className="rd-item__main" onClick={onSelect} aria-pressed={selected}>
@@ -80,6 +85,35 @@ export default function RundownItemCard({
         <button type="button" className="rd-icon" onClick={onDuplicate} aria-label={`Duplicate ${item.title}`} title="Duplicate">⧉</button>
         <button type="button" className="rd-icon rd-icon--danger" onClick={onDelete} aria-label={`Delete ${item.title}`} title="Delete">✕</button>
       </span>
+      {/**
+        * THE SCENE CUE, on the selected item only.
+        *
+        * The bridge switches an OBS scene when this item goes to air, and it
+        * matches on a NAME. Titles are auto-derived from the graphic, so an
+        * untouched rundown says "Psalm 90:1" — which names no scene, is refused
+        * correctly, and switches nothing. Until now there was no field for the
+        * cue at all: `notes` existed in the data and in the store's patch, and
+        * nothing in the product could write it. The bridge was unreachable by
+        * an operator.
+        *
+        * On the selected item only, because a cue per row would turn a running
+        * order into a form.
+        */}
+      {selected ? (
+        <label className="rd-item__cue">
+          <span className="rd-item__cue-label">OBS scene</span>
+          <input
+            className="field__input rd-item__cue-input"
+            value={cue}
+            placeholder="e.g. The Word — leave empty for no scene change"
+            aria-label={`OBS scene for ${item.title}`}
+            onChange={(event) => onSetSceneCue(event.target.value)}
+          />
+          <span className="rd-item__cue-hint">
+            Taking this item cuts OBS to this scene. The name on the desk stays whatever you called it.
+          </span>
+        </label>
+      ) : null}
     </li>
   );
 }

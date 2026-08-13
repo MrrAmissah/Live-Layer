@@ -91,6 +91,52 @@ export default function DockSettingsTab({ relay }: DockSettingsTabProps) {
       </section>
 
       {/**
+        * THE WORKSPACES THE DOCK CANNOT HOLD.
+        *
+        * The dock is four tabs by design — Live, Queue, Quick Edit, Settings —
+        * and that is right for the surface an operator drives during a service.
+        * But it meant Scripture was unreachable from inside OBS entirely: an
+        * operator working only in the dock could take a scripture card that was
+        * already queued and could edit its fields, and had no way to LOOK UP a
+        * verse. On a convention where scripture is the main graphic, that is a
+        * gap rather than a simplification.
+        *
+        * These open in a window rather than becoming tabs. Both want the
+        * studio's width — Scripture for its passage list, Screens for its
+        * previews — and a new window gets exactly that, which is the move this
+        * tab already makes for Setup and the output preview.
+        */}
+      <section className="dock-card">
+        <span className="ll-kicker">Workspaces</span>
+        <p className="dock-set__row dock-set__row--static">
+          <span className="dock-set__label">
+            <span className="dock-set__name">Find a passage</span>
+            <span className="dock-set__hint">
+              Look up scripture, stage it, and send it to the queue or a rundown.
+            </span>
+          </span>
+        </p>
+        <a
+          className="btn btn--secondary btn--sm dock-set__link"
+          href="/control/scripture"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open Scripture
+          <Icon name="external" size={13} />
+        </a>
+        <a
+          className="btn btn--secondary btn--sm dock-set__link"
+          href="/control/rundown"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open Rundown
+          <Icon name="external" size={13} />
+        </a>
+      </section>
+
+      {/**
         * Screens opens in a WINDOW, it is not a fifth tab.
         *
         * The dock is the guided surface inside OBS and everything in it is a

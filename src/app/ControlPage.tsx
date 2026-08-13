@@ -15,6 +15,7 @@ import {
   cloneRundownGraphic
 } from '../lib/rundown/rundownStore';
 import { planTakeNext } from '../lib/rundown/takeNext';
+import { sceneLabelFor } from '../lib/rundown/sceneCue';
 import { isTakeNextShortcut } from '../lib/takeNextShortcut';
 import type { GraphicInstance, TemplateDefinition } from '../types/graphics';
 import type { LayoutSettings } from '../types/layout';
@@ -49,20 +50,6 @@ const OBS_BRIDGE = (() => {
     return '';
   }
 })();
-
-/**
- * The scene this rundown item names, or undefined.
- *
- * An explicit `obs:` line in the item's notes wins, so the operator can keep a
- * human title on screen ("Rev. Mensah — Welcome") and still name a scene. That
- * is not polish: titles are AUTO-DERIVED from the graphic
- * (`deriveItemTitle`), so an untouched rundown holds things like "Psalm 90:1"
- * — which the bridge refuses, correctly, and nothing switches.
- */
-function obsCueFor(item: { title?: string; notes?: string } | undefined): string | undefined {
-  const cue = /(?:^|\n)\s*obs:\s*(.+)/i.exec(item?.notes ?? '')?.[1]?.trim();
-  return cue || item?.title || undefined;
-}
 
 /** Deep clone so a taken graphic shares no references with editable draft state. */
 function snapshot<T>(value: T): T {
@@ -226,7 +213,7 @@ export default function ControlPage() {
       const item = rundownId
         ? getRundown(rundownId)?.items.find((entry) => entry.id === source.sourceId)
         : undefined;
-      const label = obsCueFor(item);
+      const label = sceneLabelFor(item);
       if (label) {
         void fetch(`${OBS_BRIDGE}/goto?name=${encodeURIComponent(label)}`).catch(() => {});
       }

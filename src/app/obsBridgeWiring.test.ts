@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { sceneLabelFor } from '../lib/rundown/sceneCue';
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const controlPage = read('src/app/ControlPage.tsx');
@@ -90,14 +91,15 @@ describe('the OBS bridge hook', () => {
  * title stay human while still naming a scene.
  */
 describe('the notes cue', () => {
-  const obsCueFor = (item: { title?: string; notes?: string } | undefined): string | undefined => {
-    const cue = /(?:^|\n)\s*obs:\s*(.+)/i.exec(item?.notes ?? '')?.[1]?.trim();
-    return cue || item?.title || undefined;
-  };
+  const obsCueFor = sceneLabelFor;
 
-  it('is the source of truth in ControlPage, not a copy', () => {
-    // This test re-implements the regex; if the two drift the test is theatre.
-    expect(controlPage).toContain("/(?:^|\\n)\\s*obs:\\s*(.+)/i");
+  it('is resolved by the shared module, not a copy in the page', () => {
+    // It WAS a copy — the same regular expression here and in ControlPage, and
+    // the rundown UI needed a third to let anyone type a cue in the first
+    // place. Three copies of one pattern is how a cue that looks set stops
+    // matching. One module now; the page calls it and so does the editor.
+    expect(controlPage).toContain('sceneLabelFor(item)');
+    expect(controlPage).not.toMatch(/obs:\\s\*/);
   });
 
   it('prefers the cue over the title', () => {

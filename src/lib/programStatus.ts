@@ -72,7 +72,7 @@ const TONE_BY_PILL: Record<ProgramStatusWords['pill'], ProgramStatusTone> = {
   'SOURCE INACTIVE': 'attention',
   UNVERIFIED: 'attention',
   FAILED: 'failed',
-  CLEAR: 'idle'
+  'NO GRAPHIC': 'idle'
 };
 
 export interface ProgramStatusWords {
@@ -85,7 +85,7 @@ export interface ProgramStatusWords {
     | 'SOURCE INACTIVE'
     | 'UNVERIFIED'
     | 'FAILED'
-    | 'CLEAR';
+    | 'NO GRAPHIC';
   /** Sentence-case phrase for surfaces with room. */
   phrase:
     | 'Awaiting output'
@@ -154,7 +154,15 @@ export function describeProgramStatus(
     case 'failed':
       return { pill: 'FAILED', phrase: 'Send failed' , tone: TONE_BY_PILL['FAILED'] };
     default:
-      return { pill: 'CLEAR', phrase: 'Clear' , tone: TONE_BY_PILL['CLEAR'] };
+      /**
+       * "NO GRAPHIC", not "CLEAR".
+       *
+       * This pill sat directly above a button labelled CLEAR on the dock — a
+       * state and an action, one word, a hundred pixels apart, on the surface
+       * an operator uses under pressure. The state is the same; only the word
+       * that could be misread as an instruction is gone.
+       */
+      return { pill: 'NO GRAPHIC', phrase: 'Clear', tone: TONE_BY_PILL['NO GRAPHIC'] };
   }
 }
 
