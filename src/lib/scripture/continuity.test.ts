@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parseSpokenReference } from './spokenReference';
 import { readCorrection } from './referenceCorrection';
-import { EMPTY_STACK, promote, recallPrevious, newestReference, type PassageStack } from './passageStack';
+import {
+  EMPTY_STACK,
+  promote,
+  recallPrevious,
+  newestReference,
+  type ConfirmedPassage,
+  type PassageStack
+} from './passageStack';
 import { parseScriptureReference } from './parseReference';
 import { applyTranscriptEvent, EMPTY_STREAM, interimText } from './transcriptStream';
 import type { ScriptureLookupResult } from '../../types/scripture';
@@ -503,5 +510,148 @@ describe('recalling the previous passage really promotes it', () => {
     p.recall();
     expect(p.current()).toBe('Romans 8:28');
     expect(p.previous()).toBe('John 3:16');
+  });
+});
+
+describe('a provisional never becomes durable', () => {
+  /**
+   * The safety defect: `previewProvisional` promoted into the same stack the
+   * final uses, so a guess made from half a sentence survived the final that
+   * refused it — and, since the stack decides what Accept applies, a reading the
+   * recogniser had already changed its mind about could be put into the draft.
+   *
+   * Provisional is now ephemeral, held for exactly one utterance and discarded
+   * when the final arrives, whatever the final turns out to be.
+   */
+  function panel() {
+    let stack: PassageStack = EMPTY_STACK;
+    let preview: ConfirmedPassage | null = null;
+    let accepted: string | null = null;
+    const entry = (canonical: string, translation = 'KJV'): ConfirmedPassage => {
+      const parsed = parseScriptureReference(canonical);
+      if (!parsed.ok) throw new Error(canonical);
+      return {
+        reference: parsed.reference,
+        passage: { reference: canonical, translation, text: `text of ${canonical}` } as ScriptureLookupResult,
+        heard: canonical,
+        interpretation: `read as ${canonical}`
+      };
+    };
+    const identity = (e: ConfirmedPassage) => `${e.reference.canonical}|${e.passage.translation}`;
+    return {
+      /** A stable provisional whose lookup succeeded, mid-utterance. */
+      provisional(canonical: string) {
+        preview = entry(canonical);
+      },
+      /** The final confirmed a reference and retrieval succeeded. */
+      finalConfirms(canonical: string, translation = 'KJV') {
+        preview = null;
+        stack = promote(stack, entry(canonical, translation));
+      },
+      /** The final refused, or its lookup failed. Same rule either way. */
+      finalRefuses() {
+        preview = null;
+      },
+      accept() {
+        const current = stack.current;
+        if (preview || !current || accepted === identity(current)) return null;
+        accepted = identity(current);
+        return current.passage.reference;
+      },
+      canAccept: () => Boolean(!preview && stack.current && accepted !== identity(stack.current!)),
+      shown: () => (preview ?? stack.current)?.passage.reference ?? null,
+      isProvisional: () => preview !== null,
+      current: () => stack.current?.passage.reference ?? null,
+      previous: () => stack.previous?.passage.reference ?? null
+    };
+  }
+
+  it('1 — a refused final leaves the confirmed passage untouched', () => {
+    const p = panel();
+    p.finalConfirms('Romans 8:28');
+    p.accept();
+    p.provisional('John 3:16');
+    expect(p.shown()).toBe('John 3:16'); // rendered, because it retrieved
+    expect(p.canAccept(), 'a provisional was acceptable').toBe(false);
+
+    p.finalRefuses();
+    expect(p.current(), 'a refused provisional survived into the stack').toBe('Romans 8:28');
+    expect(p.previous(), 'a provisional rewrote history').toBeNull();
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+
+  it('2 — with nothing confirmed, a refused final leaves no passage behind', () => {
+    const p = panel();
+    p.provisional('John 3:16');
+    expect(p.shown()).toBe('John 3:16');
+    p.finalRefuses();
+    expect(p.shown(), 'a guess became Ready to review merely because speech ended').toBeNull();
+    expect(p.canAccept()).toBe(false);
+  });
+
+  it('3 — a confirming final promotes once, not twice', () => {
+    const p = panel();
+    p.finalConfirms('Romans 8:28');
+    p.provisional('John 3:16');
+    p.finalConfirms('John 3:16');
+    expect(p.current()).toBe('John 3:16');
+    // Exactly one promotion: Romans moved to previous once, not pushed out by the
+    // provisional and then again by the final.
+    expect(p.previous()).toBe('Romans 8:28');
+  });
+
+  it('4 — a final that differs promotes only itself', () => {
+    const p = panel();
+    p.provisional('John 3:16');
+    p.finalConfirms('John 3:17');
+    expect(p.current()).toBe('John 3:17');
+    expect(p.previous(), 'the provisional entered history').toBeNull();
+  });
+
+  it('5 — a failed final lookup leaves the prior confirmed passage', () => {
+    const p = panel();
+    p.finalConfirms('Romans 8:28');
+    p.provisional('John 3:16');
+    p.finalRefuses(); // a lookup failure is indistinguishable here, by design
+    expect(p.current()).toBe('Romans 8:28');
+  });
+
+  it('6 — a provisional is never acceptable', () => {
+    const p = panel();
+    p.finalConfirms('Romans 8:28');
+    p.provisional('John 3:16');
+    expect(p.canAccept()).toBe(false);
+    expect(p.accept()).toBeNull();
+  });
+
+  it('7 — re-confirming an accepted passage does not offer it again', () => {
+    const p = panel();
+    p.finalConfirms('Romans 8:28');
+    expect(p.accept()).toBe('Romans 8:28');
+    expect(p.canAccept()).toBe(false);
+    // The same utterance heard again — a duplicate Accept would mean a duplicate
+    // recent, and a second draft write for one operator decision.
+    p.finalConfirms('Romans 8:28');
+    expect(p.canAccept(), 'an already-accepted passage was offered again').toBe(false);
+    expect(p.accept()).toBeNull();
+  });
+
+  it('8 — a genuinely new passage is offered', () => {
+    const p = panel();
+    p.finalConfirms('Romans 8:28');
+    p.accept();
+    p.finalConfirms('John 3:16');
+    expect(p.canAccept()).toBe(true);
+    expect(p.accept()).toBe('John 3:16');
+  });
+
+  it('treats the same reference in another translation as a new passage', () => {
+    // Different content for the same canonical reference: accepting one must not
+    // make the other look already done.
+    const p = panel();
+    p.finalConfirms('John 3:16', 'KJV');
+    p.accept();
+    p.finalConfirms('John 3:16', 'WEB');
+    expect(p.canAccept()).toBe(true);
   });
 });

@@ -408,17 +408,32 @@ describe('the panel cannot air or stage on its own', () => {
      * disabled from the model rather than by markup.
      */
     expect(code).toContain('const current = stackRef.current.current;');
-    expect(code).toMatch(/if \(!current \|\| acceptedRef === current\.reference\.canonical\) return;/);
-    expect(code).toContain('canAccept={acceptedRef !== confirmed.reference.canonical}');
+    // A provisional is refused by the handler itself, not only by a disabled
+    // button — a guess the final never confirmed must never reach the draft.
+    expect(code).toMatch(/if \(preview \|\| !current \|\| acceptedRef === acceptIdentity\(current\)\) return;/);
+    expect(code).toContain('canAccept={!preview && !!confirmed && acceptedRef !== acceptIdentity(confirmed)}');
     const card = readFileSync('src/components/control/DetectedScripture.tsx', 'utf8');
     expect(card).toContain('disabled={!canAccept}');
   });
 
   it('cannot accept anything the operator is not looking at', () => {
-    // One value feeds the card, the button's enabled state, and what Accept
-    // applies — so "what is displayed" and "what would be accepted" cannot drift.
-    expect(code).toContain('passage={confirmed.passage}');
-    expect(code).toContain('reference={confirmed.passage.reference}');
+    // The card shows the provisional when there is one and the durable passage
+    // otherwise; Accept only ever applies the durable one, and is refused
+    // entirely while a provisional is on screen.
+    expect(code).toContain('const shown = preview ?? confirmed;');
+    expect(code).toContain('passage={shown.passage}');
     expect(code).not.toContain('acceptCandidate(state)');
+  });
+
+  it('never promotes a provisional into the durable stack', () => {
+    /**
+     * The safety defect this section exists for. `previewProvisional` used to call
+     * `remember`, so a guess made from half a sentence entered the stack — and
+     * since the stack is what Accept applies, a reading the final never confirmed
+     * could be put into the draft.
+     */
+    const preview = code.slice(code.indexOf('const previewProvisional'), code.indexOf('const resolveCandidate'));
+    expect(preview).toContain('setPreview(');
+    expect(preview, 'a provisional must never reach the durable stack').not.toContain('remember(');
   });
 });

@@ -25,6 +25,7 @@ import {
   recallPrevious,
   clearStack,
   newestReference,
+  type ConfirmedPassage,
   type PassageStack
 } from '../../lib/scripture/passageStack';
 import type { CanonicalReference } from '../../lib/scripture/parseReference';
@@ -81,7 +82,22 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    */
   const [listen, setListen] = useState(false);
   /** True while the card is showing a guess from speech still in progress. */
-  const [provisional, setProvisional] = useState(false);
+  /**
+   * A guess from speech still in progress, retrieved and rendered — and kept OUT
+   * of the durable stack.
+   *
+   * It used to be promoted like any other passage, which meant a reading the
+   * final never confirmed stayed on screen as "Ready to review" the moment the
+   * utterance ended. Since the durable stack also decides what Accept applies,
+   * that made an unconfirmed guess acceptable: the operator could put a verse the
+   * recogniser had already changed its mind about into the draft.
+   *
+   * So it lives here instead, for exactly one utterance. The final either
+   * promotes its own result into the stack or this is discarded — there is no
+   * path by which a provisional becomes durable.
+   */
+  const [preview, setPreview] = useState<ConfirmedPassage | null>(null);
+  const provisional = preview !== null;
   /**
    * A reference has been heard once and is waiting to be heard again.
    *
@@ -116,11 +132,27 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
   ) => {
     stackRef.current = promote(stackRef.current, { reference, passage, heard, interpretation }, alternatives);
     setStack(stackRef.current);
-    // A passage that has just arrived has not been accepted. Tracked by reference
-    // rather than by a flag, so re-detecting what is already accepted does not
-    // silently offer to accept it twice.
-    setAcceptedRef(null);
+    /**
+     * `acceptedRef` is deliberately NOT reset here.
+     *
+     * It used to be cleared on every promotion, which contradicted its own reason
+     * for existing: re-confirming the passage already accepted would offer to
+     * accept it a second time and add a duplicate recent. Acceptance is a fact
+     * about a PASSAGE, so it is compared by identity instead — the same passage
+     * stays accepted, a different one is offered.
+     */
   };
+
+  /**
+   * What "the same passage" means for acceptance.
+   *
+   * Canonical reference is not enough on its own: the operator can change
+   * translation, and John 3:16 in one translation is different content from John
+   * 3:16 in another. Accepting the first must not make the second look already
+   * done.
+   */
+  const acceptIdentity = (entry: ConfirmedPassage) =>
+    `${entry.reference.canonical}|${entry.passage.translation}`;
   const forgetConfirmed = () => {
     stackRef.current = clearStack();
     setStack(stackRef.current);
@@ -298,7 +330,13 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       }
 
       if (update.finalText !== null) {
-        setProvisional(false);
+        /**
+         * The provisional is discarded HERE, before the final is interpreted, and
+         * unconditionally. Whatever the final turns out to be — a confirmation, a
+         * different verse, a refusal or a failed lookup — the guess made from half
+         * the sentence has been superseded and may not survive on its own.
+         */
+        setPreview(null);
         setDetecting(false);
         // The authoritative answer supersedes every provisional vote; nothing from
         // this utterance may count toward the next one.
@@ -451,8 +489,13 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       liveLatency.mark(timelineId, 'lookup-done');
       liveLatency.mark(timelineId, 'first-verse');
     }
-    setProvisional(true);
-    remember(candidate.reference, found.result, source.transcript, candidate.interpretation);
+    // EPHEMERAL. Not `remember` — nothing provisional may enter the durable stack.
+    setPreview({
+      reference: candidate.reference,
+      passage: found.result,
+      heard: source.transcript,
+      interpretation: candidate.interpretation
+    });
     /**
      * Functional, like every other write here. `source` was captured BEFORE a
      * lookup that takes ~0.31 s when the passage is not cached, so writing it back
@@ -572,7 +615,7 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
       return;
     }
     setCorrection('');
-    setProvisional(false);
+    setPreview(null);
     remember(amendment.reference, found.result, utterance, amendment.interpretation);
     setState((previous) =>
       passageResolved(
@@ -609,8 +652,10 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    */
   const onAcceptClick = () => {
     const current = stackRef.current.current;
-    if (!current || acceptedRef === current.reference.canonical) return;
-    setAcceptedRef(current.reference.canonical);
+    // A provisional is never acceptable, and the card is showing it rather than
+    // the durable passage — so there is nothing here the operator has approved.
+    if (preview || !current || acceptedRef === acceptIdentity(current)) return;
+    setAcceptedRef(acceptIdentity(current));
     onAccept(current.passage, translationId);
   };
 
@@ -662,6 +707,12 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
     .filter((candidate, index, all) =>
       all.findIndex((other) => other.reference.canonical === candidate.reference.canonical) === index
     );
+  /**
+   * What the operator is looking at: the provisional while one exists, otherwise
+   * the durable passage. Only one of them can be on screen, and only the durable
+   * one is ever acceptable.
+   */
+  const shown = preview ?? confirmed;
   const resolving = state.status === 'resolving';
   const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
 
@@ -802,19 +853,24 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
         what was recognised and the failure line says it could not be retrieved —
         but nothing is presented as a passage until it is one.
       */}
-      {confirmed ? (
+      {shown ? (
         <DetectedScripture
-          reference={confirmed.passage.reference}
-          interpretation={confirmed.interpretation}
-          passage={confirmed.passage}
+          reference={shown.passage.reference}
+          interpretation={shown.interpretation}
+          passage={shown.passage}
           resolving={false}
-          accepted={acceptedRef === confirmed.reference.canonical}
-          canAccept={acceptedRef !== confirmed.reference.canonical}
+          /* Acceptance describes the DURABLE passage only. While a provisional is
+             on screen the card is showing something the final has not confirmed,
+             so there is nothing to accept and nothing that can be marked accepted. */
+          accepted={!preview && !!confirmed && acceptedRef === acceptIdentity(confirmed)}
+          canAccept={!preview && !!confirmed && acceptedRef !== acceptIdentity(confirmed)}
           onAccept={onAcceptClick}
           onDismiss={() => {
             // The operator's explicit clear — the ONE thing besides a valid
             // replacement that may remove a confirmed passage.
             forgetConfirmed();
+            setPreview(null);
+            setAcceptedRef(null);
             setCorrection('');
             setHeard('');
             setState((previous) => rejectCandidate(previous));
