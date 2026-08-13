@@ -105,7 +105,10 @@ async function cdpConnect(wsUrl) {
     pending.delete(msg.id);
     msg.error ? entry.reject(new Error(msg.error.message)) : entry.resolve(msg.result);
   });
+  const raw = new Set();
+  ws.addEventListener('message', (event) => raw.forEach((fn) => fn(event)));
   return {
+    on: (_type, fn) => raw.add(fn),
     send(method, params = {}, sessionId) {
       id += 1;
       const payload = { id, method, params };
@@ -167,15 +170,25 @@ async function launchChrome(startUrl) {
   return { child, wsUrl, port, userDataDir };
 }
 
-/** The page target's own debugger URL, once Chrome has opened one. */
-async function pageTarget(devtoolsPort, url) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+/**
+ * The page target ALREADY AT the wanted URL.
+ *
+ * Attaching to whatever page exists first gets `about:blank`, and navigating
+ * that to `http://` is a cross-process navigation: Chrome swaps the renderer,
+ * the execution context this session enabled is destroyed, and every later
+ * `Runtime.evaluate` hangs forever with no error — the script simply stops.
+ * That is the whole bug. Chrome is launched pointing at the URL, so the right
+ * move is to wait for the target that is already there rather than to steer a
+ * blank one into it.
+ */
+async function pageTarget(devtoolsPort) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
     const list = await fetch(`http://127.0.0.1:${devtoolsPort}/json/list`).then((r) => r.json());
     const page = list.find((t) => t.type === 'page');
     if (page?.webSocketDebuggerUrl) return page;
     await new Promise((r) => setTimeout(r, 150));
   }
-  throw new Error('Chrome never opened a page target');
+  throw new Error(`Chrome never opened a page target at ${url}`);
 }
 
 // --- the shot ----------------------------------------------------------------
@@ -225,13 +238,16 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
      })()`
   );
 
-  const { data } = await cdp.send(
+  console.log(`  [shoot] capturing ${variantId}…`);
+  const shot = await cdp.send(
     'Page.captureScreenshot',
     { format: 'png', captureBeyondViewport: false },
     sessionId
   );
+  console.log(`  [shoot] captureScreenshot returned keys=${Object.keys(shot ?? {})} bytes=${shot?.data?.length ?? 'none'}`);
   const file = path.join(outDir, `${templateId}--${variantId}${label ? `--${label}` : ''}.png`);
-  fs.writeFileSync(file, Buffer.from(data, 'base64'));
+  fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
+  console.log(`  [shoot] wrote ${file}`);
   return file;
 }
 
@@ -241,13 +257,38 @@ const templateId = opt.template || opt['all-variants'] || 'scripture-card';
 const caseName = opt.case || 'short';
 const values = CASES[templateId]?.[caseName] ?? CASES[templateId]?.short ?? {};
 
+console.log('[shoot] launching chrome…');
 const { child, port: devtoolsPort, userDataDir } = await launchChrome(`http://127.0.0.1:${port}/output`);
 const page = await pageTarget(devtoolsPort);
+console.log(`[shoot] page target: ${page.url}`);
 const cdp = await cdpConnect(page.webSocketDebuggerUrl);
 const sessionId = undefined; // connected to the page directly; no session needed
 try {
   await cdp.send('Page.enable', {}, sessionId);
+
+  /**
+   * Navigate BEFORE enabling Runtime, and enable it afterwards.
+   *
+   * Chrome opens `about:blank` regardless of the URL on its command line, so a
+   * navigation to `http://` always happens — and that is cross-process: the
+   * renderer is swapped and the execution context enabled beforehand is
+   * destroyed. `Runtime.evaluate` then hangs forever against a context that no
+   * longer exists, with no error, and the script simply stops with the page
+   * loaded and nothing captured. Enabling Runtime after the load binds to the
+   * context that actually exists.
+   */
+  const loaded = new Promise((resolve) => {
+    cdp.on?.('message', (event) => {
+      if (JSON.parse(event.data ?? '{}').method === 'Page.loadEventFired') resolve();
+    });
+    setTimeout(resolve, 10000);
+  });
+  console.log('[shoot] navigating…');
+  await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/output` }, sessionId);
+  await loaded;
   await cdp.send('Runtime.enable', {}, sessionId);
+  console.log('[shoot] loaded and Runtime enabled');
+  console.log('[shoot] metrics…');
   await cdp.send(
     'Emulation.setDeviceMetricsOverride',
     { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
@@ -256,7 +297,10 @@ try {
   // Transparent, so what lands on disk is what OBS composites over the camera.
   await cdp.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } }, sessionId);
 
-  await new Promise((r) => setTimeout(r, 2500));
+  console.log('[shoot] page settling…');
+  await new Promise((r) => setTimeout(r, 2200));
+  const where = await evaluate(cdp, sessionId, 'location.pathname');
+  console.log(`[shoot] page is at ${where}`);
 
   let variants = [opt.variant || 'blue-quote-card'];
   if (opt['all-variants']) {
