@@ -3158,7 +3158,21 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='blue-quote-card'] .scripture-plate {
   position: relative;
   display: block;
-  min-height: 326px;
+  /**
+   * THE CARD FITS THE VERSE.
+   *
+   * It was 326px whatever was in it — a floor sized for about three lines — so
+   * a one-line verse sat in a card with ~126px of empty ground under it and
+   * read as a slab with a sentence lost in the middle. There is no ticker under
+   * the scripture scene to justify holding that space back.
+   *
+   * The floor is now what one line actually needs (padding 140 + a line), so a
+   * short verse gets a short card and a long one still grows exactly as before.
+   * Paired with the `xl` type band below: a short verse gets a BIGGER setting
+   * rather than more emptiness, which is what makes the size match the verse
+   * instead of merely shrinking away from it.
+   */
+  min-height: 212px;
   padding: 76px 112px 64px 104px;
   border-radius: 0 64px 64px 64px;
   background:
@@ -3196,6 +3210,21 @@ body.gfx-transparent {
   line-height: 1.16;
 }
 
+/**
+ * A SHORT VERSE IS SET LARGER, not given more empty card.
+ *
+ * The bands are the shared `verseSizeClass` steps; what each one MEANS is per
+ * variant, because the measure is. `xl` (72 characters or fewer, which is most
+ * verses) reads at the distance this card is actually watched from, and uses
+ * the room a one-line verse would otherwise leave as ground. Ordered after the
+ * base rule because the element carries both classes and they tie on
+ * specificity — source order is what decides.
+ */
+.gfx-scripture[data-variant='blue-quote-card'] .scripture-verse-xl {
+  font-size: 66px;
+  line-height: 1.14;
+}
+
 .gfx-scripture[data-variant='blue-quote-card'] .scripture-verse-md {
   font-size: 45px;
 }
@@ -3230,12 +3259,22 @@ body.gfx-transparent {
   filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.34));
 }
 
-/* The theme chip carried the only saturated blue in the composition, next to a
-   gold rule on cream — the one element that read as belonging to a different
-   design. Gold on ink puts it in the same palette as the rule it sits beside. */
-.gfx-scripture[data-variant='classic-band'] .scripture-theme-chip {
-  color: var(--gfx-premium-accent);
-  background: rgba(11, 13, 18, 0.9);
+/**
+ * NO THEME CHIP ON THE BROADCAST VARIANTS.
+ *
+ * It carried the event theme — "PPC '26" under the convention pack — in the
+ * reference tab, beside the reference itself. On a scripture card the event is
+ * the one thing the room already knows and the stream already says elsewhere;
+ * what the tab is for is which passage this is. Recolouring it into the palette
+ * was the previous round's fix, and it was fixing the wrong thing: the chip did
+ * not belong there at all.
+ *
+ * The field is untouched. `themeTitle` still exists on the graphic and other
+ * variants still render it — these two simply do not.
+ */
+.gfx-scripture[data-variant='classic-band'] .scripture-theme-chip,
+.gfx-scripture[data-variant='reference-runner'] .scripture-theme-chip {
+  display: none;
 }
 
 /* Ink on cream, not mid-grey on cream: the label was the lowest-contrast
