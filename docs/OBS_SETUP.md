@@ -44,8 +44,28 @@ it; the server names a working alternative instead.
 
 ## Output Source
 
+A rig can run several output sources. Each one declares **which screen it is**
+in its URL, and scripture renders its own look per screen — the operator sets a
+verse once and the split scene, the house projectors and the full-frame source
+each show it their own way, with nothing to switch mid-service.
+
+| screen | URL | what it is |
+|---|---|---|
+| main | `/output` | the full-frame source. Any URL without a screen is this one. |
+| lower | `/output?screen=lower` | a source that only carries the band at the foot of frame. |
+| split | `/output?screen=split` | the scene where the camera is scaled down and scripture owns the rest. |
+| house | `/output?screen=house` | the venue projectors and LED wall. Never reaches program. |
+
+**Copy these from the Screens page in the control surface, not from here.** It
+builds each address for your actual origin with the relay already included, and
+shows a live preview of what that screen is rendering. An address with a typo in
+`?screen=` falls back to the main screen without saying so.
+
+Only scripture varies by screen. Every other template renders identically on all
+of them.
+
 1. In OBS, add a new `Browser` source.
-2. Set the URL to `http://127.0.0.1:4173/output`.
+2. Set the URL to `http://127.0.0.1:4173/output` (or one of the screen URLs above).
 3. Set width to `1920` and height to `1080`.
 4. Leave `Shutdown source when not visible` **unchecked** — see below.
 5. Make sure `Local file` is unchecked and `Control audio via OBS` is disabled.

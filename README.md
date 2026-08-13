@@ -12,6 +12,10 @@ account, or the cloud. It runs as two browser surfaces you point OBS at:
 
 - **`/control`** — the operator surface: choose a graphic, edit its text, preview it, take it live, clear it.
 - **`/output`** — a transparent 1920×1080 overlay you add to OBS as a Browser Source.
+  One rig can run several: each Browser Source declares which **screen** it is
+  (`/output?screen=split`), and scripture then renders its own look on each —
+  set the verse once, the split scene and the house projectors follow. The
+  **Screens** page lists every screen with its exact address and a live preview.
 
 > **Status: alpha (v0.1).** The core loop — templates, live preview, Take/Clear,
 > auto-hide, presets, rundowns, import/export, and transparent output — works end
@@ -203,6 +207,12 @@ the matching `?relay=` control and output URLs.
 2. **Control** — add a **Custom Browser Dock** (`View → Docks → Custom Browser Docks`),
    URL `http://127.0.0.1:4173/control`.
 3. Pick a graphic, edit the text, press **Take live**; **Clear** to remove it.
+
+Running more than one output? Open **Screens** in the control surface. It lists
+every screen — main, lower third, split, house — with the exact address to paste
+(relay included), a live preview of what that screen is rendering, and whether
+it is reporting. Copy from there rather than assembling `?screen=` by hand: an
+address with a typo falls back to the main screen silently.
 
 Need to send the finished output to another PC or Mac? Render LiveLayer inside
 OBS first, then send the OBS scene/program over NDI using an OBS NDI workflow
