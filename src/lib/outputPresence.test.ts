@@ -3,7 +3,6 @@ import {
   OUTPUT_FORGET_MS,
   OUTPUT_STALE_MS,
   outputPresence,
-  overallPresence,
   stalledOutputs,
   worstOutput
 } from './outputPresence';
@@ -44,20 +43,15 @@ describe('one screen at a time', () => {
 });
 
 describe('presence across the whole rig', () => {
-  it('is unknown until something speaks', () => {
-    expect(overallPresence({}, NOW)).toBe('unknown');
-  });
-
-  it('is fresh only while every known screen is fresh', () => {
-    expect(overallPresence(rig(screen('a'), screen('b')), NOW)).toBe('fresh');
-  });
-
   it('one quiet screen makes the whole reading stale', () => {
     // The load-bearing rule. "Some of the outputs are alive" is not something an
     // operator can act on, and reporting fresh while a screen is down is the
     // exact failure the single record produced.
     const outputs = rig(screen('a'), screen('b', { lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }));
-    expect(overallPresence(outputs, NOW)).toBe('stale');
+    // `worstOutput` is what every surface reduces through, and it must pick the
+    // quiet one so the pill falls to UNVERIFIED rather than reporting the
+    // survivor's healthy reading.
+    expect(worstOutput(outputs, NOW)?.outputId).toBe('b');
     expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['b']);
   });
 
@@ -66,7 +60,6 @@ describe('presence across the whole rig', () => {
     // source leaves its old id behind. Without eviction the desk would show
     // yesterday's tabs as permanently dead screens.
     const outputs = rig(screen('a'), screen('reloaded', { lastSeenAt: NOW - OUTPUT_FORGET_MS - 1 }));
-    expect(overallPresence(outputs, NOW)).toBe('fresh');
     expect(stalledOutputs(outputs, NOW)).toEqual([]);
     expect(worstOutput(outputs, NOW)?.outputId).toBe('a');
   });

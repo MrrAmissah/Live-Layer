@@ -14,7 +14,7 @@ import {
   reduceRelaySnapshot,
   snapshotReplay
 } from '../../scripts/relay-snapshot.mjs';
-import { outputPresence, overallPresence, stalledOutputs } from './outputPresence';
+import { outputPresence, stalledOutputs } from './outputPresence';
 import { describeStalledScreens } from './programStatus';
 
 /**
@@ -356,7 +356,6 @@ describe('output presence', () => {
     // says stale rather than live.
     expect(outputPresence(state.outputs['out-1'], T0 + 60_000)).toBe('fresh');
     expect(outputPresence(state.outputs['out-2'], T0 + 60_000)).toBe('stale');
-    expect(overallPresence(state.outputs, T0 + 60_000)).toBe('stale');
     expect(stalledOutputs(state.outputs, T0 + 60_000).map((o) => o.outputId)).toEqual(['out-2']);
     // The dead screen is NAMED. An output session id is not something an
     // operator can go and fix; "Split screen" is.

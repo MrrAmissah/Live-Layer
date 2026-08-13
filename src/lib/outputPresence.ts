@@ -41,19 +41,6 @@ export function outputPresence(status: OutputStatusState | null, now: number): O
  */
 export const OUTPUT_FORGET_MS = 300_000;
 
-/**
- * Presence across every screen currently known.
- *
- * The worst case wins: one stale screen makes the whole reading stale, because
- * "some of the outputs are alive" is not a thing an operator can act on and
- * reporting `fresh` while a screen is down is the exact failure this replaced.
- */
-export function overallPresence(outputs: OutputStatusMap, now: number): OutputPresence {
-  const known = Object.values(outputs).filter((status) => now - status.lastSeenAt <= OUTPUT_FORGET_MS);
-  if (!known.length) return 'unknown';
-  return known.every((status) => outputPresence(status, now) === 'fresh') ? 'fresh' : 'stale';
-}
-
 /** Screens that have gone quiet but are not yet forgotten — the ones to name. */
 export function stalledOutputs(outputs: OutputStatusMap, now: number): OutputStatusState[] {
   return Object.values(outputs).filter(
