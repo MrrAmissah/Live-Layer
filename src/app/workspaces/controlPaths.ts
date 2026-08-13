@@ -27,7 +27,7 @@ export const DEFAULT_LIBRARY_SECTION: LibrarySection = 'saved';
  * Studio at every width in the previous stage. `App.tsx` reads like the route
  * table, so this is the line that gets forgotten.
  */
-const WORKSPACES = ['studio', 'rundown', 'library', 'scripture'] as const;
+const WORKSPACES = ['studio', 'rundown', 'library', 'scripture', 'screens'] as const;
 
 export const isLibrarySection = (value: string | undefined): value is LibrarySection =>
   LIBRARY_SECTIONS.includes(value as LibrarySection);

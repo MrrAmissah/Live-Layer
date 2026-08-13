@@ -13,8 +13,10 @@ import {
 } from '../../lib/scripture/scriptureDraftStore';
 import { rememberScripturePassage } from '../../lib/scripture/scriptureRecents';
 import type { ScriptureLookupResult } from '../../types/scripture';
-
-const SCRIPTURE_TEMPLATE_ID = 'scripture-card';
+// Imported, not redeclared: this is the id the output's scripture-only gate is
+// written against (`lib/scriptureOutputs.ts`), and a second copy of it is a
+// second thing to keep in step.
+import { SCRIPTURE_TEMPLATE_ID } from '../../lib/graphicReadiness';
 
 /**
  * Scripture — finding a passage and staging it.

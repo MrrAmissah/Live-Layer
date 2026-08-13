@@ -321,7 +321,8 @@ describe('output presence', () => {
         sourceActive: true,
         sourceVisible: true,
         lastSeenAt: T0 + 42, // receiver clock, not the message's
-        screen: null // this fixture's output names no screen
+        screen: null, // this fixture's output names no screen
+        failure: null // a heartbeat neither raises nor clears one
       }
     });
   });
@@ -363,6 +364,59 @@ describe('output presence', () => {
     // ...and the name survives the screen going quiet, because it was recorded
     // when the screen was still speaking.
     expect(state.outputs['out-1']?.screen).toBe('main');
+  });
+
+  /**
+   * A SECOND SCREEN THAT CANNOT RENDER USED TO BE SILENT.
+   *
+   * Program's own `outputFailure` deliberately never un-confirms — if one screen
+   * applied the command, the Take stands — and with two browser sources that
+   * rule swallowed the second screen's failure entirely. The split scene could
+   * go blank while the desk read OUTPUT ACTIVE.
+   */
+  it('records a failure against the screen that reported it, even after another confirmed', () => {
+    let state = apply(clientState(), outputStatus(true, T0, 'out-main', 'main'), T0);
+    state = apply(state, outputStatus(true, T0, 'out-split', 'split'), T0);
+    state = apply(state, show('cmd-A', T0 + 1), T0 + 1);
+    state = apply(state, applied('cmd-A', T0 + 5, 'out-main'), T0 + 5);
+    expect(state.program.confirmation).toBe('confirmed');
+
+    const failed: RealtimeMessage = {
+      id: 'fail-split',
+      type: 'OUTPUT_FAILED',
+      payload: { commandId: 'cmd-A', outputId: 'out-split', reason: 'Variant "split-wide" is not available in this build' },
+      timestamp: T0 + 6
+    };
+    state = apply(state, failed, T0 + 6);
+
+    // Program is untouched: a confirmed Take is not un-confirmed by a second
+    // screen, which is the rule that was right all along.
+    expect(state.program.confirmation).toBe('confirmed');
+    expect(state.program.outputFailure).toBeNull();
+    // ...and the failure is no longer lost.
+    expect(state.outputs['out-split']?.failure?.reason).toContain('not available');
+    expect(state.outputs['out-split']?.failure?.commandId).toBe('cmd-A');
+    expect(state.outputs['out-main']?.failure).toBeNull();
+  });
+
+  it('clears a screen’s failure once it renders something', () => {
+    let state = apply(clientState(), outputStatus(true, T0, 'out-split', 'split'), T0);
+    state = apply(state, show('cmd-A', T0 + 1), T0 + 1);
+    const failed: RealtimeMessage = {
+      id: 'fail-1',
+      type: 'OUTPUT_FAILED',
+      payload: { commandId: 'cmd-A', outputId: 'out-split', reason: 'nope' },
+      timestamp: T0 + 2
+    };
+    state = apply(state, failed, T0 + 2);
+    expect(state.outputs['out-split']?.failure).not.toBeNull();
+    // A heartbeat says nothing about rendering and must not clear it.
+    state = apply(state, outputStatus(true, T0 + 3, 'out-split', 'split'), T0 + 3);
+    expect(state.outputs['out-split']?.failure).not.toBeNull();
+    // Applying the next command does.
+    state = apply(state, show('cmd-B', T0 + 4, 'g-b'), T0 + 4);
+    state = apply(state, applied('cmd-B', T0 + 5, 'out-split'), T0 + 5);
+    expect(state.outputs['out-split']?.failure).toBeNull();
   });
 
   it('nothing is said while every screen is reporting', () => {

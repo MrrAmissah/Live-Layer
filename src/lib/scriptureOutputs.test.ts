@@ -5,6 +5,7 @@ import {
   DEFAULT_SCRIPTURE_OUTPUTS,
   SCRIPTURE_OUTPUT_SCREENS,
   readOutputScreen,
+  resolveScreenValues,
   sanitizeScriptureOutputs,
   scriptureLookFor,
   scriptureVariantIds
@@ -133,24 +134,57 @@ describe('what each screen looks like', () => {
  * expression is exactly the kind of thing a later edit generalises "for free".
  */
 describe('the scripture-only gate', () => {
-  const source = read('src/app/OutputPage.tsx');
+  const verse = { variantId: 'classic-band', reference: 'Psalm 90:1', verseText: 'Lord…' };
+  const outputs = sanitizeScriptureOutputs({ split: 'split-tall' });
 
-  it('is written against SCRIPTURE_TEMPLATE_ID, not a string literal', () => {
-    expect(source).toMatch(/activeGraphic\?\.templateId !== SCRIPTURE_TEMPLATE_ID\) return renderedValues/);
-    expect(source).not.toMatch(/templateId === 'scripture-card'/);
+  it('re-skins a scripture card on a screen that names a look', () => {
+    expect(resolveScreenValues('scripture-card', verse, 'split', outputs).variantId).toBe('split-tall');
+  });
+
+  it('leaves the operator’s own variant alone on a screen set to as-chosen', () => {
+    expect(resolveScreenValues('scripture-card', verse, 'main', outputs).variantId).toBe('classic-band');
+  });
+
+  it('touches NOTHING else — the blast radius is one template', () => {
+    // The rule that keeps this safe. A general mechanism is wrong about every
+    // graphic on air; a scripture-only one can only ever be wrong about
+    // scripture cards, and a 12-day convention has no second chance.
+    const l3 = { variantId: 'modern-minimal', name: 'Rev. Ishmael K. Awotwe' };
+    for (const templateId of ['preacher-lower-third', 'performer-lower-third', 'quote-card', 'fullscreen-message', 'announcement-banner']) {
+      expect(resolveScreenValues(templateId, l3, 'split', outputs), templateId).toBe(l3);
+    }
+    expect(resolveScreenValues(null, l3, 'split', outputs)).toBe(l3);
+  });
+
+  it('returns the same object when it changes nothing, so no render is provoked', () => {
+    expect(resolveScreenValues('scripture-card', verse, 'main', outputs)).toBe(verse);
+  });
+
+  it('never mutates what it was given', () => {
+    const before = { ...verse };
+    resolveScreenValues('scripture-card', verse, 'split', outputs);
+    expect(verse).toEqual(before);
+  });
+
+  /**
+   * ONE implementation, called by both surfaces. A Screens page that resolved
+   * the look its own way would show the operator something no screen is
+   * rendering the first time the two drifted.
+   */
+  it('is the only resolution either surface performs', () => {
+    for (const path of ['src/app/OutputPage.tsx', 'src/components/control/ScreenCard.tsx']) {
+      const source = read(path);
+      expect(source, path).toContain('resolveScreenValues(');
+      // Nobody re-derives it: no local scriptureLookFor call, no literal id.
+      expect(source, path).not.toMatch(/scriptureLookFor\(/);
+      expect(source, path).not.toMatch(/'scripture-card'/);
+    }
   });
 
   it('overrides the RENDERED values and never the stored graphic', () => {
-    // `activeGraphic` is what OUTPUT_APPLIED acknowledges and what Recent,
-    // presets and the rundown show. Writing the role's variant back into it
-    // would rewrite the operator's own choice.
-    expect(source).toMatch(/\{ \.\.\.renderedValues, variantId: look \}/);
-    expect(source).not.toMatch(/setActiveGraphic\([^)]*variantId/);
-  });
-
-  it('hands the overridden values to the renderer, so the gate is not decorative', () => {
+    const source = read('src/app/OutputPage.tsx');
     expect(source).toContain('<resolved.Renderer values={outputValues}');
-    expect(source).not.toContain('<resolved.Renderer values={renderedValues}');
+    expect(source).not.toMatch(/setActiveGraphic\([^)]*variantId/);
   });
 });
 

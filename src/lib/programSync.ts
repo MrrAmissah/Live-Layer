@@ -65,7 +65,8 @@ export function reduceRealtimeMessage(
       // air. A screen's look changes how a card is painted, not which card.
       return {};
     case 'OUTPUT_APPLIED': {
-      const outputs = refreshPresence(state.outputs, message.payload.outputId, now);
+      // Rendering it clears whatever this screen last failed on.
+      const outputs = refreshPresence(state.outputs, message.payload.outputId, now, null);
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
       // `recovering` is included on purpose: output restoring its last command
@@ -81,7 +82,21 @@ export function reduceRealtimeMessage(
       };
     }
     case 'OUTPUT_FAILED': {
-      const outputs = refreshPresence(state.outputs, message.payload.outputId, now);
+      /**
+       * The failure is recorded against THE SCREEN THAT REPORTED IT, always —
+       * before, and independently of, the Program rules below.
+       *
+       * Program's own `outputFailure` answers "did the Take fail" and must never
+       * un-confirm: if one screen applied the command, the Take stands. With two
+       * browser sources that rule made a second screen's failure silent, so the
+       * split scene could go blank while the desk read OUTPUT ACTIVE. Keeping
+       * both records means neither question has to answer the other's.
+       */
+      const outputs = refreshPresence(state.outputs, message.payload.outputId, now, {
+        reason: message.payload.reason,
+        at: now,
+        commandId: message.payload.commandId
+      });
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
       // A failure never *un*-confirms: if output applied it and a stale retry
@@ -98,7 +113,8 @@ export function reduceRealtimeMessage(
       };
     }
     case 'OUTPUT_CLEARED': {
-      const outputs = refreshPresence(state.outputs, message.payload.outputId, now);
+      // Nothing is on this screen to have failed.
+      const outputs = refreshPresence(state.outputs, message.payload.outputId, now, null);
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
       // Only the clear we are actually waiting on may complete — an
@@ -127,7 +143,10 @@ export function reduceRealtimeMessage(
             lastSeenAt: now,
             // An output that stops sending is exactly the one the operator
             // needs named, so the last name it gave is kept.
-            screen: message.payload.screen ?? state.outputs[message.payload.outputId]?.screen ?? null
+            screen: message.payload.screen ?? state.outputs[message.payload.outputId]?.screen ?? null,
+            // A heartbeat says nothing about rendering, so it neither raises nor
+            // clears a failure — only an APPLIED/CLEARED/FAILED can.
+            failure: state.outputs[message.payload.outputId]?.failure ?? null
           }
         }
       };
@@ -221,7 +240,8 @@ function reduceClearCommand(program: ProgramState, commandId: string, timestamp:
 function refreshPresence(
   previous: OutputStatusMap,
   outputId: string,
-  now: number
+  now: number,
+  failure: OutputStatusState['failure']
 ): OutputStatusMap {
   /**
    * Each screen keeps its own readings, which is what the single record could
@@ -243,7 +263,8 @@ function refreshPresence(
       lastSeenAt: now,
       // An ack names no screen, so this is remembered rather than re-derived —
       // the alternative is a screen losing its name every time it acknowledges.
-      screen: mine ? mine.screen : null
+      screen: mine ? mine.screen : null,
+      failure
     }
   };
 }

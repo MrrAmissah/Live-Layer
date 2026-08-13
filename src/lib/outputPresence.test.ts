@@ -3,6 +3,7 @@ import {
   OUTPUT_FORGET_MS,
   OUTPUT_STALE_MS,
   outputPresence,
+  outputForScreen,
   stalledOutputs,
   worstOutput
 } from './outputPresence';
@@ -16,6 +17,7 @@ const screen = (outputId: string, over: Partial<OutputStatusState> = {}): Output
   sourceVisible: true,
   lastSeenAt: NOW,
   screen: null,
+  failure: null,
   ...over
 });
 
@@ -111,5 +113,47 @@ describe('which screen speaks for the rig', () => {
 
   it('returns the single screen unchanged when there is only one', () => {
     expect(worstOutput(rig(screen('only')), NOW)?.outputId).toBe('only');
+  });
+});
+
+/**
+ * The map is keyed by output SESSION id; the Screens page is keyed by SCREEN.
+ * Getting from one to the other is where a card can quietly start lying.
+ */
+describe('which output speaks for a named screen', () => {
+  it('is nothing at all when no source has reported that screen', () => {
+    // "Not connected" and "stale" are different answers, and on a setup page
+    // the difference is the whole diagnosis: nothing was ever there, versus
+    // something was and stopped.
+    expect(outputForScreen(rig(screen('a', { screen: 'main' })), 'split', NOW)).toBeNull();
+    expect(outputForScreen({}, 'main', NOW)).toBeNull();
+  });
+
+  it('picks the FRESHEST when two sessions claim the same screen', () => {
+    // The ordinary case, not an exotic one: every page load mints a new session
+    // id, so a refreshed browser source leaves its predecessor on the board for
+    // OUTPUT_FORGET_MS. Reading the dead one would show a live screen as stale.
+    const outputs = rig(
+      screen('old', { screen: 'split', lastSeenAt: NOW - 60_000 }),
+      screen('new', { screen: 'split', lastSeenAt: NOW })
+    );
+    expect(outputForScreen(outputs, 'split', NOW)?.outputId).toBe('new');
+  });
+
+  it('files an output that named no screen under no screen at all', () => {
+    // An older build sends no screen. Filing it under `main` would invent an
+    // answer, and a card claiming a source it cannot identify is a lie.
+    const outputs = rig(screen('unnamed', { screen: null }));
+    expect(outputForScreen(outputs, 'main', NOW)).toBeNull();
+  });
+
+  it('forgets a session that has been gone long enough', () => {
+    const outputs = rig(screen('gone', { screen: 'split', lastSeenAt: NOW - OUTPUT_FORGET_MS - 1 }));
+    expect(outputForScreen(outputs, 'split', NOW)).toBeNull();
+  });
+
+  it('still reports a screen that is merely stale, so the card can say so', () => {
+    const outputs = rig(screen('quiet', { screen: 'split', lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }));
+    expect(outputForScreen(outputs, 'split', NOW)?.outputId).toBe('quiet');
   });
 });

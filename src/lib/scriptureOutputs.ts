@@ -64,11 +64,13 @@ export type ScriptureOutputScreen = 'main' | 'lower' | 'split';
 
 export interface ScriptureOutputScreenInfo {
   id: ScriptureOutputScreen;
-  /** What the operator calls it in Settings. */
+  /** What the operator calls it on the Screens page. */
   name: string;
-  /** The browser-source address that makes a screen this one. */
-  url: string;
-  /** One line of "what is this for", shown under the row. */
+  /** The query this screen's browser source carries. Empty for the main screen. */
+  query: string;
+  /** Icon drawn as the shape of the screen, not a generic monitor. */
+  icon: 'screenMain' | 'screenLower' | 'screenSplit';
+  /** One line of "what is this for", shown under the card. */
   hint: string;
 }
 
@@ -83,22 +85,46 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
   {
     id: 'main',
     name: 'Main screen',
-    url: '/output',
+    query: '',
+    icon: 'screenMain',
     hint: 'The full-frame source. Any /output URL without a screen is this one.'
   },
   {
     id: 'lower',
     name: 'Lower third',
-    url: '/output?screen=lower',
-    hint: 'A source that only ever carries the band at the bottom of frame.'
+    query: 'screen=lower',
+    icon: 'screenLower',
+    hint: 'A source that only ever carries the band at the foot of frame.'
   },
   {
     id: 'split',
     name: 'Split screen',
-    url: '/output?screen=split',
+    query: 'screen=split',
+    icon: 'screenSplit',
     hint: 'The scene where the camera is scaled down and scripture owns the rest.'
   }
 ];
+
+/**
+ * The address to paste into OBS, complete.
+ *
+ * Assembled here rather than shown as a bare `?screen=split` fragment, because
+ * a fragment is precisely the hand-assembly the operator objected to: these
+ * sources already carry a `?relay=` for the cross-machine setup, and appending
+ * a second query param by hand is where a typo becomes a scene that renders the
+ * wrong look — silently, since an unknown screen falls back to main.
+ */
+export function screenSourceUrl(
+  screen: ScriptureOutputScreenInfo,
+  origin: string,
+  relayUrl: string | null
+): string {
+  const params = new URLSearchParams();
+  if (relayUrl) params.set('relay', relayUrl);
+  if (screen.query) params.set('screen', screen.id);
+  const query = params.toString();
+  return `${origin}/output${query ? `?${query}` : ''}`;
+}
 
 export type ScriptureOutputMap = Record<ScriptureOutputScreen, string>;
 
@@ -222,4 +248,30 @@ export function loadScriptureOutputs(): ScriptureOutputMap {
   } catch {
     return { ...DEFAULT_SCRIPTURE_OUTPUTS };
   }
+}
+
+/**
+ * THE SCRIPTURE-ONLY GATE — the one expression, in the one place.
+ *
+ * Both the output page and the Screens page preview call this. They have to:
+ * a preview that resolved the look its own way would be a second implementation
+ * of the rule, and the first time the two disagreed the page would be showing
+ * the operator something no screen is rendering — which is worse than no
+ * preview at all.
+ *
+ * Scripture and nothing else. Every other template gets its values back
+ * untouched, and the graphic itself is never rewritten: the override lands on
+ * the values handed to the renderer, so `OUTPUT_APPLIED` still acknowledges the
+ * command as sent and Recent, presets and the rundown keep the operator's own
+ * choice.
+ */
+export function resolveScreenValues(
+  templateId: string | null | undefined,
+  values: Record<string, string>,
+  screen: ScriptureOutputScreen,
+  outputs: ScriptureOutputMap
+): Record<string, string> {
+  if (templateId !== SCRIPTURE_TEMPLATE_ID) return values;
+  const look = scriptureLookFor(screen, outputs);
+  return look ? { ...values, variantId: look } : values;
 }

@@ -84,6 +84,20 @@ export interface OutputStatusState {
    * screen, and an older output sends none at all.
    */
   screen: string | null;
+  /**
+   * THIS screen could not render THAT command.
+   *
+   * Separate from `ProgramState.outputFailure`, which answers "did the Take
+   * fail" and deliberately never un-confirms. With two browser sources those
+   * are different questions: the main screen can apply a card while the split
+   * source — an older build, or one that was never refreshed — cannot render
+   * the variant its screen is configured for. Program stays confirmed, which is
+   * correct, and without this record the split scene would go blank in silence.
+   *
+   * Carries the commandId so a failure for a superseded graphic can be told
+   * apart from one that describes what is on air right now.
+   */
+  failure: { reason: string; at: number; commandId: string } | null;
 }
 
 export const CLEAR_PROGRAM_STATE: ProgramState = {

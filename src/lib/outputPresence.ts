@@ -49,6 +49,34 @@ export function stalledOutputs(outputs: OutputStatusMap, now: number): OutputSta
 }
 
 /**
+ * The output currently speaking for a NAMED screen, or null.
+ *
+ * The map is keyed by output session id; the Screens page is keyed by screen.
+ * Three cases the map really produces, and each needs a different answer:
+ *
+ *  - **Nobody claims this screen.** Null — "not connected". Distinct from
+ *    stale, which means something WAS there and stopped.
+ *  - **Two outputs claim it.** The ordinary case, not an exotic one: every page
+ *    load mints a new session id, so a refreshed browser source leaves its
+ *    predecessor behind for OUTPUT_FORGET_MS. The freshest wins, because it is
+ *    the one still reporting.
+ *  - **An output that named no screen.** Belongs to no card. Filing it under
+ *    `main` would invent an answer — an older build's output is genuinely
+ *    unidentified, and a card claiming it is connected would be a lie.
+ */
+export function outputForScreen(
+  outputs: OutputStatusMap,
+  screen: string,
+  now: number
+): OutputStatusState | null {
+  const claimants = Object.values(outputs).filter(
+    (status) => status.screen === screen && now - status.lastSeenAt <= OUTPUT_FORGET_MS
+  );
+  if (!claimants.length) return null;
+  return claimants.reduce((freshest, status) => (status.lastSeenAt > freshest.lastSeenAt ? status : freshest));
+}
+
+/**
  * How weak a screen's story is, worst first. Deliberately the same order the
  * status vocabulary reads them in (`lib/programStatus.ts`): stale outranks
  * hidden, hidden outranks inactive, and an unbound page (which can only claim

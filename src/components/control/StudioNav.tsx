@@ -22,7 +22,11 @@ const WORKSPACES: Workspace[] = [
   { to: '/control/studio', label: 'Studio', icon: 'grid' },
   { to: '/control/scripture', label: 'Scripture', icon: 'book' },
   { to: '/control/rundown', label: 'Rundown', icon: 'queue' },
-  { to: '/control/library', label: 'Library', icon: 'bookmark' }
+  { to: '/control/library', label: 'Library', icon: 'bookmark' },
+  /* Last, because it is setup rather than operation — but top level, not buried
+     in Settings: the operator has to SEE what each output is doing, and a
+     settings row cannot show a preview. */
+  { to: '/control/screens', label: 'Screens', icon: 'screenSplit' }
 ];
 
 /**

@@ -4,6 +4,7 @@
 //   node scripts/shoot-output.mjs --template preacher-lower-third --variant modern-minimal --case long
 //   node scripts/shoot-output.mjs --all-variants preacher-lower-third
 //   node scripts/shoot-output.mjs --all-variants scripture-card --screen split --matte 0b1020
+//   node scripts/shoot-output.mjs --variant split-wide --screen split --plate ../Nine3-Design-Hub/out/still/split.png
 //
 // Why this exists: a variant that looks fine in the library's preview card can
 // fall apart at 1920×1080, because the preview is a scaled-down stage and the
@@ -107,6 +108,12 @@ const port = Number(opt.port || 4173);
  * a contract with an OBS scene, and a scaled preview cannot show whether the
  * camera hole is where the scene expects it.
  */
+/**
+ * NOTE: for a scripture card, `--screen` BEATS `--variant` — that is the whole
+ * point of Scripture Outputs, and it will silently photograph the screen's
+ * configured look instead of the one you named. To shoot a specific variant,
+ * leave `--screen` off (the main screen is `as-chosen`).
+ */
 const screen = typeof opt.screen === 'string' ? opt.screen : '';
 /**
  * `--matte 0b1020` paints an opaque ground behind the page.
@@ -118,6 +125,25 @@ const screen = typeof opt.screen === 'string' ? opt.screen : '';
  * wrong conclusion, and the one this harness nearly produced. A matte is how
  * you judge those without pretending the graphic draws its own background.
  */
+/**
+ * `--plate out/still/split.png` composites the shot over the real OBS artwork.
+ *
+ * The split variants are TYPE ONLY — the card, its gold edge and the quote mark
+ * cut into its top rule all belong to a different OBS source. Judging their
+ * composition without that layer is guessing, and the geometry that matters
+ * (does the verse clear the notch, does the label sit on the card's bottom
+ * rule) is only visible with both. Read from disk and inlined as a data URI, so
+ * production artwork never has to be copied into this repo to be used.
+ */
+const plate = typeof opt.plate === 'string' ? path.resolve(ROOT, opt.plate) : null;
+if (plate && !fs.existsSync(plate)) {
+  console.error(`\u2717 no plate at ${plate}`);
+  process.exit(1);
+}
+const plateDataUri = plate
+  ? `data:image/png;base64,${fs.readFileSync(plate).toString('base64')}`
+  : null;
+
 const matte = typeof opt.matte === 'string' ? opt.matte.replace(/^#/, '') : null;
 const matteColor = matte
   ? {
@@ -280,6 +306,28 @@ const evaluate = async (cdp, sessionId, expression) => {
  * nobody and the screenshot is of an empty stage, which reads as a broken
  * variant rather than a race.
  */
+/**
+ * Put the plate BEHIND the page, not in it.
+ *
+ * A fixed layer at z-index -1 shows through because `/output` forces a
+ * transparent document for OBS — which means this composite is honest: if the
+ * graphic painted its own background the plate would disappear, and that is
+ * exactly the fault worth seeing.
+ */
+async function mountPlate(cdp, sessionId) {
+  if (!plateDataUri) return;
+  await evaluate(
+    cdp,
+    sessionId,
+    `(() => {
+       const el = document.createElement('div');
+       el.style.cssText = 'position:fixed;inset:0;z-index:-1;background-size:cover;background-image:url("${plateDataUri}")';
+       document.body.appendChild(el);
+       return true;
+     })()`
+  );
+}
+
 async function waitForOutput(cdp, sessionId, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -342,7 +390,7 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
     { format: 'png', fromSurface: true, captureBeyondViewport: false },
     sessionId
   );
-  const suffix = [screen || null, label || null].filter(Boolean).join('--');
+  const suffix = [screen || null, plate ? 'plate' : null, label || null].filter(Boolean).join('--');
   const file = path.join(outDir, `${templateId}--${variantId}${suffix ? `--${suffix}` : ''}.png`);
   fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
   return file;
@@ -361,7 +409,8 @@ let exitCode = 0;
 try {
   const sessionId = await openPage(cdp, outputUrl, WIDTH, HEIGHT);
   await waitForOutput(cdp, sessionId);
-  console.log(`\u25b8 ${outputUrl}  ${WIDTH}x${HEIGHT}`);
+  await mountPlate(cdp, sessionId);
+  console.log(`\u25b8 ${outputUrl}  ${WIDTH}x${HEIGHT}${plate ? `  over ${path.basename(plate)}` : ''}`);
 
   let variants = [opt.variant || 'blue-quote-card'];
   if (opt['all-variants']) {

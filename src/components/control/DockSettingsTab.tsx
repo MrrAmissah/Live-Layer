@@ -3,7 +3,6 @@ import { RELAY_LABEL } from '../../lib/relayReadiness';
 import type { RelayStatus } from '../../hooks/useRelayStatus';
 import { Icon } from '../../lib/icons';
 import ResetLocalData from './ResetLocalData';
-import ScriptureOutputsPanel from './ScriptureOutputsPanel';
 import { useServiceContext, setServiceContext } from '../../hooks/useServiceContext';
 import { isConfiguredStart } from '../../lib/serviceContext';
 
@@ -91,11 +90,36 @@ export default function DockSettingsTab({ relay }: DockSettingsTabProps) {
         </label>
       </section>
 
-      {/* Scripture Outputs. Above Connection because it is something the
-          operator SETS; Connection only reports. */}
+      {/**
+        * Screens opens in a WINDOW, it is not a fifth tab.
+        *
+        * The dock is the guided surface inside OBS and everything in it is a
+        * tab; the Screens page is a desk task — reading previews, copying
+        * source addresses — that wants the studio's width. A new window gets
+        * the studio layout at full size, which is the same move this tab
+        * already makes for Setup and the output preview. Cramming cards with
+        * live previews into a 320px dock would meet the letter of "give it a
+        * page" and none of the point.
+        */}
       <section className="dock-card">
-        <span className="ll-kicker">Scripture Outputs</span>
-        <ScriptureOutputsPanel />
+        <span className="ll-kicker">Screens</span>
+        <p className="dock-set__row dock-set__row--static">
+          <span className="dock-set__label">
+            <span className="dock-set__name">Output screens</span>
+            <span className="dock-set__hint">
+              What each OBS browser source renders, its address, and whether it is reporting.
+            </span>
+          </span>
+        </p>
+        <a
+          className="btn btn--secondary btn--sm dock-set__link"
+          href="/control/screens"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open Screens
+          <Icon name="external" size={13} />
+        </a>
       </section>
 
       <section className="dock-card">

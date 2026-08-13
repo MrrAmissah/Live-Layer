@@ -10,12 +10,11 @@ import { GFX_OUT_MS, resolveAnimationVariant } from '../components/graphics/stag
 import { GraphicInstance, RealtimeMessage, TemplateTheme } from '../types/graphics';
 import { decodeImage, resolveAssetSource } from '../lib/assets/assetStore';
 import { useDynamicValues } from '../hooks/useDynamicValues';
-import { SCRIPTURE_TEMPLATE_ID } from '../lib/graphicReadiness';
 import {
   loadScriptureOutputs,
   readOutputScreen,
+  resolveScreenValues,
   sanitizeScriptureOutputs,
-  scriptureLookFor,
   type ScriptureOutputMap
 } from '../lib/scriptureOutputs';
 
@@ -327,21 +326,20 @@ export default function OutputPage() {
   );
 
   /**
-   * THE SCRIPTURE-ONLY GATE.
+   * THE SCRIPTURE-ONLY GATE (`lib/scriptureOutputs.ts#resolveScreenValues`).
    *
-   * The screen re-skins scripture cards and nothing else: every other template
-   * renders the variant the operator chose, byte for byte as before. Written
-   * against `SCRIPTURE_TEMPLATE_ID` rather than a literal so the boundary
-   * cannot drift, and applied to the values handed to the RENDERER only —
-   * `activeGraphic` is untouched, so `OUTPUT_APPLIED` still acknowledges the
-   * command as it was sent and Recent, presets and the rundown keep showing
-   * the look the operator actually picked.
+   * Shared with the Screens page preview rather than written twice: a preview
+   * that resolved the look its own way would show the operator something no
+   * screen is rendering the moment the two drifted.
+   *
+   * Applied to the values handed to the RENDERER only — `activeGraphic` is
+   * untouched, so `OUTPUT_APPLIED` still acknowledges the command as it was
+   * sent and Recent, presets and the rundown keep the look the operator picked.
    */
-  const outputValues = useMemo(() => {
-    if (activeGraphic?.templateId !== SCRIPTURE_TEMPLATE_ID) return renderedValues;
-    const look = scriptureLookFor(screen, scriptureOutputs);
-    return look ? { ...renderedValues, variantId: look } : renderedValues;
-  }, [activeGraphic?.templateId, renderedValues, screen, scriptureOutputs]);
+  const outputValues = useMemo(
+    () => resolveScreenValues(activeGraphic?.templateId, renderedValues, screen, scriptureOutputs),
+    [activeGraphic?.templateId, renderedValues, screen, scriptureOutputs]
+  );
 
   useEffect(() => {
     if (!activeGraphic) return;

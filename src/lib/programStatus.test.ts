@@ -19,7 +19,7 @@ function program(overrides: Partial<Words> = {}): Words {
 }
 
 function output(overrides: Partial<OutputStatusState> = {}): OutputStatusState {
-  return { outputId: 'out-1', sourceActive: null, sourceVisible: null, lastSeenAt: NOW, screen: null, ...overrides };
+  return { outputId: 'out-1', sourceActive: null, sourceVisible: null, lastSeenAt: NOW, screen: null, failure: null, ...overrides };
 }
 
 describe('the decision table', () => {

@@ -8,6 +8,7 @@ import StudioWorkspace from './app/workspaces/StudioWorkspace';
 import RundownWorkspace from './app/workspaces/RundownWorkspace';
 import LibraryWorkspace from './app/workspaces/LibraryWorkspace';
 import ScriptureWorkspace from './app/workspaces/ScriptureWorkspace';
+import ScreensWorkspace from './app/workspaces/ScreensWorkspace';
 
 /**
  * `/control` is a layout route, not a page: it owns the realtime channel, the
@@ -38,6 +39,7 @@ function App() {
             `WORKSPACES` in controlPaths.ts, or ControlPage canonicalises the URL
             to Studio before this element ever mounts. */}
         <Route path="scripture" element={<ScriptureWorkspace />} />
+        <Route path="screens" element={<ScreensWorkspace />} />
         <Route path="*" element={null} />
       </Route>
       <Route path="/output" element={<OutputPage />} />

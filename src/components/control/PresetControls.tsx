@@ -7,7 +7,6 @@ import { MAX_ITEMS_PER_RUNDOWN } from '../../lib/rundown/rundownStore';
 import { defaultPresetName, resolvePresetName, templateDisplayName } from '../../lib/presetNaming';
 import type { GraphicInstance } from '../../types/graphics';
 import ResetLocalData from './ResetLocalData';
-import ScriptureOutputsPanel from './ScriptureOutputsPanel';
 
 /**
  * Save / list / apply / remove presets, with a clear empty state and a small
@@ -131,14 +130,6 @@ export default function PresetControls({
       )}
 
       {message ? <p className="field__hint" role="status" aria-live="polite">{message}</p> : null}
-
-      {/* Same reason as the reset below: the studio has no Settings surface,
-          so a studio operator would otherwise have no way to say what the split
-          screen looks like. One implementation, mounted twice. */}
-      <div className="preset-reset__zone">
-        <span className="ll-kicker">Scripture Outputs</span>
-        <ScriptureOutputsPanel />
-      </div>
 
       {/* One implementation, mounted here and in the dock's Settings tab —
           see `ResetLocalData`. The studio has no Settings surface, so removing
