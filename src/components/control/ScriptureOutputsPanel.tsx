@@ -1,5 +1,5 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
-import { SCRIPTURE_OUTPUT_SCREENS } from '../../lib/scriptureOutputs';
+import { AS_CHOSEN, SCRIPTURE_OUTPUT_SCREENS } from '../../lib/scriptureOutputs';
 import { templateRegistry } from '../templates/registry';
 import { SCRIPTURE_TEMPLATE_ID } from '../../lib/graphicReadiness';
 import { Icon } from '../../lib/icons';
@@ -45,6 +45,10 @@ export default function ScriptureOutputsPanel() {
               aria-label={`${screen.name} scripture look`}
               onChange={(event) => setScriptureOutput(screen.id, event.target.value)}
             >
+              {/* First, and the default for the main screen: a screen set to
+                  this renders exactly what the operator picked on the graphic,
+                  so presets and rundown items keep their own look. */}
+              <option value={AS_CHOSEN}>Use the graphic&rsquo;s own look</option>
               {variants.map((variant) => (
                 <option key={variant.id} value={variant.id}>
                   {variant.name}

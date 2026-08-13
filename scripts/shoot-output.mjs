@@ -3,6 +3,7 @@
 //   node scripts/shoot-output.mjs --template scripture-card --variant split-column
 //   node scripts/shoot-output.mjs --template preacher-lower-third --variant modern-minimal --case long
 //   node scripts/shoot-output.mjs --all-variants preacher-lower-third
+//   node scripts/shoot-output.mjs --all-variants scripture-card --screen split --matte 0b1020
 //
 // Why this exists: a variant that looks fine in the library's preview card can
 // fall apart at 1920×1080, because the preview is a scaled-down stage and the
@@ -14,9 +15,24 @@
 // isolation, so what is captured is what OBS gets: the same transparency, the
 // same stage scaling, the same renderer, the same CSS.
 //
-// Chrome DevTools Protocol over Node's native WebSocket — no dependencies. The
-// pattern is borrowed from Nine3-Design-Hub/tools/render.mjs, which builds its
-// own scene URLs and so could not be pointed at a Live Layer route.
+// Chrome DevTools Protocol over Node's native WebSocket — no dependencies.
+//
+// THE TRANSPORT HALF IS COPIED FROM Nine3-Design-Hub/tools/render.mjs, and the
+// reason is worth recording because four rewrites of this script failed without
+// it. Earlier versions connected straight to the page target — "one moving part
+// fewer", the comment said. It was the moving part that was missing. Chrome
+// always opens `about:blank` first, so pointing it at an http:// URL is a
+// CROSS-PROCESS navigation: the renderer is swapped and the page-level session
+// dies with it. Moving `Runtime.enable` before or after the navigation both
+// hung, because the session itself was gone — a later probe answered `Session
+// with given id not found`, which is the actual diagnosis.
+//
+// render.mjs never hits this because it connects to the BROWSER endpoint and
+// creates its own target with `Target.attachToTarget({ flatten: true })`. A
+// flattened session survives the renderer swap. That is the fix, and it is why
+// the sequence below is reproduced rather than reinvented: browser endpoint →
+// createTarget(about:blank) → attach flattened → enable → metrics → navigate →
+// wait for load.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -85,39 +101,163 @@ for (let i = 0; i < argv.length; i += 1) {
 }
 
 const port = Number(opt.port || 4173);
+/**
+ * Which output screen to photograph (`src/lib/scriptureOutputs.ts`). The split
+ * screens are the reason a 1920x1080 harness matters at all — their geometry is
+ * a contract with an OBS scene, and a scaled preview cannot show whether the
+ * camera hole is where the scene expects it.
+ */
+const screen = typeof opt.screen === 'string' ? opt.screen : '';
+/**
+ * `--matte 0b1020` paints an opaque ground behind the page.
+ *
+ * Off by default, because a transparent capture is the truth about what OBS
+ * composites. But the split variants paint white type meant to sit on a dark
+ * plate that lives in a SEPARATE OBS source, so a transparent shot of one
+ * viewed on white looks like a card with no verse in it — which is exactly the
+ * wrong conclusion, and the one this harness nearly produced. A matte is how
+ * you judge those without pretending the graphic draws its own background.
+ */
+const matte = typeof opt.matte === 'string' ? opt.matte.replace(/^#/, '') : null;
+const matteColor = matte
+  ? {
+      r: parseInt(matte.slice(0, 2), 16) || 0,
+      g: parseInt(matte.slice(2, 4), 16) || 0,
+      b: parseInt(matte.slice(4, 6), 16) || 0,
+      a: 1
+    }
+  : { r: 0, g: 0, b: 0, a: 0 };
+const outputUrl = `http://127.0.0.1:${port}/output${screen ? `?screen=${encodeURIComponent(screen)}` : ''}`;
 const outDir = path.join(ROOT, 'out', 'shots');
 fs.mkdirSync(outDir, { recursive: true });
 
-// --- CDP ---------------------------------------------------------------------
+// --- CDP, copied from Nine3-Design-Hub/tools/render.mjs ----------------------
 
-async function cdpConnect(wsUrl) {
-  const ws = new WebSocket(wsUrl);
-  await new Promise((resolve, reject) => {
-    ws.addEventListener('open', resolve, { once: true });
-    ws.addEventListener('error', () => reject(new Error(`cannot reach ${wsUrl}`)), { once: true });
-  });
-  let id = 0;
-  const pending = new Map();
-  ws.addEventListener('message', (event) => {
-    const msg = JSON.parse(event.data);
-    const entry = pending.get(msg.id);
-    if (!entry) return;
-    pending.delete(msg.id);
-    msg.error ? entry.reject(new Error(msg.error.message)) : entry.resolve(msg.result);
-  });
-  const raw = new Set();
-  ws.addEventListener('message', (event) => raw.forEach((fn) => fn(event)));
-  return {
-    on: (_type, fn) => raw.add(fn),
-    send(method, params = {}, sessionId) {
-      id += 1;
-      const payload = { id, method, params };
-      if (sessionId) payload.sessionId = sessionId;
-      ws.send(JSON.stringify(payload));
-      return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
-    },
-    close: () => ws.close()
-  };
+class CDP {
+  constructor(ws) {
+    this.ws = ws;
+    this.id = 0;
+    this.pending = new Map();
+    this.handlers = new Map();
+    ws.addEventListener('message', (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.id != null && this.pending.has(msg.id)) {
+        const { resolve, reject } = this.pending.get(msg.id);
+        this.pending.delete(msg.id);
+        msg.error
+          ? reject(new Error(`${msg.error.message} (${JSON.stringify(msg.error.data ?? '')})`))
+          : resolve(msg.result);
+      } else if (msg.method) {
+        (this.handlers.get(msg.method) || []).forEach((fn) => fn(msg.params));
+      }
+    });
+  }
+  static connect(url) {
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(url);
+      ws.addEventListener('open', () => resolve(new CDP(ws)));
+      ws.addEventListener('error', (e) => reject(new Error('ws error: ' + (e.message || 'unknown'))));
+    });
+  }
+  send(method, params = {}, sessionId) {
+    const id = ++this.id;
+    const payload = { id, method, params };
+    if (sessionId) payload.sessionId = sessionId;
+    this.ws.send(JSON.stringify(payload));
+    return new Promise((resolve, reject) => this.pending.set(id, { resolve, reject }));
+  }
+  on(method, fn) {
+    if (!this.handlers.has(method)) this.handlers.set(method, []);
+    this.handlers.get(method).push(fn);
+  }
+  close() {
+    this.ws.close();
+  }
+}
+
+/**
+ * Launch Chrome and read its BROWSER-level endpoint from DevToolsActivePort.
+ *
+ * The file, not stderr: stderr's URL is the same one, but the file is written
+ * only once the port is genuinely listening, which removes a race that made
+ * failures look intermittent.
+ */
+async function launchChrome() {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'livelayer-shot-'));
+  const child = spawn(
+    CHROME,
+    [
+      '--headless=new',
+      '--remote-debugging-port=0',
+      `--user-data-dir=${userDataDir}`,
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-sync',
+      '--mute-audio',
+      '--hide-scrollbars',
+      // Deterministic pixels, so two runs of this script are comparable.
+      '--force-color-profile=srgb',
+      '--disable-lcd-text',
+      '--font-render-hinting=none',
+      /**
+       * NO `--default-background-color=00000000` HERE.
+       *
+       * Transparency is set through `Emulation.setDefaultBackgroundColorOverride`
+       * below, and passing both KILLS THE SESSION: the override arrives, the
+       * target answers `Inspector.detached`, and every later call fails with
+       * "Session with given id not found". That is the error this harness spent
+       * four rewrites chasing while the diagnosis was aimed at navigation
+       * timing. One transparency mechanism, not two.
+       */
+      'about:blank'
+    ],
+    { stdio: ['ignore', 'ignore', 'pipe'] }
+  );
+
+  const portFile = path.join(userDataDir, 'DevToolsActivePort');
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    if (fs.existsSync(portFile)) {
+      const [devtoolsPort, wsPath] = fs.readFileSync(portFile, 'utf8').split('\n');
+      if (devtoolsPort && wsPath) {
+        return { child, userDataDir, wsUrl: `ws://127.0.0.1:${devtoolsPort.trim()}${wsPath.trim()}` };
+      }
+    }
+    await new Promise((r) => setTimeout(r, 60));
+  }
+  child.kill();
+  throw new Error('Chrome did not expose a DevTools port within 20s');
+}
+
+/**
+ * Our own page target, attached FLATTENED, configured while still blank.
+ *
+ * The order is load-bearing (see the header): metrics and Runtime are enabled
+ * on `about:blank`, and only then does the navigation happen. A flattened
+ * session outlives the renderer swap, so the context is still there afterwards.
+ */
+async function openPage(cdp, url, width, height) {
+  const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
+  const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
+
+  await cdp.send('Page.enable', {}, sessionId);
+  await cdp.send('Runtime.enable', {}, sessionId);
+  await cdp.send(
+    'Emulation.setDeviceMetricsOverride',
+    { width, height, deviceScaleFactor: 1, mobile: false },
+    sessionId
+  );
+  // Transparent by default, so what lands on disk is what OBS composites over
+  // the camera; `--matte` swaps in an opaque ground for judging light-on-dark
+  // designs whose plate is a different source.
+  await cdp.send('Emulation.setDefaultBackgroundColorOverride', { color: matteColor }, sessionId);
+
+  const loaded = new Promise((resolve) => cdp.on('Page.loadEventFired', resolve));
+  await cdp.send('Page.navigate', { url }, sessionId);
+  await loaded;
+  return sessionId;
 }
 
 const evaluate = async (cdp, sessionId, expression) => {
@@ -126,69 +266,28 @@ const evaluate = async (cdp, sessionId, expression) => {
     { expression, returnByValue: true, awaitPromise: true },
     sessionId
   );
-  if (exceptionDetails) throw new Error(exceptionDetails.exception?.description ?? 'evaluate failed');
+  if (exceptionDetails) {
+    throw new Error('page error: ' + (exceptionDetails.exception?.description || exceptionDetails.text));
+  }
   return result.value;
 };
 
-async function launchChrome(startUrl) {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'livelayer-shot-'));
-  const child = spawn(
-    CHROME,
-    [
-      '--headless=new',
-      '--remote-debugging-port=0',
-      `--user-data-dir=${userDataDir}`,
-      '--hide-scrollbars',
-      // The output is a transparent overlay; a white default background would
-      // make every screenshot a lie about what OBS composites.
-      '--default-background-color=00000000',
-      '--disable-gpu',
-      '--no-first-run',
-      // Chrome headless opens no page target unless given a URL, and this script
-      // attaches to the PAGE rather than creating one — so without this it waits
-      // for a target that never arrives.
-      startUrl
-    ],
-    { stdio: ['ignore', 'ignore', 'pipe'] }
-  );
-  const wsUrl = await new Promise((resolve, reject) => {
-    let buf = '';
-    const timer = setTimeout(() => reject(new Error('Chrome did not report a debugging URL')), 20000);
-    child.stderr.on('data', (chunk) => {
-      buf += chunk.toString();
-      const m = buf.match(/ws:\/\/[^\s]+/);
-      if (m) {
-        clearTimeout(timer);
-        resolve(m[0]);
-      }
-    });
-  });
-  // The port is the one thing we need from that URL: connecting to the PAGE
-  // target directly avoids `Target.attachToTarget` and its flattened sessions,
-  // which is one moving part fewer in a script whose only job is a screenshot.
-  const port = Number(new URL(wsUrl).port);
-  return { child, wsUrl, port, userDataDir };
-}
-
 /**
- * The page target ALREADY AT the wanted URL.
+ * The app has mounted and the output route is listening.
  *
- * Attaching to whatever page exists first gets `about:blank`, and navigating
- * that to `http://` is a cross-process navigation: Chrome swaps the renderer,
- * the execution context this session enabled is destroyed, and every later
- * `Runtime.evaluate` hangs forever with no error — the script simply stops.
- * That is the whole bug. Chrome is launched pointing at the URL, so the right
- * move is to wait for the target that is already there rather than to steer a
- * blank one into it.
+ * Without this the SHOW_GRAPHIC below can be posted into a page whose
+ * BroadcastChannel subscriber does not exist yet — the message is delivered to
+ * nobody and the screenshot is of an empty stage, which reads as a broken
+ * variant rather than a race.
  */
-async function pageTarget(devtoolsPort) {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const list = await fetch(`http://127.0.0.1:${devtoolsPort}/json/list`).then((r) => r.json());
-    const page = list.find((t) => t.type === 'page');
-    if (page?.webSocketDebuggerUrl) return page;
-    await new Promise((r) => setTimeout(r, 150));
+async function waitForOutput(cdp, sessionId, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ready = await evaluate(cdp, sessionId, '!!document.querySelector(".output-root")');
+    if (ready) return;
+    await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error(`Chrome never opened a page target at ${url}`);
+  throw new Error(`/output never mounted within ${timeoutMs}ms`);
 }
 
 // --- the shot ----------------------------------------------------------------
@@ -209,7 +308,7 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
     cdp,
     sessionId,
     `new BroadcastChannel('livelayer:graphics').postMessage(${JSON.stringify({
-      id: `shot-${Date.now()}`,
+      id: `shot-${Date.now()}-${variantId}`,
       type: 'SHOW_GRAPHIC',
       payload: graphic,
       timestamp: Date.now()
@@ -230,24 +329,22 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
     cdp,
     sessionId,
     `(async () => {
-       await new Promise(r => setTimeout(r, 350));
+       await new Promise(r => setTimeout(r, 400));
        document.querySelectorAll('*').forEach(n =>
          n.getAnimations?.().forEach(a => { try { a.finish(); } catch {} }));
-       await new Promise(r => setTimeout(r, 120));
+       await new Promise(r => setTimeout(r, 150));
        return true;
      })()`
   );
 
-  console.log(`  [shoot] capturing ${variantId}…`);
   const shot = await cdp.send(
     'Page.captureScreenshot',
-    { format: 'png', captureBeyondViewport: false },
+    { format: 'png', fromSurface: true, captureBeyondViewport: false },
     sessionId
   );
-  console.log(`  [shoot] captureScreenshot returned keys=${Object.keys(shot ?? {})} bytes=${shot?.data?.length ?? 'none'}`);
-  const file = path.join(outDir, `${templateId}--${variantId}${label ? `--${label}` : ''}.png`);
+  const suffix = [screen || null, label || null].filter(Boolean).join('--');
+  const file = path.join(outDir, `${templateId}--${variantId}${suffix ? `--${suffix}` : ''}.png`);
   fs.writeFileSync(file, Buffer.from(shot.data, 'base64'));
-  console.log(`  [shoot] wrote ${file}`);
   return file;
 }
 
@@ -257,50 +354,14 @@ const templateId = opt.template || opt['all-variants'] || 'scripture-card';
 const caseName = opt.case || 'short';
 const values = CASES[templateId]?.[caseName] ?? CASES[templateId]?.short ?? {};
 
-console.log('[shoot] launching chrome…');
-const { child, port: devtoolsPort, userDataDir } = await launchChrome(`http://127.0.0.1:${port}/output`);
-const page = await pageTarget(devtoolsPort);
-console.log(`[shoot] page target: ${page.url}`);
-const cdp = await cdpConnect(page.webSocketDebuggerUrl);
-const sessionId = undefined; // connected to the page directly; no session needed
+const { child, userDataDir, wsUrl } = await launchChrome();
+const cdp = await CDP.connect(wsUrl);
+
+let exitCode = 0;
 try {
-  await cdp.send('Page.enable', {}, sessionId);
-
-  /**
-   * Navigate BEFORE enabling Runtime, and enable it afterwards.
-   *
-   * Chrome opens `about:blank` regardless of the URL on its command line, so a
-   * navigation to `http://` always happens — and that is cross-process: the
-   * renderer is swapped and the execution context enabled beforehand is
-   * destroyed. `Runtime.evaluate` then hangs forever against a context that no
-   * longer exists, with no error, and the script simply stops with the page
-   * loaded and nothing captured. Enabling Runtime after the load binds to the
-   * context that actually exists.
-   */
-  const loaded = new Promise((resolve) => {
-    cdp.on?.('message', (event) => {
-      if (JSON.parse(event.data ?? '{}').method === 'Page.loadEventFired') resolve();
-    });
-    setTimeout(resolve, 10000);
-  });
-  console.log('[shoot] navigating…');
-  await cdp.send('Page.navigate', { url: `http://127.0.0.1:${port}/output` }, sessionId);
-  await loaded;
-  await cdp.send('Runtime.enable', {}, sessionId);
-  console.log('[shoot] loaded and Runtime enabled');
-  console.log('[shoot] metrics…');
-  await cdp.send(
-    'Emulation.setDeviceMetricsOverride',
-    { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false },
-    sessionId
-  );
-  // Transparent, so what lands on disk is what OBS composites over the camera.
-  await cdp.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } }, sessionId);
-
-  console.log('[shoot] page settling…');
-  await new Promise((r) => setTimeout(r, 2200));
-  const where = await evaluate(cdp, sessionId, 'location.pathname');
-  console.log(`[shoot] page is at ${where}`);
+  const sessionId = await openPage(cdp, outputUrl, WIDTH, HEIGHT);
+  await waitForOutput(cdp, sessionId);
+  console.log(`\u25b8 ${outputUrl}  ${WIDTH}x${HEIGHT}`);
 
   let variants = [opt.variant || 'blue-quote-card'];
   if (opt['all-variants']) {
@@ -313,25 +374,44 @@ try {
          return t ? t.variants.map(v => v.id) : [];
        })()`
     );
+    if (!variants.length) throw new Error(`no variants found for template "${templateId}"`);
   }
 
   for (const variantId of variants) {
     const file = await shoot(cdp, sessionId, { templateId, variantId, values, label: caseName });
-    console.log(`${variantId.padEnd(24)} -> ${path.relative(ROOT, file)}`);
+    console.log(`  ${variantId.padEnd(24)} -> ${path.relative(ROOT, file)}`);
   }
+} catch (err) {
+  console.error(`\u2717 ${err.message}`);
+  exitCode = 1;
 } finally {
-  cdp.close();
-  child.kill();
+  try {
+    cdp.close();
+  } catch {}
   /**
    * Chrome keeps writing to its profile for a moment after SIGTERM, so an
    * immediate recursive delete races it and throws ENOTEMPTY — which would fail
-   * the script AFTER the screenshot had already been written, and make a
+   * the script AFTER the screenshots had already been written, and make a
    * successful run look broken.
    */
-  await new Promise((r) => setTimeout(r, 400));
-  try {
-    fs.rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-  } catch {
-    // A stray temp profile is not worth failing a render over; the OS reaps it.
+  await new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) return resolve();
+    child.once('exit', resolve);
+    child.kill();
+    setTimeout(() => {
+      try {
+        child.kill('SIGKILL');
+      } catch {}
+      resolve();
+    }, 5000);
+  });
+  for (let i = 0; i < 5; i += 1) {
+    try {
+      fs.rmSync(userDataDir, { recursive: true, force: true });
+      break;
+    } catch {
+      await new Promise((r) => setTimeout(r, 250));
+    }
   }
 }
+process.exit(exitCode);

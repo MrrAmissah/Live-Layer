@@ -37,6 +37,21 @@ import { SCRIPTURE_OUTPUTS_KEY } from './storage';
  * Kept as DATA on purpose. A fourth screen is a row in this file, not a branch
  * in a renderer.
  *
+ * ## "Use the graphic's own look" is a real setting, and it is the default
+ *
+ * A screen may be set to `as-chosen`, which means: render the variant stored on
+ * the graphic, exactly as before. That option exists because the alternative
+ * strands data. Presets, Recent and every rundown item carry a `variantId` the
+ * operator picked deliberately — a main screen hard-wired to one look would
+ * silently ignore all of them and turn the library's variant picker into a
+ * control with no effect for scripture.
+ *
+ * So the MAIN screen defaults to `as-chosen` and behaves exactly as it does
+ * today, and the split screen defaults to a split look, which is the whole ask:
+ * set the verse once, and the split scene renders its own way without anyone
+ * switching anything. An operator who does want a fixed look on main can pick
+ * one — the row is there.
+ *
  * ## What it never does
  *
  * Rewrite the stored graphic. The override is applied to the values handed to
@@ -88,6 +103,16 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
 export type ScriptureOutputMap = Record<ScriptureOutputScreen, string>;
 
 /**
+ * "Use the graphic's own look" — the setting that changes nothing.
+ *
+ * Not the absence of a value: an absent screen falls back to its DEFAULT, and
+ * for the split screen that default is a split look. This is a deliberate
+ * choice the operator can make and see, and it is what makes the feature
+ * additive rather than a silent override of every scripture graphic ever saved.
+ */
+export const AS_CHOSEN = 'as-chosen';
+
+/**
  * What each screen renders before anybody opens Settings.
  *
  * These have to be right on a cold start: a browser source added minutes before
@@ -95,8 +120,12 @@ export type ScriptureOutputMap = Record<ScriptureOutputScreen, string>;
  * output) they are all it has until the first broadcast arrives.
  */
 export const DEFAULT_SCRIPTURE_OUTPUTS: ScriptureOutputMap = {
-  main: 'blue-quote-card',
-  lower: 'blue-quote-card',
+  // Today's behaviour, unchanged: whatever the operator picked on the graphic.
+  main: AS_CHOSEN,
+  // Also unchanged. No scripture variant is shaped like a lower third yet, and
+  // defaulting a screen to a look nobody chose is worse than leaving it alone.
+  lower: AS_CHOSEN,
+  // The ask, working out of the box.
   split: 'split-wide'
 };
 
@@ -147,7 +176,7 @@ export function screenDisplayName(screen: string | null | undefined): string {
  * default look, not a blank output.
  */
 export function sanitizeScriptureOutputs(value: unknown): ScriptureOutputMap {
-  const known = new Set(scriptureVariantIds());
+  const known = new Set([AS_CHOSEN, ...scriptureVariantIds()]);
   const source = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
   const next = { ...DEFAULT_SCRIPTURE_OUTPUTS };
   for (const screen of SCREEN_IDS) {
@@ -160,16 +189,17 @@ export function sanitizeScriptureOutputs(value: unknown): ScriptureOutputMap {
 /**
  * The variant `screen` should render, or null to leave the graphic alone.
  *
- * Null is returned when the mapping names something this build cannot render —
- * the caller then falls through to the variant stored on the graphic, which is
- * always a real one. The screen never gets a look nobody configured.
+ * Null is returned for `as-chosen`, and for a mapping that names something this
+ * build cannot render. In both cases the caller falls through to the variant
+ * stored on the graphic, which is always a real one — the screen never gets a
+ * look nobody configured, and never loses one the operator did.
  */
 export function scriptureLookFor(
   screen: ScriptureOutputScreen,
   outputs: ScriptureOutputMap
 ): string | null {
   const variantId = outputs[screen];
-  if (!variantId) return null;
+  if (!variantId || variantId === AS_CHOSEN) return null;
   return scriptureVariantIds().includes(variantId) ? variantId : null;
 }
 

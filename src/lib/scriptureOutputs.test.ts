@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  AS_CHOSEN,
   DEFAULT_SCRIPTURE_OUTPUTS,
   SCRIPTURE_OUTPUT_SCREENS,
   readOutputScreen,
@@ -52,11 +53,32 @@ describe('what each screen looks like', () => {
     // A default naming a variant this build dropped would put a screen on a
     // look nobody configured — the same defect as a rundown item that cannot
     // air, one level down.
-    const known = scriptureVariantIds();
-    expect(known.length).toBeGreaterThan(1);
+    const known = [AS_CHOSEN, ...scriptureVariantIds()];
+    expect(known.length).toBeGreaterThan(2);
     for (const [screen, variantId] of Object.entries(DEFAULT_SCRIPTURE_OUTPUTS)) {
       expect(known, `default for ${screen}`).toContain(variantId);
     }
+  });
+
+  it('leaves the main screen exactly as it behaves today', () => {
+    // THE COMPATIBILITY RULE. Presets, Recent and every rundown item carry a
+    // variantId the operator picked; a main screen hard-wired to one look would
+    // ignore all of them and turn the library's variant picker into a control
+    // with no effect for scripture.
+    expect(DEFAULT_SCRIPTURE_OUTPUTS.main).toBe(AS_CHOSEN);
+    expect(scriptureLookFor('main', DEFAULT_SCRIPTURE_OUTPUTS)).toBeNull();
+  });
+
+  it('gives the split screen its own look out of the box', () => {
+    // The ask: set the verse once, and the split scene renders its own way
+    // without anybody switching anything mid-service.
+    expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe('split-wide');
+  });
+
+  it('lets a screen be set back to the graphic’s own look', () => {
+    const outputs = sanitizeScriptureOutputs({ split: AS_CHOSEN });
+    expect(outputs.split).toBe(AS_CHOSEN);
+    expect(scriptureLookFor('split', outputs)).toBeNull();
   });
 
   it('has a default for every screen Settings lists, and lists every screen it defaults', () => {
@@ -88,12 +110,13 @@ describe('what each screen looks like', () => {
   });
 
   it('refuses to name a look the build cannot render, so the graphic keeps its own', () => {
-    expect(scriptureLookFor('split', { main: 'blue-quote-card', lower: 'blue-quote-card', split: 'gone' })).toBeNull();
+    expect(scriptureLookFor('split', { main: AS_CHOSEN, lower: AS_CHOSEN, split: 'gone' })).toBeNull();
     expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe(DEFAULT_SCRIPTURE_OUTPUTS.split);
   });
 
   it('offers only variants that belong to scripture-card', () => {
     const scripture = new Set(scriptureVariantIds());
+    expect(scripture.has(AS_CHOSEN)).toBe(false); // it is a setting, not a variant
     const lowerThird = templateRegistry.find((t) => t.id === 'preacher-lower-third');
     for (const variant of lowerThird?.variants ?? []) {
       expect(scripture.has(variant.id), `${variant.id} is a lower-third variant`).toBe(false);
