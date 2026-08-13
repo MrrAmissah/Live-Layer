@@ -60,7 +60,7 @@ import { SCRIPTURE_OUTPUTS_KEY } from './storage';
  * acknowledges the command as it was sent.
  */
 
-export type ScriptureOutputScreen = 'main' | 'lower' | 'split';
+export type ScriptureOutputScreen = 'main' | 'lower' | 'split' | 'house';
 
 export interface ScriptureOutputScreenInfo {
   id: ScriptureOutputScreen;
@@ -69,7 +69,7 @@ export interface ScriptureOutputScreenInfo {
   /** The query this screen's browser source carries. Empty for the main screen. */
   query: string;
   /** Icon drawn as the shape of the screen, not a generic monitor. */
-  icon: 'screenMain' | 'screenLower' | 'screenSplit';
+  icon: 'screenMain' | 'screenLower' | 'screenSplit' | 'screenHouse';
   /** One line of "what is this for", shown under the card. */
   hint: string;
 }
@@ -102,6 +102,13 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
     query: 'screen=split',
     icon: 'screenSplit',
     hint: 'The scene where the camera is scaled down and scripture owns the rest.'
+  },
+  {
+    id: 'house',
+    name: 'House screen',
+    query: 'screen=house',
+    icon: 'screenHouse',
+    hint: 'The projectors and LED wall in the room. Never reaches program — it switches independently of the stream.'
   }
 ];
 
@@ -152,7 +159,11 @@ export const DEFAULT_SCRIPTURE_OUTPUTS: ScriptureOutputMap = {
   // defaulting a screen to a look nobody chose is worse than leaving it alone.
   lower: AS_CHOSEN,
   // The ask, working out of the box.
-  split: 'split-wide'
+  split: 'split-wide',
+  // The room reads this one at distance, so it has a look of its own from the
+  // start — an as-chosen house screen would put a stream-sized card on a wall
+  // in an open field at night.
+  house: 'house-wall'
 };
 
 const SCREEN_IDS = SCRIPTURE_OUTPUT_SCREENS.map((screen) => screen.id);

@@ -302,6 +302,11 @@ export const templateRegistry: TemplateDefinition[] = [
         description: 'Scripture type for the split-screen scene, 16:9 camera left. Paints no card — the OBS plate does.'
       },
       {
+        id: 'house-wall',
+        name: 'House Wall',
+        description: 'Full-frame verse for the venue projectors and LED wall — no card, read at distance.'
+      },
+      {
         id: 'split-tall',
         name: 'Split — Tall',
         /** For a feed cropped to a vertical slot — tight shots framed on the preacher. */

@@ -454,6 +454,23 @@ body.gfx-transparent {
 
   /* tall — feed cropped to a vertical slot, pushed hard left, for tight shots
      framed on the preacher. Scripture takes the right half. */
+  /**
+   * HOUSE — the venue's projectors and the LED wall, not the stream.
+   *
+   * A full-frame plate with the identity low and right, painting NO card. The
+   * box stops at 660 rather than the frame's own safe area because both logos
+   * moved to the plate's bottom right: the verse ends above them instead of
+   * running underneath.
+   *
+   * This screen is read at distance in an open field at night, which is the
+   * whole reason it exists as its own layout rather than reusing the full-frame
+   * card. Type sizes live with the variant.
+   */
+  --gfx-house-safe-x: 160px;
+  --gfx-house-safe-y: 250px;
+  --gfx-house-safe-w: 1600px;
+  --gfx-house-safe-h: 660px;
+
   --gfx-split-tall-camera-x: 0px;
   --gfx-split-tall-camera-y: 0px;
   --gfx-split-tall-camera-w: 720px;
@@ -1966,7 +1983,7 @@ body.gfx-transparent {
 .gfx-l3[data-variant='subtle-elegance'] .l3-name {
   color: #050816;
   font-size: 38px;
-  font-weight: 760;
+  font-weight: 620;
   letter-spacing: 0.005em;
   text-shadow: none;
 }
@@ -2045,7 +2062,7 @@ body.gfx-transparent {
 .gfx-l3[data-variant='canva-host-bar'] .l3-name {
   color: #ffffff;
   font-size: 40px;
-  font-weight: 760;
+  font-weight: 620;
   letter-spacing: 0.012em;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
 }
@@ -3175,7 +3192,7 @@ body.gfx-transparent {
   color: var(--gfx-premium-on-dark);
   font-family: var(--gfx-font-display);
   font-size: 52px;
-  font-weight: 760;
+  font-weight: 620;
   line-height: 1.16;
 }
 
@@ -3304,7 +3321,7 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='reference-runner'] .scripture-verse {
   font-family: var(--gfx-font-display);
   font-size: 44px;
-  font-weight: 760;
+  font-weight: 620;
   line-height: 1.12;
   /* The runner plate is white on the text side while palettes seed colorText
      for dark surfaces (usually white) — force darkness, keep the hue. */
@@ -3339,9 +3356,12 @@ body.gfx-transparent {
   top: -50px;
   height: 58px;
   border-radius: 18px 18px 0 0;
+  /* House palette. The purple end of this gradient was the only purple in the
+     product — brand blue, gold and ink are the whole vocabulary, and a colour
+     that appears once reads as something borrowed from another design. */
   background:
-    radial-gradient(circle at 28% 34%, rgba(255, 255, 255, 0.16), transparent 34%),
-    linear-gradient(100deg, #5625cf, #1284ff) !important;
+    radial-gradient(circle at 28% 34%, rgba(255, 255, 255, 0.14), transparent 38%),
+    linear-gradient(100deg, var(--gfx-premium-brand-deep), var(--gfx-premium-brand)) !important;
   clip-path: none !important;
   overflow: hidden;
 }
@@ -3388,11 +3408,14 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='theme-lower'] .scripture-verse {
   font-family: var(--gfx-font-display);
   font-size: 40px;
-  font-weight: 760;
+  font-weight: 620;
   line-height: 1.16;
   /* Brand-tied royal on the paper plate, forced dark enough to stay legible
      whatever the palette. */
-  color: color-mix(in srgb, var(--gfx-premium-brand) 78%, #071060);
+  /* INK, not brand blue. Scripture set in a saturated link-blue reads as
+     interface rather than as a passage, and it was the only variant doing it —
+     every other one sets the verse in ink on paper or paper on ink. */
+  color: var(--gfx-premium-ink, #0b0d12);
 }
 
 .gfx-scripture[data-variant='theme-lower'] .scripture-verse-md {
@@ -3404,11 +3427,17 @@ body.gfx-transparent {
 }
 
 .gfx-scripture[data-variant='theme-lower'] .scripture-translation {
-  align-self: center;
-  padding: 12px 16px;
-  border-radius: 999px;
-  color: #ffffff;
-  background: var(--gfx-premium-brand);
+  /* A credit on the card, not a button. The filled pill sat mid-card at the
+     right, the same weight as the verse and competing with it; a tracked-out
+     label on the card's own bottom edge says the same thing and asks for
+     nothing. */
+  align-self: flex-end;
+  margin-top: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: color-mix(in srgb, var(--gfx-premium-ink, #0b0d12) 62%, transparent);
+  letter-spacing: 0.16em;
   opacity: 1;
 }
 
@@ -3473,13 +3502,90 @@ body.gfx-transparent {
   top: var(--gfx-split-tall-safe-y);
   width: var(--gfx-split-tall-safe-w);
   height: var(--gfx-split-tall-safe-h);
+  /**
+   * The safe box is the MAXIMUM EXTENT, not a shape to fill.
+   *
+   * The plate stopped painting a card here on 13 Aug, and the reason is the one
+   * thing only this side knows: the plate's card was a fixed 610 tall and the
+   * verse is not, so a short verse and the longest passage in the corpus BOTH
+   * left ~200px of dead ground under the last line. No single height serves
+   * both. The card below is sized by its content and centred in the box, so the
+   * dead space is split evenly and reads as composition rather than as a card
+   * that ran out of text.
+   */
+  align-items: center;
+  padding: 0;
 }
 
 /* A full-height column, so the translation label below can be pushed onto the
    card's bottom rule instead of trailing the last line of the verse. */
-.gfx-scripture[data-variant='split-wide'] .scripture-band,
+.gfx-scripture[data-variant='split-wide'] .scripture-band {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/**
+ * TALL PAINTS ITS OWN CARD, in the plate's language so the two read as one
+ * object: straight rounded rectangle, ink ground with a brand-deep inner
+ * gradient, a gold border, and the quote mark cut into the top rule 128px from
+ * the left edge — the same place the plate used to cut it.
+ *
+ * `height: auto` is the whole point. This box is as tall as the verse needs and
+ * no taller.
+ */
 .gfx-scripture[data-variant='split-tall'] .scripture-band {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  position: relative;
+  padding: 56px 56px 44px;
+  border-radius: 16px;
+  /* goldBright at 88% — the plate's own border value, so the card the operator
+     sees and the column behind it are the same object. */
+  border: 3px solid color-mix(in srgb, var(--gfx-premium-accent) 88%, transparent);
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--gfx-premium-brand-deep) 60%, rgb(5, 10, 36)) 0%,
+      rgb(5, 10, 36) 62%
+    );
+}
+
+/**
+ * The quote mark straddling the top rule, 128px in — the plate used to cut it
+ * there and the card inherits the position.
+ *
+ * NO BACKGROUND. An opaque block behind the glyph reads as a tab stuck on the
+ * card, and it cannot be right anyway: above the rule the thing behind is the
+ * plate's own texture, which this side cannot sample. Gold glyph over gold
+ * border needs no gap — where they overlap there is simply gold, and the rule
+ * reads as passing behind the mark, which is what "cut into" looks like.
+ */
+.gfx-scripture[data-variant='split-tall'] .scripture-band::before {
+  content: '\201C';
+  position: absolute;
+  left: 128px;
+  top: 0;
+  transform: translateY(-52%);
+  font-family: var(--gfx-font-display);
+  font-weight: 800;
+  font-size: 132px;
+  line-height: 1;
+  color: var(--gfx-premium-accent);
+  pointer-events: none;
+}
+
+.gfx-scripture[data-variant='split-tall'] .scripture-plate {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  background: none !important;
+  clip-path: none !important;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
@@ -3523,9 +3629,15 @@ body.gfx-transparent {
   color: var(--gfx-accent-2);
 }
 
-/* THE PLATE IS THE LAYER UNDERNEATH. Nothing is painted here. */
-.gfx-scripture[data-variant='split-wide'] .scripture-plate,
-.gfx-scripture[data-variant='split-tall'] .scripture-plate {
+/**
+ * WIDE: THE PLATE IS THE LAYER UNDERNEATH. Nothing is painted here.
+ *
+ * Unchanged and staying that way — `wide`'s plate still draws its own card, so
+ * a second card painted here would sit inside it. `tall` diverged on 13 Aug and
+ * has its own rules below; the two are no longer the same composition and no
+ * longer share a selector.
+ */
+.gfx-scripture[data-variant='split-wide'] .scripture-plate {
   position: relative;
   width: 100%;
   padding: 0;
@@ -3622,6 +3734,115 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='split-tall'] .scripture-verse-md { font-size: 53px; line-height: 1.26; }
 .gfx-scripture[data-variant='split-tall'] .scripture-verse-sm { font-size: 46px; line-height: 1.27; }
 .gfx-scripture[data-variant='split-tall'] .scripture-translation { font-size: 26px; }
+
+/* --- scripture: house-wall ------------------------------------------------
+   The venue's projectors and the LED wall, read at distance in an open field at
+   night. Everything about it follows from that one fact.
+
+   NO CARD, no border, no chrome. The plate is a full-frame ground with the
+   identity low and right, and it paints no card of its own — so a card here
+   would be an invented box around type that does not need one. The room already
+   knows whose event it is; the stream carries identity, this screen carries one
+   verse.
+
+   Reference above, verse centred, and nothing else — including no translation
+   label, which is the one thing this layout drops that every other scripture
+   variant keeps. At this distance it would be an unreadable line of small caps
+   competing with the only thing anybody is there to read. It is still on the
+   stream's screens, where it can actually be read.
+
+   Geometry is the `--gfx-house-safe-*` contract: 1600x660 at 160,250, stopping
+   above the logos in the plate's bottom right. */
+.gfx-scripture[data-variant='house-wall'] {
+  left: var(--gfx-house-safe-x);
+  top: var(--gfx-house-safe-y);
+  right: auto;
+  bottom: auto;
+  width: var(--gfx-house-safe-w);
+  height: var(--gfx-house-safe-h);
+  display: flex;
+  align-items: center;
+  padding: 0;
+  filter: none;
+}
+
+.gfx-scripture[data-variant='house-wall'] .scripture-band {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* The reference is a line of type above the verse, not a tab: a tab needs a
+   plate edge to hang from and there is no plate here. */
+.gfx-scripture[data-variant='house-wall'] .scripture-tab {
+  position: static;
+  left: auto;
+  top: auto;
+  height: auto;
+  background: transparent !important;
+  clip-path: none !important;
+  margin: 0 0 28px 0;
+}
+
+.gfx-scripture[data-variant='house-wall'] .scripture-tab-accent,
+.gfx-scripture[data-variant='house-wall'] .scripture-theme-chip,
+.gfx-scripture[data-variant='house-wall'] .scripture-rule,
+/* Dropped deliberately — see the block comment above. */
+.gfx-scripture[data-variant='house-wall'] .scripture-translation {
+  display: none;
+}
+
+.gfx-scripture[data-variant='house-wall'] .scripture-tab-body {
+  padding: 0;
+  gap: 0;
+}
+
+.gfx-scripture[data-variant='house-wall'] .scripture-ref {
+  font-family: var(--gfx-font-display);
+  font-weight: 800;
+  font-stretch: 110%;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--gfx-premium-accent);
+}
+
+.gfx-scripture[data-variant='house-wall'] .scripture-plate {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  background: none !important;
+  clip-path: none !important;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.gfx-scripture[data-variant='house-wall'] .scripture-verse {
+  font-family: var(--gfx-font-text);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--gfx-paper-cool, #ffffff);
+  text-wrap: balance;
+  /* Enough shadow to hold an edge over the plate's texture and the dove, and
+     not so much that it reads as a glow on an LED wall. */
+  text-shadow: 0 4px 22px rgba(2, 6, 24, 0.55);
+}
+
+/**
+ * THE LARGEST TYPE IN THE SYSTEM, and the floors are the plate's own preview:
+ * 82px short, 64px long. Those are floors rather than targets, so each band is
+ * again the largest that keeps its worst case inside the box — measure 1600,
+ * usable height ~560 after the reference — which lands well above them:
+ * `F <= sqrt(H x W / (0.62 x C))` gives 124 at 72 chars, 93 at 130, 71 at 220
+ * and 67 at 250. Verified with `--plate` against the built ground.
+ */
+.gfx-scripture[data-variant='house-wall'] .scripture-ref { font-size: 62px; }
+.gfx-scripture[data-variant='house-wall'] .scripture-verse { font-size: 88px; line-height: 1.2; }
+.gfx-scripture[data-variant='house-wall'] .scripture-verse-xl { font-size: 112px; line-height: 1.16; }
+.gfx-scripture[data-variant='house-wall'] .scripture-verse-md { font-size: 70px; line-height: 1.22; }
+.gfx-scripture[data-variant='house-wall'] .scripture-verse-sm { font-size: 64px; line-height: 1.24; }
 
 /* Fades rather than travels. The shared band animation slides up from the
    bottom of the frame, which is where these are not, and type sitting on a card
@@ -4213,7 +4434,7 @@ body.gfx-transparent {
   max-width: 620px;
   margin-top: 5px;
   font-size: 17px;
-  font-weight: 760;
+  font-weight: 620;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #9ff3e5;
@@ -4330,7 +4551,7 @@ body.gfx-transparent {
   margin: 0;
   max-width: 1300px;
   font-family: var(--gfx-font-display);
-  font-weight: 760;
+  font-weight: 620;
   font-stretch: 106%;
   font-size: 58px;
   line-height: 1.12;
@@ -4940,7 +5161,7 @@ body.gfx-transparent {
 
 .gfx-event[data-variant='festival-stage'] .event-meta-value {
   font-size: 36px;
-  font-weight: 760;
+  font-weight: 620;
   text-shadow: 0 2px 12px rgba(5, 13, 36, 0.18);
 }
 
@@ -5318,7 +5539,7 @@ body.gfx-transparent {
 .gfx-sermon .sermon-church,
 .gfx-sermon .sermon-date {
   font-size: 22px;
-  font-weight: 760;
+  font-weight: 620;
   line-height: 1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -6346,7 +6567,7 @@ body.gfx-transparent {
   min-width: 0;
   color: #7f8da3;
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 620;
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
@@ -6993,7 +7214,7 @@ body.gfx-transparent {
 .control-root .template-color__hex {
   grid-area: hex;
   font-size: 10px;
-  font-weight: 760;
+  font-weight: 620;
   color: #748298;
 }
 
@@ -7057,7 +7278,7 @@ body.gfx-transparent {
   padding: 0 12px;
   border-radius: 9px;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 620;
   letter-spacing: 0;
   text-transform: uppercase;
   color: #dce6f4;

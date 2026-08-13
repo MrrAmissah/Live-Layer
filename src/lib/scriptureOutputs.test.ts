@@ -49,6 +49,62 @@ describe('which screen a page is', () => {
   });
 });
 
+/**
+ * THE THREE SCREEN LAYOUTS DIVERGED, AND STAYING DIVERGED IS THE POINT.
+ *
+ * `wide`'s plate paints a card, so the variant paints type only. `tall`'s plate
+ * stopped painting one on 13 Aug — a fixed 610-tall card left ~200px of dead
+ * ground under both the short verse and the longest passage, because only this
+ * side knows the text — so the variant paints its own, fitted. `house` paints
+ * nothing at all and is read across a field at night.
+ *
+ * They shared selectors once and a refactor would happily re-merge them. These
+ * read the stylesheet because that is where the divergence lives.
+ */
+describe('who paints the card', () => {
+  const css = read('src/styles.css');
+
+  it('leaves wide painting type only — the plate still has its card', () => {
+    expect(css).toMatch(/\.gfx-scripture\[data-variant='split-wide'\] \.scripture-plate \{[^}]*background: none !important/);
+  });
+
+  it('has tall paint its own card, fitted to the verse', () => {
+    const band = /\.gfx-scripture\[data-variant='split-tall'\] \.scripture-band \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(band).toContain('height: auto'); // as tall as the verse needs, no taller
+    expect(band).toMatch(/border: 3px solid/);
+    expect(band).toContain('border-radius: 16px');
+    // ...and the quote mark cut into the top rule, 128px in, as the plate did.
+    expect(css).toMatch(/\.gfx-scripture\[data-variant='split-tall'\] \.scripture-band::before \{[^}]*left: 128px/);
+  });
+
+  it('never lets the two share a card rule again', () => {
+    // The selector they used to share. If it comes back, one of them is wrong.
+    expect(css).not.toMatch(/\[data-variant='split-wide'\] \.scripture-plate,\s*\n\.gfx-scripture\[data-variant='split-tall'\] \.scripture-plate/);
+  });
+
+  it('gives house no card, no border and no chrome', () => {
+    const plate = /\.gfx-scripture\[data-variant='house-wall'\] \.scripture-plate \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(plate).toContain('background: none !important');
+    expect(plate).toContain('box-shadow: none');
+    // Reference above, verse centred, and nothing else — the translation label
+    // is deliberately dropped at this distance.
+    expect(css).toMatch(/\[data-variant='house-wall'\] \.scripture-translation \{\s*\n?\s*display: none/);
+  });
+
+  it('sets house larger than any other layout', () => {
+    // Read across a field at night. The plate's own preview uses 82/64 as
+    // FLOORS, so every band here has to clear them.
+    const size = (variant: string, cls: string) =>
+      Number(
+        new RegExp(`\\[data-variant='${variant}'\\] \\.scripture-verse${cls} \\{ font-size: (\\d+)px`).exec(css)?.[1] ?? 0
+      );
+    expect(size('house-wall', '-xl')).toBeGreaterThan(size('split-tall', '-xl'));
+    expect(size('house-wall', '')).toBeGreaterThan(size('split-tall', ''));
+    expect(size('house-wall', '-sm')).toBeGreaterThanOrEqual(64); // the long-verse floor
+    expect(size('house-wall', '-xl')).toBeGreaterThanOrEqual(82); // the short-verse floor
+  });
+});
+
 describe('what each screen looks like', () => {
   it('ships defaults that every build can actually render', () => {
     // A default naming a variant this build dropped would put a screen on a
@@ -82,6 +138,15 @@ describe('what each screen looks like', () => {
     expect(scriptureLookFor('split', outputs)).toBeNull();
   });
 
+  it('keeps the live ?screen= contract intact', () => {
+    // Both split scenes in OBS carry a browser source at
+    // `.../output?relay=...&screen=split`. These four ids and the param name
+    // are a running production setup, not an implementation detail.
+    expect(SCRIPTURE_OUTPUT_SCREENS.map((s) => s.id)).toEqual(['main', 'lower', 'split', 'house']);
+    expect(readOutputScreen('?relay=http://192.168.1.4:4174&screen=split')).toBe('split');
+    expect(readOutputScreen('?relay=http://192.168.1.4:4174&screen=house')).toBe('house');
+  });
+
   it('has a default for every screen Settings lists, and lists every screen it defaults', () => {
     expect(SCRIPTURE_OUTPUT_SCREENS.map((s) => s.id).sort()).toEqual(
       Object.keys(DEFAULT_SCRIPTURE_OUTPUTS).sort()
@@ -111,7 +176,7 @@ describe('what each screen looks like', () => {
   });
 
   it('refuses to name a look the build cannot render, so the graphic keeps its own', () => {
-    expect(scriptureLookFor('split', { main: AS_CHOSEN, lower: AS_CHOSEN, split: 'gone' })).toBeNull();
+    expect(scriptureLookFor('split', { main: AS_CHOSEN, lower: AS_CHOSEN, split: 'gone', house: 'house-wall' })).toBeNull();
     expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe(DEFAULT_SCRIPTURE_OUTPUTS.split);
   });
 
