@@ -555,6 +555,28 @@ export const templateRegistry: TemplateDefinition[] = [
     animation: { in: 'slide', out: 'slide' }
   },
   {
+    /**
+     * KEEP. Reviewed 13 Aug 2026 against the "fix or retire" question.
+     *
+     * It overlaps the pre-rendered OBS package — `hold-brb`, `hold-starting`,
+     * `hold-stand`, `hold-thanks` are full-screen holds already built to the
+     * house system and already sitting in OBS as media sources, and they look
+     * better than this does. For a PLANNED hold, use those.
+     *
+     * What they cannot do is carry a sentence nobody wrote in advance.
+     * "Service resumes at 7:45", "the bus for Abodom leaves at 9" — an
+     * unplanned full-screen message is the one thing a live tool is for and
+     * the one thing fixed artwork cannot supply.
+     *
+     * And retiring it is not free: a stored `templateId` that stops resolving
+     * is a rundown item that cannot air. `OutputPage` answers an unknown
+     * template with OUTPUT_FAILED and a transparent screen, so every saved
+     * preset, Recent entry and rundown item naming this would go dead — with
+     * no migration target, because no other template renders full frame.
+     *
+     * If it is ever retired, it needs a mapping for all three variant ids, not
+     * a delete. Six days before a convention is not when to do that.
+     */
     id: 'fullscreen-message',
     name: 'Fullscreen Message',
     category: 'Fullscreen',
