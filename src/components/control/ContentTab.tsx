@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { templateRegistry } from '../templates/registry';
+import { rendersLogo } from '../../lib/templateCapabilities';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useEditTarget } from '../../hooks/useEditTarget';
 import { packVariantIdsFor } from '../../lib/packs';
@@ -140,18 +141,32 @@ function DesignVariantStrip() {
  * item's layout/duration controls are included, preserving today's behaviour.
  */
 export default function ContentTab({ onManageLogo }: { onManageLogo: () => void }) {
-  const { values, isRundownItem } = useEditTarget();
+  const { templateId, values, isRundownItem } = useEditTarget();
+  /**
+   * THE LOGO CARD ONLY APPEARS FOR TEMPLATES THAT PAINT A LOGO.
+   *
+   * It used to appear for all of them, and `rendersLogo` — which has said
+   * `scripture-card: false` all along — was consulted by nothing here. So
+   * editing a scripture card offered a logo the card cannot show, and the
+   * offer cost 232px of the field column: the chapter grid was squeezed into
+   * half the width it had available while a control with no effect sat beside
+   * it. Two faults from one missing check, and the second is the one the
+   * operator feels.
+   */
+  const showLogo = rendersLogo(templateId);
 
   return (
     <div className="content-tab">
-      <div className="content-tab__grid">
+      <div className="content-tab__grid" data-side={showLogo ? 'logo' : 'none'}>
         <div className="content-tab__fields">
           <EditTargetBanner />
           <TemplateFields section="content" excludeFieldIds={contentFieldExclusions(isRundownItem)} />
         </div>
-        <div className="content-tab__side">
-          <LogoSummary values={values} onManage={onManageLogo} canManage={canManageLogoInBrand(isRundownItem)} />
-        </div>
+        {showLogo ? (
+          <div className="content-tab__side">
+            <LogoSummary values={values} onManage={onManageLogo} canManage={canManageLogoInBrand(isRundownItem)} />
+          </div>
+        ) : null}
       </div>
       <DesignVariantStrip />
       {isRundownItem ? (

@@ -9642,6 +9642,10 @@ body.gfx-transparent {
 /* --- content tab: two-column fields + logo, variant strip -------------- */
 .control-root .content-tab { display: flex; flex-direction: column; gap: 18px; }
 .control-root .content-tab__grid { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 20px; align-items: start; }
+/* No logo card, no reserved column — the fields take the whole width. This is
+   what gives the scripture chapter grid room to breathe instead of wrapping
+   inside half the panel beside a control that does nothing for it. */
+.control-root .content-tab__grid[data-side='none'] { grid-template-columns: minmax(0, 1fr); }
 .control-root .content-tab__fields { min-width: 0; }
 .control-root .logo-summary { display: flex; flex-direction: column; gap: 8px; }
 .control-root .logo-summary__body {

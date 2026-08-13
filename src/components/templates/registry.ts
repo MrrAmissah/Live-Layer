@@ -246,8 +246,20 @@ export const templateRegistry: TemplateDefinition[] = [
     ],
     defaultValues: {
       variantId: 'blue-quote-card',
-      reference: 'Psalm 23:1-2',
-      verseText: 'Yahweh is my shepherd: I shall lack nothing. He makes me lie down in green pastures.',
+      /**
+       * A SINGLE VERSE, not a range.
+       *
+       * It shipped as `Psalm 23:1-2`, so every operator opening a Scripture
+       * Card landed in range mode with an end verse already filled in and had
+       * to clear it to quote one verse — which is the ordinary case. The
+       * picker was honest all along ("End (optional)"); the default was what
+       * made a range feel compulsory.
+       *
+       * The text moves with it. A reference of one verse over the words of two
+       * would put a citation on air that does not match what is under it.
+       */
+      reference: 'Psalm 23:1',
+      verseText: 'Yahweh is my shepherd: I shall lack nothing.',
       translationLabel: 'WEB',
       themeTitle: 'Scripture',
       colorBrand: HOUSE_BLUE.brand,
