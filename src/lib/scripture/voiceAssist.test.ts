@@ -437,3 +437,34 @@ describe('the panel cannot air or stage on its own', () => {
     expect(preview, 'a provisional must never reach the durable stack').not.toContain('remember(');
   });
 });
+
+describe('the provisional layer has its own exits', () => {
+  const panel = readFileSync('src/components/control/VoiceAssistPreview.tsx', 'utf8');
+
+  it('discards the provisional on Stop, without touching the durable stack', () => {
+    const stop = panel.slice(panel.indexOf('live.stop();'), panel.indexOf('live.stop();') + 320);
+    expect(stop).toContain('discardPreview()');
+    expect(stop, 'Stop must never clear what was confirmed').not.toContain('forgetConfirmed()');
+  });
+
+  it('treats a source that stopped itself the same way', () => {
+    // Permission refusal, or the speech service disappearing mid-utterance.
+    const terminal = panel.slice(panel.indexOf("status.status === 'denied'"), panel.indexOf("status.status === 'denied'") + 420);
+    expect(terminal).toContain('discardPreview()');
+  });
+
+  it('dismisses the layer on screen, not the one beneath it', () => {
+    const dismiss = panel.slice(panel.indexOf('onDismiss={() => {'), panel.indexOf('provisional={provisional}'));
+    // The provisional branch returns before anything durable is touched.
+    expect(dismiss).toMatch(/if \(preview\) \{\s*\n\s*discardPreview\(\);\s*\n\s*return;/);
+    expect(dismiss).toContain('forgetConfirmed()');
+  });
+
+  it('invalidates work in flight when the attempt ends', () => {
+    const discard = panel.slice(panel.indexOf('const discardPreview = () => {'), panel.indexOf('const acceptIdentity'));
+    // Without the generation bump a provisional lookup already running lands
+    // afterwards and puts the discarded guess straight back.
+    expect(discard).toContain('generation.current += 1');
+    expect(discard).toContain('forgetAgreement()');
+  });
+});

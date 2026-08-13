@@ -151,6 +151,29 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    * 3:16 in another. Accepting the first must not make the second look already
    * done.
    */
+  /**
+   * End the current recognition attempt, keeping everything already confirmed.
+   *
+   * A provisional belongs to exactly ONE live utterance, so every way that
+   * utterance can end has to discard it: the operator pressing Stop, the source
+   * stopping itself, a permission refusal, the service going away. Without this a
+   * guess from a session that is over stayed on screen and — once the final that
+   * would have refused it could no longer arrive — sat there looking settled.
+   *
+   * It also invalidates work in flight. The generation bump is what stops a
+   * provisional lookup that was already running from landing afterwards and
+   * putting the discarded guess straight back, and the agreement counter is reset
+   * so the next utterance starts from zero rather than inheriting votes from one
+   * that no longer exists.
+   */
+  const discardPreview = () => {
+    setPreview(null);
+    setDetecting(false);
+    setCorrection('');
+    generation.current += 1;
+    agreementRef.current = forgetAgreement();
+  };
+
   const acceptIdentity = (entry: ConfirmedPassage) =>
     `${entry.reference.canonical}|${entry.passage.translation}`;
   const forgetConfirmed = () => {
@@ -216,6 +239,10 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
          */
         if (status.status === 'denied' || status.status === 'unavailable' || status.status === 'stopped') {
           setListen(false);
+          // The same rule as pressing Stop: the session ended, so the guess that
+          // belonged to it goes with it. Reached by permission refusal and by the
+          // speech service disappearing mid-utterance.
+          discardPreview();
         }
       }
     });
@@ -729,6 +756,9 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
             if (listen) {
               live.stop();
               setListen(false);
+              // The utterance in progress ends with the session. What was already
+              // confirmed is untouched — Stop is not a way to lose a good passage.
+              discardPreview();
             } else {
               setListen(true);
               void live.start();
@@ -866,10 +896,22 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
           canAccept={!preview && !!confirmed && acceptedRef !== acceptIdentity(confirmed)}
           onAccept={onAcceptClick}
           onDismiss={() => {
-            // The operator's explicit clear — the ONE thing besides a valid
-            // replacement that may remove a confirmed passage.
+            /**
+             * Dismiss acts on the layer the operator is LOOKING at.
+             *
+             * The card shows the provisional when there is one, so dismissing it
+             * used to delete the confirmed passage underneath as well — a guess
+             * the operator waved away took a verse that was right with it. A
+             * provisional action may never erase a confirmed passage.
+             */
+            if (preview) {
+              discardPreview();
+              return;
+            }
+            // Nothing provisional on screen: this is the operator's explicit
+            // clear, and the ONE thing besides a valid replacement that may
+            // remove a confirmed passage.
             forgetConfirmed();
-            setPreview(null);
             setAcceptedRef(null);
             setCorrection('');
             setHeard('');

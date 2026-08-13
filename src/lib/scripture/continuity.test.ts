@@ -655,3 +655,141 @@ describe('a provisional never becomes durable', () => {
     expect(p.canAccept()).toBe(true);
   });
 });
+
+describe('ending an utterance discards its provisional, and only that', () => {
+  /**
+   * A provisional belongs to exactly one live utterance. Two exits did not honour
+   * that: Stop left the guess on screen after the final that would have refused it
+   * could no longer arrive, and Dismiss — acting on the confirmed layer while the
+   * card was showing the provisional — deleted a verse that was right because the
+   * operator waved away a guess.
+   */
+  function panel() {
+    let stack: PassageStack = EMPTY_STACK;
+    let preview: ConfirmedPassage | null = null;
+    let generation = 0;
+    let agreement = 'votes-for-this-utterance';
+    const entry = (canonical: string): ConfirmedPassage => {
+      const parsed = parseScriptureReference(canonical);
+      if (!parsed.ok) throw new Error(canonical);
+      return {
+        reference: parsed.reference,
+        passage: { reference: canonical, translation: 'KJV', text: `text of ${canonical}` } as ScriptureLookupResult,
+        heard: canonical,
+        interpretation: `read as ${canonical}`
+      };
+    };
+    /** Ends the current attempt; never touches what is confirmed. */
+    const discardPreview = () => {
+      preview = null;
+      generation += 1;
+      agreement = 'none';
+    };
+    return {
+      confirm(canonical: string) {
+        stack = promote(stack, entry(canonical));
+      },
+      /** A provisional whose lookup already returned. */
+      provisional(canonical: string) {
+        preview = entry(canonical);
+      },
+      /** A provisional lookup still running; returns a commit that may be too late. */
+      provisionalInFlight(canonical: string) {
+        const mine = generation;
+        return () => {
+          if (generation !== mine) return false;
+          preview = entry(canonical);
+          return true;
+        };
+      },
+      stop: discardPreview,
+      sourceStopped: discardPreview,
+      dismiss() {
+        // The layer the operator is looking at.
+        if (preview) {
+          discardPreview();
+          return;
+        }
+        stack = EMPTY_STACK;
+      },
+      shown: () => (preview ?? stack.current)?.passage.reference ?? null,
+      current: () => stack.current?.passage.reference ?? null,
+      acceptTarget: () => (preview ? null : stack.current?.passage.reference ?? null),
+      agreement: () => agreement
+    };
+  }
+
+  it('1 — Stop keeps the confirmed passage and drops the guess', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    p.provisional('John 3:16');
+    expect(p.shown()).toBe('John 3:16');
+
+    p.stop();
+    expect(p.shown(), 'the provisional survived Stop').toBe('Romans 8:28');
+    expect(p.current()).toBe('Romans 8:28');
+    expect(p.acceptTarget(), 'Accept must target the durable passage').toBe('Romans 8:28');
+  });
+
+  it('2 — Stop with nothing confirmed leaves nothing on screen', () => {
+    const p = panel();
+    p.provisional('John 3:16');
+    p.stop();
+    expect(p.shown()).toBeNull();
+  });
+
+  it('3 — dismissing a provisional does not take the confirmed passage with it', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    p.provisional('John 3:16');
+    p.dismiss();
+    expect(p.current(), 'a dismissed guess deleted a confirmed passage').toBe('Romans 8:28');
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+
+  it('4 — dismissing a provisional with nothing beneath leaves nothing', () => {
+    const p = panel();
+    p.provisional('John 3:16');
+    p.dismiss();
+    expect(p.shown()).toBeNull();
+  });
+
+  it('5 — a lookup still running cannot restore a discarded provisional', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    const landing = p.provisionalInFlight('John 3:16');
+    p.stop();
+    expect(landing(), 'a late provisional lookup came back after Stop').toBe(false);
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+
+  it('5b — the same holds for Dismiss', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    p.provisional('John 3:16');
+    const landing = p.provisionalInFlight('John 3:17');
+    p.dismiss();
+    expect(landing()).toBe(false);
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+
+  it('6 — the next session inherits no provisional state', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    p.provisional('John 3:16');
+    p.stop();
+    // Start again: nothing from the previous utterance is carried, including the
+    // agreement votes that decide when a guess may be displayed at all.
+    expect(p.shown()).toBe('Romans 8:28');
+    expect(p.agreement()).toBe('none');
+  });
+
+  it('a source that stops itself is treated exactly like Stop', () => {
+    // Permission refused, or the speech service disappearing mid-utterance.
+    const p = panel();
+    p.confirm('Romans 8:28');
+    p.provisional('John 3:16');
+    p.sourceStopped();
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+});
