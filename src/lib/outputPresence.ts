@@ -91,15 +91,23 @@ function weakness(status: OutputStatusState, now: number): number {
 }
 
 /**
- * Is this screen actually carrying the graphic right now?
+ * Is this screen MEASURABLY carrying the graphic right now?
  *
- * `sourceActive: false` means OBS is not compositing this source — usually
- * because its scene is not the live one. `sourceVisible: false` means the eye
- * is off. A page with no host binding claims neither, and is taken at its word.
+ * Positive evidence only: OBS says this source is active and its eye is on.
+ *
+ * A page with no host binding — a preview window, `/output` open on a phone
+ * over the relay — is deliberately NOT carrying. It cannot be: it is a browser
+ * tab, not a source in a scene. Letting it count was a real fault on the desk,
+ * and it broke both directions at once. `weakness` ranks an unbound page BELOW
+ * an active source (it claims less), so one preview tab left open pinned the
+ * pill to OUTPUT READY while the OBS source was plainly active — and when the
+ * real sources went hidden, the tab was the only thing still "carrying", so
+ * SOURCE HIDDEN never appeared at all. A tab nobody is watching was outvoting
+ * the rig.
  */
 function isCarrying(status: OutputStatusState, now: number): boolean {
   if (outputPresence(status, now) !== 'fresh') return false;
-  return status.sourceVisible !== false && status.sourceActive !== false;
+  return status.sourceActive === true && status.sourceVisible !== false;
 }
 
 /**
@@ -118,10 +126,15 @@ function isCarrying(status: OutputStatusState, now: number): boolean {
  *
  * So the pill is decided by the screens that are actually carrying. It answers
  * "is what I commanded reaching air", and a scene that is not live is not air.
+ * One source measured active is enough: it IS the evidence that the graphic is
+ * compositing, and a page elsewhere that has measured nothing cannot weaken it.
  *
  * When NOTHING is carrying, every screen is back in the pool and the weakest
  * speaks — because then the answer is genuinely bad news: no live source is
- * showing this graphic, and that is worth saying however it happened.
+ * showing this graphic, and that is worth saying however it happened. That
+ * fallback is also what keeps an OBS-less rig honest: with only unbound pages
+ * reporting, the weakest of them is one of those pages, and the desk sits at
+ * OUTPUT READY exactly as it should.
  *
  * A screen that dies while another carries is NOT hidden by this. It stops
  * being fresh, so it never counts as carrying, and it is reported by name

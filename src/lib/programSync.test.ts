@@ -14,8 +14,8 @@ import {
   reduceRelaySnapshot,
   snapshotReplay
 } from '../../scripts/relay-snapshot.mjs';
-import { outputPresence, stalledOutputs } from './outputPresence';
-import { describeStalledScreens } from './programStatus';
+import { outputPresence, stalledOutputs, worstOutput } from './outputPresence';
+import { describeProgramStatus, describeStalledScreens } from './programStatus';
 
 /**
  * The Program sync reducer — the rule that makes two control clients tell one
@@ -417,6 +417,60 @@ describe('output presence', () => {
     state = apply(state, show('cmd-B', T0 + 4, 'g-b'), T0 + 4);
     state = apply(state, applied('cmd-B', T0 + 5, 'out-split'), T0 + 5);
     expect(state.outputs['out-split']?.failure).toBeNull();
+  });
+
+  /**
+   * THE RIG AS PRINCE ACTUALLY RUNS IT, end to end through the reducer.
+   *
+   * An OBS browser source in the live scene, and `/output` open on a second
+   * device over the relay. The second device has no host binding, so it reports
+   * both readings null — and for a while that page decided what the desk said:
+   * OUTPUT READY while the OBS source was plainly active, and no SOURCE HIDDEN
+   * when the sources went dark. A tab nobody was watching outvoted the rig.
+   */
+  it('reads OUTPUT ACTIVE while a bindingless second device is also reporting', () => {
+    let state = apply(clientState(), show('cmd-A', T0), T0);
+    state = apply(state, applied('cmd-A', T0 + 5, 'obs-main'), T0 + 5);
+    state = apply(state, outputStatus(true, T0 + 6, 'obs-main', 'main'), T0 + 6);
+    // The phone on the relay: present, reporting, measuring nothing.
+    const phone: RealtimeMessage = {
+      id: 'st-phone',
+      type: 'OUTPUT_STATUS',
+      payload: { outputId: 'phone', sourceActive: null, sourceVisible: null, screen: 'main' },
+      timestamp: T0 + 7
+    };
+    state = apply(state, phone, T0 + 7);
+
+    expect(describeProgramStatus(state.program, worstOutput(state.outputs, T0 + 8), T0 + 8).pill).toBe(
+      'OUTPUT ACTIVE'
+    );
+  });
+
+  it('falls straight back to SOURCE HIDDEN when the OBS source hides', () => {
+    let state = apply(clientState(), show('cmd-A', T0), T0);
+    state = apply(state, applied('cmd-A', T0 + 5, 'obs-main'), T0 + 5);
+    state = apply(state, outputStatus(true, T0 + 6, 'obs-main', 'main'), T0 + 6);
+    const phone: RealtimeMessage = {
+      id: 'st-phone',
+      type: 'OUTPUT_STATUS',
+      payload: { outputId: 'phone', sourceActive: null, sourceVisible: null, screen: 'main' },
+      timestamp: T0 + 7
+    };
+    state = apply(state, phone, T0 + 7);
+
+    // Eye off on the source that was carrying.
+    const hidden: RealtimeMessage = {
+      id: 'st-hidden',
+      type: 'OUTPUT_STATUS',
+      payload: { outputId: 'obs-main', sourceActive: true, sourceVisible: false, screen: 'main' },
+      timestamp: T0 + 8
+    };
+    state = apply(state, hidden, T0 + 8);
+
+    // No delay, no heartbeat to wait for: the next message settles it.
+    expect(describeProgramStatus(state.program, worstOutput(state.outputs, T0 + 9), T0 + 9).pill).toBe(
+      'SOURCE HIDDEN'
+    );
   });
 
   it('nothing is said while every screen is reporting', () => {

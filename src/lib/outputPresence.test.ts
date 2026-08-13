@@ -123,20 +123,61 @@ describe('which screen speaks for the rig', () => {
     expect(worstOutput(dead, NOW)?.outputId).toBe('split-dead'); // stale outranks all
   });
 
-  it('still ranks the weakest WITHIN the screens that are carrying', () => {
-    // Two sources in the same live scene, one with its eye off: that is a real
-    // fault on air, and the pill must say so.
-    expect(
-      worstOutput(rig(screen('ok'), screen('eye-off', { sourceVisible: false }), screen('ok2')), NOW)?.outputId
-    ).toBe('ok');
+  it('answers from a measured source the instant one exists', () => {
+    // The responsiveness property, stated as a rule: one source reporting
+    // active IS the evidence that the graphic is compositing, and no amount of
+    // other screens in other states delays or dilutes it.
+    const outputs = rig(
+      screen('obs-live'),
+      screen('obs-other-scene', { sourceVisible: false }),
+      screen('tab', { sourceActive: null, sourceVisible: null }),
+      screen('dead', { lastSeenAt: NOW - OUTPUT_STALE_MS - 1 })
+    );
+    const speaking = worstOutput(outputs, NOW);
+    expect(speaking?.outputId).toBe('obs-live');
+    expect(speaking?.sourceActive).toBe(true);
+    // ...and the dead one is still named, by the other question.
+    expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['dead']);
   });
 
-  it('prefers an unbound page over an active source, because it claims less', () => {
-    // A plain browser tab reports no host binding at all, so it is taken at its
-    // word and counts as carrying — but it claims less than an OBS source that
-    // says it is active, so it is still the one that speaks.
+  /**
+   * A BROWSER TAB DOES NOT OUTVOTE THE RIG.
+   *
+   * This used to prefer the unbound page "because it claims less", and on a
+   * one-screen rig that was right. With a preview window open — or `/output` on
+   * a phone over the relay, which is how this gets used — it was badly wrong in
+   * both directions at once: the pill sat at OUTPUT READY while the OBS source
+   * was plainly active, and when the real sources went hidden the tab was the
+   * only thing still counted as carrying, so SOURCE HIDDEN never appeared.
+   *
+   * A page with no host binding has measured nothing. It cannot weaken a source
+   * that has.
+   */
+  it('is not outvoted by a page that has measured nothing', () => {
     const outputs = rig(screen('obs'), screen('tab', { sourceActive: null, sourceVisible: null }));
-    expect(worstOutput(outputs, NOW)?.outputId).toBe('tab');
+    expect(worstOutput(outputs, NOW)?.outputId).toBe('obs');
+  });
+
+  it('still says OUTPUT READY when unbound pages are all there is', () => {
+    // No OBS anywhere — a laptop and a phone on the relay. Nothing has measured
+    // a source, so nothing may claim one, and the fallback pool says so.
+    const outputs = rig(
+      screen('tab-a', { sourceActive: null, sourceVisible: null }),
+      screen('tab-b', { sourceActive: null, sourceVisible: null })
+    );
+    expect(worstOutput(outputs, NOW)?.sourceActive).toBeNull();
+  });
+
+  it('reports SOURCE HIDDEN again the moment the real sources hide, tab or no tab', () => {
+    // The other half of the same fault. With the tab counted as carrying, the
+    // hidden sources were filtered out and the tab spoke instead — the desk
+    // said OUTPUT READY about a rig showing nothing.
+    const outputs = rig(
+      screen('obs-main', { sourceVisible: false }),
+      screen('obs-split', { sourceActive: false }),
+      screen('tab', { sourceActive: null, sourceVisible: null })
+    );
+    expect(worstOutput(outputs, NOW)?.outputId).toBe('obs-main'); // hidden outranks inactive
   });
 
   it('returns the single screen unchanged when there is only one', () => {
