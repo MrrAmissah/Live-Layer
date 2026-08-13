@@ -416,6 +416,48 @@ body.gfx-transparent {
      the bottom offsets below were tuned against that). */
   --gfx-ticker-left: 108px;
 
+  /* --- split-screen scene: the contract with the background plate ---------
+     Camera one side, scripture the other, both over a designed plate that is a
+     separate OBS source built in Nine3-Design-Hub. The two sides must agree
+     exactly or the verse sits over the preacher, so every number lives HERE and
+     nowhere else — changing the scene is editing this block.
+
+     SETTLED 13 Aug 2026. An earlier v1 (camera 1152x648, safe box
+     1216/140/640/800) was rejected on sight: scripture was to be prioritised, so
+     the camera narrowed and the card grew. Two layouts now exist rather than one.
+
+     Neither layout uses OBS bounds. The Move Transition interpolates positionX/Y
+     and scaleX/Y but NOT boundsWidth/Height, so a bounds-based transform glides
+     in position while the size snaps — it reads as a cut rather than a squeeze.
+     `wide` is therefore a flat 0.5 scale of a 1920x1080 feed, letterboxed; `tall`
+     is a per-scene-item crop of 600px each side at scale 1.0.
+
+     THE PLATE ALREADY PAINTS A SOLID CARD inside each safe box — dark ground,
+     gold edge, a quote mark cut into the top rule. So the variants below paint
+     TYPE ONLY. A second opaque card inside the plate's card is the one thing
+     that will look wrong, and it is why nothing here sets a background. */
+
+  /* wide — feed keeps 16:9 and letterboxes; identity sits in the top band. */
+  --gfx-split-wide-camera-x: 0px;
+  --gfx-split-wide-camera-y: 270px;
+  --gfx-split-wide-camera-w: 960px;   /* 1920 x 0.5 */
+  --gfx-split-wide-camera-h: 540px;
+  --gfx-split-wide-safe-x: 1012px;
+  --gfx-split-wide-safe-y: 116px;
+  --gfx-split-wide-safe-w: 852px;
+  --gfx-split-wide-safe-h: 848px;
+
+  /* tall — feed cropped to a vertical slot, pushed hard left, for tight shots
+     framed on the preacher. Scripture takes the right half. */
+  --gfx-split-tall-camera-x: 0px;
+  --gfx-split-tall-camera-y: 0px;
+  --gfx-split-tall-camera-w: 720px;
+  --gfx-split-tall-camera-h: 1080px;
+  --gfx-split-tall-safe-x: 772px;
+  --gfx-split-tall-safe-y: 212px;
+  --gfx-split-tall-safe-w: 1096px;
+  --gfx-split-tall-safe-h: 762px;
+
   font-family: var(--gfx-font-text);
   color: var(--gfx-paper-cool);
 }
@@ -3126,6 +3168,164 @@ body.gfx-transparent {
   color: #ffffff;
   background: var(--gfx-premium-brand);
   opacity: 1;
+}
+
+/* --- scripture: split-wide / split-tall ---------------------------------
+   The split-screen scene. Camera one side, scripture the other, a designed
+   background plate underneath both as a separate OBS source.
+
+   Three things make these different from every other scripture design:
+
+   1. They are CONFINED, not full-width. `.gfx-scripture` is `left: 0; right: 0`
+      by default — a band across the whole frame — which over this scene runs
+      straight through the preacher's face.
+   2. They paint NO BACKGROUND AT ALL. The plate underneath already draws the
+      card: dark ground, gold edge, a quote mark cut into the top rule. Drawing a
+      second card inside it is the one thing that would look wrong, so these
+      rules set type and nothing else. This is also why the house L-bracket is
+      absent here for once — the plate is already carrying it.
+   3. The page is transparent for the OBS Browser Source (OutputPage forces
+      `gfx-transparent` onto the document and body), so any fill here would be
+      covering the plate and the camera rather than covering nothing.
+
+   Every number comes from the --gfx-split-* contract at the top of this file. */
+.gfx-scripture[data-variant='split-wide'],
+.gfx-scripture[data-variant='split-tall'] {
+  /* Explicitly unset: the base rule anchors scripture to the bottom of the
+     frame across its full width, and inheriting either puts it over the camera. */
+  right: auto;
+  bottom: auto;
+  display: flex;
+  align-items: center;
+  /* No drop-shadow either: the plate's own edge is the depth cue, and a shadow
+     from type sitting ON that card reads as a second floating layer. */
+  filter: none;
+}
+
+.gfx-scripture[data-variant='split-wide'] {
+  left: var(--gfx-split-wide-safe-x);
+  top: var(--gfx-split-wide-safe-y);
+  width: var(--gfx-split-wide-safe-w);
+  height: var(--gfx-split-wide-safe-h);
+}
+
+.gfx-scripture[data-variant='split-tall'] {
+  left: var(--gfx-split-tall-safe-x);
+  top: var(--gfx-split-tall-safe-y);
+  width: var(--gfx-split-tall-safe-w);
+  height: var(--gfx-split-tall-safe-h);
+}
+
+.gfx-scripture[data-variant='split-wide'] .scripture-band,
+.gfx-scripture[data-variant='split-tall'] .scripture-band {
+  width: 100%;
+}
+
+/* The reference sits above the verse as a line of type, not as a clipped tab.
+   A tab hanging off the top-left needs a plate edge to hang from, and the plate
+   here belongs to the layer underneath. */
+.gfx-scripture[data-variant='split-wide'] .scripture-tab,
+.gfx-scripture[data-variant='split-tall'] .scripture-tab {
+  position: static;
+  left: auto;
+  top: auto;
+  height: auto;
+  background: transparent !important;
+  clip-path: none !important;
+  margin: 0 0 20px 0;
+}
+
+.gfx-scripture[data-variant='split-wide'] .scripture-tab-accent,
+.gfx-scripture[data-variant='split-tall'] .scripture-tab-accent,
+.gfx-scripture[data-variant='split-wide'] .scripture-theme-chip,
+.gfx-scripture[data-variant='split-tall'] .scripture-theme-chip,
+.gfx-scripture[data-variant='split-wide'] .scripture-rule,
+.gfx-scripture[data-variant='split-tall'] .scripture-rule {
+  display: none;
+}
+
+.gfx-scripture[data-variant='split-wide'] .scripture-tab-body,
+.gfx-scripture[data-variant='split-tall'] .scripture-tab-body {
+  padding: 0;
+  gap: 10px;
+}
+
+.gfx-scripture[data-variant='split-wide'] .scripture-ref,
+.gfx-scripture[data-variant='split-tall'] .scripture-ref {
+  font-family: var(--gfx-font-display);
+  font-weight: 800;
+  font-stretch: 110%;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--gfx-accent-2);
+}
+
+/* THE PLATE IS THE LAYER UNDERNEATH. Nothing is painted here. */
+.gfx-scripture[data-variant='split-wide'] .scripture-plate,
+.gfx-scripture[data-variant='split-tall'] .scripture-plate {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  background: none !important;
+  clip-path: none !important;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.gfx-scripture[data-variant='split-wide'] .scripture-verse,
+.gfx-scripture[data-variant='split-tall'] .scripture-verse {
+  font-family: var(--gfx-font-text);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--gfx-paper-cool);
+  text-wrap: pretty;
+}
+
+.gfx-scripture[data-variant='split-wide'] .scripture-translation,
+.gfx-scripture[data-variant='split-tall'] .scripture-translation {
+  display: block;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  font-family: var(--gfx-font-display);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gfx-accent-2);
+  opacity: 0.92;
+}
+
+/* Type sized to each measure. The renderer's shared `verseSizeClass` steps at
+   130 and 220 characters — thresholds tuned for a full-width plate where 220
+   characters is three lines. In an 852px column it is closer to six, so the
+   steps are re-tuned per layout here rather than in the renderer, which the
+   wide variants still want unchanged. */
+.gfx-scripture[data-variant='split-wide'] .scripture-ref { font-size: 40px; }
+.gfx-scripture[data-variant='split-wide'] .scripture-verse { font-size: 46px; line-height: 1.32; }
+.gfx-scripture[data-variant='split-wide'] .scripture-verse-md { font-size: 38px; line-height: 1.3; }
+.gfx-scripture[data-variant='split-wide'] .scripture-verse-sm { font-size: 31px; line-height: 1.29; }
+.gfx-scripture[data-variant='split-wide'] .scripture-translation { margin-top: 26px; font-size: 21px; }
+
+/* `tall` is wider and shorter: the measure takes more per line, so the same
+   verse needs fewer of them and can hold a larger size before it overflows. */
+.gfx-scripture[data-variant='split-tall'] .scripture-ref { font-size: 42px; }
+.gfx-scripture[data-variant='split-tall'] .scripture-verse { font-size: 50px; line-height: 1.3; }
+.gfx-scripture[data-variant='split-tall'] .scripture-verse-md { font-size: 42px; line-height: 1.29; }
+.gfx-scripture[data-variant='split-tall'] .scripture-verse-sm { font-size: 34px; line-height: 1.28; }
+.gfx-scripture[data-variant='split-tall'] .scripture-translation { margin-top: 28px; font-size: 22px; }
+
+/* Fades rather than travels. The shared band animation slides up from the
+   bottom of the frame, which is where these are not, and type sitting on a card
+   that is already on screen should not arrive from off it. */
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .gfx-scripture[data-variant='split-wide'] .scripture-band,
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .gfx-scripture[data-variant='split-tall'] .scripture-band {
+  animation: gfx-split-in 420ms var(--gfx-ease-out) both;
+}
+
+@keyframes gfx-split-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .gfx-layer:not([data-anim='fade'])[data-state='in'] .scripture-band {

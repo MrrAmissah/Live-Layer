@@ -283,6 +283,29 @@ export const templateRegistry: TemplateDefinition[] = [
         id: 'theme-lower',
         name: 'Theme Lower',
         description: 'Wide scripture lower band with a pill reference label and textured blue reading surface.'
+      },
+      {
+        id: 'split-wide',
+        name: 'Split — Wide',
+        /**
+         * For the split-screen scene: camera one side, scripture the other, over a
+         * designed background plate that lives in OBS underneath this graphic.
+         *
+         * Every other scripture variant is a full-width band anchored to the bottom
+         * of the frame — over this scene that runs straight across the preacher.
+         * These two are confined to the scripture safe box and paint TYPE ONLY:
+         * the plate underneath already draws the card, and a second card inside it
+         * is the thing that would look wrong.
+         *
+         * `wide` is for a feed that keeps 16:9 and letterboxes into the left half.
+         */
+        description: 'Scripture type for the split-screen scene, 16:9 camera left. Paints no card — the OBS plate does.'
+      },
+      {
+        id: 'split-tall',
+        name: 'Split — Tall',
+        /** For a feed cropped to a vertical slot — tight shots framed on the preacher. */
+        description: 'Scripture type for the split-screen scene, cropped vertical camera left. Paints no card — the OBS plate does.'
       }
     ],
     animation: { in: 'slide', out: 'slide' }
