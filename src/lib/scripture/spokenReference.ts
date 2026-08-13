@@ -1,6 +1,13 @@
 import { BIBLE_BOOKS } from './bibleBooks';
 import { parseScriptureReference, type CanonicalReference } from './parseReference';
-import { matchSpokenBook, recoverSpokenBook, describeRecovery } from './spokenBookLexicon';
+import { compactReadings } from './compactLocator';
+import {
+  matchSpokenBook,
+  recoverSpokenBook,
+  describeRecovery,
+  recoverStructuralWord,
+  recoverNumberWord
+} from './spokenBookLexicon';
 
 /**
  * Spoken text → candidate references. A SEPARATE boundary in front of the strict
@@ -50,14 +57,31 @@ const BOOK_ORDINALS: Record<string, number> = {
   '1st': 1,
   one: 1,
   i: 1,
+  /**
+   * The plain digit, which is how these books are actually WRITTEN — "1 John",
+   * "2 Kings", "3 John" — and which was missing while every other form was here.
+   *
+   * It went unnoticed for as long as the recogniser spelled numbers out. A
+   * recogniser that writes digits exposed it immediately and expensively: `1 John
+   * 4 8` resolved to **John 4:8**, and `2 Corinthians 5.17` to **1 Corinthians
+   * 5:17** — the wrong numbered book, confidently, which is the exact failure this
+   * layer exists to prevent. Five of the eight wrong leading answers in the
+   * shootout were this one gap.
+   *
+   * Deliberately NOT added while the comparison was running. Fixing a gap that one
+   * candidate's output shape reveals, mid-comparison, decides the comparison.
+   */
+  '1': 1,
   second: 2,
   '2nd': 2,
   two: 2,
   ii: 2,
+  '2': 2,
   third: 3,
   '3rd': 3,
   three: 3,
-  iii: 3
+  iii: 3,
+  '3': 3
 };
 
 const UNITS: Record<string, number> = {
@@ -136,6 +160,15 @@ const HOMOPHONE_NUMBERS: Record<string, number> = {
   to: 2,
   free: 3,
   tree: 3,
+  /**
+   * Heard from the recogniser on the shortest form of all — "John three sixteen"
+   * came back as `jon thee sixteen`, and the reference was refused outright. It
+   * belongs to the same family as `free` and `tree` above, and carries the same
+   * `foundSoFar` guard, which matters more here than for the others: `thee` is
+   * ordinary speech in a church that reads the King James, so it is read as a
+   * number only while a reference is still incomplete and never once one is.
+   */
+  thee: 3,
   sex: 6,
   ceven: 7
 };
@@ -184,6 +217,16 @@ export interface SpokenCandidate {
    * should trust numerically. Higher sorts first.
    */
   score: number;
+  /**
+   * This reading came from splitting a compact number — `John 316` as 3:16.
+   *
+   * It marks a candidate whose VERSE has not been validated. Chapters are checked
+   * by the strict parser, which has each book's chapter count; per-chapter verse
+   * counts are not bundled, so `Genesis 1:234` parses even though Genesis 1 has
+   * 31 verses. The caller must retrieve one of these before displaying it, and may
+   * fall through to the next when retrieval says the verse does not exist.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -423,6 +466,22 @@ function numberFollows(tokens: string[], from: number): boolean {
     // Structural words may sit between the book and its numbers; anything else
     // means the numbers are not this phrase's.
     if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
+    /**
+     * A DAMAGED structural word is still structure. "psalm chapte twenty three
+     * verse one" broke here rather than in the locator: `chapte` sits before the
+     * first number, so the book looked unanchored and the whole utterance was
+     * refused. Continuing is safe — if no number follows, this loop returns false
+     * anyway, which is the same guard the locator applies.
+     */
+    if (recoverStructuralWord(token)) continue;
+    /**
+     * A DAMAGED NUMBER is still the book's anchor. `let us read romans eig twenty
+     * eight` failed here and not in the locator: `eig` sits between the book and
+     * its numbers, so `romans` looked unanchored and the utterance was refused
+     * outright — while `romens eight twenty eight` resolved cleanly, because a
+     * damaged book is repaired and a damaged number was not.
+     */
+    if (readRepairedNumber(tokens, i, tokens.length, 0, false)) return true;
     return false;
   }
   return false;
@@ -573,6 +632,74 @@ interface Locator {
   /** Index in `numbers` where a range began. */
   rangeAfter: Set<number>;
   listAfter: Set<number>;
+  /**
+   * Whether each number arrived as a literal run of digits rather than as words.
+   *
+   * The distinction matters for exactly one thing: a chapter and verse the
+   * recogniser ran together. "John 316" is digits Whisper wrote without a
+   * separator and may need splitting; "one hundred fifty one" is a speaker
+   * separating the words themselves, and splitting THAT would turn Psalm 151 into
+   * Psalm 1:51 rather than letting the ordinary reading find Psalms 150:1.
+   */
+  literal: boolean[];
+}
+
+/**
+ * A number word the recogniser cut short, read only where the locator continues.
+ *
+ * `let us read romans eig twenty eight` — a real transcript. Without this the
+ * chapter is simply gone, and the whole reference with it. The confirmation that
+ * makes it safe is the token AFTER: a repaired number must be followed by a number
+ * that needed no repair, which is what keeps the repair inside a reference instead
+ * of loose in prose. That check deliberately does not recurse — two damaged words
+ * in a row confirm nothing, and guessing twice is how a fabricated verse is built.
+ */
+function readRepairedNumber(
+  tokens: string[],
+  at: number,
+  until: number,
+  soFar: number,
+  zerosAsNoise: boolean
+): { value: number; used: number } | null {
+  const repaired = recoverNumberWord(tokens[at] ?? '');
+  if (!repaired) return null;
+
+  let confirmed = false;
+  for (let i = at + 1; i < until; i += 1) {
+    if (readNumber(tokens, i, soFar + 1, zerosAsNoise)) {
+      confirmed = true;
+      break;
+    }
+    const token = tokens[i];
+    if (FILLER.has(token) || STRUCTURAL_AFTER_REPAIR.has(token)) continue;
+    break;
+  }
+  if (!confirmed) return null;
+
+  const patched = [...tokens];
+  patched[at] = repaired;
+  return readNumber(patched, at, soFar, zerosAsNoise);
+}
+
+/** Words that may legitimately sit between a repaired chapter and its verse. */
+const STRUCTURAL_AFTER_REPAIR = new Set(['chapter', 'chapters', 'verse', 'verses', 'colon']);
+
+/** True when the next meaningful token in the span reads as a number. */
+function numberFollowsAt(
+  tokens: string[],
+  from: number,
+  until: number,
+  soFar: number,
+  zerosAsNoise: boolean
+): boolean {
+  for (let i = from; i < until; i += 1) {
+    if (readNumber(tokens, i, soFar, zerosAsNoise)) return true;
+    if (readRepairedNumber(tokens, i, until, soFar, zerosAsNoise)) return true;
+    const token = tokens[i];
+    if (FILLER.has(token) || RANGE_WORDS.has(token) || LIST_WORDS.has(token)) continue;
+    return false;
+  }
+  return false;
 }
 
 function readLocator(
@@ -582,6 +709,7 @@ function readLocator(
   zerosAsNoise = false
 ): Locator {
   const numbers: number[] = [];
+  const literal: boolean[] = [];
   const rangeAfter = new Set<number>();
   const listAfter = new Set<number>();
   let pendingRange = false;
@@ -616,13 +744,16 @@ function readLocator(
       continue;
     }
 
-    const num = readNumber(tokens, i, numbers.length, zerosAsNoise);
+    const num =
+      readNumber(tokens, i, numbers.length, zerosAsNoise) ??
+      readRepairedNumber(tokens, i, until, numbers.length, zerosAsNoise);
     if (num) {
       if (pendingRange) rangeAfter.add(numbers.length - 1);
       if (pendingList) listAfter.add(numbers.length - 1);
       pendingRange = false;
       pendingList = false;
       numbers.push(num.value);
+      literal.push(/^\d+$/.test(tokens[i] ?? ''));
       i += num.used;
       continue;
     }
@@ -638,12 +769,30 @@ function readLocator(
      * Before the first number this must NOT stop — "John, let us read verse sixteen"
      * has to get past "us".
      */
-    if (numbers.length) break;
+    if (numbers.length) {
+      /**
+       * …unless the word is a damaged JOINT of the reference grammar rather than
+       * prose. A real microphone gave "jon chapter three vers sixteen"; breaking
+       * here returned John 3 and discarded "sixteen" without a word to the
+       * operator.
+       *
+       * Only when a number actually follows, which is what distinguishes a broken
+       * `verse` from `worse`, `horse` or `nurse` — none of which is followed by a
+       * verse number in real speech. Prose still ends a reference, which is what
+       * keeps "Acts two, there were about three thousand souls" at Acts 2.
+       */
+      const structural = recoverStructuralWord(token);
+      if (structural && numberFollowsAt(tokens, i + 1, until, numbers.length, zerosAsNoise)) {
+        i += 1;
+        continue;
+      }
+      break;
+    }
 
     i += 1;
   }
 
-  return { numbers, rangeAfter, listAfter };
+  return { numbers, rangeAfter, listAfter, literal };
 }
 
 /**
@@ -677,14 +826,53 @@ function buildRawReferences(
   book: string,
   loc: Locator,
   singleChapter = false
-): { raw: string; why: string; score: number }[] {
+): { raw: string; why: string; score: number; compact?: boolean }[] {
   const { numbers, rangeAfter, listAfter } = loc;
-  const out: { raw: string; why: string; score: number }[] = [];
+  const out: { raw: string; why: string; score: number; compact?: boolean }[] = [];
   if (!numbers.length) return out;
 
   const [a, b, c] = numbers;
 
   if (numbers.length === 1) {
+    /**
+     * A chapter and verse run together as one number — `John 316`, `Romans 828`,
+     * both from a real microphone. Tried ONLY when the plain chapter reading is
+     * not a real passage, which is what keeps `Psalm 119` a chapter rather than
+     * becoming 1:19 or 11:9. The canon does the rejecting: John has 21 chapters,
+     * so `John 31:6` cannot exist and `John 3:16` is the only survivor.
+     */
+    if (!singleChapter && loc.literal[0] && !parseScriptureReference(`${book} ${a}`).ok) {
+      const readings = compactReadings(book, String(a));
+      /**
+       * Offered ONLY when the canon leaves exactly one split standing.
+       *
+       * Structural survival is not verse existence. The strict parser validates
+       * chapters — it has each book's chapter count — but no per-chapter verse
+       * data is bundled, so `Genesis 1234` produces two structurally valid splits,
+       * 1:234 and 12:34, and NEITHER is a real verse: Genesis 1 has 31 and
+       * Genesis 12 has 20. Offering those as "other possible readings" would put
+       * two impossible passages in front of the operator and call them ambiguity.
+       *
+       * A single survivor is a different case. It is still not proven — it is
+       * proposed, and the panel retrieves it before it can be displayed, so a
+       * split that names no real verse never reaches the card. Two survivors
+       * cannot be resolved that way without guessing which to retrieve first, so
+       * they are refused here instead.
+       */
+      for (const reading of readings) {
+        out.push({
+          raw: reading.reference.canonical,
+          // Said plainly, because the operator is being shown a reading of digits
+          // they did not separate and should be able to disagree with it.
+          why: `heard "${a}" as chapter ${reading.chapter}, verse ${reading.verse}`,
+          // Ranked but NOT resolved. Where two survive the canon, retrieval is
+          // what settles them, and it happens before either is displayed.
+          score: readings.length === 1 ? 86 : 64,
+          compact: true
+        });
+      }
+      if (out.length) return out;
+    }
     out.push({ raw: `${book} ${a}`, why: singleChapter ? `verse ${a}` : `chapter ${a}`, score: 60 });
     return out;
   }
@@ -846,7 +1034,8 @@ function resolveSpan(tokens: string[], match: BookMatch, until: number, spanStar
         raw: built.raw,
         reference: parsed.reference,
         interpretation: `${book.name} ${built.why}${book.note}`,
-        score: built.score - book.penalty
+        score: built.score - book.penalty,
+        compact: built.compact
       });
     }
   }

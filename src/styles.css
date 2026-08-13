@@ -8458,7 +8458,23 @@ body.gfx-transparent {
    the editor flex-growing and clipping its own overflow. */
 .control-root .studio-center { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
 .control-root .studio-center .preview-console,
-.control-root .studio-center .editor-panel { flex: 0 0 auto; }
+/* Dead rule kept alive by a near-miss class name: the markup is `studio__center`
+   (BEM), this targeted `studio-center`. It therefore never applied, and the panel
+   below inherited `.ll-panel { overflow: hidden }` while being stretched to the
+   container height — so a workspace taller than the viewport was CLIPPED inside the
+   panel and `.studio__center` never received anything to scroll. That is why the
+   Scripture workspace could not be scrolled. */
+.control-root .studio__center > .editor-panel {
+  /* Grow to content instead of being squeezed to the container… */
+  flex: 0 0 auto;
+  /* …and let that content reach the scroll container rather than being cut off. */
+  overflow: visible;
+  /* A panel that owns the scroll region should not also round/clip it away. */
+  min-height: 0;
+}
+/* The scroller is the centre column, and only the centre column: nested scroll
+   areas inside a workspace fight the outer one and strand content. */
+.control-root .studio__center { scrollbar-gutter: stable; overflow-x: hidden; }
 .control-root .studio__center > .ll-panel { margin: 12px; }
 
 /* --- flatter, restrained TAKE (no large glowing container) -------------- */
@@ -9413,3 +9429,167 @@ body.gfx-transparent {
   background: #4ade80; box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.22);
 }
 .control-root .voice-assist__mic[data-listening] .voice-assist__mic-state { color: var(--ll-text); }
+
+
+/* --- Live Scripture -----------------------------------------------------
+   A live-production surface, not a form. Order follows the questions an operator
+   asks mid-service: am I being heard, what was heard, what Scripture is that, is
+   it right. Manual lookup stays available underneath, because it is the fallback
+   every failure path points at. */
+.control-root .live-scripture { display: flex; flex-direction: column; gap: 16px; }
+
+.control-root .live-mic {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 12px 14px;
+  /* Both states occupy the same height, so starting or stopping changes what the
+     strip SAYS and never where anything beneath it sits. The off state is the
+     shorter one — button and a line of text — so the height of the listening
+     state, which also carries the meter, is what gets reserved. */
+  min-height: 62px;
+  box-sizing: border-box;
+  /* Stays put while a long passage is scrolled. The scrolling ancestor is
+     `.studio__center`, and every element between it and this one is
+     `overflow: visible`, so sticky resolves against the centre column without
+     touching the fixed left and right rails. Opaque, because the passage text
+     scrolls underneath it. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ll-panel, #14161a);
+  border-radius: var(--ll-radius-control);
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid var(--ll-border-soft);
+}
+.control-root .live-mic[data-listening] { border-color: rgba(74, 222, 128, 0.34); background: rgba(34, 197, 94, 0.06); }
+.control-root .live-mic__toggle { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.control-root .live-mic__readout { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.control-root .live-mic__state {
+  font-size: 12.5px; font-weight: 650; color: var(--ll-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.control-root .live-mic[data-listening] .live-mic__state { color: var(--ll-text); }
+
+/* The meter. Bars scale from measured level; nothing here animates on its own. */
+.control-root .level-meter {
+  display: flex; align-items: flex-end; gap: 2px;
+  height: 26px; flex: none; width: 148px;
+}
+.control-root .level-meter__bar {
+  flex: 1; height: 100%; border-radius: 1px;
+  background: var(--ll-border-strong);
+  transform-origin: bottom;
+  transition: transform 0.06s linear, background-color 0.15s ease;
+}
+.control-root .level-meter[data-active] .level-meter__bar { background: #3f7f5c; }
+.control-root .level-meter[data-speaking] .level-meter__bar { background: #4ade80; }
+
+.control-root .live-heard { margin: 0; font-size: 12.5px; color: var(--ll-muted); }
+.control-root .live-heard__text { color: var(--ll-text); font-weight: 620; }
+.control-root .live-heard--interim { opacity: 0.65; font-style: italic; }
+/* A reference was heard once and is being confirmed. Quieter than the passage it
+   may become, so it reads as activity rather than as an answer. */
+.control-root .live-heard--detecting { opacity: 0.8; font-style: italic; letter-spacing: 0.01em; }
+/* History, not doubt — compact, beneath the dominant card, and visually nothing
+   like the alternatives list it used to be wrongly filed under. */
+.control-root .live-previous { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.control-root .live-previous__label { font-size: 0.78em; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.06em; }
+.control-root .live-previous__ref { font-variant-numeric: tabular-nums; }
+/* The live panel and the manual lookup swap places when the microphone opens.
+   Done with flex order rather than by rendering the panel somewhere else in the
+   tree: the live panel owns the microphone, and a component that changes position
+   in the children array is unmounted and remounted — which destroyed the capture
+   session at the moment the operator started it. */
+/* The live panel is ALWAYS first, listening or not.
+
+   It used to swap places with the manual lookup when the microphone opened, which
+   meant the control the operator had just pressed moved: Start sat below the
+   lookup panel, and the Stop that replaced it appeared at the top of the
+   workspace. Pressing a button and then having to look for it is not something a
+   live surface may ask of anyone, and it is worse immediately after the press —
+   which is exactly when Stop matters most.
+
+   Fixing the order also satisfies what the swap was for: listening is the primary
+   Scripture workflow, so the live panel belongs at the top whether or not the
+   microphone happens to be on. */
+.control-root .scripture-workspace { display: flex; flex-direction: column; gap: 1rem; }
+.control-root .scripture-workspace__live { order: 0; }
+.control-root .scripture-workspace__manual { order: 1; }
+.control-root .live-problem { margin: 0; font-size: 12.5px; line-height: 1.5; color: #f5c77e; }
+
+/* The detected passage — visually dominant, because it is the decision. */
+/* The detected passage, in blue.
+
+   It is the thing a person monitoring the feed needs to find in one glance, and
+   as a neutral panel among neutral panels it did not read as the answer. Blue
+   also says something the operator needs: this is a PREVIEW. Green is on air and
+   red is danger in this surface, so neither may be borrowed for a card whose
+   whole point is that it has not been taken yet — a green "detected" card would
+   be telling the room something untrue. */
+.control-root .detected {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px 18px 14px;
+  border-radius: var(--ll-radius-panel);
+  background: linear-gradient(180deg, rgba(47, 149, 248, 0.11), rgba(47, 149, 248, 0.045));
+  border: 1px solid rgba(47, 149, 248, 0.38);
+  /* A thicker leading edge, so the card is identifiable from the corner of the
+     eye without reading it. */
+  border-left: 3px solid var(--ll-blue);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 34px -26px rgba(47, 149, 248, 0.75);
+}
+.control-root .detected[data-resolving] { opacity: 0.92; }
+.control-root .detected__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.control-root .detected__ref {
+  margin: 0; font-size: 21px; font-weight: 850; letter-spacing: 0.01em;
+  /* Near-white with a blue cast: the reference has to stay the most legible thing
+     on the card, so the colour carries the identity and contrast is not spent on
+     it. */
+  color: #e8f2ff; line-height: 1.15;
+}
+.control-root .detected__why { margin: 0; font-size: 11.5px; color: var(--ll-muted); }
+.control-root .detected__text {
+  margin: 0; font-size: 15px; line-height: 1.62; color: var(--ll-text);
+  /* Long passages stay scannable rather than becoming a wall. */
+  max-height: 34vh; overflow-y: auto;
+}
+.control-root .detected__text--pending { color: var(--ll-muted); font-style: italic; }
+.control-root .detected__attribution { margin: 0; font-size: 11px; color: var(--ll-muted); }
+.control-root .detected__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+.control-root .detected__note { font-size: 11px; color: var(--ll-muted); }
+
+/* Alternatives: available, clearly secondary, never competing with the strongest. */
+.control-root .live-alts { display: flex; flex-direction: column; gap: 8px; }
+.control-root .live-alts__list { display: flex; flex-direction: column; gap: 6px; }
+.control-root .live-alt {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 9px 12px; border-radius: var(--ll-radius-control);
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid var(--ll-border-soft);
+  cursor: pointer; text-align: left; width: 100%;
+}
+.control-root .live-alt:hover { background: rgba(255, 255, 255, 0.045); border-color: var(--ll-border); }
+.control-root .live-alt__ref { font-size: 13px; font-weight: 720; color: var(--ll-text); }
+.control-root .live-alt__why { font-size: 11px; color: var(--ll-muted); }
+
+.control-root .live-type { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.control-root .live-type__field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
+
+/* A provisional reading is visibly not-yet-settled, without becoming a different
+   card when it settles — the operator is reading it, and swapping the layout under
+   them is the jump this stage removes. */
+.control-root .detected__stage {
+  margin-left: auto; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ll-muted);
+}
+/* Still updating: amber, and visibly NOT the settled blue. The two states have to
+   be distinguishable at a glance, because one is a guess from half a sentence and
+   the other is what the operator is being asked to judge. */
+.control-root .detected[data-provisional] {
+  background: linear-gradient(180deg, rgba(245, 199, 126, 0.09), rgba(245, 199, 126, 0.035));
+  border-color: rgba(245, 199, 126, 0.34);
+  border-left-color: #f5c77e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.control-root .detected[data-provisional] .detected__stage { color: #f5c77e; }
+.control-root .detected[data-provisional] .detected__ref { color: var(--ll-text-strong); }

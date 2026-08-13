@@ -229,3 +229,144 @@ export function recoverSpokenBook(phrase: string): SpokenBookRecovery[] {
 /** The operator-facing explanation for a recovered book. Never silent. */
 export const describeRecovery = (recovery: SpokenBookRecovery): string =>
   ` — heard "${recovery.heard}"`;
+
+
+/**
+ * The small closed set of words that hold a spoken reference together.
+ *
+ * Not vocabulary — *syntax*. "chapter three verse sixteen" is a grammar, and these
+ * are its joints. A recogniser damaging one of them does not change which passage
+ * was named; it breaks the parser's ability to see that a passage was named at all.
+ */
+const STRUCTURAL_WORDS = [
+  'chapter', 'chapters', 'verse', 'verses', 'through', 'colon'
+];
+
+/**
+ * Recover a corrupted structural word — or refuse.
+ *
+ * A real microphone produced **"jon chapter three vers sixteen"**. The locator
+ * stopped at `vers`, because an ordinary word ending a reference is what stops
+ * "Acts two, there were about three thousand souls" from becoming Acts 2:3. So it
+ * returned **John 3** and silently discarded "sixteen" — a coarser passage than the
+ * one named, presented with no sign that anything was lost. On air that is a whole
+ * chapter where a verse was asked for.
+ *
+ * The guards are deliberately tighter than the book recovery, because this runs
+ * against sermon prose rather than against a token already known to sit in
+ * reference position:
+ *
+ * - **One edit only**, whatever the length. These words are short and common.
+ * - **At least four characters**, so `to`, `and` and `is` are untouchable.
+ * - **A vowel**, the same line the book lexicon draws between a spoken rendering
+ *   and a written abbreviation.
+ * - **The caller must confirm a number follows.** This is what separates a broken
+ *   joint from an ordinary noun: `worse`, `horse` and `nurse` are all one edit from
+ *   `verse`, and none of them is followed by a chapter number in real speech. It is
+ *   the same discriminator `numberFollows` already uses for book names.
+ *
+ * Returns the canonical structural word, or null to leave the token alone.
+ */
+export function recoverStructuralWord(token: string): string | null {
+  const heard = token.trim().toLowerCase();
+  if (heard.length < 4 || !VOWEL.test(heard)) return null;
+  if (STRUCTURAL_WORDS.includes(heard)) return null; // already correct
+
+  let best: string | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let tied = false;
+  for (const target of STRUCTURAL_WORDS) {
+    const distance = editDistance(heard, target);
+    if (distance > 1) continue;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = target;
+      tied = false;
+    } else if (distance === bestDistance) {
+      // `verse`/`verses` collapse to the same meaning; a genuine tie across
+      // different words is ambiguous and refused.
+      tied = best !== null && !best.startsWith(target) && !target.startsWith(best);
+    }
+  }
+  return tied ? null : best;
+}
+
+/**
+ * Spoken number words, for the same repair applied to a damaged *number*.
+ *
+ * Kept as a plain list rather than imported from the parser's value tables: what
+ * matters here is the spelling that was damaged, not what it is worth.
+ */
+const NUMBER_WORDS = [
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen',
+  'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy',
+  'eighty', 'ninety', 'hundred',
+  'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth',
+  'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth', 'sixteenth',
+  'seventeenth', 'eighteenth', 'nineteenth', 'twentieth'
+];
+
+/**
+ * A number word the recogniser cut short — `eig` for `eight`, `thre` for `three`.
+ *
+ * Found the same way `vers` was: reading real transcripts. `romens eight twenty
+ * eight` already recovered to **Romans 8:28** because a damaged *book* is repaired,
+ * while `romans eig twenty eight` was refused outright, because a damaged *number*
+ * was not. Same defect, same discovery, one of them fixed.
+ *
+ * ## Why this rule is shaped differently from the two above
+ *
+ * `recoverSpokenBook` and `recoverStructuralWord` allow any edit within a small
+ * budget, guarded by a four-character floor. `eig` clears neither: it is three
+ * characters and two edits from `eight`. Both of those guards have to relax, so
+ * something has to buy the safety back — and here it is the shape of the damage
+ * rather than its size. The token must be a **strict prefix** of the number word.
+ *
+ * That is not an arbitrary tightening; it is the failure actually observed. CTC
+ * drops the tail of a word under time pressure (`thre`, `eigh`, `sixtee`, `twent`),
+ * and requiring a prefix is what stops the enormous surface of ordinary English
+ * from reaching a number. `even` is one edit from `seven` and `then` is one edit
+ * from `ten` — under the structural-word rule both would become numbers; under this
+ * one neither is a prefix of anything and both are left alone.
+ *
+ * Three further guards, each earning its place:
+ *
+ * - **Unique shortest completion.** `eig` prefixes `eight`, `eighteen` AND `eighty`.
+ *   Fewest missing letters wins — `eight` — and only when that minimum is unique,
+ *   so a genuine coin-flip is refused rather than decided quietly.
+ * - **`for` is excluded by name.** It is a strict prefix of `forty` and one of the
+ *   most common words in English, and a preacher quoting a verse says it constantly
+ *   ("Romans eight verse one, **for** there is therefore now no condemnation").
+ * - **The caller must confirm a number follows.** As with the other two recoveries,
+ *   this is the discriminator: the repaired word has to sit inside a locator that
+ *   continues into real numbers, not float free in a sentence.
+ *
+ * What this deliberately does NOT repair: a damaged number with nothing after it,
+ * such as a trailing `sixtee`. There is no following number to confirm it against,
+ * and inventing the last half of a reference is precisely the failure this whole
+ * remediation exists to prevent. Such an utterance is refused, and refusing is the
+ * correct outcome — the operator can see the transcript and say it again.
+ */
+export function recoverNumberWord(token: string): string | null {
+  const heard = token.trim().toLowerCase();
+  if (heard.length < 3 || !VOWEL.test(heard)) return null;
+  if (NUMBER_WORDS.includes(heard)) return null; // already correct
+  if (heard === 'for') return null;
+
+  let best: string | null = null;
+  let fewestMissing = Number.POSITIVE_INFINITY;
+  let tied = false;
+  for (const target of NUMBER_WORDS) {
+    if (!target.startsWith(heard)) continue;
+    const missing = target.length - heard.length;
+    if (missing < fewestMissing) {
+      fewestMissing = missing;
+      best = target;
+      tied = false;
+    } else if (missing === fewestMissing) {
+      tied = true;
+    }
+  }
+  return tied ? null : best;
+}

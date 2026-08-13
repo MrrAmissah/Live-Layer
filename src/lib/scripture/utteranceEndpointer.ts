@@ -58,6 +58,43 @@ export interface EndpointerConfig {
   /** Longest utterance before it is cut and sent anyway. */
   maxUtteranceMs: number;
   /**
+   * How often to recognise the utterance-so-far while speech continues.
+   *
+   * **Re-derived when the recogniser changed, not carried over.** The old 400 ms
+   * was justified against a CTC model whose cost grew with the audio — ~0.13 s for
+   * a whole utterance — so the recogniser sat idle most of every interval. Whisper
+   * pads every input to a 30-second window internally, which makes inference
+   * effectively CONSTANT: measured across snapshots of one utterance it cost
+   * 0.725 s at 0.8 s of audio and 0.792 s at 4.4 s. That is not a slower version
+   * of the same shape; it is a different shape, and the reasoning that produced
+   * 400 ms does not survive it.
+   *
+   * At 400 ms against ~0.78 s of work, roughly every second snapshot would be
+   * thrown away by the service's latest-wins slot. Nothing breaks — that slot
+   * exists precisely so nothing backlogs — but it is GPU spent on answers no one
+   * will ever see, on a fanless machine.
+   *
+   * **600 ms, chosen by replaying real schedules against the real service** in
+   * real time, three passes each, median of nine utterances:
+   *
+   * ```
+   *   cadence   stale work   first transcript
+   *     500 ms     16.7%         1237 ms
+   *     600 ms      5.9%         1339 ms
+   *     700 ms      0.0%         1435 ms
+   *     800 ms      0.0%         1556 ms
+   * ```
+   *
+   * 600 ms buys 217 ms off the number the operator actually feels for 5.9% waste;
+   * 500 ms buys a further 102 ms for nearly three times that. The first snapshot
+   * is what sets this figure, and it is gated by BOTH this cadence and
+   * `minSnapshotMs` — a variant that lowered only the latter changed nothing,
+   * measuring identically to the plain cadence, because the cadence was binding.
+   */
+  snapshotEveryMs: number;
+  /** Don't snapshot until there is enough speech to be worth recognising. */
+  minSnapshotMs: number;
+  /**
    * Frames spent learning the room before any speech is reported. Bounded, and
    * short enough that pressing Start and speaking immediately still works — the
    * pre-roll below covers the overlap.
@@ -86,7 +123,9 @@ export const DEFAULT_ENDPOINTER: EndpointerConfig = {
    */
   maxUtteranceMs: 15000,
   calibrationMs: 400,
-  preRollMs: 200
+  preRollMs: 200,
+  snapshotEveryMs: 600,
+  minSnapshotMs: 600
 };
 
 // --- streaming framer ---------------------------------------------------------
@@ -163,6 +202,8 @@ export interface EndpointerState {
   framesSeen: number;
   /** True while the room is still being learned; no speech is reported. */
   calibrating: boolean;
+  /** Speech frames counted when the last provisional snapshot was taken. */
+  lastSnapshotFrames: number;
 }
 
 export const emptyEndpointer = (): EndpointerState => ({
@@ -179,7 +220,8 @@ export const emptyEndpointer = (): EndpointerState => ({
    */
   noiseFloorDb: 0,
   framesSeen: 0,
-  calibrating: true
+  calibrating: true,
+  lastSnapshotFrames: 0
 });
 
 /** RMS of a frame in dBFS. dB because speech level varies by ~40 dB. */
@@ -202,6 +244,22 @@ export interface EndpointerResult {
   calibrating: boolean;
   /** Why the utterance was released. */
   reason: '' | 'endpoint' | 'max-length';
+  /**
+   * The utterance SO FAR, while the speaker is still talking.
+   *
+   * Non-null only when a snapshot is due (`snapshotEveryMs`). Recognising this
+   * gives the operator a transcript and often a passage before they stop speaking,
+   * instead of the whole pipeline starting at the endpoint. It is provisional by
+   * construction — the same audio will be recognised again, authoritatively, when
+   * the utterance actually ends.
+   */
+  snapshot: Float32Array | null;
+  /**
+   * What the microphone proves about `utterance` or `snapshot`. Present whenever
+   * audio is, so the caller can refuse to send silence to a model that will
+   * cheerfully invent words for it.
+   */
+  evidence: SpeechEvidence | null;
 }
 
 const concat = (frames: Float32Array[]): Float32Array => {
@@ -296,7 +354,8 @@ export function pushFrame(
     ...emptyEndpointer(),
     noiseFloorDb,
     framesSeen,
-    calibrating: false
+    calibrating: false,
+    lastSnapshotFrames: 0
   });
 
   const release = (reason: 'endpoint' | 'max-length'): EndpointerResult => {
@@ -315,9 +374,12 @@ export function pushFrame(
       reason === 'endpoint'
         ? next.buffered.slice(0, Math.max(1, next.buffered.length - next.silentFrames + tailPad))
         : next.buffered;
+    const clip = concat(keep);
     return {
       state: reset(),
-      utterance: concat(keep),
+      utterance: clip,
+      snapshot: null,
+      evidence: measureEvidence(clip, next.speechFrames, next.noiseFloorDb, config),
       speaking: false,
       calibrating: false,
       reason
@@ -328,10 +390,181 @@ export function pushFrame(
   if (next.inSpeech && next.silentFrames >= hangoverFrames) {
     // Too short to be an utterance: discard rather than send a cough to the model.
     if (next.speechFrames < minSpeechFrames) {
-      return { state: reset(), utterance: null, speaking: false, calibrating: false, reason: '' };
+      return { state: reset(), utterance: null, snapshot: null, evidence: null, speaking: false, calibrating: false, reason: '' };
     }
     return release('endpoint');
   }
 
-  return { state: next, utterance: null, speaking: isSpeech, calibrating: stillCalibrating, reason: '' };
+  /**
+   * Due a provisional snapshot?
+   *
+   * Counted in frames of **speech**, not wall clock and not frames buffered. Wall
+   * clock would drift with a stalled callback; frames buffered would count the
+   * pre-roll and the trailing hangover silence as though they were things the
+   * speaker said — so a 300 ms word would buy an inference on the strength of
+   * 200 ms of room tone in front of it, and a pause would keep re-recognising
+   * identical audio while the final was already on its way.
+   */
+  const snapshotEvery = Math.max(1, Math.round(config.snapshotEveryMs / FRAME_MS));
+  const minSnapshot = Math.max(1, Math.round(config.minSnapshotMs / FRAME_MS));
+  const snapshotAudioOf = () => concat(next.buffered);
+  const dueSnapshot =
+    next.inSpeech &&
+    next.speechFrames >= minSnapshot &&
+    next.speechFrames - next.lastSnapshotFrames >= snapshotEvery;
+
+  const snapshotAudio = dueSnapshot ? snapshotAudioOf() : null;
+  return {
+    // Still the whole buffer that gets recognised — pre-roll included, because the
+    // book name lives in the onset. Only the *decision to send* counts speech.
+    state: dueSnapshot ? { ...next, lastSnapshotFrames: next.speechFrames } : next,
+    utterance: null,
+    // Provisional: the same audio is recognised again when the utterance ends.
+    snapshot: dueSnapshot ? snapshotAudio : null,
+    evidence: snapshotAudio ? measureEvidence(snapshotAudio, next.speechFrames, next.noiseFloorDb, config) : null,
+    speaking: isSpeech,
+    calibrating: stillCalibrating,
+    reason: ''
+  };
+}
+
+
+// --- did anyone actually speak? -----------------------------------------------
+
+/**
+ * What the microphone can prove about an utterance, independent of any model.
+ *
+ * Whisper cannot be asked this question. Measured on this machine, against the
+ * running service: `no_speech_prob` came back **0.000 for every input including
+ * digital silence**, and three seconds of pure zeros decoded confidently as
+ * "Thank you." with an `avg_logprob` of −0.213 — a BETTER score than real short
+ * speech ("Verse 3.", −0.393). Its own no-speech evidence does not separate the
+ * classes at all here, so it cannot be the authority, primary or secondary.
+ *
+ * Microphone physics can. These are the numbers, measured over the same inputs:
+ *
+ * ```
+ *   input            p90 dBFS   dynamic range
+ *   room noise −50      −49.6       14.6 dB
+ *   room noise −40      −39.6       24.6 dB
+ *   breath / movement   −41.5       18.7 dB
+ *   speech, short       −14.6       50.3 dB   ← "verse three"
+ *   speech, long        −13.7       50.8 dB
+ * ```
+ *
+ * Two independent separations, each about 25 dB wide. Speech swings between loud
+ * vowels and near-silent stops; steady noise does not swing, and a breath is both
+ * quiet and flat. That is a property of how speech is produced, not a statistic
+ * that happened to fit these clips.
+ */
+export interface SpeechEvidence {
+  /** Frames the detector judged voiced, in ms. */
+  voicedMs: number;
+  /** Length of the released utterance, in ms. */
+  totalMs: number;
+  /** Voiced frames as a fraction of the utterance. */
+  voicedRatio: number;
+  /** The noise floor this was judged against, dBFS. */
+  noiseFloorDb: number;
+  /** 90th-percentile frame energy, dBFS — how loud the loud parts are. */
+  loudDb: number;
+  /** 90th minus 10th percentile: how much the level moves. */
+  dynamicRangeDb: number;
+}
+
+export interface SpeechGate {
+  /** Below this, it is too short to be a reference — a cough is not an utterance. */
+  minVoicedMs: number;
+  /** Speech measured ~50 dB; the loudest false positive, 24.6 dB. */
+  minDynamicRangeDb: number;
+  /** How far the loud parts must sit above the measured floor. */
+  minLoudAboveFloorDb: number;
+}
+
+export const DEFAULT_SPEECH_GATE: SpeechGate = {
+  /** A cough is not an utterance: measured at 40 ms of voiced audio. */
+  minVoicedMs: 300,
+  /**
+   * What a room cannot do: swing.
+   *
+   * This is the check that rejects steady noise, and it works because the property
+   * is physical. Speech alternates loud vowels with near-silent stops many times a
+   * second; a fan, a hum or a laptop in a quiet study holds one level. Within a
+   * released utterance, steady noise measures a few dB of movement and speech
+   * measures tens.
+   *
+   * Kept LOOSE at 20 dB rather than set near the measured speech figure of ~50 dB,
+   * because that figure came from clean speech over a quiet floor. In a loud room
+   * the quiet parts of real speech sit on the room floor instead of near silence
+   * and the range shrinks — a threshold placed midway would refuse real references
+   * exactly where rooms are hardest.
+   */
+  minDynamicRangeDb: 20,
+  /**
+   * How far the loud parts sit above the floor the detector actually measured.
+   *
+   * This is what catches the short, quiet, ragged things a bare energy detector
+   * calls speech — a breath, a chair, a page turning — which have some movement in
+   * them but never much level. Measured: breath 18.6 dB above floor, room noise
+   * 25.2 dB, real speech 50.1 and 51.5 dB.
+   *
+   * 26 dB rather than the midpoint, and the reason is a case that failed on the
+   * way here: speech at −14 dBFS in a −45 dBFS room clears the floor by only
+   * ~31 dB, so a threshold set at 35 refused a real reference in a noisy building
+   * while looking perfectly defensible against the clean measurements. The two
+   * checks together are what make a loose one safe.
+   */
+  minLoudAboveFloorDb: 26
+};
+
+/** Frame energies in dBFS, for evidence. */
+function frameDbs(samples: Float32Array, frameSize: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i + frameSize <= samples.length; i += frameSize) {
+    let sum = 0;
+    for (let j = i; j < i + frameSize; j += 1) sum += samples[j] * samples[j];
+    out.push(10 * Math.log10(Math.max(sum / frameSize, 1e-12)));
+  }
+  return out;
+}
+
+export function measureEvidence(
+  audio: Float32Array,
+  voicedFrames: number,
+  noiseFloorDb: number,
+  config: EndpointerConfig = DEFAULT_ENDPOINTER
+): SpeechEvidence {
+  const frameSize = Math.round((config.sampleRate * FRAME_MS) / 1000);
+  const dbs = frameDbs(audio, frameSize).sort((a, b) => a - b);
+  const at = (q: number) => dbs[Math.min(dbs.length - 1, Math.floor(dbs.length * q))] ?? -120;
+  const totalMs = Math.round((audio.length / config.sampleRate) * 1000);
+  const loudDb = at(0.9);
+  return {
+    voicedMs: voicedFrames * FRAME_MS,
+    totalMs,
+    voicedRatio: totalMs ? (voicedFrames * FRAME_MS) / totalMs : 0,
+    noiseFloorDb,
+    loudDb,
+    dynamicRangeDb: loudDb - at(0.1)
+  };
+}
+
+/**
+ * May this audio be interpreted as speech at all?
+ *
+ * The hard shield in front of the parser and the correction layer. A segment that
+ * fails is not a transcript, not a correction, not a no-match, and not a reason to
+ * change anything the operator is reading. It is ignored — which is the only
+ * treatment of silence that cannot cost them a passage.
+ *
+ * **Known bound:** a very quiet speaker in a loud room can fail this and be
+ * ignored. That is the deliberate direction to fail in, and the level meter shows
+ * the operator why — but it is a real limit, not a theoretical one.
+ */
+export function looksLikeSpeech(evidence: SpeechEvidence, gate: SpeechGate = DEFAULT_SPEECH_GATE): boolean {
+  return (
+    evidence.voicedMs >= gate.minVoicedMs &&
+    evidence.dynamicRangeDb >= gate.minDynamicRangeDb &&
+    evidence.loudDb - evidence.noiseFloorDb >= gate.minLoudAboveFloorDb
+  );
 }

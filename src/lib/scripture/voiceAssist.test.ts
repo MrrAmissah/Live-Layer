@@ -350,19 +350,35 @@ describe('the panel cannot air or stage on its own', () => {
   it('routes an accepted passage through the workspace, not around it', () => {
     // `onAccept` is the single exit, and it is the same handler the typed lookup
     // uses — so voice cannot acquire a private path to the draft.
-    expect(code).toContain('onAccept(outcome.passage, translationId)');
+    // Accept applies the DURABLE current passage — the one on screen — rather than
+    // whatever the latest recognition attempt produced. The exit is unchanged: one
+    // call to the workspace's handler, no private path to the draft.
+    expect(code).toContain('onAccept(current.passage, translationId)');
     const workspace = readFileSync('src/app/workspaces/ScriptureWorkspace.tsx', 'utf8');
-    expect(workspace).toContain('<VoiceAssistPreview onAccept={accept}');
+    // Matched across whitespace: the property is that the panel is handed the
+    // workspace's `accept`, not that the JSX happens to fit on one line. Pinning
+    // the formatting made this fail for a line break, which teaches the next
+    // person to loosen the assertion rather than look at what it protects.
+    expect(/<VoiceAssistPreview\s+onAccept=\{accept\}/.test(workspace)).toBe(true);
   });
 
   it('invalidates an in-flight retrieval when the selection changes', () => {
-    // Without this the passage and the highlighted candidate can disagree.
-    const onClick = code.slice(code.indexOf('aria-pressed={index === state.selected}'));
-    const bumpAt = onClick.indexOf('generation.current += 1');
-    const selectAt = onClick.indexOf('selectCandidate(previous, index)');
+    /**
+     * Without this the passage and the highlighted candidate can disagree. The
+     * property is unchanged; only its location moved when choosing an alternative
+     * became `chooseCandidate`, which now also retrieves the newly chosen reading
+     * rather than waiting for a Retrieve press.
+     */
+    const choose = code.slice(code.indexOf('const chooseCandidate'));
+    const bumpAt = choose.indexOf('++generation.current');
+    const selectAt = choose.indexOf('selectCandidate(state, index)');
     expect(bumpAt).toBeGreaterThan(-1);
     expect(selectAt).toBeGreaterThan(-1);
+    // The generation must be bumped BEFORE the new selection is resolved.
     expect(bumpAt).toBeLessThan(selectAt);
+    // …and the retrieval it starts carries that generation, so a newer utterance
+    // makes it stale rather than letting it overwrite the panel.
+    expect(choose).toContain('resolveCandidate(next, index, mine, null)');
   });
 
   it('cancels the hook on unmount, so a pending retrieval cannot repopulate the cache', () => {
@@ -380,8 +396,79 @@ describe('the panel cannot air or stage on its own', () => {
   });
 
   it('gates the accept button on the model, not just on the button', () => {
-    expect(code).toContain('const outcome = acceptCandidate(state);');
-    expect(code).toMatch(/if \(!outcome\) return;/);
-    expect(code).toContain('disabled={!canAccept(state)}');
+    /**
+     * The gate now reads the DURABLE stack rather than the transient recognition
+     * state, and that is a strengthening rather than a relaxation. Coupled to the
+     * transient half, Accept went dead the moment the next utterance was ordinary
+     * preaching: the card correctly kept showing John 3:16 and the button refused,
+     * because the latest attempt had been a no-match. In continuous listening that
+     * is most of the time.
+     *
+     * What must not change: the handler refuses on its own, and the button is
+     * disabled from the model rather than by markup.
+     */
+    expect(code).toContain('const current = stackRef.current.current;');
+    // A provisional is refused by the handler itself, not only by a disabled
+    // button — a guess the final never confirmed must never reach the draft.
+    expect(code).toMatch(/if \(preview \|\| !current \|\| acceptedRef === acceptIdentity\(current\)\) return;/);
+    expect(code).toContain('canAccept={!preview && !!confirmed && acceptedRef !== acceptIdentity(confirmed)}');
+    const card = readFileSync('src/components/control/DetectedScripture.tsx', 'utf8');
+    expect(card).toContain('disabled={!canAccept}');
+  });
+
+  it('cannot accept anything the operator is not looking at', () => {
+    // The card shows the provisional when there is one and the durable passage
+    // otherwise; Accept only ever applies the durable one, and is refused
+    // entirely while a provisional is on screen.
+    expect(code).toContain('const shown = preview ?? confirmed;');
+    expect(code).toContain('passage={shown.passage}');
+    expect(code).not.toContain('acceptCandidate(state)');
+  });
+
+  it('never promotes a provisional into the durable stack', () => {
+    /**
+     * The safety defect this section exists for. `previewProvisional` used to call
+     * `remember`, so a guess made from half a sentence entered the stack — and
+     * since the stack is what Accept applies, a reading the final never confirmed
+     * could be put into the draft.
+     */
+    const preview = code.slice(code.indexOf('const previewProvisional'), code.indexOf('const resolveCandidate'));
+    expect(preview).toContain('setPreview(');
+    expect(preview, 'a provisional must never reach the durable stack').not.toContain('remember(');
+  });
+});
+
+describe('the provisional layer has its own exits', () => {
+  const panel = readFileSync('src/components/control/VoiceAssistPreview.tsx', 'utf8');
+
+  it('discards the provisional on Stop, without touching the durable stack', () => {
+    const stop = panel.slice(panel.indexOf('live.stop();'), panel.indexOf('live.stop();') + 320);
+    expect(stop).toContain('discardPreview()');
+    expect(stop, 'Stop must never clear what was confirmed').not.toContain('forgetConfirmed()');
+  });
+
+  it('treats a source that stopped itself the same way', () => {
+    // Permission refusal, or the speech service disappearing mid-utterance.
+    const terminal = panel.slice(panel.indexOf("status.status === 'denied'"), panel.indexOf("status.status === 'denied'") + 420);
+    expect(terminal).toContain('discardPreview()');
+  });
+
+  it('dismisses the layer on screen, not the one beneath it', () => {
+    const dismiss = panel.slice(panel.indexOf('onDismiss={() => {'), panel.indexOf('provisional={provisional}'));
+    // The provisional branch returns before anything durable is touched, and it
+    // marks the utterance so the rest of it is ignored — clearing the preview
+    // alone left the final free to promote the very reading just waved away.
+    expect(dismiss).toContain('dismissedSegmentRef.current = streamRef.current.segmentId;');
+    expect(dismiss).toMatch(/discardPreview\(\);[\s\S]{0,400}?return;/);
+    expect(dismiss).not.toMatch(/if \(preview\)[\s\S]{0,300}?forgetConfirmed\(\)/);
+    expect(dismiss).toContain('forgetConfirmed()');
+  });
+
+  it('invalidates work in flight when the attempt ends', () => {
+    const discard = panel.slice(panel.indexOf('const discardPreview = () => {'), panel.indexOf('const acceptIdentity'));
+    // Without the generation bump a provisional lookup already running lands
+    // afterwards and puts the discarded guess straight back.
+    expect(discard).toContain('generation.current += 1');
+    expect(discard).toContain('forgetAgreement()');
   });
 });

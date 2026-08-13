@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseSpokenReference, isAmbiguous, hasMultipleReferences } from './spokenReference';
+import { parseScriptureReference } from './parseReference';
 
 /**
  * Spoken normalisation is a SEPARATE boundary in front of the strict parser, not a
@@ -591,5 +592,156 @@ describe('the strict parser is not weakened', () => {
     expect(parseScriptureReference('q 3:16').ok).toBe(false);
     expect(parseScriptureReference('John').ok).toBe(false);
     expect(parseScriptureReference('John 3:16').ok).toBe(true);
+  });
+});
+
+describe('a reference whose NUMBER was damaged, not its book', () => {
+  /**
+   * Every transcript below came out of the recogniser during the rehearsal that
+   * preceded the human gate — synthetic speech, but the real model and the real
+   * browser endpointer, so the damage is what it actually produces rather than
+   * what a corruption function imagines.
+   *
+   * The asymmetry these fix: `romens eight twenty eight` already read as Romans
+   * 8:28, because a damaged BOOK is repaired. `romans eig twenty eight` was refused
+   * outright, because a damaged NUMBER was not — and refusing loses the whole
+   * reference, not just its chapter.
+   */
+  it('reads a chapter the recogniser cut short', () => {
+    expect(best('let us read romans eig twenty eight')).toBe('Romans 8:28');
+    expect(best('let us read romans eigh twenty eight')).toBe('Romans 8:28');
+    expect(best('psalm twent three one')).toBe('Psalms 23:1');
+  });
+
+  it('lets a damaged number anchor the book it belongs to', () => {
+    // The failure was HERE and not in the locator: `eig` sits between the book and
+    // its numbers, so `romans` looked unanchored and nothing was offered at all.
+    expect(best('jon thre sixteen')).toBe('John 3:16');
+  });
+
+  /**
+   * `three` came back as `thee` on the shortest form of all. That is a homophone
+   * rather than a truncation, so it is handled by the homophone table — the same
+   * mechanism that already carries `free` and `tree` — and inherits its guard.
+   */
+  it('reads `thee` as three only while a reference is still incomplete', () => {
+    expect(best('jon thee sixteen')).toBe('John 3:16');
+    expect(problemOf('i say unto thee that the lord is good')).toBe('no-book');
+    expect(problemOf('blessed art thou among women and blessed is thee')).toBe('no-book');
+    // A complete reference followed by KJV prose keeps the reference and nothing more.
+    expect(best('unto thee o lord do i lift up my soul psalm twenty five one')).toBe('Psalms 25:1');
+  });
+
+  /**
+   * The repair is confirmed by what comes AFTER it. A damaged number with nothing
+   * following confirms nothing, and inventing the second half of a reference is
+   * the exact failure this layer exists to prevent — so it stays coarse instead.
+   */
+  it('will not repair a number that nothing follows', () => {
+    expect(best('john three sixtee')).toBe('John 3');
+    expect(problemOf('romans eig')).toBe('no-numbers');
+  });
+
+  it('still refuses to find numbers in prose', () => {
+    expect(best('romans eight verse one for there is therefore now no condemnation')).toBe('Romans 8:1');
+    expect(best('acts two there were about three thousand souls added')).toBe('Acts 2');
+    expect(problemOf('my sermon even touches on grace')).toBe('no-book');
+    expect(best('i have a mine of gold in psalm twenty three')).toBe('Psalms 23');
+  });
+
+  /**
+   * A KNOWN BOUND, written down as a test because it is what the operator sees.
+   *
+   * Half an utterance can name a reference that does not exist: "…verse sixty" is
+   * a perfectly good parse a moment before the speaker says "sixteen". There is no
+   * per-chapter verse data bundled, so nothing here can reject it. The panel is
+   * what protects the operator — a provisional card is published only once its
+   * passage has actually been retrieved, so a verse with no text is never shown.
+   */
+  it('cannot tell that John 3:60 is not a verse — the lookup is what catches it', () => {
+    expect(best('turn with me to jon chapter three vers sixty')).toBe('John 3:60');
+  });
+});
+
+describe('a chapter and verse the recogniser ran together', () => {
+  /**
+   * Both transcripts below came from a real microphone at normal distance, and
+   * both were refused — the operator was told "John 316 is not a passage" having
+   * just said the most quoted verse in the Bible.
+   */
+  it('reads what the microphone actually produced', () => {
+    expect(best('John 316')).toBe('John 3:16');
+    expect(best('Romans 828')).toBe('Romans 8:28');
+    expect(best('let us read Romans 828')).toBe('Romans 8:28');
+  });
+
+  it('leaves a real chapter alone', () => {
+    // Psalms has 150 chapters, so 119 is a chapter someone meant — and 1:19 and
+    // 11:9 are both real verses, which is exactly why this must not fire.
+    expect(best('Psalm 119')).toBe('Psalms 119');
+    expect(best('John 21')).toBe('John 21');
+    expect(best('Romans 8')).toBe('Romans 8');
+  });
+
+  it('marks every compact split as needing its verse verified', () => {
+    /**
+     * Genesis has 50 chapters, so 1:234 and 12:34 both survive the CHAPTER check
+     * — and NEITHER is a real verse: Genesis 1 has 31, Genesis 12 has 20. The
+     * parser cannot know that, because per-chapter verse counts are not bundled.
+     *
+     * So it produces them marked, and retrieval eliminates them. What matters is
+     * that nothing unmarked escapes: a caller that displays a `compact` candidate
+     * without retrieving it first is the bug this flag exists to prevent.
+     */
+    const parsed = parseSpokenReference('Genesis 1234');
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.candidates.map((c) => c.reference.canonical)).toEqual(['Genesis 1:234', 'Genesis 12:34']);
+    expect(parsed.candidates.every((c) => c.compact)).toBe(true);
+  });
+
+  it('marks a single survivor too — one split is still an unverified verse', () => {
+    const parsed = parseSpokenReference('John 316');
+    expect(parsed.ok && parsed.candidates[0].compact).toBe(true);
+  });
+
+  it('leaves ordinary readings unmarked', () => {
+    const parsed = parseSpokenReference('John 3 16');
+    expect(parsed.ok && parsed.candidates[0].compact).toBeFalsy();
+  });
+
+  it('still refuses when no split is a passage', () => {
+    // Ruth has 4 chapters: 9:99, 99:9 and 999 are all impossible.
+    expect(problemOf('Ruth 999')).toBe('unresolvable');
+  });
+
+  it('does not touch numbers the SPEAKER separated into words', () => {
+    // "one hundred fifty one" is a person saying 151, not a recogniser running
+    // 150 and 1 together — and splitting it would give Psalms 1:51 instead of
+    // letting the ordinary reading find Psalms 150:1.
+    expect(best('Psalm one hundred fifty one')).toBe('Psalms 150:1');
+  });
+});
+
+describe('a compact locator can never present an impossible verse', () => {
+  it('offers the canon-unique reading first', () => {
+    expect(cands('John 316')).toEqual(['John 3:16']);
+    expect(cands('Romans 828')).toEqual(['Romans 8:28']);
+  });
+
+  it('leaves the typed parser completely unchanged', () => {
+    // The strict parser is the typed path's authority and knows nothing about
+    // compact splitting — someone typing "John 316" made a visible typo.
+    expect(parseScriptureReference('John 316').ok).toBe(false);
+    expect(parseScriptureReference('Genesis 1234').ok).toBe(false);
+    const typed = parseScriptureReference('John 3:16');
+    expect(typed.ok && typed.reference.canonical).toBe('John 3:16');
+  });
+
+  it('keeps spoken-number provenance intact', () => {
+    // Words the SPEAKER separated are never treated as a compact run.
+    expect(best('Psalm one hundred fifty one')).toBe('Psalms 150:1');
+    expect(best('Psalm one hundred nineteen one')).toBe('Psalms 119:1');
+    expect(best('Psalm 119')).toBe('Psalms 119');
   });
 });

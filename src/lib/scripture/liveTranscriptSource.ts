@@ -1,10 +1,13 @@
 import type { LanguageTag, LiveTranscriptSource, TranscriptEvent } from './transcriptSource';
+import { liveLatency } from './liveLatency';
 import {
   DEFAULT_ENDPOINTER,
   createFramer,
+  frameDb,
   emptyEndpointer,
   pushFrame,
   pushSamples,
+  looksLikeSpeech,
   type EndpointerConfig,
   type EndpointerState,
   type Framer
@@ -76,15 +79,132 @@ export interface LiveSourceStatus {
   detail: string;
   /** True while the operator's voice is actually being heard. */
   speaking: boolean;
+  /**
+   * Actual input level, 0–1, derived from the measured frame RMS.
+   *
+   * A REAL measurement, never an animation. An operator watching a meter that
+   * moves whether or not audio is arriving learns nothing from it, and the one
+   * question this surface has to answer instantly is "is LiveLayer hearing me".
+   * Mapped from dBFS across a range wide enough to show a quiet room as visibly
+   * quiet and speech as visibly loud.
+   */
+  level: number;
 }
+
+/** dBFS → 0–1 for display. −65 dB reads as silence, −10 dB as a full meter. */
+export const levelFromDb = (db: number): number => {
+  if (!Number.isFinite(db)) return 0;
+  return Math.max(0, Math.min(1, (db + 65) / 55));
+};
 
 export interface LiveTranscriptSourceOptions {
   serviceUrl?: string;
   endpointer?: EndpointerConfig;
   onStatus?: (status: LiveSourceStatus) => void;
+  /**
+   * The timeline id for an utterance whose transcript just arrived, so the caller
+   * can continue timing through parsing, lookup and render. Timings only — the
+   * transcript itself travels by the ordinary `TranscriptEvent`, whose shape is
+   * fixed and asserted.
+   */
+  onUtteranceTiming?: (timelineId: number) => void;
+  /**
+   * Override the capture constraints. The defaults turn Chrome's voice-call
+   * processing off, which is right for a lectern feed and wrong for a laptop
+   * microphone sitting beside a loudspeaker.
+   */
+  audioConstraints?: MediaTrackConstraints;
+  /** Which capture profile to ask for. Development comparison only. */
+  captureProfile?: CaptureProfileName;
+  /**
+   * What Chrome ACTUALLY honoured, reported after the stream is granted.
+   *
+   * Asking for a constraint is not getting it — Chrome may quietly ignore any of
+   * them, and a comparison between profiles is worthless if both resolved to the
+   * same real settings. Development only; nothing renders this to an operator.
+   */
+  onCaptureSettings?: (settings: MediaTrackSettings) => void;
   /** Injected for tests; defaults to the real browser APIs. */
   getMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   createSocket?: (url: string) => WebSocket;
+}
+
+/**
+ * How the microphone is asked for — as a named, switchable profile.
+ *
+ * The previous stage turned Chrome's voice-call processing off on a hypothesis:
+ * "jon thr ixteen" loses exactly the fricatives a spectral gate removes. The
+ * operator then reported listening felt somewhat WORSE. Both observations are
+ * real and neither is a measurement, so the setting stops being an opinion baked
+ * into a call and becomes something a human can A/B in one sitting.
+ *
+ * `autoGainControl` is off in every profile offered. It is the one of the three
+ * that actively fights the silence shield: it raises the gain when nobody is
+ * speaking, which lifts room noise toward the level the shield uses to recognise
+ * a voice. Nothing measured here argues for it, so nothing here offers it.
+ *
+ * **Development only.** Selected by URL query, never persisted, and absent from
+ * the operator's surface — a microphone-settings dashboard is not the product.
+ */
+export type CaptureProfileName = 'raw' | 'cleanup' | 'echo-only';
+
+export const CAPTURE_PROFILES: Record<CaptureProfileName, MediaTrackConstraints> = {
+  /** A. Nothing between the microphone and the recogniser. */
+  raw: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  /** B. Chrome's voice cleanup, minus the gain rider. */
+  cleanup: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+  /** C. Echo cancellation alone — for a laptop beside a loudspeaker. */
+  'echo-only': { echoCancellation: true, noiseSuppression: false, autoGainControl: false }
+};
+
+export const DEFAULT_CAPTURE_PROFILE: CaptureProfileName = 'raw';
+
+/** `?mic=cleanup` during a comparison. Nothing is remembered between sessions. */
+export function captureProfileFromLocation(search: string): CaptureProfileName | null {
+  const asked = new URLSearchParams(search).get('mic');
+  return asked && asked in CAPTURE_PROFILES ? (asked as CaptureProfileName) : null;
+}
+
+const captureProfile = (options: LiveTranscriptSourceOptions): MediaTrackConstraints => ({
+  ...CAPTURE_PROFILES[options.captureProfile ?? DEFAULT_CAPTURE_PROFILE],
+  ...(options.audioConstraints ?? {})
+});
+
+/**
+ * A bounded, development-only record of what the capture lifecycle did.
+ *
+ * The defect that produced this — Chrome reporting the microphone in use while
+ * LiveLayer offered to start listening — was invisible from either side alone.
+ * The source behaved correctly and the UI reported correctly; what went wrong
+ * was the sequence between them. Reading `window.__liveMic.trail()` in the
+ * console shows that sequence.
+ *
+ * Timings and state names only. No audio, no transcripts — the same rule as the
+ * latency recorder, and for the same reason: a diagnostic is exactly the sort of
+ * place a sermon's contents leak in unnoticed.
+ */
+interface MicTrail {
+  at: number;
+  session: number;
+  event: string;
+  detail: string;
+}
+
+const TRAIL_LIMIT = 200;
+let trail: MicTrail[] = [];
+
+const trace = (session: number, event: string, detail = ''): void => {
+  trail = [...trail, { at: Math.round(performance.now()), session, event, detail }].slice(-TRAIL_LIMIT);
+};
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { __liveMic: unknown }).__liveMic = {
+    trail: () => trail,
+    /** Live tracks the page still owns — the number that must be 0 when idle. */
+    clear: () => {
+      trail = [];
+    }
+  };
 }
 
 export function createLiveTranscriptSource(
@@ -136,22 +256,87 @@ export function createLiveTranscriptSource(
    */
   let queued: Float32Array[] = [];
   const MAX_QUEUED_UTTERANCES = 2;
+  /**
+   * Identity for every frame, so a result can be matched to what asked for it.
+   *
+   * Arrival order is not identity: a provisional snapshot can be answered AFTER the
+   * final result that superseded it, and "whatever came last" would then replace
+   * the authoritative transcript with a guess made from half the sentence.
+   */
+  let utteranceNo = 0;
+  let revisionNo = 0;
+  /**
+   * How much audio this session has actually produced.
+   *
+   * Counted because "the session started" and "the session is capturing" are
+   * different claims, and only the second one matters. A restart that reported
+   * listening while producing zero frames is the defect these exist to make
+   * visible — both in the development trail and in the tests.
+   */
+  let pcmFrames = 0;
+  let pcmSamples = 0;
+  /** The server has this session and has reset its VAD state. */
+  let serverReady = false;
 
-  const report = (status: ListeningStatus, detail = '', speaking = false) =>
-    options.onStatus?.({ status, detail, speaking });
+  /**
+   * Listening means the WHOLE chain is proven, not one end of it.
+   *
+   * Three separate facts, and the restart bug lived in the gap between them: the
+   * server acknowledged the session (transport and VAD state are ready), the
+   * audio context reached `running` (capture CAN produce audio), and PCM has
+   * actually arrived (capture IS producing audio). The second session satisfied
+   * the first and failed the other two while reporting itself healthy.
+   */
+  const announceIfReady = (mine: number) => {
+    if (mine !== session || !serverReady || pcmFrames === 0) return;
+    if (lastStatus !== 'listening') report('listening', '');
+  };
+  /** Timeline id per utterance, so provisional and final share one measurement. */
+  const timelines = new Map<number, number>();
+  /** Utterances whose final answer has arrived; later provisionals are stale. */
+  const finalised = new Set<number>();
 
-  const emit = (text: string) => {
+  /**
+   * Latest measured level, published on a timer rather than per audio frame.
+   *
+   * Frames arrive every 20 ms; re-rendering React that often for a meter is waste
+   * an operator surface cannot afford while OBS is compositing. The audio path
+   * keeps measuring every frame — only the UI notification is coalesced.
+   */
+  let level = 0;
+  let lastStatus: ListeningStatus = 'idle';
+  let lastDetail = '';
+  let lastSpeaking = false;
+  let meterTimer: ReturnType<typeof setInterval> | null = null;
+
+  const report = (status: ListeningStatus, detail = '', speaking = false) => {
+    lastStatus = status;
+    lastDetail = detail;
+    lastSpeaking = speaking;
+    options.onStatus?.({ status, detail, speaking, level });
+  };
+
+  const emit = (text: string, utterance: number, revision: number, isFinal: boolean) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    segment += 1;
+    if (!trimmed && !isFinal) return;
     const event: TranscriptEvent = {
       text: trimmed,
-      // Always final: this source has no interim guesses to offer, because the
-      // model does not produce partial hypotheses. Claiming interim results it
-      // cannot produce would be a lie the reducer would faithfully act on.
-      isFinal: true,
-      segmentId: `${id}-${segment}`,
-      sequence: 0,
+      /**
+       * Provisional snapshots are INTERIM, and honestly labelled as such.
+       *
+       * The model still has no partial hypotheses — each snapshot is a complete
+       * re-recognition of the utterance so far, not a continuation. But from the
+       * consumer's side that is exactly what interim means: a revisable guess for
+       * the same utterance, superseded by the final one. The reducer's rules for
+       * interim text — show it, never let it be the last word — are the rules this
+       * needs, and claiming these were final would let half a sentence stand as the
+       * settled answer.
+       */
+      isFinal,
+      // One segment per utterance, so revisions of the same utterance supersede
+      // each other rather than reading as separate things the speaker said.
+      segmentId: `${id}-${utterance}`,
+      sequence: revision,
       language,
       sourceId: id
     };
@@ -160,6 +345,7 @@ export function createLiveTranscriptSource(
 
   /** Release everything, in an order that cannot leave the microphone live. */
   const teardown = () => {
+    trace(session, 'teardown', `${stream?.getTracks().length ?? 0} track(s) to release`);
     // Invalidate FIRST: any callback that fires during teardown belongs to a session
     // that no longer exists.
     session += 1;
@@ -177,41 +363,63 @@ export function createLiveTranscriptSource(
     socket = null;
     endpointer = emptyEndpointer();
     framer = createFramer(config.sampleRate);
+    trace(session, 'session-audio', `${pcmFrames} frames, ${pcmSamples} samples`);
+    pcmFrames = 0;
+    pcmSamples = 0;
+    serverReady = false;
+    timelines.clear();
+    finalised.clear();
     pending = 0;
     queued = [];
+    if (meterTimer) clearInterval(meterTimer);
+    meterTimer = null;
+    level = 0;
   };
 
-  const send = (mine: number, utterance: Float32Array) => {
-    if (mine !== session || !socket) return;
-    /**
-     * The socket may still be CONNECTING when the first utterance is endpointed.
-     * Dropping it here is what "the first thing you say never works" looks like, so
-     * it is queued until the socket opens and sent then — or discarded if the
-     * connection never comes up, in which case the error path has already told the
-     * operator to type.
-     */
-    if (socket.readyState === WebSocket.CONNECTING) {
-      queued.push(utterance);
-      if (queued.length > MAX_QUEUED_UTTERANCES) {
-        queued.shift();
-        report(
-          'starting',
-          'Still connecting to the local speech service — the earliest utterance was dropped.'
-        );
-      }
+  /** Uplink header: session, sequence, control. 16-bit PCM follows for audio. */
+  const CONTROL_AUDIO = 0;
+  const CONTROL_START = 1;
+  const CONTROL_STOP = 2;
+
+  const uplink = (mine: number, kind: number, pcm?: Int16Array) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    const header = new ArrayBuffer(12);
+    const view = new DataView(header);
+    view.setUint32(0, mine, true);
+    view.setUint32(4, (revisionNo += 1), true);
+    view.setInt32(8, kind, true);
+    if (!pcm) {
+      socket.send(header);
       return;
     }
-    if (socket.readyState !== WebSocket.OPEN) return;
-    // 16-bit PCM: what the model's feature extractor wants, and a quarter the bytes
-    // of float32 over the socket.
-    const pcm = new Int16Array(utterance.length);
-    for (let i = 0; i < utterance.length; i += 1) {
-      pcm[i] = Math.max(-32768, Math.min(32767, Math.round(utterance[i] * 32767)));
-    }
-    pending += 1;
-    report('recognising', 'Recognising…');
-    socket.send(pcm.buffer);
+    const frame = new Uint8Array(header.byteLength + pcm.byteLength);
+    frame.set(new Uint8Array(header), 0);
+    frame.set(new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength), header.byteLength);
+    socket.send(frame);
   };
+
+  /**
+   * Transport one block of microphone audio. No judgement is applied to it.
+   *
+   * While the socket is still connecting, audio is DROPPED rather than queued —
+   * the opposite of the rule the old uplink used, and deliberately. That one sent
+   * complete utterances, so queuing meant not losing something the operator had
+   * said. This one sends a continuous stream, and a queue of stream would replay
+   * seconds of stale audio into the VAD the moment the socket opened, segmenting a
+   * burst of the past as though it were the present. The connect-time warm-up
+   * covers the gap, and a connection that never opens is already reported.
+   */
+  const send = (mine: number, block: Float32Array) => {
+    if (mine !== session || !socket || socket.readyState !== WebSocket.OPEN) return;
+    // 16-bit PCM: what the feature extractor wants, and a quarter the bytes of
+    // float32 over the socket.
+    const pcm = new Int16Array(block.length);
+    for (let i = 0; i < block.length; i += 1) {
+      pcm[i] = Math.max(-32768, Math.min(32767, Math.round(block[i] * 32767)));
+    }
+    uplink(mine, CONTROL_AUDIO, pcm);
+  };
+
 
   return {
     id,
@@ -242,20 +450,39 @@ export function createLiveTranscriptSource(
       // callback surviving from a previous session compares unequal and does nothing.
       session += 1;
       const mine = session;
+      trace(mine, 'start', 'requesting permission');
       report('starting', 'Asking for the microphone…');
       const getMedia =
         options.getMedia ?? ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
 
       let granted: MediaStream;
       try {
-        granted = await getMedia({
-          audio: {
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
+        /**
+         * Chrome's voice-call processing is turned OFF, deliberately.
+         *
+         * `getUserMedia` enables echo cancellation, noise suppression and
+         * automatic gain by default, and this asked for all three explicitly.
+         * They are tuned to make a human on the other end of a call intelligible,
+         * not to preserve a signal for a recogniser — noise suppression is a
+         * spectral gate that attenuates exactly the low-energy, broadband parts of
+         * speech, which is what fricatives and consonant onsets are.
+         *
+         * The first human microphone test returned `"jon thr ixteen"` for "John
+         * three sixteen" — the vowels intact, the `ee` of "three" and the `s` of
+         * "sixteen" gone. That is the signature of a spectral gate, and the same
+         * words recognise cleanly when a file is fed to the same model over the
+         * same pipeline, because a file never passes through any of this.
+         *
+         * Echo cancellation is off for a second reason: it adapts against what the
+         * machine is PLAYING, and in a booth that is the programme audio. There is
+         * no echo path worth cancelling between a lectern microphone and a
+         * recogniser, and cancelling one that is not there costs signal.
+         *
+         * Left overridable, because a laptop microphone beside a loudspeaker is a
+         * genuinely different problem from a lectern feed, and this is the knob
+         * that would fix it.
+         */
+        granted = await getMedia({ audio: { channelCount: 1, ...captureProfile(options) } });
       } catch (error) {
         if (mine !== session) return; // stopped while the permission prompt was open
         teardown();
@@ -280,21 +507,46 @@ export function createLiveTranscriptSource(
        * rather than assigned.
        */
       if (mine !== session) {
+        trace(mine, 'permission-late', 'stopped while asking — releasing the track');
         for (const track of granted.getTracks()) track.stop();
         return;
       }
       stream = granted;
+      trace(mine, 'permission-granted', `${granted.getTracks().length} track(s)`);
+      /**
+       * What Chrome actually gave us, which is not necessarily what was asked for.
+       * A profile comparison in which both profiles silently resolved to the same
+       * settings would look like "the profile makes no difference" and mean
+       * "the constraint was ignored".
+       */
+      if (options.onCaptureSettings) {
+        const track = granted.getAudioTracks?.()[0] ?? granted.getTracks()[0];
+        if (track?.getSettings) options.onCaptureSettings(track.getSettings());
+      }
 
       try {
         socket = (options.createSocket ?? ((url) => new WebSocket(url)))(serviceUrl);
         socket.binaryType = 'arraybuffer';
         socket.addEventListener('open', () => {
           if (mine !== session) return;
-          // Flush anything endpointed while the socket was still connecting.
-          const backlog = queued;
           queued = [];
-          for (const utterance of backlog) send(mine, utterance);
-          report('listening', '');
+          /**
+           * Declare the session before any audio arrives. The server resets Silero
+           * on this, so the recurrent state cannot carry the tail of a previous
+           * session into the first frames of this one — which is what makes
+           * Stop → Start a genuinely independent stream rather than a resumption.
+           */
+          trace(mine, 'socket-open', 'sending START');
+          uplink(mine, CONTROL_START);
+          /**
+           * Deliberately NOT 'listening' yet. An open socket means the transport
+           * exists; it does not mean the server has reset this session's VAD state
+           * and is willing to segment audio. The server acknowledges START, and
+           * `ready` below is what turns the indicator on — otherwise the first
+           * thing the operator says can be fed to a segmenter still holding the
+           * previous session's state.
+           */
+          report('starting', 'Preparing the recogniser…');
         });
         socket.addEventListener('message', (event) => {
           /**
@@ -303,10 +555,69 @@ export function createLiveTranscriptSource(
            * must not become a candidate for what the operator just said.
            */
           if (mine !== session) return;
-          pending = Math.max(0, pending - 1);
           try {
             const payload = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
-            if (payload.text) emit(String(payload.text));
+            /**
+             * Identity, not arrival order. A provisional result for an utterance
+             * that has already been finalised is stale by definition — it was made
+             * from less audio than the answer already on screen.
+             */
+            if (payload.session !== undefined && payload.session !== mine) return;
+
+            /**
+             * Speech state now comes FROM the server, because the server is what
+             * decides it. The browser measures a level for the meter and is told
+             * whether that level is a voice.
+             */
+            if (payload.type === 'ready') {
+              trace(mine, 'session-ready', `server accepted; ${pcmFrames} PCM frames so far`);
+              serverReady = true;
+              // Not enough on its own — the audio path has to be producing too.
+              announceIfReady(mine);
+              return;
+            }
+
+            if (payload.type === 'vad') {
+              const speaking = Boolean(payload.speech);
+              if (speaking) {
+                // The utterance's identity and clock exist from the moment speech
+                // starts, so a snapshot has something to be timed against.
+                const id = liveLatency.begin();
+                timelines.set(Number(payload.utterance ?? 0), id);
+                liveLatency.mark(id, 'speech-start');
+              } else {
+                const id = timelines.get(Number(payload.utterance ?? 0));
+                if (id !== undefined) liveLatency.mark(id, 'endpoint');
+              }
+              report(speaking ? 'recognising' : 'listening', '', speaking);
+              return;
+            }
+
+            const utterance = Number(payload.utterance ?? 0);
+            const isFinal = Boolean(payload.final);
+            if (!isFinal && finalised.has(utterance)) return;
+            if (isFinal) {
+              pending = Math.max(0, pending - 1);
+              finalised.add(utterance);
+            }
+
+            const timelineId = timelines.get(utterance);
+            if (timelineId !== undefined) {
+              if (isFinal) {
+                liveLatency.mark(timelineId, 'transcript');
+                if (typeof payload.inference_seconds === 'number') {
+                  liveLatency.inference(timelineId, payload.inference_seconds);
+                }
+                if (!payload.text) liveLatency.refuse(timelineId);
+                else options.onUtteranceTiming?.(timelineId);
+              } else {
+                liveLatency.mark(timelineId, 'first-interim');
+                if (payload.text) options.onUtteranceTiming?.(timelineId);
+              }
+            }
+            if (payload.text || isFinal) {
+              emit(String(payload.text ?? ''), utterance, Number(payload.revision ?? 0), isFinal);
+            }
           } catch {
             /* a malformed frame is dropped rather than parsed as a reference */
           }
@@ -315,6 +626,7 @@ export function createLiveTranscriptSource(
         socket.addEventListener('error', () => {
           // An old socket erroring must not tear down a newer listening session.
           if (mine !== session) return;
+          trace(mine, 'socket-error', 'releasing capture');
           teardown();
           report(
             'unavailable',
@@ -322,12 +634,46 @@ export function createLiveTranscriptSource(
           );
         });
         socket.addEventListener('close', () => {
-          if (mine !== session || !listening) return;
+          if (mine !== session) return;
+          trace(mine, 'socket-close', listening ? 'while listening' : 'during startup');
+          if (!listening) {
+            // A close BEFORE listening was established still owns a microphone.
+            teardown();
+            report('unavailable', 'The local speech service closed the connection.');
+            return;
+          }
           teardown();
           report('stopped', 'The local speech service closed the connection.');
         });
 
         context = new AudioContext({ sampleRate: config.sampleRate });
+        /**
+         * Resume it, and then CHECK. This is the restart bug.
+         *
+         * A context constructed outside a user-gesture call stack starts
+         * **suspended** in Chrome, and a suspended context never fires
+         * `onaudioprocess` — so no PCM leaves the page and no transcript can
+         * possibly arrive. `start()` awaits `getUserMedia` before building the
+         * audio graph, which puts the construction outside that stack every time;
+         * the first session survives on the page's sticky activation from the
+         * click, and later ones, created moments after the previous context was
+         * closed, do not.
+         *
+         * The symptom was exact: the second Start "appears to start" — permission
+         * is held, the socket opens, the server acknowledges the session — and
+         * then nothing is ever heard, because the microphone's audio was never
+         * being read in the first place.
+         */
+        await context.resume?.();
+        trace(mine, 'audio-context', context.state ?? 'unknown');
+        if (context.state === 'suspended' || context.state === 'closed') {
+          // Said plainly rather than reported as listening. A session that cannot
+          // read the microphone is not a session, and claiming otherwise is what
+          // left the operator talking to something that was never going to answer.
+          teardown();
+          report('unavailable', 'Could not start the audio input. Stop and start listening again.');
+          return;
+        }
         const source = context.createMediaStreamSource(stream);
         // ScriptProcessor rather than AudioWorklet: the dock runs in OBS's embedded
         // Chromium, and a worklet needs a separately served module file. This is a
@@ -335,43 +681,84 @@ export function createLiveTranscriptSource(
         node = context.createScriptProcessor(1024, 1, 1);
         node.onaudioprocess = (event) => {
           if (mine !== session || !listening) return;
-          // Carried across callbacks: samples that do not fill a frame wait for the
-          // next block rather than being discarded.
-          const framed = pushSamples(framer, event.inputBuffer.getChannelData(0));
-          framer = framed.framer;
-          for (const frame of framed.frames) {
-            const result = pushFrame(endpointer, frame, config);
-            endpointer = result.state;
-            if (result.utterance) send(mine, result.utterance);
-            else if (pending === 0) {
-              report(
-                result.calibrating ? 'starting' : 'listening',
-                result.calibrating ? 'Listening for the room…' : '',
-                result.speaking
-              );
-            }
+          const block = event.inputBuffer.getChannelData(0);
+          /**
+           * Two things, and only two: measure a level for the meter, and transport
+           * the samples.
+           *
+           * The browser used to decide here whether audio deserved to reach the
+           * recogniser, using an energy threshold. That failed human testing in
+           * both directions at once — the operator had to lean toward the
+           * microphone for normal speech to register, and silence still got through
+           * often enough for Whisper to answer "Thank you." No threshold fixes
+           * that, because loudness is not what separates a voice from a room. The
+           * judgement now lives behind Silero on the server and this is a pipe.
+           *
+           * The level is still measured HERE, because a meter must respond to the
+           * microphone rather than to a round trip. It drives a display and nothing
+           * else; no code path reads it to decide anything.
+           */
+          level = levelFromDb(frameDb(block));
+          if (pcmFrames === 0) {
+            trace(mine, 'pcm-first', `${block.length} samples`);
+            pcmFrames += 1;
+            pcmSamples += block.length;
+            // The last of the three facts. Announced here rather than assumed,
+            // because a session that never reaches this line is the whole defect.
+            announceIfReady(mine);
+          } else {
+            pcmFrames += 1;
+            pcmSamples += block.length;
           }
+          // Every sample, exactly once, in order. No framing and therefore no
+          // remainder to lose — the accumulator that meets Silero's fixed 512-sample
+          // frame lives on the server, where the frames are actually needed.
+          send(mine, block);
         };
         source.connect(node);
         node.connect(context.destination);
 
         listening = true;
+        trace(mine, 'capture-live', 'audio nodes connected');
+        // ~20 Hz: fast enough to read as live, slow enough not to re-render React
+        // at audio-frame frequency.
+        meterTimer = setInterval(() => {
+          if (mine !== session) return;
+          options.onStatus?.({ status: lastStatus, detail: lastDetail, speaking: lastSpeaking, level });
+        }, 50);
         /**
-         * Capture is live, but the connection may not be. Saying "Listening" before
-         * the socket is open would claim a working pipeline that cannot yet deliver
-         * a transcript; audio endpointed in the meantime is queued rather than lost,
-         * and the `open` handler reports the honest state.
+         * Capture is live, and that is NOT enough to say so.
+         *
+         * This branch used to publish "listening" as soon as the socket was open,
+         * alongside the three-fact gate added later — so the false-positive the
+         * gate exists to prevent stayed reachable by the older path that was never
+         * removed. An open socket says a transport exists; it says nothing about
+         * whether the server has this session and reset its VAD state, or whether
+         * the audio graph is producing anything at all.
+         *
+         * `announceIfReady` is now the only thing that may say listening, and it
+         * requires the acknowledgement, a running context and real PCM.
          */
-        if (socket.readyState === WebSocket.OPEN) report('listening', '');
-        else report('starting', 'Connecting to the local speech service…');
-      } catch {
-        if (mine !== session) return;
+        report('starting', 'Connecting to the local speech service…');
+        announceIfReady(mine);
+      } catch (error) {
+        trace(mine, 'start-failed', (error as Error)?.name ?? 'unknown');
+        // Torn down even if this session is already stale: `stream` may hold a
+        // track this start acquired, and nothing else will release it.
         teardown();
+        if (mine !== session) return;
         report('unavailable', 'Could not start listening. Type the reference instead.');
       }
     },
 
     stop() {
+      /**
+       * Tell the server BEFORE tearing down, so it drops the partial utterance,
+       * the pre-roll and Silero's recurrent state rather than carrying them into
+       * whatever the operator says next. Sent while the socket is still open —
+       * `teardown` closes it.
+       */
+      uplink(session, CONTROL_STOP);
       teardown();
       /**
        * Reported unconditionally, not just when fully listening. Stopping while the

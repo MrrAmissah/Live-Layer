@@ -7,7 +7,8 @@ import {
   frameDb,
   pushFrame,
   pushSamples,
-  type EndpointerConfig
+  type EndpointerConfig,
+  looksLikeSpeech
 } from './utteranceEndpointer';
 
 const SR = DEFAULT_ENDPOINTER.sampleRate;
@@ -319,5 +320,181 @@ describe('the hangover stays where the latency measurement assumed', () => {
   it('measures level in dB, so quiet and loud both register', () => {
     expect(frameDb(new Float32Array(FRAME))).toBeLessThan(-100);
     expect(frameDb(tone(FRAME, -20))).toBeGreaterThan(frameDb(tone(FRAME, -40)));
+  });
+});
+
+describe('provisional snapshots while the speaker is still talking', () => {
+  /**
+   * The first human test found the whole experience batch: speak, wait, "Recognising",
+   * then a result. The model is utterance-batch CTC and that has not changed — but at
+   * ~0.2 s per inference it is fast enough to re-recognise the utterance SO FAR
+   * every few hundred milliseconds, so the operator sees work happening while they
+   * speak instead of afterwards.
+   */
+  const room = (ms: number) => noise((SR * ms) / 1000, -58, 3);
+  const speech = (ms: number) => tone((SR * ms) / 1000, -20);
+
+  function snapshots(stream: Float32Array, config = DEFAULT_ENDPOINTER) {
+    let state = emptyEndpointer();
+    let framer = createFramer(config.sampleRate);
+    const out: { snapshots: number[]; final: number | null } = { snapshots: [], final: null };
+    for (let at = 0; at < stream.length; at += 1024) {
+      const pushed = pushSamples(framer, stream.subarray(at, Math.min(at + 1024, stream.length)));
+      framer = pushed.framer;
+      for (const frame of pushed.frames) {
+        const result = pushFrame(state, frame, config);
+        state = result.state;
+        if (result.snapshot) out.snapshots.push(result.snapshot.length);
+        if (result.utterance) out.final = result.utterance.length;
+      }
+    }
+    return out;
+  }
+
+  it('emits growing snapshots during a long utterance, then one final', () => {
+    const { snapshots: seen, final } = snapshots(join(room(800), speech(3000), room(900)));
+    // Derived from the cadence rather than hard-coded, so re-deriving the cadence
+    // for a different recogniser does not silently invalidate this expectation —
+    // which is exactly what it did when Whisper moved it from 400 ms to 800 ms.
+    const expected = Math.floor(3000 / DEFAULT_ENDPOINTER.snapshotEveryMs);
+    expect(seen.length).toBeGreaterThanOrEqual(expected);
+    // Each snapshot contains everything the previous one did, and more.
+    for (let i = 1; i < seen.length; i += 1) expect(seen[i]).toBeGreaterThan(seen[i - 1]);
+    expect(final).not.toBeNull();
+    // The final is the authoritative pass over the whole utterance.
+    expect(final!).toBeGreaterThanOrEqual(seen[seen.length - 1]);
+  });
+
+  it('holds the cadence rather than firing per frame', () => {
+    // Every 20 ms would backlog the recogniser and flicker the card; the cadence is
+    // measured in buffered audio so a stalled callback cannot make it drift.
+    const { snapshots: seen } = snapshots(join(room(800), speech(2000), room(900)));
+    const expected = Math.floor(2000 / DEFAULT_ENDPOINTER.snapshotEveryMs);
+    expect(seen.length).toBeLessThanOrEqual(expected + 1);
+  });
+
+  it('says nothing until there is enough speech to be worth recognising', () => {
+    const { snapshots: seen } = snapshots(join(room(800), speech(300), room(900)));
+    expect(seen).toHaveLength(0);
+  });
+
+  it('emits no snapshot at all when nobody is speaking', () => {
+    expect(snapshots(noise(SR * 4, -55)).snapshots).toHaveLength(0);
+  });
+
+  it('is chunk-invariant, like the rest of the audio path', () => {
+    const stream = join(room(800), speech(2200), room(900));
+    const reference = snapshots(stream).snapshots;
+    for (const chunk of [320, 512, 2048]) {
+      let state = emptyEndpointer();
+      let framer = createFramer(SR);
+      const seen: number[] = [];
+      for (let at = 0; at < stream.length; at += chunk) {
+        const pushed = pushSamples(framer, stream.subarray(at, Math.min(at + chunk, stream.length)));
+        framer = pushed.framer;
+        for (const frame of pushed.frames) {
+          const result = pushFrame(state, frame, DEFAULT_ENDPOINTER);
+          state = result.state;
+          if (result.snapshot) seen.push(result.snapshot.length);
+        }
+      }
+      expect(seen, `chunk ${chunk}`).toEqual(reference);
+    }
+  });
+});
+
+describe('silence must never become Scripture input', () => {
+  /**
+   * The production blocker, in the operator's words: during actual silence,
+   * Whisper sometimes says "thank you".
+   *
+   * It is worse than it sounds. Measured against the running service, three
+   * seconds of DIGITAL SILENCE decoded confidently as "Thank you." — and
+   * `no_speech_prob` came back **0.000 for that and for every other input**,
+   * including real speech, while silence scored a BETTER `avg_logprob` (−0.213)
+   * than a real short correction ("Verse 3.", −0.393). There is no threshold on
+   * the model's own output that separates the two classes here.
+   *
+   * So the microphone is the authority, and these tests hold that line. Each
+   * number below was measured from the audio class it names.
+   */
+  const SR2 = 16000;
+  const flat = (ms: number, db: number, seedIn = 5): Float32Array => {
+    const out = new Float32Array((SR2 * ms) / 1000);
+    const amp = Math.pow(10, db / 20);
+    let seed = seedIn;
+    for (let i = 0; i < out.length; i += 1) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      out[i] = ((seed / 0x7fffffff) * 2 - 1) * amp;
+    }
+    return out;
+  };
+  /** Loud parts, quiet parts — the thing a room cannot do. */
+  const voice = (ms: number, db: number, seedIn = 9): Float32Array => {
+    const out = flat(ms, db, seedIn);
+    for (let i = 0; i < out.length; i += 1) {
+      out[i] *= Math.pow(Math.abs(Math.sin((i / SR2) * Math.PI * 6)), 3) + 0.0002;
+    }
+    return out;
+  };
+
+  function through(stream: Float32Array) {
+    let state = emptyEndpointer();
+    let framer = createFramer(SR2);
+    const sent: { audio: Float32Array; audible: boolean }[] = [];
+    for (let at = 0; at < stream.length; at += 1024) {
+      const pushed = pushSamples(framer, stream.subarray(at, Math.min(at + 1024, stream.length)));
+      framer = pushed.framer;
+      for (const frame of pushed.frames) {
+        const r = pushFrame(state, frame, DEFAULT_ENDPOINTER);
+        state = r.state;
+        const audio = r.utterance ?? r.snapshot;
+        if (audio && r.evidence) sent.push({ audio, audible: looksLikeSpeech(r.evidence) });
+      }
+    }
+    return sent;
+  }
+
+  const audible = (stream: Float32Array) => through(stream).filter((s) => s.audible).length;
+
+  it('sends nothing at all for digital silence', () => {
+    expect(audible(new Float32Array(SR2 * 4))).toBe(0);
+  });
+
+  it('sends nothing for steady room noise, at any level', () => {
+    // −70 through −40 dBFS: a quiet study through a room with air conditioning.
+    for (const db of [-70, -60, -55, -50, -45, -40]) {
+      const stream = join(flat(1000, -60), flat(3000, db), flat(1000, -60));
+      expect(audible(stream), `${db} dBFS room`).toBe(0);
+    }
+  });
+
+  it('sends nothing for a breath or a chair moving', () => {
+    // Short, quiet, and flat — loud enough to trip a bare energy detector, which
+    // is exactly how "thank you" reached the operator.
+    expect(audible(join(flat(1000, -60), flat(600, -42), flat(1200, -60)))).toBe(0);
+  });
+
+  it('sends nothing for a cough', () => {
+    expect(audible(join(flat(1000, -60), flat(120, -28), flat(1200, -60)))).toBe(0);
+  });
+
+  it('still sends real speech, including a short correction', () => {
+    // "verse three" is under a second — the shield must not price it out.
+    expect(audible(join(flat(1000, -60), voice(900, -14), flat(1000, -60)))).toBeGreaterThan(0);
+    expect(audible(join(flat(1000, -60), voice(3000, -14), flat(1000, -60)))).toBeGreaterThan(0);
+  });
+
+  it('still sends speech in a room that is not quiet', () => {
+    // The failure direction that matters: a shield tuned against clean silence
+    // would refuse a real reference in a real building.
+    expect(audible(join(flat(1000, -45), voice(1500, -14, 21), flat(1000, -45)))).toBeGreaterThan(0);
+  });
+
+  it('repeated silence never accumulates into one audible segment', () => {
+    // Thirty seconds of listening to nothing, which is the human soak test.
+    let total = 0;
+    for (let i = 0; i < 10; i += 1) total += audible(join(flat(1000, -58, i), flat(2000, -52, i + 40)));
+    expect(total).toBe(0);
   });
 });

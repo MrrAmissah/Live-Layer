@@ -1038,6 +1038,264 @@ provider-neutral and survives a swap.
 
 ---
 
+## 10. Recogniser shootout — the swap that the human gate forced
+
+The five-reference human gate failed on its first reference. Real microphone,
+normal speech, "John three sixteen" → **`"jon thr ixteen"`**, and the parser
+correctly refused. Every earlier number in this document was measured on
+synthetic speech fed to the model as a file, and that path had never once
+exercised a real capture chain.
+
+Two separate causes were found. Both are fixed. Neither was found by reasoning.
+
+### 10.1 The capture chain was damaging the audio before the model saw it
+
+`getUserMedia` was being asked, explicitly, for `echoCancellation: true`,
+`noiseSuppression: true` and `autoGainControl: true`. Those are tuned to make a
+human intelligible on a phone call. Noise suppression is a spectral gate: it
+attenuates the low-energy broadband parts of a signal, which is precisely what
+fricatives and consonant onsets are.
+
+Look at what survived and what did not: `"jon thr ixteen"` keeps every vowel and
+loses the `ee` of "three" and the `s` of "sixteen". The same words recognise
+cleanly when a file goes through the same model over the same pipeline, and a
+file never passes through any of this.
+
+All three are now off by default and overridable, because a laptop microphone
+beside a loudspeaker is a genuinely different problem from a lectern feed.
+
+**This is unproven against a real microphone.** It is a strong hypothesis with a
+matching signature, not a measurement — the only way to measure it is a human,
+and asking for one costs the same as asking for the A/B below.
+
+### 10.2 The recogniser was replaced, on measured evidence
+
+Three engines, identical audio, identical endpointer, and the parser **frozen at
+`082cb68`** for the whole comparison — no lexical repair was added for any
+candidate's mistakes while it was running.
+
+| | DONDO w2v-BERT | **Whisper large-v3-turbo** | Distil-Whisper large-v3 |
+|---|---|---|---|
+| Runtime | PyTorch MPS | **MLX / Metal** | MLX / Metal |
+| On disk | 2.3 GB | 2.8 GB | 1.4 GB |
+| Peak RSS | 341 MB | 598 MB | 767 MB |
+| Load | 8.4 s | **1.5 s** | 1.5 s |
+| Inference, 2 s utterance | **0.13 s** | 0.78 s | 0.76 s |
+| Cold first inference | 2.96 s | 4.68 s | 3.42 s |
+
+Scored through the frozen parser. **Right-lead** is what the operator's card
+actually shows; **wrong-lead** is a confident wrong answer, the failure this whole
+system exists to prevent.
+
+| Frozen held-out, 83 cases | right-lead | wrong-lead | refused |
+|---|---|---|---|
+| DONDO | 32 (38.6%) | 3 (3.6%) | 48 (58%) |
+| **Whisper turbo** | **60 (72.3%)** | **3 (3.6%)** | **20 (24%)** |
+| Distil | 32 (38.6%) | 5 (6.0%) | 46 (55%) |
+
+| Service corpus, 53 cases | right-lead | wrong-lead | refused |
+|---|---|---|---|
+| DONDO | 31 (58.5%) | 0 | 22 (42%) |
+| **Whisper turbo** | **40 (75.5%)** | **0** | **13 (25%)** |
+| Distil | 24 (45.3%) | 2 (3.8%) | 27 (51%) |
+
+Whisper turbo nearly doubles the number of times the right verse leads the card,
+**at the same wrong-lead rate**, while more than halving refusals. The incumbent's
+apparent safety was mostly silence — 58% of the held-out corpus produced nothing
+at all, and a recogniser that refuses is not a recogniser that is right.
+
+Distil-Whisper loses on both axes and has a disqualifying habit: it merges
+chapter and verse into one number — `"John 316"`, `"Romans 828"` — which destroys
+the structure this product is built to extract. It also once looped for **277
+seconds** on one second of digital silence.
+
+### 10.3 One parser gap, fixed only after the decision
+
+Whisper writes digits. That immediately exposed a gap that had been invisible for
+as long as the recogniser spelled numbers out: `BOOK_ORDINALS` accepted `first`,
+`1st`, `one` and `i` — but not `1`. So `"1 John 4 8"` resolved to **John 4:8**,
+and `"2 Corinthians 5.17"` to **1 Corinthians 5:17** — the wrong numbered book,
+confidently.
+
+That is not tuning to a candidate's quirk; `1 John` is how the book is *written*.
+But it was still held until after the selection, because fixing a gap that one
+candidate's output shape reveals, mid-comparison, decides the comparison. Adding
+it moved Whisper's held-out wrong-lead from 9.6% to **3.6%** and left DONDO's
+numbers unchanged to the digit — which is the evidence that it repaired a gap
+rather than tilting a comparison.
+
+### 10.4 The snapshot cadence was re-derived, not re-tuned
+
+Whisper pads every input to a 30-second window, so inference does **not** scale
+with the audio:
+
+| audio | DONDO | Whisper turbo |
+|---|---|---|
+| 0.80 s | 0.40 s | 0.73 s |
+| 2.02 s | 0.11 s | 0.76 s |
+| 4.42 s | 0.18 s | 0.79 s |
+
+The 400 ms cadence was justified against a model that cost ~0.13 s for a whole
+utterance and therefore sat idle most of every interval. Against ~0.78 s of flat
+work, roughly every second snapshot would be discarded by the latest-wins slot —
+nothing backlogs, because that slot exists to prevent it, but it is GPU spent on
+answers nobody will see, on a fanless machine, for no gain. **The cadence is now
+800 ms**, matched to the measured work.
+
+### 10.5 What it costs, stated plainly
+
+Whisper is about six times slower per inference. Rehearsed end to end over nine
+utterances through the real service:
+
+| | DONDO | Whisper turbo |
+|---|---|---|
+| First interim transcript | **0.64 s** | 1.54 s |
+| Final inference | **0.13 s** | 0.81 s |
+| Correct reference displayed | 9/9 | 9/9 |
+
+The live *feeling* is worse: words now appear at 1.5 s rather than 0.64 s. That is
+a real regression and it is the price of the accuracy above — on synthetic audio
+both engines resolve all nine, and on a real microphone only one of them has been
+shown to work at all. Determinism was checked rather than assumed: every gate
+phrase returned identical text across three runs, which matters because the
+provisional stability rule counts consecutive agreements.
+
+### 10.6 What is still unmeasured
+
+**Everything above is synthetic speech.** The human evidence already proves
+synthetic overstates DONDO — clean `"jon three sixteen"` from a file against
+`"jon thr ixteen"` from a microphone. It establishes a *relative ranking between
+engines on identical audio*, which is real and was the question. It does not
+establish absolute performance for either, and it cannot: browser automation
+cannot obtain microphone permission, so no automated pass in this repository has
+ever exercised live capture.
+
+Gate A remains **NOT CLEARED**.
+
+---
+
+## 11. Silero VAD — the gate stops guessing at loudness
+
+The five-reference gate failed on both sides at once: the operator had to lean
+toward the microphone for normal speech to register, and silence still reached
+Whisper often enough to produce `"Thank you."` Those were never two settings to
+balance. **Loudness is not what separates a voice from a room**, so any threshold
+admitting a quiet speaker also admits a fan.
+
+### 11.1 Architecture
+
+```
+browser microphone
+  → continuous PCM (12-byte header: session, sequence, control)
+  → local Python service
+  → Silero VAD 6.2.1, torch build
+  → server-owned pre-roll / segmentation / endpointing
+  → progressive Whisper snapshots  →  final Whisper decode
+```
+
+The browser measures a level for the meter and transports samples. It owns no
+judgement. Silero was deliberately **not** placed behind the old energy gate: it
+can only recover speech it is allowed to see, and discarding quiet speech is
+exactly what that gate did wrong, so a prerequisite it cannot overrule would have
+been a permanent ceiling.
+
+Cost: **0.126 ms per 32 ms frame** warm (ONNX 0.118 ms — not worth a second
+runtime for 0.008 ms). About 255x real time.
+
+### 11.2 Parameters, swept not assumed
+
+47 cases: 12 negatives (digital silence, room noise −70 to −35 dBFS, breath,
+cough, chair, keys) and 35 positives (seven phrases × attenuation 0 to −24 dB,
+standing for microphone distance).
+
+Every threshold from **0.1 to 0.999** scores identically: 35/35 positives, 0/12
+false. That looked like a broken harness, so it was checked against controls that
+must fail — at 0.02 five negatives leak, at 0.99999 twenty-nine positives are
+missed — and against the raw probabilities, which explain it:
+
+| | peak speech probability |
+|---|---|
+| silence, room noise, breath, cough, chair, keys | **0.009 – 0.090** |
+| speech, including −24 dB attenuated | **1.000** |
+
+Two things the sweep caught that reasoning had not:
+
+- **Counting only finals was wrong.** A negative that triggers speech and never
+  ends emits *snapshots* the whole time and never produces a final, so it scored
+  as clean while streaming room tone to a model that invents words for it. Any
+  Whisper-bound event now counts as a failure.
+- **`min_silence_ms` could not be picked by convention.** It is added directly to
+  time-to-passage, and trades against splitting a hesitating speaker:
+
+  | pause held together? | 160 | 192 | 256 | **320** | 384 | 448 | 512 |
+  |---|---|---|---|---|---|---|---|
+  | 200 ms hesitation | y | y | y | **y** | y | y | y |
+  | 300 ms hesitation | n | y | y | **y** | y | y | y |
+  | 400 ms hesitation | n | n | n | **y** | y | y | y |
+
+  320 ms holds a 300 ms mid-reference hesitation together and saves 180 ms
+  against the browser hangover it replaces.
+
+Selected: threshold 0.5, negative 0.35, min speech 128 ms, min silence 320 ms,
+pre-roll 320 ms, tail pad 160 ms, first look 300 ms, cadence 600 ms.
+
+### 11.3 Results, streamed through the real service at real-time rate
+
+| input | Whisper calls |
+|---|---|
+| digital silence, room noise, breath, cough, chair, keys | **0** |
+| speech at 0 / −12 / −18 / −24 dB | detected, correct transcript |
+
+`"Thank you."` cannot occur because **Whisper is never invoked**. No text filter
+was added, and none is needed. `"verse three"` — the utterance a real microphone
+returned as `"Vestry"` — transcribes as `Verse 3` at every attenuation.
+
+### 11.4 First snapshot, on its own clock
+
+The old shape was effectively `max(first, every)`, so the cadence always won and
+lowering the first threshold measured as changing nothing. Now independent:
+
+| first look at | first transcript after speech starts |
+|---|---|
+| **300 ms** | **1381 ms** |
+| 400 ms | 1452 ms |
+| 500 ms | 1708 ms |
+
+Chosen on a consistent direction, not a decisive gap — n=4, and within-setting
+variance is real (one clip at 500 ms landed at 1078 ms, another at 1728 ms).
+
+### 11.5 `language="en"` is load-bearing
+
+| | median | p95 |
+|---|---|---|
+| `language="en"` | **756 ms** | 869 ms |
+| `language="en"`, `task="transcribe"` | 780 ms | 893 ms |
+| unspecified (detects language) | **1437 ms** | 1792 ms |
+
+Whisper spends nearly half the budget deciding what language English is. Already
+shipped; now measured. `task="transcribe"` changes nothing and is not added.
+
+### 11.6 4-bit turbo — REJECTED
+
+| | large-v3-turbo | turbo-q4 |
+|---|---|---|
+| held-out right-lead | **72.3%** | 71.1% |
+| held-out wrong-lead | 3.6% | **2.4%** |
+| held-out refused | **24%** | 27% |
+| service corpus | 75.5% / 0% / 25% | 75.5% / 0% / 25% |
+| gate phrases | 9/9 | 9/9 |
+| **median inference** | **777 ms** | **794 ms** |
+| cold first inference | 4.68 s | **2.90 s** |
+| peak RSS | 598 MB | **562 MB** |
+| on disk | 2.8 GB | **442 MB** |
+
+Accuracy is a wash. **There is no latency improvement** — 794 ms against 777 ms,
+slightly worse and inside the noise — and latency was the only thing that would
+have justified the change. Rejected on the criterion set before the measurement,
+not on the disk figure.
+
+---
+
 ## Sources
 
 - [arXiv:2607.21540 — DONDO: Open w2v-BERT Speech-Recognition Base Models for African Languages](https://arxiv.org/abs/2607.21540)

@@ -8,6 +8,28 @@ import {
   interimText,
   type TranscriptStreamState
 } from '../../lib/scripture/transcriptStream';
+import { Icon } from '../../lib/icons';
+import InputLevelMeter from './InputLevelMeter';
+import DetectedScripture from './DetectedScripture';
+import { liveLatency } from '../../lib/scripture/liveLatency';
+import {
+  decideDisplay,
+  forgetAgreement,
+  NO_AGREEMENT,
+  type StabilityState
+} from '../../lib/scripture/provisionalStability';
+import { readCorrection } from '../../lib/scripture/referenceCorrection';
+import {
+  EMPTY_STACK,
+  promote,
+  recallPrevious,
+  clearStack,
+  newestReference,
+  type ConfirmedPassage,
+  type PassageStack
+} from '../../lib/scripture/passageStack';
+import type { CanonicalReference } from '../../lib/scripture/parseReference';
+import type { SpokenCandidate } from '../../lib/scripture/spokenReference';
 import {
   IDLE,
   accept as acceptCandidate,
@@ -26,6 +48,12 @@ interface Props {
   /** Hand an accepted passage to the workspace. The ONLY way anything leaves here. */
   onAccept: (passage: ScriptureLookupResult, translationId: string) => void;
   translationId: string;
+  /**
+   * Whether the microphone is open, so the workspace can order itself around it.
+   * Reported rather than controlled: listening is started and stopped here, and
+   * the workspace only needs to know which panel the operator is using.
+   */
+  onListeningChange?: (listening: boolean) => void;
 }
 
 /**
@@ -42,7 +70,7 @@ interface Props {
  * into the ordinary Scripture draft — the same path the typed lookup uses. Program
  * is never touched.
  */
-export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
+export default function VoiceAssistPreview({ onAccept, translationId, onListeningChange }: Props) {
   const [state, setState] = useState<VoiceAssistState>(IDLE);
   const [draftTranscript, setDraftTranscript] = useState('');
   const { lookup, cancel } = useScriptureLookup();
@@ -53,15 +81,165 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    * mid-service.
    */
   const [listen, setListen] = useState(false);
-  const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false });
+  /** True while the card is showing a guess from speech still in progress. */
+  /**
+   * A guess from speech still in progress, retrieved and rendered — and kept OUT
+   * of the durable stack.
+   *
+   * It used to be promoted like any other passage, which meant a reading the
+   * final never confirmed stayed on screen as "Ready to review" the moment the
+   * utterance ended. Since the durable stack also decides what Accept applies,
+   * that made an unconfirmed guess acceptable: the operator could put a verse the
+   * recogniser had already changed its mind about into the draft.
+   *
+   * So it lives here instead, for exactly one utterance. The final either
+   * promotes its own result into the stack or this is discarded — there is no
+   * path by which a provisional becomes durable.
+   */
+  const [preview, setPreview] = useState<ConfirmedPassage | null>(null);
+  const provisional = preview !== null;
+  /**
+   * A reference has been heard once and is waiting to be heard again.
+   *
+   * Shown as a plain sentence, never as a count. The operator does not need to
+   * know that this is two passes of a recogniser agreeing — they need to know
+   * that something is happening and the card has not stalled.
+   */
+  const [detecting, setDetecting] = useState(false);
+  /**
+   * The last passage that PARSED, VALIDATED and RETRIEVED — the durable half.
+   *
+   * Deliberately outside the reducer. `receiveTranscript` builds a fresh state for
+   * every utterance, which is correct for a recognition ATTEMPT and was quietly
+   * catastrophic for the passage: a preacher who said "no, verse three" lost a
+   * verse that was right, because a fragment the parser refused replaced a result
+   * it had already confirmed.
+   *
+   * Keeping it out here means no reducer path can clear it, because no reducer
+   * path can reach it. That is the invariant enforced by shape rather than by
+   * every future transition remembering to copy a field. It is cleared in exactly
+   * two places: a successful replacement, and the operator pressing Dismiss.
+   */
+  const [stack, setStack] = useState<PassageStack>(EMPTY_STACK);
+  /** The same value, readable inside the transcript handler without re-subscribing. */
+  const stackRef = useRef<PassageStack>(EMPTY_STACK);
+  const remember = (
+    reference: CanonicalReference,
+    passage: ScriptureLookupResult,
+    heard: string,
+    interpretation: string,
+    alternatives: SpokenCandidate[] = []
+  ) => {
+    stackRef.current = promote(stackRef.current, { reference, passage, heard, interpretation }, alternatives);
+    setStack(stackRef.current);
+    /**
+     * `acceptedRef` is deliberately NOT reset here.
+     *
+     * It used to be cleared on every promotion, which contradicted its own reason
+     * for existing: re-confirming the passage already accepted would offer to
+     * accept it a second time and add a duplicate recent. Acceptance is a fact
+     * about a PASSAGE, so it is compared by identity instead — the same passage
+     * stays accepted, a different one is offered.
+     */
+  };
+
+  /**
+   * What "the same passage" means for acceptance.
+   *
+   * Canonical reference is not enough on its own: the operator can change
+   * translation, and John 3:16 in one translation is different content from John
+   * 3:16 in another. Accepting the first must not make the second look already
+   * done.
+   */
+  /**
+   * End the current recognition attempt, keeping everything already confirmed.
+   *
+   * A provisional belongs to exactly ONE live utterance, so every way that
+   * utterance can end has to discard it: the operator pressing Stop, the source
+   * stopping itself, a permission refusal, the service going away. Without this a
+   * guess from a session that is over stayed on screen and — once the final that
+   * would have refused it could no longer arrive — sat there looking settled.
+   *
+   * It also invalidates work in flight. The generation bump is what stops a
+   * provisional lookup that was already running from landing afterwards and
+   * putting the discarded guess straight back, and the agreement counter is reset
+   * so the next utterance starts from zero rather than inheriting votes from one
+   * that no longer exists.
+   */
+  const discardPreview = () => {
+    setPreview(null);
+    setDetecting(false);
+    setCorrection('');
+    generation.current += 1;
+    agreementRef.current = forgetAgreement();
+  };
+
+  const acceptIdentity = (entry: ConfirmedPassage) =>
+    `${entry.reference.canonical}|${entry.passage.translation}`;
+  const forgetConfirmed = () => {
+    stackRef.current = clearStack();
+    setStack(stackRef.current);
+  };
+  const confirmed = stack.current;
+  const confirmedRef = stackRef as unknown as { current: { reference: CanonicalReference } | null };
+  /** Set while a correction is being retrieved, and while one has just failed. */
+  const [correction, setCorrection] = useState<'' | 'working' | 'failed'>('');
+  /**
+   * The last completed utterance, whatever it turned out to be.
+   *
+   * ONE value behind ONE line on screen. It began as a separate "what caused the
+   * passage to change" line, added because a card that became John 3:17 with no
+   * visible cause reads as the system changing its mind on its own. But the panel
+   * already rendered the current transcript, so a final that resolved printed both
+   * — the same words, twice, under the same word "Heard".
+   *
+   * A correction is why one value has to serve both: `receiveTranscript` is never
+   * called for "no, verse three", so the reducer's transcript would be stale
+   * exactly when the passage changed. Set on every completed utterance instead —
+   * resolved, refused or corrected — so the line always names the utterance the
+   * operator just spoke, and never accumulates a history.
+   */
+  const [heard, setHeard] = useState('');
+  /**
+   * Which reference the operator has already accepted, or null.
+   *
+   * Keyed by canonical reference rather than a boolean on the transient state,
+   * because acceptance is a fact about a PASSAGE and the transient state is
+   * rebuilt by every utterance — including the ordinary preaching between two
+   * references.
+   */
+  const [acceptedRef, setAcceptedRef] = useState<string | null>(null);
+  const [mic, setMic] = useState<LiveSourceStatus>({ status: 'idle', detail: '', speaking: false, level: 0 });
   /**
    * Created once. Re-creating the source on a status change would tear down the
    * microphone it is reporting about — the same unstable-callback shape that once
    * cancelled every scripture lookup in flight.
    */
+  /** Timeline id for the utterance currently being turned into a passage. */
+  const timelineRef = useRef<number | null>(null);
+  /**
+   * How many consecutive revisions have named the reference now being considered.
+   * A ref, not state: it is read and written inside the transcript handler, and a
+   * re-render between two revisions must not lose or replay a vote.
+   */
+  const agreementRef = useRef<StabilityState>(NO_AGREEMENT);
+  /**
+   * The utterance the operator dismissed, if they dismissed one.
+   *
+   * Dismissing a provisional has to mean "ignore the rest of THIS utterance", and
+   * clearing the preview alone did not: the microphone stayed live, later
+   * revisions of the same segment rebuilt agreement, and the final arrived and
+   * promoted the very reading that had just been waved away. Scoped to one
+   * segment id — not a mute, not a pause, and nothing the next utterance
+   * inherits.
+   */
+  const dismissedSegmentRef = useRef<string | null>(null);
   const liveRef = useRef<ReturnType<typeof createLiveTranscriptSource> | null>(null);
   if (!liveRef.current) {
     liveRef.current = createLiveTranscriptSource({
+      onUtteranceTiming: (id) => {
+        timelineRef.current = id;
+      },
       onStatus: (status) => {
         setMic(status);
         /**
@@ -72,6 +250,10 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
          */
         if (status.status === 'denied' || status.status === 'unavailable' || status.status === 'stopped') {
           setListen(false);
+          // The same rule as pressing Stop: the session ended, so the guess that
+          // belonged to it goes with it. Reached by permission refusal and by the
+          // speech service disappearing mid-utterance.
+          discardPreview();
         }
       }
     });
@@ -107,6 +289,15 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
    */
   useEffect(() => () => live.stop(), [live]);
 
+  // Reported, not stored twice: the workspace re-orders around this and nothing
+  // else reads it.
+  useEffect(() => {
+    onListeningChange?.(listen);
+    // `onListeningChange` is intentionally not a dependency — an inline callback
+    // would re-fire this on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listen]);
+
   useEffect(() => {
     const interpret = (event: Parameters<Parameters<TranscriptSource['subscribe']>[0]>[0]) => {
       /**
@@ -121,12 +312,135 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
        * is free to run it more than once for one event — under StrictMode it does,
        * which would interpret the same utterance twice.
        */
+      /**
+       * Everything from a dismissed utterance is dropped here — interim and final
+       * alike, before the reducer, the parser, the correction layer and any
+       * retrieval. The final is consumed rather than acted on: the operator has
+       * already said they do not want this one, and the recogniser finishing its
+       * sentence is not new information.
+       */
+      if (dismissedSegmentRef.current !== null && event.segmentId === dismissedSegmentRef.current) return;
+
       const update = applyTranscriptEvent(streamRef.current, event);
       streamRef.current = update.state;
       setStream(update.state);
+
+      /**
+       * A PROVISIONAL transcript is interpreted for PREVIEW.
+       *
+       * The old rule — only finals are ever parsed — existed so a moving target
+       * could not be staged as though the speaker had finished. That reasoning is
+       * about STAGING, and staging is still manual: nothing here accepts, queues,
+       * publishes or Takes. What it cost was the whole live feeling, because every
+       * useful thing waited for the endpoint. So a revisable guess now fills a card
+       * labelled as updating, and the final result confirms or replaces it.
+       */
+      if (!event.isFinal && event.text.trim()) {
+        // Words came back while the speaker is still going. This is the mark that
+        // answers "does it feel like it is listening", so it is taken here —
+        // before any judgement about whether those words contained a reference,
+        // which for the first revision or two they usually do not.
+        if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-interim');
+        const guess = receiveTranscript(event.text);
+        if (guess.status === 'candidates' && guess.candidates.length) {
+          if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-candidate');
+          /**
+           * Heard once is not enough to fill the dominant card. `John 3:6` came
+           * from a snapshot cut a moment before "sixteen" — a real verse, and not
+           * the one that was said. A reference the speaker actually finished
+           * survives the next revision; a fragment usually does not.
+           *
+           * Keyed to the segment, so the previous utterance cannot donate a vote
+           * to this one, and reset by disagreement rather than decayed.
+           */
+          const decision = decideDisplay(agreementRef.current, {
+            segmentId: event.segmentId,
+            reference: guess.candidates[0].reference.canonical,
+            isFinal: false
+          });
+          agreementRef.current = decision.state;
+          // Every revision supersedes the last, so a retrieval already running for
+          // a reading recognition has moved off can no longer land.
+          if (decision.invalidatePending) generation.current += 1;
+          if (decision.display) {
+            if (timelineRef.current !== null) liveLatency.mark(timelineRef.current, 'first-stable');
+            setDetecting(false);
+            void previewProvisional(guess, generation.current, timelineRef.current);
+          } else {
+            // Something was heard that looks like a reference, and it has not been
+            // confirmed yet. Say that, rather than leaving the surface blank while
+            // the operator wonders whether anything is happening.
+            setDetecting(true);
+          }
+        }
+        return;
+      }
+
       if (update.finalText !== null) {
+        /**
+         * The provisional is discarded HERE, before the final is interpreted, and
+         * unconditionally. Whatever the final turns out to be — a confirmation, a
+         * different verse, a refusal or a failed lookup — the guess made from half
+         * the sentence has been superseded and may not survive on its own.
+         */
+        setPreview(null);
+        setDetecting(false);
+        // The authoritative answer supersedes every provisional vote; nothing from
+        // this utterance may count toward the next one.
+        agreementRef.current = forgetAgreement();
         generation.current += 1;
-        setState(receiveTranscript(update.finalText));
+        /**
+         * A correction is tried FIRST, because a correction and a failed
+         * recognition look identical to the ordinary path: both are fragments with
+         * no book in them. "No, verse three" was being refused and then clearing a
+         * passage that was correct.
+         *
+         * It only fires when a confirmed passage is already on screen, and it
+         * never runs on a provisional — amending a reference that is itself still
+         * a guess would compound two uncertainties into one confident answer.
+         */
+        // The line on screen names the utterance that just ended, whatever it
+        // turns out to be: a reference, a correction, or ordinary preaching.
+        setHeard(update.finalText);
+        const amendment = readCorrection(update.finalText, stackRef.current.current?.reference ?? null);
+        if (amendment) {
+          void applyCorrection(amendment, generation.current, update.finalText);
+          return;
+        }
+
+        const next = receiveTranscript(update.finalText);
+        /**
+         * A refusal reports itself, and changes nothing else. The recognition
+         * attempt is transient; the passage the operator is reading is not, and
+         * an utterance that produced no reference is not evidence against it.
+         */
+        setState(next);
+        /**
+         * Retrieve the strongest reading immediately, rather than making the
+         * operator press Retrieve and then wait.
+         *
+         * The manual step was the wrong safety boundary. What must stay manual is
+         * ACCEPTING a passage into the graphic and TAKING it to air — reading the
+         * Bible text is what the operator does to decide, so making them ask for it
+         * first only delays the decision. This is preview automation: it fills the
+         * card they are about to judge. Nothing is accepted, staged, queued or
+         * published here.
+         */
+        if (next.status === 'candidates' && next.candidates.length) {
+          /**
+           * One window can carry two complete references — Whisper returned
+           * "John 3 16 Romans 8 28" for a single utterance, because the preacher
+           * said both. They are not competing readings: the operator is on the
+           * LATER one. Resolving the strongest candidate picked John and left them
+           * on the verse already moved off.
+           */
+          const newest = newestReference(next.groups);
+          const index = newest ? next.candidates.indexOf(newest.target) : 0;
+          void resolveCandidate(next, Math.max(0, index), generation.current, timelineRef.current);
+        } else if (timelineRef.current !== null) {
+          liveLatency.refuse(timelineRef.current);
+          timelineRef.current = null;
+        }
       }
     };
     // Manual always; live only while listening.
@@ -134,6 +448,13 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     if (listen) unsubscribes.push(live.subscribe(interpret));
     return () => {
       for (const unsubscribe of unsubscribes) unsubscribe();
+      /**
+       * Stop clears the votes. Agreement is a claim about ONE utterance in ONE
+       * listening session; carrying a vote across a Stop would let the last thing
+       * said before the microphone was released count as the first half of the
+       * agreement for the first thing said after it.
+       */
+      agreementRef.current = forgetAgreement();
       /**
        * Cancel the request itself, not just its continuation. `runScriptureLookup`
        * consults the hook's `isCurrent()` BEFORE writing the cache, so a guard
@@ -158,88 +479,545 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
     manual.submit(draftTranscript);
   };
 
-  const resolve = async () => {
-    const candidate = state.candidates[state.selected];
+  /**
+   * Retrieve one candidate's passage.
+   *
+   * `mine` is captured from the SAME generation the caller already bumped, so a
+   * newer utterance arriving mid-flight makes this resolution stale and it writes
+   * nothing. That rule already existed for the manual path; auto-resolution needs
+   * it more, because utterances can now arrive faster than a lookup completes.
+   */
+  /**
+   * Show a guess from speech still in progress — but only once its text is in hand.
+   *
+   * A half-heard reference does not merely mis-hear a number, it can invent a
+   * reference that does not exist: the rehearsal produced `John 3:60` from
+   * "…verse sixty" a moment before the speaker said "sixteen". That parses, so an
+   * ordinary resolve would put "John 3:60" on the card and leave it sitting in
+   * "Retrieving the passage…" until the final arrived — a fabricated reference,
+   * displayed, with nothing to contradict it.
+   *
+   * So the provisional card is gated on the LOOKUP, not on the parse. Nothing is
+   * published unless a real passage came back, which means a reference that cannot
+   * exist is silently never shown. Finals keep the opposite rule: there the
+   * operator does need to see what was heard even when retrieval fails, because
+   * that is the point at which they act.
+   *
+   * It also never tears the card down. `beginResolving` would blank a passage the
+   * operator is already reading on every revision; the previous reading simply
+   * stands until a better one is ready to replace it.
+   */
+  const previewProvisional = async (source: VoiceAssistState, mine: number, timelineId: number | null) => {
+    const candidate = source.candidates[0];
     if (!candidate) return;
-    const mine = ++generation.current;
-    setState((previous) => beginResolving(previous));
-
+    /**
+     * A chapter with no verse is not shown while the speaker is still going.
+     *
+     * It retrieves perfectly well — and that is the problem. "…John chapter
+     * three" is a complete, valid reference for the WHOLE of John 3, so the card
+     * would fill with the entire chapter for a moment and then collapse to one
+     * verse when "sixteen" arrived. Mid-utterance a chapter-only reading is
+     * almost always a reference that has not finished being spoken: the rehearsal
+     * caught it twice, in "…chapter three verse sixteen" and "…chapter four verse
+     * eight", and in both the very next revision had the verse.
+     *
+     * Finals keep the opposite rule. "Turn to Romans eight" is a real thing an
+     * operator says and means, and there is nothing further coming.
+     */
+    if (!candidate.reference.spans.length) return;
+    if (timelineId !== null) {
+      liveLatency.mark(timelineId, 'first-candidate');
+      liveLatency.mark(timelineId, 'lookup-start');
+    }
     const found = await lookup(candidate.reference.canonical, translationId);
-    if (generation.current !== mine) return; // stale
+    // Stale, or a reference the Bible has no such verse for. Either way, say nothing.
+    if (generation.current !== mine || !found) return;
+    if (timelineId !== null) {
+      liveLatency.mark(timelineId, 'lookup-done');
+      liveLatency.mark(timelineId, 'first-verse');
+    }
+    // EPHEMERAL. Not `remember` — nothing provisional may enter the durable stack.
+    setPreview({
+      reference: candidate.reference,
+      passage: found.result,
+      heard: source.transcript,
+      interpretation: candidate.interpretation
+    });
+    /**
+     * Functional, like every other write here. `source` was captured BEFORE a
+     * lookup that takes ~0.31 s when the passage is not cached, so writing it back
+     * flat would undo anything the operator did in the meantime — pressing Dismiss
+     * and watching the card reappear a third of a second later, mid-sentence, on
+     * its own. Dismissal is a decision about this utterance, so it stands until
+     * the next one.
+     */
+    setState((previous) => (previous.status === 'rejected' ? previous : passageResolved(source, found.result)));
+  };
+
+  const resolveCandidate = async (
+    source: VoiceAssistState,
+    index: number,
+    mine: number,
+    timelineId: number | null
+  ) => {
+    const candidate = source.candidates[index];
+    if (!candidate) return;
+    const wanted = candidate.reference.canonical;
+    /**
+     * Do not tear the card down to re-resolve the SAME reference.
+     *
+     * A later snapshot usually confirms the previous one. Re-entering `resolving`
+     * would blank a passage the operator is already reading and make the surface
+     * flash on every revision — the layout jump this stage exists to remove.
+     */
+    const alreadyShowing = source.passage?.reference === wanted;
+    if (!alreadyShowing) setState((previous) => beginResolving(previous));
+    if (timelineId !== null) liveLatency.mark(timelineId, 'first-candidate');
+    if (timelineId !== null && !alreadyShowing) liveLatency.mark(timelineId, 'lookup-start');
+
+    const found = await lookup(wanted, translationId);
+    if (generation.current !== mine) return; // a newer revision owns the panel now
     if (!found) {
-      setState((previous) => resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type it in.'));
+      /**
+       * A compact split whose verse does not exist. `Genesis 1234` survives the
+       * chapter check as both 1:234 and 12:34, and neither is a real verse —
+       * the parser cannot know that, because per-chapter verse counts are not
+       * bundled, so retrieval is what eliminates them. Fall through to the next
+       * split rather than failing the utterance: `Psalm 234` is 2:34 and 23:4,
+       * and only the second exists.
+       */
+      const next = source.candidates.findIndex((c, i) => i > index && c.compact);
+      if (candidate.compact && next !== -1) {
+        void resolveCandidate(source, next, mine, timelineId);
+        return;
+      }
+      setState((previous) =>
+        resolutionFailed(previous, 'Could not retrieve that passage. Try again, or type the reference.')
+      );
       return;
     }
+    if (timelineId !== null) {
+      liveLatency.mark(timelineId, 'lookup-done');
+      liveLatency.mark(timelineId, 'first-verse');
+    }
+    /**
+     * A compact split that retrieved is not necessarily the ONLY one that would.
+     *
+     * `Genesis 125` splits into 1:25 and 12:5 and **both verses exist** — that is
+     * real ambiguity, and picking the first silently would hide it. So the other
+     * splits are retrieved too, and any that also exist are offered as
+     * alternatives. Bounded: a four-digit locator has at most three splits.
+     *
+     * This is the only place alternatives can come from for a compact reading,
+     * because an unretrieved split is never offered — the whole point of the
+     * marking is that its verse is unproven until the provider says otherwise.
+     */
+    let alternatives = candidate.compact ? [] : source.candidates.slice(1);
+    if (candidate.compact) {
+      const siblings = source.candidates.filter((c, i) => i !== index && c.compact);
+      for (const sibling of siblings) {
+        const also = await lookup(sibling.reference.canonical, translationId);
+        if (generation.current !== mine) return;
+        if (also) alternatives = [...alternatives, sibling];
+      }
+    }
+    // Durable from here: this one parsed, validated and retrieved.
+    remember(candidate.reference, found.result, source.transcript, candidate.interpretation, alternatives);
+    setCorrection('');
     setState((previous) => passageResolved(previous, found.result));
   };
 
-  const onAcceptClick = () => {
-    const outcome = acceptCandidate(state);
-    if (!outcome) return; // not reviewable — the model refuses, not the button alone
-    setState(outcome.state);
-    onAccept(outcome.passage, translationId);
+  /**
+   * Amend the displayed reference — as a transaction, never as a clear-then-fill.
+   *
+   * The passage the operator is reading stays exactly where it is until a
+   * REPLACEMENT has been retrieved. That ordering is the whole point: the failure
+   * this fixes was a correction that emptied the card and then could not fill it,
+   * leaving the operator with nothing mid-service and no way back to the verse
+   * that had been right.
+   */
+  const applyCorrection = async (
+    amendment: NonNullable<ReturnType<typeof readCorrection>>,
+    mine: number,
+    /**
+     * The utterance that caused this correction, passed explicitly.
+     *
+     * It used to read the `heard` React state, which `setHeard` had only just been
+     * asked to update — so the value captured here could still be the PREVIOUS
+     * utterance, and the corrected passage would carry the wrong words into the
+     * stack. Invisible until that passage became Previous and was recalled, at
+     * which point the line said something nobody had said.
+     */
+    utterance: string
+  ) => {
+    setCorrection('working');
+    const found = await lookup(amendment.reference.canonical, translationId);
+    // A newer utterance owns the panel now — this correction has been superseded
+    // and must not land on top of whatever replaced it.
+    if (generation.current !== mine) return;
+    if (!found) {
+      // Say so, and leave the good passage alone. A correction that cannot be
+      // retrieved is a failed correction, not a reason to lose the verse.
+      setCorrection('failed');
+      return;
+    }
+    setCorrection('');
+    setPreview(null);
+    remember(amendment.reference, found.result, utterance, amendment.interpretation);
+    setState((previous) =>
+      passageResolved(
+        { ...previous, status: 'candidates', problem: null, message: '',
+          candidates: [{ raw: amendment.reference.canonical, reference: amendment.reference,
+            interpretation: amendment.interpretation, score: 1 }], selected: 0 },
+        found.result
+      )
+    );
   };
 
+  const resolveStrongest = (source: VoiceAssistState, mine: number, timelineId: number | null) =>
+    resolveCandidate(source, 0, mine, timelineId);
+
+  /** Operator picked a different reading: retrieve that one instead. */
+  const chooseCandidate = (index: number) => {
+    const mine = ++generation.current;
+    const next = selectCandidate(state, index);
+    setState(next);
+    void resolveCandidate(next, index, mine, null);
+  };
+
+  /**
+   * Accept the passage the operator is actually looking at.
+   *
+   * It used to accept from the transient recognition state, which meant the
+   * button went dead the moment the NEXT utterance was ordinary preaching: the
+   * card correctly kept showing John 3:16 from the durable stack, and Accept —
+   * reading `state.status === 'review'` — refused, because the latest attempt had
+   * been a no-match. In continuous listening that is most of the time.
+   *
+   * The displayed passage and the accepted passage now cannot diverge, because
+   * they are the same value.
+   */
+  const onAcceptClick = () => {
+    const current = stackRef.current.current;
+    // A provisional is never acceptable, and the card is showing it rather than
+    // the durable passage — so there is nothing here the operator has approved.
+    if (preview || !current || acceptedRef === acceptIdentity(current)) return;
+    setAcceptedRef(acceptIdentity(current));
+    onAccept(current.passage, translationId);
+  };
+
+  const strongest = state.candidates[0];
   const chosen = state.candidates[state.selected];
+  /**
+   * Other readings of the CURRENT span only.
+   *
+   * This was every candidate except the selected one, which is how a second
+   * reference the preacher actually said — "John three sixteen… Romans eight
+   * twenty eight" — was offered as an alternative interpretation of the first.
+   * Candidates from a different group are a different sentence, not a different
+   * reading, and they belong in Previous passage or nowhere.
+   */
+  const spanCandidates = newestReference(state.groups)?.target
+    ? state.groups[state.groups.length - 1].candidates
+    : state.candidates;
+  /**
+   * Compact splits that were RETRIEVED and survived, put on the stack by
+   * `resolveCandidate`. These are the only compact readings the operator may see
+   * as alternatives, and they are real ambiguity: `Genesis 125` is both Genesis
+   * 1:25 and Genesis 12:5, and both verses exist.
+   */
+  const verifiedCompact = stack.alternatives.filter((c) => c.compact);
+  const alternatives = [...verifiedCompact, ...spanCandidates].filter(
+    (candidate) =>
+      candidate.reference.canonical !== state.candidates[state.selected]?.reference.canonical &&
+      /**
+       * Never offer an UNVERIFIED compact split as a reading to choose from.
+       *
+       * `Genesis 1234` survives the chapter check as both 1:234 and 12:34, and
+       * neither verse exists — the parser has no per-chapter verse data to know
+       * that. Presenting those as "other possible readings" would put two
+       * impossible passages in front of the operator and call them alternatives.
+       *
+       * Compact splits that DID retrieve are a different matter and reach the
+       * operator by a different route: `resolveCandidate` retrieves the siblings
+       * and puts the survivors on the stack, so `Genesis 125` — where 1:25 and
+       * 12:5 both exist — is presented as the genuine ambiguity it is.
+       */
+      (!candidate.compact || verifiedCompact.includes(candidate))
+  )
+    /**
+     * Deduplicated by canonical reference. A verified compact sibling sits on the
+     * stack AND remains in the parser's candidate list, so `Genesis 125` — where
+     * 1:25 and 12:5 both exist — offered the identical reading twice. Two rows
+     * proposing the same passage is not a choice.
+     */
+    .filter((candidate, index, all) =>
+      all.findIndex((other) => other.reference.canonical === candidate.reference.canonical) === index
+    );
+  /**
+   * What the operator is looking at: the provisional while one exists, otherwise
+   * the durable passage. Only one of them can be on screen, and only the durable
+   * one is ever acceptable.
+   */
+  const shown = preview ?? confirmed;
+  const resolving = state.status === 'resolving';
+  const problem = state.status === 'no-match' || state.status === 'provider-unavailable';
 
   return (
-    <section className="voice-assist" aria-label="Voice assist preview">
-      <header className="voice-assist__head">
-        <span className="ll-kicker">Voice assist · preview</span>
-        {/* Honest about what this is. A manual source must not imply listening. */}
-        <span className="ll-tag">{listen ? live.label : manual.label}</span>
-      </header>
-      <p className="voice-assist__note">
-        Nothing reaches the graphic until you accept a reading, and Take is a second, separate press. Typing works
-        whether or not the microphone is on.
-      </p>
-
-      {/* Explicit start and stop, every time. The label says which action the press
-          performs, not which state the app is in — "Listening…" on a button is a
-          status pretending to be a verb. */}
-      <div className="voice-assist__mic" data-listening={listen || undefined}>
+    <section className="live-scripture" aria-label="Live Scripture">
+      {/* --- listening: the first question an operator has mid-service is whether
+          LiveLayer is hearing anything at all, so it is the top of the surface. --- */}
+      <div className="live-mic" data-listening={listen || undefined}>
         <button
           type="button"
-          className={`btn btn--md ${listen ? 'btn--danger' : 'btn--secondary'}`}
+          className={`btn btn--md live-mic__toggle ${listen ? 'btn--danger' : 'btn--secondary'}`}
           aria-pressed={listen}
           onClick={() => {
             if (listen) {
               live.stop();
               setListen(false);
+              // The utterance in progress ends with the session. What was already
+              // confirmed is untouched — Stop is not a way to lose a good passage.
+              discardPreview();
             } else {
               setListen(true);
+              // Suppression is scoped to one utterance of one session; a new
+              // session starts with nothing suppressed.
+              dismissedSegmentRef.current = null;
               void live.start();
             }
           }}
         >
+          <Icon name={listen ? 'micOff' : 'mic'} size={16} />
           {listen ? 'Stop listening' : 'Start listening'}
         </button>
-        <span className="voice-assist__mic-state" role="status" aria-live="polite">
-          {listen ? (
-            <>
-              <span
-                className="voice-assist__mic-dot"
-                data-speaking={mic.speaking || undefined}
-                aria-hidden
-              />
-              {mic.detail || (mic.speaking ? 'Hearing you…' : 'Listening — say a reference')}
-            </>
-          ) : (
-            mic.detail || 'Microphone off.'
-          )}
-        </span>
+
+        <div className="live-mic__readout">
+          {/* A REAL level, not an animation: bars react to measured frame RMS, so a
+              still meter means no audio is arriving and the operator can trust it. */}
+          <InputLevelMeter level={mic.level} active={listen} speaking={mic.speaking} />
+          <span className="live-mic__state" role="status" aria-live="polite">
+            {/*
+              A passage being ready must never read as the session being over.
+              The card says "Ready to review" and the operator's next question is
+              whether they have to do something before saying the next reference.
+              They do not — so the microphone line keeps saying so, and says it
+              differently once a passage is up.
+            */}
+            {listen
+              ? mic.detail ||
+                (mic.speaking
+                  ? 'Hearing speech'
+                  : confirmed
+                    ? 'Listening for the next reference'
+                    : 'Listening — say a reference')
+              : mic.detail || 'Microphone off'}
+          </span>
+        </div>
       </div>
-      {/* Interim text is displayed for responsiveness and never parsed. A manual
-          source produces none, so this is inert today by construction. */}
-      {interimText(stream) ? (
-        <p className="voice-assist__interim" aria-live="off">
-          Hearing: {interimText(stream)}
+
+      {/* The words we heard, subdued: the operator judges the PASSAGE, not the
+          transcript, so this explains rather than competes. */}
+      {/* The live transcript. Shown WHILE the speaker talks, which is the whole
+          point — the operator should see LiveLayer working, not a blank panel and
+          then a result. Distinct from the meter: the meter says audio is arriving,
+          this says what DONDO currently thinks it heard. */}
+      {/*
+        ONE line, updated in place.
+
+        While the speaker is talking it shows the interim text — that is the whole
+        point of progressive recognition, that the operator sees LiveLayer working
+        rather than a blank panel and then a result. When the utterance ends the
+        final REPLACES it, and the next utterance replaces that. No history
+        accumulates in a live workspace, and nothing is ever printed twice.
+      */}
+      {interimText(stream) || heard ? (
+        <p
+          className={`live-heard${interimText(stream) ? ' live-heard--interim' : ''}`}
+          aria-live="off"
+        >
+          {interimText(stream) ? 'Hearing' : 'Heard'}{' '}
+          <span className="live-heard__text">“{interimText(stream) || heard}”</span>
         </p>
       ) : null}
 
-      <form className="voice-assist__form" onSubmit={submit}>
-        <label className="voice-assist__field">
-          <span className="field__label">Transcript</span>
+      {detecting && !state.passage ? (
+        <p className="live-heard live-heard--detecting" aria-live="off">
+          Detecting reference…
+        </p>
+      ) : null}
+
+      {problem ? (
+        <p className="live-problem" role="alert">
+          {state.message}
+        </p>
+      ) : null}
+
+      {correction === 'working' ? (
+        <p className="live-heard live-heard--detecting" aria-live="polite">
+          Updating reference…
+        </p>
+      ) : null}
+      {correction === 'failed' ? (
+        /* Stated as its own failure, beside the passage that is still correct —
+           never as a reason to take that passage away. */
+        <p className="live-problem" role="alert">
+          Couldn’t confirm that correction. Showing the last confirmed passage.
+        </p>
+      ) : null}
+
+      {/* --- the detected passage, dominant --- */}
+      {/*
+        `previous` is rendered AFTER the card below, as its own compact row. It is
+        history, not doubt: the passage that was dominant until the preacher named
+        another one. It used to appear under "Other possible readings", which told
+        the operator that the newest thing they said was an alternative
+        interpretation of the oldest — false in both directions.
+      */}
+      {/*
+        Rendered from the DURABLE half whenever the current attempt has nothing.
+        `state` is a recognition attempt and is rebuilt for every utterance;
+        `confirmed` is the last passage that actually parsed, validated and
+        retrieved. A refusal, a failed lookup, an unstable provisional or a
+        correction that could not be confirmed all leave `confirmed` untouched, so
+        the operator keeps reading the verse that was right until something valid
+        replaces it or they dismiss it themselves.
+      */}
+      {/*
+        The dominant card shows the DURABLE current passage, or nothing.
+
+        It reads `stack.current` and nothing else. It used to prefer the transient
+        `state.passage` and fall back to the stack, which gave the surface two
+        sources of truth for one card and they could disagree in both directions:
+        Accept went dead when the next utterance was ordinary preaching, because
+        it was reading the transient half; and clicking Previous swapped the stack
+        while the card kept rendering the old passage from the transient half.
+        One value now feeds the card, the Accept button and what Accept applies.
+
+        It used to fall back to the parsed reference when no passage had arrived,
+        so a reading that had merely been proposed appeared as a heading with
+        "Retrieving the passage…" beneath it. That is how an impossible verse
+        could reach the operator: the parser validates chapters but no
+        per-chapter verse data is bundled, so `Genesis 1:234` parses, and only the
+        retrieval can discover that Genesis 1 has 31 verses.
+
+        Retrieval is therefore the last gate for FINALS as well as provisionals.
+        The operator is not left guessing what happened — the "Heard …" line says
+        what was recognised and the failure line says it could not be retrieved —
+        but nothing is presented as a passage until it is one.
+      */}
+      {shown ? (
+        <DetectedScripture
+          reference={shown.passage.reference}
+          interpretation={shown.interpretation}
+          passage={shown.passage}
+          resolving={false}
+          /* Acceptance describes the DURABLE passage only. While a provisional is
+             on screen the card is showing something the final has not confirmed,
+             so there is nothing to accept and nothing that can be marked accepted. */
+          accepted={!preview && !!confirmed && acceptedRef === acceptIdentity(confirmed)}
+          canAccept={!preview && !!confirmed && acceptedRef !== acceptIdentity(confirmed)}
+          onAccept={onAcceptClick}
+          onDismiss={() => {
+            /**
+             * Dismiss acts on the layer the operator is LOOKING at.
+             *
+             * The card shows the provisional when there is one, so dismissing it
+             * used to delete the confirmed passage underneath as well — a guess
+             * the operator waved away took a verse that was right with it. A
+             * provisional action may never erase a confirmed passage.
+             */
+            if (preview) {
+              // The utterance still in progress is the one being dismissed.
+              dismissedSegmentRef.current = streamRef.current.segmentId;
+              discardPreview();
+              /**
+               * The attempt's own candidates go with it, so no reading from a
+               * dismissed utterance is left actionable under the passage that
+               * reappears. The confirmed stack — current, previous and the
+               * alternatives belonging to it — is untouched.
+               */
+              setState(IDLE);
+              return;
+            }
+            // Nothing provisional on screen: this is the operator's explicit
+            // clear, and the ONE thing besides a valid replacement that may
+            // remove a confirmed passage.
+            forgetConfirmed();
+            setAcceptedRef(null);
+            setCorrection('');
+            setHeard('');
+            setState((previous) => rejectCandidate(previous));
+          }}
+          provisional={provisional}
+          onRendered={() => {
+            if (timelineRef.current !== null) {
+              liveLatency.mark(timelineRef.current, 'rendered');
+              timelineRef.current = null;
+            }
+          }}
+        />
+      ) : null}
+
+      {stack.previous ? (
+        <div className="live-previous">
+          <span className="live-previous__label">Previous passage</span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm live-previous__ref"
+            // Recoverable, because a preacher who moves on and comes back is
+            // ordinary. A swap, not a rewrite: taking it back makes what was
+            // dominant the previous one.
+            onClick={() => {
+              /**
+               * One transition, not a partial one. The stack swaps, the Heard line
+               * follows the restored passage, the transient recognition state is
+               * cleared so nothing left over from the utterance that produced the
+               * OTHER passage can reassert itself, and acceptance resets because a
+               * different passage is now on offer.
+               */
+              stackRef.current = recallPrevious(stackRef.current);
+              setStack(stackRef.current);
+              setHeard(stackRef.current.current?.heard ?? '');
+              setAcceptedRef(null);
+              setCorrection('');
+              setState(IDLE);
+              // A newer retrieval must not land on top of a deliberate recall.
+              generation.current += 1;
+            }}
+          >
+            {stack.previous.reference.canonical}
+          </button>
+        </div>
+      ) : null}
+
+      {/* --- other readings, secondary --- */}
+      {alternatives.length ? (
+        <div className="live-alts">
+          <span className="ll-kicker">Other possible readings</span>
+          <div className="live-alts__list" role="group" aria-label="Other possible readings">
+            {alternatives.map((candidate) => {
+              const index = state.candidates.indexOf(candidate);
+              return (
+                <button
+                  key={candidate.reference.canonical}
+                  type="button"
+                  className="live-alt"
+                  onClick={() => chooseCandidate(index)}
+                >
+                  <span className="live-alt__ref">{candidate.reference.canonical}</span>
+                  <span className="live-alt__why">{candidate.interpretation}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {/* --- typing: always available, whether or not the microphone is on --- */}
+      <form className="live-type" onSubmit={submit}>
+        <label className="live-type__field">
+          <span className="field__label">Type what was said</span>
           <input
             className="field__input"
             value={draftTranscript}
@@ -251,81 +1029,6 @@ export default function VoiceAssistPreview({ onAccept, translationId }: Props) {
           Interpret
         </button>
       </form>
-
-      <p className="field__hint voice-assist__status" role="status" aria-live="polite">
-        {state.status === 'no-match' || state.status === 'provider-unavailable' ? '' : state.message}
-      </p>
-      <p className="field__hint field__hint--error voice-assist__status" role="alert">
-        {state.status === 'no-match' || state.status === 'provider-unavailable' ? state.message : ''}
-      </p>
-
-      {state.candidates.length ? (
-        <div className="voice-assist__candidates" role="group" aria-label="Reference candidates">
-          {state.candidates.map((candidate, index) => (
-            <button
-              key={candidate.reference.canonical}
-              type="button"
-              className={`voice-cand${index === state.selected ? ' voice-cand--active' : ''}`}
-              aria-pressed={index === state.selected}
-              onClick={() => {
-                /**
-                 * Bump the generation, or a retrieval already in flight for the
-                 * PREVIOUS candidate lands afterwards and is written onto this
-                 * one — leaving the highlighted chip saying 2 Timothy while the
-                 * passage block says 1 Timothy, and Accept applying the reading
-                 * the operator had just moved away from.
-                 */
-                generation.current += 1;
-                setState((previous) => selectCandidate(previous, index));
-              }}
-            >
-              <span className="voice-cand__ref">{candidate.reference.canonical}</span>
-              {/* Why this reading — the operator is choosing between interpretations,
-                  so the reasoning has to be visible, not just the answer. */}
-              <span className="voice-cand__why">{candidate.interpretation}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {chosen ? (
-        <div className="voice-assist__actions">
-          <button
-            type="button"
-            className="btn btn--secondary btn--md"
-            onClick={() => void resolve()}
-            disabled={state.status === 'resolving'}
-          >
-            {state.status === 'resolving' ? 'Looking up…' : `Retrieve ${chosen.reference.canonical}`}
-          </button>
-        </div>
-      ) : null}
-
-      {state.passage ? (
-        <div className="voice-assist__passage">
-          <header className="voice-assist__passage-head">
-            <h4 className="voice-assist__ref">{state.passage.reference}</h4>
-            <span className="ll-tag">{state.passage.translation}</span>
-          </header>
-          <p className="voice-assist__text">{state.passage.text}</p>
-          {state.passage.attribution ? (
-            <p className="voice-assist__attribution">{state.passage.attribution}</p>
-          ) : null}
-          <div className="voice-assist__actions">
-            {/* Accept is the only exit. Dismiss changes nothing at all. */}
-            <button type="button" className="btn btn--md" onClick={onAcceptClick} disabled={!canAccept(state)}>
-              Accept into Scripture draft
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost btn--md"
-              onClick={() => setState((previous) => rejectCandidate(previous))}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
