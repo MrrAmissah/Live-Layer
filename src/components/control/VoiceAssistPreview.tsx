@@ -223,6 +223,17 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
    * re-render between two revisions must not lose or replay a vote.
    */
   const agreementRef = useRef<StabilityState>(NO_AGREEMENT);
+  /**
+   * The utterance the operator dismissed, if they dismissed one.
+   *
+   * Dismissing a provisional has to mean "ignore the rest of THIS utterance", and
+   * clearing the preview alone did not: the microphone stayed live, later
+   * revisions of the same segment rebuilt agreement, and the final arrived and
+   * promoted the very reading that had just been waved away. Scoped to one
+   * segment id — not a mute, not a pause, and nothing the next utterance
+   * inherits.
+   */
+  const dismissedSegmentRef = useRef<string | null>(null);
   const liveRef = useRef<ReturnType<typeof createLiveTranscriptSource> | null>(null);
   if (!liveRef.current) {
     liveRef.current = createLiveTranscriptSource({
@@ -301,6 +312,15 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
        * is free to run it more than once for one event — under StrictMode it does,
        * which would interpret the same utterance twice.
        */
+      /**
+       * Everything from a dismissed utterance is dropped here — interim and final
+       * alike, before the reducer, the parser, the correction layer and any
+       * retrieval. The final is consumed rather than acted on: the operator has
+       * already said they do not want this one, and the recogniser finishing its
+       * sentence is not new information.
+       */
+      if (dismissedSegmentRef.current !== null && event.segmentId === dismissedSegmentRef.current) return;
+
       const update = applyTranscriptEvent(streamRef.current, event);
       streamRef.current = update.state;
       setStream(update.state);
@@ -761,6 +781,9 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
               discardPreview();
             } else {
               setListen(true);
+              // Suppression is scoped to one utterance of one session; a new
+              // session starts with nothing suppressed.
+              dismissedSegmentRef.current = null;
               void live.start();
             }
           }}
@@ -905,7 +928,16 @@ export default function VoiceAssistPreview({ onAccept, translationId, onListenin
              * provisional action may never erase a confirmed passage.
              */
             if (preview) {
+              // The utterance still in progress is the one being dismissed.
+              dismissedSegmentRef.current = streamRef.current.segmentId;
               discardPreview();
+              /**
+               * The attempt's own candidates go with it, so no reading from a
+               * dismissed utterance is left actionable under the passage that
+               * reappears. The confirmed stack — current, previous and the
+               * alternatives belonging to it — is untouched.
+               */
+              setState(IDLE);
               return;
             }
             // Nothing provisional on screen: this is the operator's explicit

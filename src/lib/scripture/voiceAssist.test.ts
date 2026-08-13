@@ -455,8 +455,12 @@ describe('the provisional layer has its own exits', () => {
 
   it('dismisses the layer on screen, not the one beneath it', () => {
     const dismiss = panel.slice(panel.indexOf('onDismiss={() => {'), panel.indexOf('provisional={provisional}'));
-    // The provisional branch returns before anything durable is touched.
-    expect(dismiss).toMatch(/if \(preview\) \{\s*\n\s*discardPreview\(\);\s*\n\s*return;/);
+    // The provisional branch returns before anything durable is touched, and it
+    // marks the utterance so the rest of it is ignored — clearing the preview
+    // alone left the final free to promote the very reading just waved away.
+    expect(dismiss).toContain('dismissedSegmentRef.current = streamRef.current.segmentId;');
+    expect(dismiss).toMatch(/discardPreview\(\);[\s\S]{0,400}?return;/);
+    expect(dismiss).not.toMatch(/if \(preview\)[\s\S]{0,300}?forgetConfirmed\(\)/);
     expect(dismiss).toContain('forgetConfirmed()');
   });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseSpokenReference } from './spokenReference';
 import { readCorrection } from './referenceCorrection';
+import { decideDisplay, NO_AGREEMENT } from './provisionalStability';
 import {
   EMPTY_STACK,
   promote,
@@ -791,5 +792,155 @@ describe('ending an utterance discards its provisional, and only that', () => {
     p.provisional('John 3:16');
     p.sourceStopped();
     expect(p.shown()).toBe('Romans 8:28');
+  });
+});
+
+describe('dismissing a provisional ignores the rest of that utterance', () => {
+  /**
+   * The defect these exist for: clearing the preview invalidated work in flight,
+   * but nothing recorded that the SEGMENT had been dismissed. The microphone
+   * stayed live, later revisions of the same utterance rebuilt agreement, and the
+   * final arrived and promoted the very reading the operator had just waved away.
+   *
+   * So these drive the real event sequence — Dismiss happens MID-utterance and the
+   * speaker carries on — rather than a helper in which dismissing ends the turn.
+   */
+  function panel() {
+    let stack: PassageStack = EMPTY_STACK;
+    let preview: ConfirmedPassage | null = null;
+    let dismissedSegment: string | null = null;
+    let agreement = NO_AGREEMENT;
+    let attemptCandidates: string[] = [];
+
+    const entry = (canonical: string, heard: string): ConfirmedPassage => {
+      const parsed = parseScriptureReference(canonical);
+      if (!parsed.ok) throw new Error(canonical);
+      return {
+        reference: parsed.reference,
+        passage: { reference: canonical, translation: 'KJV', text: `text of ${canonical}` } as ScriptureLookupResult,
+        heard,
+        interpretation: `read as ${canonical}`
+      };
+    };
+
+    /** One transcript event, exactly as the panel receives them. */
+    const event = (segmentId: string, text: string, isFinal: boolean) => {
+      // The gate the panel applies before anything else touches the event.
+      if (dismissedSegment !== null && segmentId === dismissedSegment) return;
+
+      const parsed = parseSpokenReference(text);
+      if (!parsed.ok || !parsed.candidates.length) return;
+      const canonical = parsed.candidates[0].reference.canonical;
+
+      if (!isFinal) {
+        const decision = decideDisplay(agreement, { segmentId, reference: canonical, isFinal: false });
+        agreement = decision.state;
+        attemptCandidates = parsed.candidates.map((c) => c.reference.canonical);
+        if (decision.display) preview = entry(canonical, text);
+        return;
+      }
+      preview = null;
+      agreement = NO_AGREEMENT;
+      attemptCandidates = [];
+      stack = promote(stack, entry(canonical, text));
+    };
+
+    return {
+      confirm(canonical: string) {
+        stack = promote(stack, entry(canonical, canonical));
+      },
+      interim: (segmentId: string, text: string) => event(segmentId, text, false),
+      final: (segmentId: string, text: string) => event(segmentId, text, true),
+      dismissProvisional(segmentId: string) {
+        preview = null;
+        dismissedSegment = segmentId;
+        agreement = NO_AGREEMENT;
+        attemptCandidates = [];
+      },
+      newSession() {
+        dismissedSegment = null;
+      },
+      shown: () => (preview ?? stack.current)?.passage.reference ?? null,
+      current: () => stack.current?.passage.reference ?? null,
+      previous: () => stack.previous?.passage.reference ?? null,
+      attemptCandidates: () => attemptCandidates
+    };
+  }
+
+  /** Two agreeing revisions are what makes a provisional displayable. */
+  const showProvisional = (p: ReturnType<typeof panel>, segment: string, text: string) => {
+    p.interim(segment, text);
+    p.interim(segment, text);
+  };
+
+  it('1 — a later revision of the dismissed utterance cannot bring it back', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    showProvisional(p, 'A', 'John 3 16');
+    expect(p.shown()).toBe('John 3:16');
+
+    p.dismissProvisional('A');
+    expect(p.shown()).toBe('Romans 8:28');
+
+    // The speaker carries on; the recogniser revises the SAME utterance.
+    p.interim('A', 'John 3 16');
+    p.interim('A', 'John 3 16');
+    expect(p.shown(), 'a dismissed reading reappeared from a later revision').toBe('Romans 8:28');
+  });
+
+  it('2 — the FINAL of the dismissed utterance does not promote', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    showProvisional(p, 'A', 'John 3 16');
+    p.dismissProvisional('A');
+
+    p.final('A', 'John 3 16');
+    expect(p.current(), 'a dismissed utterance promoted on its final').toBe('Romans 8:28');
+    expect(p.previous(), 'a dismissed utterance rewrote history').toBeNull();
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+
+  it('3 — the NEXT utterance works normally', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    showProvisional(p, 'A', 'John 3 16');
+    p.dismissProvisional('A');
+    p.final('A', 'John 3 16'); // ignored
+
+    p.final('B', 'Psalm 23 1');
+    expect(p.current()).toBe('Psalms 23:1');
+    expect(p.previous()).toBe('Romans 8:28');
+  });
+
+  it('4 — the attempt’s candidates go, the confirmed stack stays', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    showProvisional(p, 'A', 'Timothy 1 7'); // genuinely ambiguous: two candidates
+    expect(p.attemptCandidates().length).toBeGreaterThan(1);
+
+    p.dismissProvisional('A');
+    expect(p.attemptCandidates(), 'a dismissed attempt left readings on offer').toEqual([]);
+    expect(p.current()).toBe('Romans 8:28');
+  });
+
+  it('5 — a late provisional lookup from the dismissed utterance cannot land', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    showProvisional(p, 'A', 'John 3 16');
+    p.dismissProvisional('A');
+    // The lookup that was already running returns as another revision would.
+    p.interim('A', 'John 3 16');
+    expect(p.shown()).toBe('Romans 8:28');
+  });
+
+  it('suppression does not survive into the next listening session', () => {
+    const p = panel();
+    p.confirm('Romans 8:28');
+    showProvisional(p, 'A', 'John 3 16');
+    p.dismissProvisional('A');
+    p.newSession();
+    // A new session may reuse a segment id; nothing is inherited.
+    p.final('A', 'John 3 16');
+    expect(p.current()).toBe('John 3:16');
   });
 });
