@@ -17,6 +17,7 @@ const screen = (outputId: string, over: Partial<OutputStatusState> = {}): Output
   sourceVisible: true,
   lastSeenAt: NOW,
   screen: null,
+  hosted: null,
   failure: null,
   ...over
 });

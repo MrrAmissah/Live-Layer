@@ -131,7 +131,8 @@ export function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
         sourceVisible: p.sourceVisible,
         // Optional and free-form here: which screen names are real is the
         // receiver's registry question, and an older output sends none.
-        ...(typeof p.screen === 'string' && p.screen ? { screen: p.screen } : {})
+        ...(typeof p.screen === 'string' && p.screen ? { screen: p.screen } : {}),
+        ...(typeof p.hosted === 'boolean' ? { hosted: p.hosted } : {})
       },
       timestamp: value.timestamp
     };

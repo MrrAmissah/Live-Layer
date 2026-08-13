@@ -81,10 +81,33 @@ function describeScreen(status: OutputStatusState | null, now: number): Pill {
   if (status.sourceActive === true) {
     return { label: 'Active', tone: 'live', detail: 'OBS reports this source active.' };
   }
-  // Blue, not green: the page is reporting but nothing has measured a source,
-  // so it claims less than Active and must not be coloured as if it claimed the
-  // same.
-  return { label: 'Connected', tone: 'ready', detail: 'The page is reporting. No OBS binding, so source state is unknown.' };
+  /**
+   * Blue, not green: the page is reporting but nothing has measured a source,
+   * so it claims less than Active and must not be coloured as if it claimed the
+   * same.
+   *
+   * THE DETAIL IS THE POINT HERE. This state and a plain browser tab look
+   * identical from the desk — same pill, same colour — and only one of them is
+   * worth investigating. Saying which turns a correct reading that FEELS like a
+   * bug into a known fact about the rig, which matters more in production than
+   * any wording: an operator who cannot tell those apart has to treat every one
+   * of them as a fault.
+   *
+   * The wording deliberately does not repeat the pill's words. That vocabulary
+   * lives in `lib/programStatus.ts` and a guard in `programSyncWiring.test.ts`
+   * keeps it there — a second copy in a card is how two surfaces start saying
+   * almost the same thing.
+   */
+  return {
+    label: 'Connected',
+    tone: 'ready',
+    detail:
+      status.hosted === true
+        ? 'OBS is hosting this page but has not reported source state. Some obs-browser builds never send it — the graphic is still going out.'
+        : status.hosted === false
+          ? 'A browser tab, not an OBS source. Source state cannot be measured here, so this is as much as this screen can ever report.'
+          : 'The page is reporting. It has not said whether OBS is hosting it, so source state is unknown.'
+  };
 }
 
 /**

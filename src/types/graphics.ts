@@ -298,6 +298,13 @@ export interface OutputStatusMessage {
      * names nothing an operator can go and fix.
      */
     screen?: string;
+    /**
+     * Whether OBS is hosting this page at all. NOT a source reading and never
+     * promoted to one — it exists so the desk can tell a plain browser tab
+     * apart from an OBS source that has not reported, which otherwise look
+     * identical and both read OUTPUT READY.
+     */
+    hosted?: boolean;
   };
   timestamp: number;
 }

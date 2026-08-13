@@ -85,6 +85,14 @@ export interface OutputStatusState {
    */
   screen: string | null;
   /**
+   * Whether OBS is hosting the page that reported. Null until it says.
+   *
+   * Never a source reading. It exists to make OUTPUT READY interpretable: a
+   * plain browser tab and an OBS source that has not reported look identical
+   * from here, and only one of them is worth investigating.
+   */
+  hosted: boolean | null;
+  /**
    * THIS screen could not render THAT command.
    *
    * Separate from `ProgramState.outputFailure`, which answers "did the Take

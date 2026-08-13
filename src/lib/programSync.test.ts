@@ -322,6 +322,7 @@ describe('output presence', () => {
         sourceVisible: true,
         lastSeenAt: T0 + 42, // receiver clock, not the message's
         screen: null, // this fixture's output names no screen
+        hosted: null, // ...nor says whether OBS is hosting it
         failure: null // a heartbeat neither raises nor clears one
       }
     });
@@ -471,6 +472,45 @@ describe('output presence', () => {
     expect(describeProgramStatus(state.program, worstOutput(state.outputs, T0 + 9), T0 + 9).pill).toBe(
       'SOURCE HIDDEN'
     );
+  });
+
+  /**
+   * OUTPUT READY HAS TO BE INTERPRETABLE, because it is sometimes correct.
+   *
+   * Two screens report identically — both UNKNOWN, both land on the same pill —
+   * and only one is worth a second thought. Carrying `hosted` is what lets the
+   * desk say which, so a correct reading stops looking like a fault.
+   */
+  it('remembers whether OBS is hosting a page, and does not invent it', () => {
+    const status = (outputId: string, hosted?: boolean): RealtimeMessage => ({
+      id: `st-${outputId}-${hosted}`,
+      type: 'OUTPUT_STATUS',
+      payload: { outputId, sourceActive: null, sourceVisible: null, screen: 'main', ...(hosted === undefined ? {} : { hosted }) },
+      timestamp: T0
+    });
+    let state = apply(clientState(), status('obs-source', true), T0);
+    state = apply(state, status('plain-tab', false), T0);
+    state = apply(state, status('older-build'), T0);
+
+    expect(state.outputs['obs-source']?.hosted).toBe(true);
+    expect(state.outputs['plain-tab']?.hosted).toBe(false);
+    // An output that never says stays unknown — the field is a report, not a
+    // default, and absence must not read as "not hosted".
+    expect(state.outputs['older-build']?.hosted).toBeNull();
+  });
+
+  it('keeps hosted across an acknowledgement, which carries no such reading', () => {
+    let state = apply(clientState(), outputStatus(null, T0, 'obs-source', 'main'), T0);
+    const withHost: RealtimeMessage = {
+      id: 'st-host',
+      type: 'OUTPUT_STATUS',
+      payload: { outputId: 'obs-source', sourceActive: null, sourceVisible: null, screen: 'main', hosted: true },
+      timestamp: T0 + 1
+    };
+    state = apply(state, withHost, T0 + 1);
+    state = apply(state, show('cmd-A', T0 + 2), T0 + 2);
+    state = apply(state, applied('cmd-A', T0 + 3, 'obs-source'), T0 + 3);
+    expect(state.outputs['obs-source']?.hosted).toBe(true);
   });
 
   it('nothing is said while every screen is reporting', () => {

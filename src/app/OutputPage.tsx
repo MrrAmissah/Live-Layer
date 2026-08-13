@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createOutputChannel, loadLastRealtimeMessage } from '../lib/outputChannel';
 import { createOutputEvent, getOutputSessionId, sendOutputEvent } from '../lib/outputAck';
-import { subscribeObsSourceState, type ObsBridgeDiagnostics } from '../lib/obsSource';
+import { obsHostPresent, subscribeObsSourceState, type ObsBridgeDiagnostics } from '../lib/obsSource';
 import { subscribeObsHostDiagnostics, type ObsHostDiagnostics } from '../lib/obsHostDiagnostics';
 import { OUTPUT_HEARTBEAT_MS } from '../lib/outputPresence';
 import { templateRegistry, templateRendererMap } from '../components/templates/registry';
@@ -244,7 +244,11 @@ export default function OutputPage() {
           sourceVisible: source.sourceVisible,
           // Which screen this is, so a desk watching two browser sources can
           // name the one that stopped instead of reporting a session id.
-          screen
+          screen,
+          // Read at send time, not captured once: an OBS binding can arrive
+          // after this page mounted, and a page that says "not hosted" forever
+          // because of when it happened to load would be its own small lie.
+          hosted: obsHostPresent()
         })
       );
     // The subscription emits the initial (unknown) state synchronously, which

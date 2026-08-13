@@ -144,6 +144,7 @@ export function reduceRealtimeMessage(
             // An output that stops sending is exactly the one the operator
             // needs named, so the last name it gave is kept.
             screen: message.payload.screen ?? state.outputs[message.payload.outputId]?.screen ?? null,
+            hosted: message.payload.hosted ?? state.outputs[message.payload.outputId]?.hosted ?? null,
             // A heartbeat says nothing about rendering, so it neither raises nor
             // clears a failure — only an APPLIED/CLEARED/FAILED can.
             failure: state.outputs[message.payload.outputId]?.failure ?? null
@@ -261,9 +262,10 @@ function refreshPresence(
       sourceActive: mine ? mine.sourceActive : null,
       sourceVisible: mine ? mine.sourceVisible : null,
       lastSeenAt: now,
-      // An ack names no screen, so this is remembered rather than re-derived —
+      // An ack names no screen, so these are remembered rather than re-derived —
       // the alternative is a screen losing its name every time it acknowledges.
       screen: mine ? mine.screen : null,
+      hosted: mine ? mine.hosted : null,
       failure
     }
   };

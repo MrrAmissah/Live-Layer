@@ -276,3 +276,32 @@ export function subscribeObsSourceState(
     }
   };
 }
+
+/**
+ * Is this page hosted by OBS at all?
+ *
+ * NOT a source reading, and it must never become one — the truthfulness rules
+ * at the top of this module still hold, and the binding's presence is exactly
+ * the thing they forbid turning into `sourceActive: true`.
+ *
+ * What it is for is telling two identical-looking states apart. Both report
+ * UNKNOWN and both land the desk on OUTPUT READY, and only one of them is
+ * worth a second thought:
+ *
+ *  - a plain browser tab, which cannot measure a source and never will;
+ *  - an OBS Browser Source whose build does not send source-specific events,
+ *    which the tested rig genuinely did (see the module comment).
+ *
+ * Without this the operator sees OUTPUT READY on a live scene and has no way to
+ * know whether they are looking at a rig limitation or a fault. That ambiguity
+ * is what makes a correct reading feel like a bug.
+ *
+ * An arriving event is stronger proof than the object's presence, so a page
+ * that has ever received one counts as hosted even if the binding is missing.
+ */
+export function obsHostPresent(host: ObsEventHost | null = defaultHost()): boolean {
+  if (!host) return false;
+  if (host.obsstudio !== undefined && host.obsstudio !== null) return true;
+  const early = earlyReadings(host);
+  return early.sourceActive !== undefined || early.sourceVisible !== undefined;
+}
