@@ -3526,13 +3526,21 @@ body.gfx-transparent {
 }
 
 /**
- * TALL PAINTS ITS OWN CARD, in the plate's language so the two read as one
- * object: straight rounded rectangle, ink ground with a brand-deep inner
- * gradient, a gold border, and the quote mark cut into the top rule 128px from
- * the left edge — the same place the plate used to cut it.
+ * TALL: NO BORDER AND NO QUOTE MARK — both are on the background image.
  *
- * `height: auto` is the whole point. This box is as tall as the verse needs and
- * no taller.
+ * They were briefly painted here, when the plate had dropped its card. The
+ * artwork carries them again, drawn by hand, so drawing them a second time
+ * puts a gold rule inside a gold rule and two quote marks on one card. What
+ * this side owns is the TYPE and a ground quiet enough to read it over.
+ *
+ * The ground stays a soft scrim rather than the opaque card it was, and that is
+ * deliberate: a scrim sits correctly inside a drawn outline whatever size that
+ * outline turns out to be, where an opaque card only lines up if its height
+ * happens to match — and its height is content-driven, which was the whole
+ * point of moving it here. It buys legibility over the column's texture and
+ * claims no edge of its own.
+ *
+ * `height: auto` still holds. The box is as tall as the verse needs.
  */
 .gfx-scripture[data-variant='split-tall'] .scripture-band {
   width: 100%;
@@ -3541,40 +3549,8 @@ body.gfx-transparent {
   height: auto;
   position: relative;
   padding: 56px 56px 44px;
-  border-radius: 16px;
-  /* goldBright at 88% — the plate's own border value, so the card the operator
-     sees and the column behind it are the same object. */
-  border: 3px solid color-mix(in srgb, var(--gfx-premium-accent) 88%, transparent);
-  background:
-    linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--gfx-premium-brand-deep) 60%, rgb(5, 10, 36)) 0%,
-      rgb(5, 10, 36) 62%
-    );
-}
-
-/**
- * The quote mark straddling the top rule, 128px in — the plate used to cut it
- * there and the card inherits the position.
- *
- * NO BACKGROUND. An opaque block behind the glyph reads as a tab stuck on the
- * card, and it cannot be right anyway: above the rule the thing behind is the
- * plate's own texture, which this side cannot sample. Gold glyph over gold
- * border needs no gap — where they overlap there is simply gold, and the rule
- * reads as passing behind the mark, which is what "cut into" looks like.
- */
-.gfx-scripture[data-variant='split-tall'] .scripture-band::before {
-  content: '\201C';
-  position: absolute;
-  left: 128px;
-  top: 0;
-  transform: translateY(-52%);
-  font-family: var(--gfx-font-display);
-  font-weight: 800;
-  font-size: 132px;
-  line-height: 1;
-  color: var(--gfx-premium-accent);
-  pointer-events: none;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(5, 10, 36, 0.42) 0%, rgba(5, 10, 36, 0.58) 62%);
 }
 
 .gfx-scripture[data-variant='split-tall'] .scripture-plate {

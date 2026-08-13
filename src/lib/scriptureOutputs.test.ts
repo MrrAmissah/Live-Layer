@@ -68,13 +68,23 @@ describe('who paints the card', () => {
     expect(css).toMatch(/\.gfx-scripture\[data-variant='split-wide'\] \.scripture-plate \{[^}]*background: none !important/);
   });
 
-  it('has tall paint its own card, fitted to the verse', () => {
+  it('has tall paint a ground fitted to the verse, and NOTHING the artwork draws', () => {
     const band = /\.gfx-scripture\[data-variant='split-tall'\] \.scripture-band \{([^}]*)\}/.exec(css)?.[1] ?? '';
-    expect(band).toContain('height: auto'); // as tall as the verse needs, no taller
-    expect(band).toMatch(/border: 3px solid/);
-    expect(band).toContain('border-radius: 16px');
-    // ...and the quote mark cut into the top rule, 128px in, as the plate did.
-    expect(css).toMatch(/\.gfx-scripture\[data-variant='split-tall'\] \.scripture-band::before \{[^}]*left: 128px/);
+    // Content-height is the property that had to move to this side: only here
+    // is the text known, and a fixed card left dead ground at both ends of the
+    // range.
+    expect(band).toContain('height: auto');
+    expect(band).toMatch(/background: linear-gradient/);
+    /**
+     * THE BORDER AND THE QUOTE MARK ARE ON THE BACKGROUND IMAGE.
+     *
+     * Both were briefly painted here, while the plate had dropped its card.
+     * They are drawn by hand in the artwork now, so painting them again puts a
+     * gold rule inside a gold rule and two quote marks on one card — which is
+     * exactly what shipped for one round.
+     */
+    expect(band).not.toMatch(/\bborder:/);
+    expect(css).not.toMatch(/\[data-variant='split-tall'\] \.scripture-band::before/);
   });
 
   it('never lets the two share a card rule again', () => {

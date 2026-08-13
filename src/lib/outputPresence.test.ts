@@ -54,6 +54,35 @@ describe('presence across the whole rig', () => {
     expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['b']);
   });
 
+  it('does not name a session that a fresher one has already replaced', () => {
+    // The aftermath of every OBS restart: each source reloads with a new
+    // session id and the old one lingers for OUTPUT_FORGET_MS. Naming it would
+    // warn about a screen that is working, every single restart.
+    const outputs = rig(
+      screen('old-session', { screen: 'split', lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }),
+      screen('new-session', { screen: 'split', lastSeenAt: NOW })
+    );
+    expect(stalledOutputs(outputs, NOW)).toEqual([]);
+  });
+
+  it('still names a quiet session that nothing has replaced', () => {
+    const outputs = rig(
+      screen('gone', { screen: 'split', lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }),
+      screen('other', { screen: 'main', lastSeenAt: NOW })
+    );
+    expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['gone']);
+  });
+
+  it('still names a quiet session that never said which screen it was', () => {
+    // Unmatchable, so unreplaceable — and unidentified plus quiet is genuinely
+    // worth a look.
+    const outputs = rig(
+      screen('anonymous', { screen: null, lastSeenAt: NOW - OUTPUT_STALE_MS - 1 }),
+      screen('live', { screen: 'main', lastSeenAt: NOW })
+    );
+    expect(stalledOutputs(outputs, NOW).map((s) => s.outputId)).toEqual(['anonymous']);
+  });
+
   it('forgets a screen that has been gone long enough, and stops naming it', () => {
     // Every page load mints a new output session id, so a reloaded browser
     // source leaves its old id behind. Without eviction the desk would show

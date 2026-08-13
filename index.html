@@ -9,6 +9,43 @@
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      THE EARLIEST POSSIBLE LISTENER FOR OBS SOURCE STATE.
+
+      obs-browser dispatches `obsSourceActiveChanged` when the source becomes
+      active — including at page creation, when OBS starts up with this source
+      already in the live scene. The app's own listener attaches in a React
+      effect, which is several hundred milliseconds later, so that first event
+      was dispatched to nobody: the reading stayed UNKNOWN and the desk sat at
+      OUTPUT READY through a live scene until somebody switched scenes and back.
+
+      This runs at parse time, before the module below is even fetched, and does
+      one thing: remember what OBS said. `lib/obsSource.ts` reads the buffer when
+      it subscribes. It invents nothing — a value only lands here if OBS actually
+      reported it, and a malformed detail is ignored exactly as it is downstream.
+
+      Inline and dependency-free on purpose: anything imported is too late.
+    -->
+    <script>
+      (function () {
+        var seen = { sourceActive: null, sourceVisible: null };
+        window.__llObsSourceEarly = seen;
+        function flag(event, key) {
+          var detail = event && event.detail;
+          if (typeof detail !== 'object' || detail === null) return null;
+          var value = detail[key];
+          return typeof value === 'boolean' ? value : null;
+        }
+        window.addEventListener('obsSourceActiveChanged', function (event) {
+          var value = flag(event, 'active');
+          if (value !== null) seen.sourceActive = value;
+        });
+        window.addEventListener('obsSourceVisibleChanged', function (event) {
+          var value = flag(event, 'visible');
+          if (value !== null) seen.sourceVisible = value;
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

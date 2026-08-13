@@ -41,10 +41,31 @@ export function outputPresence(status: OutputStatusState | null, now: number): O
  */
 export const OUTPUT_FORGET_MS = 300_000;
 
-/** Screens that have gone quiet but are not yet forgotten — the ones to name. */
+/**
+ * Screens that have gone quiet but are not yet forgotten — the ones to name.
+ *
+ * A session whose SCREEN is already being reported by a fresher one is not a
+ * dead screen; it is a replaced tab. That is the ordinary aftermath of an OBS
+ * restart or a source refresh — every page load mints a new session id and the
+ * old one lingers for `OUTPUT_FORGET_MS` — and naming it would have the desk
+ * warning about screens that are, at that moment, working. A warning that fires
+ * every time the operator restarts OBS is a warning they learn to ignore.
+ *
+ * A session that named NO screen cannot be matched this way, so it is still
+ * reported: unidentified and quiet is genuinely worth a look.
+ */
 export function stalledOutputs(outputs: OutputStatusMap, now: number): OutputStatusState[] {
-  return Object.values(outputs).filter(
-    (status) => now - status.lastSeenAt > OUTPUT_STALE_MS && now - status.lastSeenAt <= OUTPUT_FORGET_MS
+  const all = Object.values(outputs);
+  const freshScreens = new Set(
+    all
+      .filter((status) => status.screen !== null && outputPresence(status, now) === 'fresh')
+      .map((status) => status.screen)
+  );
+  return all.filter(
+    (status) =>
+      now - status.lastSeenAt > OUTPUT_STALE_MS &&
+      now - status.lastSeenAt <= OUTPUT_FORGET_MS &&
+      !(status.screen !== null && freshScreens.has(status.screen))
   );
 }
 

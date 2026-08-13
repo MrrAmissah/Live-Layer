@@ -70,6 +70,11 @@ export interface ObsEventHost {
   addEventListener: (type: string, listener: (event: Event) => void) => void;
   removeEventListener: (type: string, listener: (event: Event) => void) => void;
   obsstudio?: unknown;
+  /**
+   * What OBS said BEFORE this module could listen — filled by the inline script
+   * in `index.html`. See `earlyReadings` below for why it has to exist.
+   */
+  __llObsSourceEarly?: unknown;
 }
 
 type DeliveryPath = 'custom' | 'legacy';
@@ -92,6 +97,32 @@ function defaultHost(): ObsEventHost | null {
   return window as unknown as ObsEventHost;
 }
 
+/**
+ * The readings OBS reported before this module existed.
+ *
+ * THE BUG THIS FIXES. `obsSourceActiveChanged` fires when a source becomes
+ * active, and on an OBS restart that happens as the page is created — while
+ * this module is still being fetched. The event was dispatched to nobody, the
+ * reading stayed UNKNOWN, and the desk sat at OUTPUT READY through a live scene
+ * until an operator switched scenes and back. The scene WAS live; nothing was
+ * wrong except that the one report had already been thrown away.
+ *
+ * The parse-time listener in `index.html` keeps it. This reads it once, on
+ * subscribe, and applies the same rule as every other path here: a value is
+ * believed only if OBS actually sent a boolean. Nothing is inferred from the
+ * buffer's existence, and an absent or malformed buffer leaves both readings
+ * UNKNOWN exactly as before.
+ */
+function earlyReadings(host: ObsEventHost | null): Partial<ObsSourceState> {
+  const buffer = host?.__llObsSourceEarly;
+  if (typeof buffer !== 'object' || buffer === null) return {};
+  const record = buffer as Record<string, unknown>;
+  const reading: Partial<ObsSourceState> = {};
+  if (typeof record.sourceActive === 'boolean') reading.sourceActive = record.sourceActive;
+  if (typeof record.sourceVisible === 'boolean') reading.sourceVisible = record.sourceVisible;
+  return reading;
+}
+
 function eventFlag(event: Event, key: 'active' | 'visible'): boolean | null {
   const detail = (event as { detail?: unknown }).detail;
   if (typeof detail !== 'object' || detail === null) return null;
@@ -111,10 +142,16 @@ export function subscribeObsSourceState(
   host: ObsEventHost | null = defaultHost(),
   onDiagnostics?: (diagnostics: ObsBridgeDiagnostics) => void
 ): () => void {
-  const state: ObsSourceState = { sourceActive: null, sourceVisible: null };
+  // Seeded from whatever OBS reported before this module could listen. An
+  // arriving event still wins later; this only stops the first one being lost.
+  const early = earlyReadings(host);
+  const state: ObsSourceState = {
+    sourceActive: early.sourceActive ?? null,
+    sourceVisible: early.sourceVisible ?? null
+  };
   const seen = {
-    active: null as boolean | null,
-    visible: null as boolean | null,
+    active: early.sourceActive ?? null,
+    visible: early.sourceVisible ?? null,
     lastPath: 'none' as ObsBridgeDiagnostics['lastPath']
   };
 

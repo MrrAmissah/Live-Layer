@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   subscribeObsSourceState,
   type ObsBridgeDiagnostics,
@@ -427,5 +429,100 @@ describe('the ?debug=1 diagnostics', () => {
       dispatch('obsSourceActiveChanged', { active: true });
     }).not.toThrow();
     expect(states[states.length - 1]).toEqual({ sourceActive: true, sourceVisible: null });
+  });
+});
+
+/**
+ * THE EVENT THAT ARRIVED BEFORE ANYONE WAS LISTENING.
+ *
+ * Reported from the field: after restarting OBS with the scene already live,
+ * the desk went back to OUTPUT READY and stayed there. Nothing was wrong with
+ * the scene — `obsSourceActiveChanged` fires as the source is created, which is
+ * while this module is still being fetched, so the one report OBS ever sends
+ * for an already-active source was dispatched to nobody.
+ *
+ * `index.html` now keeps it at parse time. These pin that it is read, and that
+ * reading it invents nothing.
+ */
+describe('readings that arrived before the module did', () => {
+  const hostWith = (early: unknown) => {
+    const listeners = new Map<string, ((event: Event) => void)[]>();
+    return {
+      host: {
+        __llObsSourceEarly: early,
+        addEventListener: (type: string, fn: (event: Event) => void) => {
+          listeners.set(type, [...(listeners.get(type) ?? []), fn]);
+        },
+        removeEventListener: () => {}
+      } as unknown as ObsEventHost,
+      fire: (type: string, detail: unknown) => {
+        for (const fn of listeners.get(type) ?? []) fn({ type, detail } as unknown as Event);
+      }
+    };
+  };
+
+  it('opens with what OBS already reported', () => {
+    const { host } = hostWith({ sourceActive: true, sourceVisible: true });
+    const states: ObsSourceState[] = [];
+    subscribeObsSourceState((state) => states.push({ ...state }), host);
+    expect(states[0]).toEqual({ sourceActive: true, sourceVisible: true });
+  });
+
+  it('carries a hidden reading through too', () => {
+    const { host } = hostWith({ sourceActive: true, sourceVisible: false });
+    const states: ObsSourceState[] = [];
+    subscribeObsSourceState((state) => states.push({ ...state }), host);
+    expect(states[0]).toEqual({ sourceActive: true, sourceVisible: false });
+  });
+
+  it('invents nothing from a buffer that says nothing', () => {
+    // The rule the rest of this module lives by: absence is UNKNOWN, and the
+    // buffer's mere existence is not a reading.
+    for (const early of [undefined, null, {}, 'nonsense', { sourceActive: 'yes' }, { sourceActive: 1 }]) {
+      const { host } = hostWith(early);
+      const states: ObsSourceState[] = [];
+      subscribeObsSourceState((state) => states.push({ ...state }), host);
+      expect(states[0], JSON.stringify(early)).toEqual({ sourceActive: null, sourceVisible: null });
+    }
+  });
+
+  it('lets a later event overrule what it opened with', () => {
+    // The buffer is a starting point, not a latch: the source going inactive
+    // after the page loaded must still be reported.
+    const { host, fire } = hostWith({ sourceActive: true, sourceVisible: true });
+    const states: ObsSourceState[] = [];
+    subscribeObsSourceState((state) => states.push({ ...state }), host);
+    fire('obsSourceActiveChanged', { active: false });
+    expect(states[states.length - 1].sourceActive).toBe(false);
+  });
+
+  it('does not re-announce a value it already opened with', () => {
+    // The module drops non-changes; seeding must not defeat that, or every
+    // duplicate event would post another OUTPUT_STATUS to the relay.
+    const { host, fire } = hostWith({ sourceActive: true, sourceVisible: true });
+    const states: ObsSourceState[] = [];
+    subscribeObsSourceState((state) => states.push({ ...state }), host);
+    const before = states.length;
+    fire('obsSourceActiveChanged', { active: true });
+    expect(states.length).toBe(before);
+  });
+});
+
+/** The parse-time listener is in a file no bundler rewrites — pin it there. */
+describe('the parse-time listener', () => {
+  const html = readFileSync(join(process.cwd(), 'index.html'), 'utf8');
+
+  it('runs before the module that would otherwise miss the event', () => {
+    expect(html.indexOf('__llObsSourceEarly')).toBeLessThan(html.indexOf('src/main.tsx'));
+  });
+
+  it('listens for both readings and believes only booleans', () => {
+    expect(html).toContain("addEventListener('obsSourceActiveChanged'");
+    expect(html).toContain("addEventListener('obsSourceVisibleChanged'");
+    expect(html).toContain("typeof value === 'boolean'");
+  });
+
+  it('is inline, because anything imported is too late', () => {
+    expect(html).toMatch(/<script>\s*\n\s*\(function \(\)/);
   });
 });
