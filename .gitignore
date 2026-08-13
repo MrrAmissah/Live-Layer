@@ -21,6 +21,12 @@ reference-samples/
 # local verification scratch — screenshots, probe output, throwaway scripts
 scratchpad/
 
+# rendered verification frames from scripts/shoot-output.mjs. Same category as
+# scratchpad/ and it was simply missed: these are throwaway evidence for judging
+# a layout at 1920x1080, regenerated on demand, and 300KB each. They were tracked
+# for seven commits before anyone noticed.
+out/
+
 # ASR benchmark byproducts. The harness in scripts/asr-benchmark IS committed; what
 # it produces never is — model weights, evaluation audio, and recognised transcripts.
 # A verbatim transcript of a sermon carries the same content as the recording and the
