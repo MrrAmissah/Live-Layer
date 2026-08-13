@@ -9049,6 +9049,17 @@ body.gfx-transparent {
   background: var(--ll-panel-soft);
   display: flex;
   flex-direction: column;
+  /**
+   * THE COLUMN DOES NOT SCROLL — the list inside it does.
+   *
+   * It shared `overflow-y: auto` with the centre and rail, which meant the
+   * whole nav scrolled as one piece and took its footer with it. On a 720px
+   * window the template library ran past the bottom of the frame and the
+   * footer's two buttons — Setup and Preview output — went off-screen
+   * entirely, with no way to scroll to them because the list they sit under
+   * was the thing overflowing. Two controls, unreachable, on any laptop.
+   */
+  overflow: hidden;
 }
 .control-root .studio__center { display: flex; flex-direction: column; background: var(--st-bg); }
 .control-root .studio__rail {
@@ -9106,7 +9117,14 @@ body.gfx-transparent {
 
 /* --- left navigation ---------------------------------------------------- */
 .control-root .studio-nav { display: flex; flex-direction: column; min-height: 100%; }
-.control-root .studio-nav__scroll { flex: 1 1 auto; min-height: 0; padding: 12px 10px 10px; }
+.control-root .studio-nav__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* The one thing that scrolls. Without it the flex child just grows. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 10px 10px;
+}
 .control-root .studio-nav__heading {
   display: flex; align-items: center; justify-content: space-between;
   margin: 0 8px 10px; font-size: 10.5px; font-weight: 750;
@@ -10494,3 +10512,14 @@ body.gfx-transparent {
 .gfx-l3[data-variant='canva-ministry'] .l3-role-line { max-width: 956px; }
 .gfx-l3[data-variant='event-style'] .l3-role-line { max-width: 993px; }
 .gfx-l3[data-variant='split-bar'] .l3-role-line { max-width: 1061px; }
+
+/* Setup: the actions that replaced a duplicated URL row, and the quieter note
+   under them. */
+.control-root .setup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.control-root .setup-note {
+  margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--ll-muted-2);
+}
+.control-root .diag-urls--compact {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 0 2px;
+}

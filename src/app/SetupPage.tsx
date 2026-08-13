@@ -32,8 +32,23 @@ function UrlRow({
 }
 
 /**
- * OBS onboarding. Same content as before, restyled onto the control-surface
- * design language (panels + buttons) so /setup and /control feel like one app.
+ * OBS onboarding — three steps and the live state of this machine.
+ *
+ * It used to hand out two URLs, and there are four output screens. An operator
+ * following this page could not configure the split or house sources at all,
+ * which made it not merely long but WRONG. Screens knows about all four, shows
+ * a live preview of each and builds each address with the relay already in it,
+ * so this page stops being a second, poorer source of the same thing and sends
+ * the operator there.
+ *
+ * The rest was duplication. Each URL appeared three times — in its step, again
+ * in a "Quick start" checklist that restated the steps sitting beside it, and
+ * again in the diagnostics rail — so the page read as five ways to copy two
+ * strings. One place each now: the dock URL here, because the dock is this
+ * page's own subject, and every output screen on Screens.
+ *
+ * What stays in the rail is only what is TRUE RIGHT NOW — origin, storage,
+ * transport — because that is the half a static document cannot carry.
  */
 export default function SetupPage() {
   const controlUrl = useMemo(() => `${window.location.origin}/control`, []);
@@ -123,18 +138,33 @@ export default function SetupPage() {
               </Panel>
 
               <Panel>
-                <SectionHeader kicker="Step 2" title="Add the output source" />
+                <SectionHeader kicker="Step 2" title="Add your output screens" />
                 <div className="ll-panel__body setup-body">
                   <p className="setup-text">
-                    Add the output page as an OBS Browser Source. Enable <strong>transparent</strong> background at 1920×1080 (or your scene resolution).
+                    Each OBS Browser Source is one screen — the full-frame one, the split-screen scene,
+                    the house projectors. <strong>Screens</strong> lists them all with the exact address
+                    for each, a live preview of what it is rendering, and whether it is reporting.
                   </p>
-                  <UrlRow
-                    url={outputUrl}
-                    label="Output URL"
-                    onCopy={() => copyToClipboard(outputUrl, 'Output URL')}
-                    onOpen={() => window.open(`${outputUrl}?debug=1`, '_blank')}
-                    openLabel="Debug"
-                  />
+                  <div className="setup-actions">
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--sm"
+                      onClick={() => window.open(`${controlUrl}/screens`, '_blank')}
+                    >
+                      Open Screens
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--ghost btn--sm"
+                      onClick={() => window.open(`${outputUrl}?debug=1`, '_blank')}
+                    >
+                      Preview output
+                    </button>
+                  </div>
+                  <p className="setup-note">
+                    Enable <strong>transparent</strong> background on every one, at 1920×1080 or your
+                    scene resolution.
+                  </p>
                 </div>
               </Panel>
 
@@ -172,12 +202,12 @@ export default function SetupPage() {
               </Panel>
 
               <Panel>
-                <SectionHeader kicker="Beta" title="Control over LAN" />
+                <SectionHeader kicker="Optional" title="Control from a second machine" />
                 <div className="ll-panel__body setup-body">
                   <p className="setup-text">
-                    For a second PC or tablet controller, run the app and relay on the graphics machine:
+                    A tablet or second PC can drive the desk. On the graphics machine run
                     <code className="setup-kbd">npm run dev:lan</code> and
-                    <code className="setup-kbd">npm run lan:relay</code>. Then use the relay URLs below.
+                    <code className="setup-kbd">npm run lan:relay</code>, then open this control URL there.
                   </p>
                   <UrlRow
                     url={lanControlUrl}
@@ -186,13 +216,11 @@ export default function SetupPage() {
                     onOpen={() => window.open(lanControlUrl, '_blank')}
                     openLabel="Open"
                   />
-                  <UrlRow
-                    url={lanOutputUrl}
-                    label="LAN Output URL"
-                    onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
-                    onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
-                    openLabel="Debug"
-                  />
+                  <p className="setup-note">
+                    Output screens take the relay automatically — the addresses on Screens already
+                    include it. Check the connection with <strong>Check LAN relay</strong> in the
+                    column beside this one.
+                  </p>
                   <p className="setup-text">
                     This relays live commands only. Uploaded asset libraries, People, presets, and saved
                     rundowns are still stored per browser until host-owned asset storage is added.
@@ -201,22 +229,13 @@ export default function SetupPage() {
               </Panel>
             </div>
 
+            {/* Live state only. The checklist that used to head this column
+                restated the three steps immediately to its left, and its first
+                item was "open /setup" — read on /setup. */}
             <div className="setup-col">
-              <Panel className="setup-aside">
-                <SectionHeader kicker="Checklist" title="Quick start" />
-                <div className="ll-panel__body setup-body">
-                  <ol className="setup-steps">
-                    <li>Open <code className="setup-kbd">/setup</code> to copy the OBS URLs.</li>
-                    <li>Add <code className="setup-kbd">/control</code> as an OBS dock.</li>
-                    <li>Add <code className="setup-kbd">/output</code> as a browser source.</li>
-                    <li>Pick a template, edit values, press Take.</li>
-                    <li>Use the debug output to verify transparency.</li>
-                  </ol>
-                  <p className="setup-statusline" role="status" aria-live="polite">
-                    {copyHint || 'Copy either URL and open it to verify the connection.'}
-                  </p>
-                </div>
-              </Panel>
+              <p className="setup-statusline" role="status" aria-live="polite">
+                {copyHint || 'This column reports what is true on this machine right now.'}
+              </p>
               <SetupDiagnostics />
             </div>
           </div>

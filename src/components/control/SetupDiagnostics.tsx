@@ -371,25 +371,15 @@ export default function SetupDiagnostics() {
           {isLocalhost ? ' You’re on localhost; 127.0.0.1 is recommended — use it for both.' : ''}
         </div>
 
-        <div className="diag-urls">
-          <div className="diag-urls__head">
-            <span className="diag-origin__label">OBS URL pair</span>
-            <button type="button" className="btn btn--secondary btn--xs" onClick={copyObsPair} aria-label="Copy OBS control and output URL pair">Copy pair</button>
-          </div>
-          <div className="setup-url">
-            <span className="diag-url-label">Custom Browser Dock</span>
-            <code className="setup-url__value">{controlUrl}</code>
-            <div className="setup-url__actions">
-              <button type="button" className="btn btn--secondary btn--sm" onClick={() => copy(controlUrl, 'Control URL')}>Copy control</button>
-            </div>
-          </div>
-          <div className="setup-url">
-            <span className="diag-url-label">Browser Source</span>
-            <code className="setup-url__value">{outputUrl}</code>
-            <div className="setup-url__actions">
-              <button type="button" className="btn btn--secondary btn--sm" onClick={() => copy(outputUrl, 'Output URL')}>Copy output</button>
-            </div>
-          </div>
+        {/* The URL pair that used to sit here was the THIRD copy of the same
+            two strings on one page — Step 1 has the dock, Screens has every
+            output address with the relay already in it. What belongs in a
+            diagnostics rail is the origin above, which is a fact about this
+            machine, not a control. `Copy pair` survives as one button because
+            copying both at once for a fresh OBS is a real errand. */}
+        <div className="diag-urls diag-urls--compact">
+          <span className="diag-origin__label">Both OBS URLs</span>
+          <button type="button" className="btn btn--secondary btn--xs" onClick={copyObsPair} aria-label="Copy OBS control and output URL pair">Copy pair</button>
         </div>
 
         <div className="diag-checks">
