@@ -8084,12 +8084,38 @@ body.gfx-transparent {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.control-root .dock-program__chip[data-status='showing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
-/* Pending clear: a command in flight, same treatment as a pending show. */
-.control-root .dock-program__chip[data-status='clearing'] { background: var(--ll-live-soft); color: var(--ll-live-text); }
-.control-root .dock-program__chip[data-status='recovering'] { background: rgba(148, 163, 184, 0.14); color: #b9c4d4; }
-.control-root .dock-program__chip[data-status='failed'] { background: var(--ll-danger-surface); color: #ff7a76; border: 1px solid var(--ll-danger-edge); }
-.control-root .dock-program__chip[data-status='clear'] { background: rgba(148, 163, 184, 0.1); color: #9aa7ba; }
+.control-root .dock-program__chip[data-tone='live'] { background: var(--ll-live-soft); color: var(--ll-live-text); border: 1px solid rgba(53, 224, 77, 0.32); }
+.control-root .dock-program__chip[data-tone='ready'],
+.control-root .dock-program__chip[data-tone='pending'] { background: rgba(32, 165, 250, 0.13); color: #7cc6ff; border: 1px solid rgba(32, 165, 250, 0.3); }
+.control-root .dock-program__chip[data-tone='attention'] { background: rgba(232, 185, 60, 0.15); color: var(--ll-warn); border: 1px solid rgba(232, 185, 60, 0.42); }
+.control-root .dock-program__chip[data-tone='failed'] { background: var(--ll-danger-surface); color: #ff7a76; border: 1px solid var(--ll-danger-edge); }
+.control-root .dock-program__chip[data-tone='idle'] { background: rgba(148, 163, 184, 0.1); color: #9aa7ba; border: 1px solid transparent; }
+
+/**
+ * THE DOCK'S CHIP PULSES WHEN SOMETHING NEEDS DOING, AND ONLY THEN.
+ *
+ * The dock is a narrow panel inside OBS that an operator is not looking at —
+ * they are looking at the programme. A hidden or unverified source is exactly
+ * the state they will otherwise miss until someone in the hall tells them, so
+ * gold alone is not enough at that size.
+ *
+ * Deliberately a slow breath rather than a blink: a hard flash in peripheral
+ * vision during a service is its own problem, and it would keep pulling the eye
+ * for the twenty minutes it takes to reach the machine. Live and idle never
+ * move — motion has to MEAN something or it becomes wallpaper.
+ */
+@keyframes ll-attention-breath {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.52; }
+}
+.control-root .dock-program__chip[data-tone='attention'],
+.control-root .dock-program__chip[data-tone='failed'] {
+  animation: ll-attention-breath 1.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .control-root .dock-program__chip[data-tone='attention'],
+  .control-root .dock-program__chip[data-tone='failed'] { animation: none; }
+}
 .control-root .dock-program__clock { margin-left: 5px; font-weight: 600; }
 
 /* (The tall variant's meta grid is gone — "Status" duplicated the chip and
@@ -9033,14 +9059,25 @@ body.gfx-transparent {
   font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: var(--ll-muted-2);
 }
 .control-root .program-rail__status-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ll-muted-2); }
-.control-root .program-rail__status--showing { color: var(--ll-warn); }
-.control-root .program-rail__status--showing .program-rail__status-dot { background: var(--ll-warn); }
-.control-root .program-rail__status--clearing { color: var(--ll-warn); }
-.control-root .program-rail__status--clearing .program-rail__status-dot { background: var(--ll-warn); }
-.control-root .program-rail__status--recovering { color: var(--ll-warn); }
-.control-root .program-rail__status--recovering .program-rail__status-dot { background: var(--ll-warn); }
-.control-root .program-rail__status--failed { color: var(--ll-danger); }
-.control-root .program-rail__status--failed .program-rail__status-dot { background: var(--ll-danger); }
+/* --- ONE STATUS PALETTE, KEYED ON THE CLAIM ------------------------------
+   Every surface used to colour from `program.status`, which cannot tell OUTPUT
+   ACTIVE from SOURCE HIDDEN — both are `showing`. So the dock painted a hidden
+   source live-green while the studio painted an active one amber: two surfaces
+   disagreeing with each other, and each disagreeing with its own words.
+   `describeProgramStatus` now returns the tone with the phrase, so the colour
+   cannot drift from the claim. Green means an OBS source is compositing the
+   page, and nothing else earns it. */
+.control-root .program-rail__status[data-tone='live'] { color: var(--ll-live-text); }
+.control-root .program-rail__status[data-tone='live'] .program-rail__status-dot { background: var(--ll-live-text); box-shadow: 0 0 0 3px rgba(53, 224, 77, 0.16); }
+.control-root .program-rail__status[data-tone='ready'],
+.control-root .program-rail__status[data-tone='pending'] { color: var(--ll-blue); }
+.control-root .program-rail__status[data-tone='ready'] .program-rail__status-dot,
+.control-root .program-rail__status[data-tone='pending'] .program-rail__status-dot { background: var(--ll-blue); }
+.control-root .program-rail__status[data-tone='attention'] { color: var(--ll-warn); }
+.control-root .program-rail__status[data-tone='attention'] .program-rail__status-dot { background: var(--ll-warn); box-shadow: 0 0 0 3px rgba(232, 185, 60, 0.18); }
+.control-root .program-rail__status[data-tone='failed'] { color: var(--ll-danger); }
+.control-root .program-rail__status[data-tone='failed'] .program-rail__status-dot { background: var(--ll-danger); }
+.control-root .program-rail__status[data-tone='idle'] .program-rail__status-dot { background: var(--ll-muted-3); }
 .control-root .program-rail__status--clear .program-rail__status-dot { background: var(--ll-muted-3); }
 
 .control-root .program-card {
@@ -9048,22 +9085,28 @@ body.gfx-transparent {
   background: var(--ll-panel); border: 1px solid var(--ll-border-soft);
   box-shadow: inset 3px 0 0 var(--ll-muted-3);
 }
-.control-root .program-card--showing { box-shadow: inset 3px 0 0 var(--ll-warn); }
-.control-root .program-card--clearing { box-shadow: inset 3px 0 0 var(--ll-warn); }
-.control-root .program-card--recovering { box-shadow: inset 3px 0 0 var(--ll-warn); }
-.control-root .program-card--failed { box-shadow: inset 3px 0 0 var(--ll-danger); }
 .control-root .program-card__row { display: flex; align-items: center; justify-content: space-between; }
 .control-root .program-card__label { font-size: 13px; font-weight: 720; color: var(--ll-text-strong); }
 .control-root .program-card__badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 720; color: var(--ll-muted); }
 .control-root .program-card__badge-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ll-muted-3); }
-.control-root .program-card--showing .program-card__badge { color: var(--ll-warn); }
-.control-root .program-card--showing .program-card__badge-dot { background: var(--ll-warn); }
-.control-root .program-card--clearing .program-card__badge { color: var(--ll-warn); }
-.control-root .program-card--clearing .program-card__badge-dot { background: var(--ll-warn); }
-.control-root .program-card--recovering .program-card__badge { color: var(--ll-warn); }
-.control-root .program-card--recovering .program-card__badge-dot { background: var(--ll-warn); }
-.control-root .program-card--failed .program-card__badge { color: var(--ll-danger); }
-.control-root .program-card--failed .program-card__badge-dot { background: var(--ll-danger); }
+/* The Output card reads the same tone — including its left rail, which used to
+   be amber for every `showing` state and so said "look at me" while the source
+   was perfectly healthy. */
+.control-root .program-card[data-tone='live'] { box-shadow: inset 3px 0 0 var(--ll-live-text); }
+.control-root .program-card[data-tone='live'] .program-card__badge { color: var(--ll-live-text); }
+.control-root .program-card[data-tone='live'] .program-card__badge-dot { background: var(--ll-live-text); }
+.control-root .program-card[data-tone='ready'],
+.control-root .program-card[data-tone='pending'] { box-shadow: inset 3px 0 0 var(--ll-blue); }
+.control-root .program-card[data-tone='ready'] .program-card__badge,
+.control-root .program-card[data-tone='pending'] .program-card__badge { color: var(--ll-blue); }
+.control-root .program-card[data-tone='ready'] .program-card__badge-dot,
+.control-root .program-card[data-tone='pending'] .program-card__badge-dot { background: var(--ll-blue); }
+.control-root .program-card[data-tone='attention'] { box-shadow: inset 3px 0 0 var(--ll-warn); }
+.control-root .program-card[data-tone='attention'] .program-card__badge { color: var(--ll-warn); }
+.control-root .program-card[data-tone='attention'] .program-card__badge-dot { background: var(--ll-warn); }
+.control-root .program-card[data-tone='failed'] { box-shadow: inset 3px 0 0 var(--ll-danger); }
+.control-root .program-card[data-tone='failed'] .program-card__badge { color: var(--ll-danger); }
+.control-root .program-card[data-tone='failed'] .program-card__badge-dot { background: var(--ll-danger); }
 .control-root .program-card__detail { margin-top: 7px; display: flex; flex-direction: column; gap: 2px; }
 .control-root .program-card__identity { font-size: 14px; font-weight: 700; color: var(--ll-text-strong); }
 .control-root .program-card__sub { font-size: 12px; color: var(--ll-muted-2); }
@@ -9876,10 +9919,13 @@ body.gfx-transparent {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   border: 1px solid transparent; white-space: nowrap;
 }
-.control-root .screen-card__pill[data-tone='live'] { color: var(--ll-live-text); background: rgba(56, 214, 122, 0.1); border-color: rgba(56, 214, 122, 0.3); }
-.control-root .screen-card__pill[data-tone='stale'] { color: #ffcf8f; background: rgba(255, 176, 62, 0.1); border-color: rgba(255, 176, 62, 0.3); }
-.control-root .screen-card__pill[data-tone='failed'] { color: #ff9a94; background: rgba(255, 90, 80, 0.11); border-color: rgba(255, 90, 80, 0.34); }
-.control-root .screen-card__pill[data-tone='absent'] { color: var(--ll-muted-2); background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.12); }
+/* Same five tones as the Program pill, same tokens — one status palette for the
+   whole product, so "Active" cannot be green here and amber there. */
+.control-root .screen-card__pill[data-tone='live'] { color: var(--ll-live-text); background: var(--ll-live-soft); border-color: rgba(53, 224, 77, 0.32); }
+.control-root .screen-card__pill[data-tone='ready'] { color: #7cc6ff; background: rgba(32, 165, 250, 0.13); border-color: rgba(32, 165, 250, 0.3); }
+.control-root .screen-card__pill[data-tone='attention'] { color: var(--ll-warn); background: rgba(232, 185, 60, 0.15); border-color: rgba(232, 185, 60, 0.42); }
+.control-root .screen-card__pill[data-tone='failed'] { color: #ff9a94; background: var(--ll-danger-surface); border-color: var(--ll-danger-edge); }
+.control-root .screen-card__pill[data-tone='idle'] { color: var(--ll-muted-2); background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.12); }
 /* A 16:9 well, so an empty screen and a busy one are the same size and the grid
    does not jump every time Program clears. */
 .control-root .screen-card__monitor {

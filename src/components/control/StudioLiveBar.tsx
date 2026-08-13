@@ -41,7 +41,7 @@ export default function StudioLiveBar({ onTake, onTakeNext, onClear, sending = f
   return (
     <div className="studio-livebar">
       <div className="studio-livebar__status">
-        <span className={`program-rail__status program-rail__status--${program.status}`}>
+        <span className="program-rail__status" data-tone={status.tone}>
           <span className="program-rail__status-dot" aria-hidden />
           {status.pill}
         </span>

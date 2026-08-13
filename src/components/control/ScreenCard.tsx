@@ -28,7 +28,12 @@ const FALLBACK_THEME = {
 
 interface Pill {
   label: string;
-  tone: 'live' | 'stale' | 'absent' | 'failed';
+  /**
+   * The same vocabulary the Program pill uses (`lib/programStatus.ts`), so the
+   * two surfaces cannot say the same thing in different colours. This card
+   * answers per screen what that one answers for the rig.
+   */
+  tone: 'live' | 'ready' | 'attention' | 'failed' | 'idle';
   detail: string;
 }
 
@@ -47,7 +52,7 @@ function describeScreen(status: OutputStatusState | null, now: number): Pill {
   if (!status) {
     return {
       label: 'Not connected',
-      tone: 'absent',
+      tone: 'idle',
       detail: 'No browser source has reported this screen. Add one with the address below.'
     };
   }
@@ -60,20 +65,26 @@ function describeScreen(status: OutputStatusState | null, now: number): Pill {
   if (outputPresence(status, now) !== 'fresh') {
     return {
       label: 'Stale',
-      tone: 'stale',
+      tone: 'attention',
       detail: `Stopped reporting ${ago(status.lastSeenAt, now)}. The source may have crashed or been removed.`
     };
   }
   if (status.sourceVisible === false) {
-    return { label: 'Hidden', tone: 'stale', detail: 'The page is up, but OBS says the source is hidden.' };
+    // Gold, not red: on a two-scene rig this is the NORMAL state of whichever
+    // screen is not live, and it is only worth acting on if it is the one that
+    // should be carrying.
+    return { label: 'Hidden', tone: 'attention', detail: 'The page is up, but OBS says the source is hidden — normal for a scene that is not live.' };
   }
   if (status.sourceActive === false) {
-    return { label: 'Not active', tone: 'stale', detail: 'The page is up, but OBS says the source is not active.' };
+    return { label: 'Not active', tone: 'attention', detail: 'The page is up, but OBS says the source is not in the live scene.' };
   }
   if (status.sourceActive === true) {
     return { label: 'Active', tone: 'live', detail: 'OBS reports this source active.' };
   }
-  return { label: 'Connected', tone: 'live', detail: 'The page is reporting. No OBS binding, so source state is unknown.' };
+  // Blue, not green: the page is reporting but nothing has measured a source,
+  // so it claims less than Active and must not be coloured as if it claimed the
+  // same.
+  return { label: 'Connected', tone: 'ready', detail: 'The page is reporting. No OBS binding, so source state is unknown.' };
 }
 
 /**

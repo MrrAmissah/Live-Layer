@@ -104,13 +104,14 @@ export default function DockProgramStrip({ onTake, onTakeNext, onClear, sending 
   }
 
   return (
-    <section
-      className={`dock-program${compact ? ' dock-program--compact' : ''}`}
-      data-status={program.status}
-    >
+    <section className={`dock-program${compact ? ' dock-program--compact' : ''}`}>
       <div className="dock-program__head">
         <span className="ll-kicker">Program</span>
-        <span className="dock-program__chip" data-status={program.status} role="status">
+        {/* `data-tone`, not `data-status`. Both OUTPUT ACTIVE and SOURCE
+            HIDDEN are Program status `showing`, so the chip used to read
+            SOURCE HIDDEN in live green — the colour contradicting its own
+            label. */}
+        <span className="dock-program__chip" data-tone={words.tone} role="status">
           {words.pill}
           {clock ? <span className="dock-program__clock">· {clock}</span> : null}
         </span>

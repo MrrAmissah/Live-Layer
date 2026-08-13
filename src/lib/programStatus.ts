@@ -35,6 +35,46 @@ import { screenDisplayName } from './scriptureOutputs';
  * two copies of a vocabulary this careful is exactly how a surface starts
  * claiming more than it knows.
  */
+/**
+ * What the pill should LOOK like — derived here with the words, not guessed at
+ * by each surface.
+ *
+ * It had to move here because every surface was colouring from
+ * `program.status`, which cannot see the difference between OUTPUT ACTIVE and
+ * SOURCE HIDDEN — they are both `showing`. So the dock painted a hidden source
+ * green while the studio painted an active one amber: the two surfaces
+ * disagreed with each other and both disagreed with their own words. A status
+ * light whose colour contradicts its label is worse than no light.
+ *
+ *  - `live`      green  — an OBS source is compositing this graphic.
+ *  - `ready`     blue   — the page applied it; no host binding, so nothing is
+ *                         claimed about a source. A real positive that claims
+ *                         less, and coloured so it cannot be mistaken for one
+ *                         that claims more.
+ *  - `pending`   blue   — sent, nothing has answered yet.
+ *  - `attention` gold   — hidden, inactive or unverified. Something the
+ *                         operator can go and fix, and the only tone that
+ *                         moves (see the dock's pulse in `styles.css`).
+ *  - `failed`    red    — output said it could not render this.
+ *  - `idle`      grey   — nothing on air.
+ *
+ * Green is reserved for OUTPUT ACTIVE alone. The vocabulary still never says
+ * LIVE or ON AIR — this is a colour for "an OBS source is compositing the
+ * page", which is exactly what the words already claim, no more.
+ */
+export type ProgramStatusTone = 'live' | 'ready' | 'pending' | 'attention' | 'failed' | 'idle';
+
+const TONE_BY_PILL: Record<ProgramStatusWords['pill'], ProgramStatusTone> = {
+  'OUTPUT ACTIVE': 'live',
+  'OUTPUT READY': 'ready',
+  SENT: 'pending',
+  'SOURCE HIDDEN': 'attention',
+  'SOURCE INACTIVE': 'attention',
+  UNVERIFIED: 'attention',
+  FAILED: 'failed',
+  CLEAR: 'idle'
+};
+
 export interface ProgramStatusWords {
   /** Compact uppercase pill. */
   pill:
@@ -59,6 +99,8 @@ export interface ProgramStatusWords {
     | 'Not confirmed'
     | 'Send failed'
     | 'Clear';
+  /** Derived from `pill`, so a new pill cannot ship without a colour. */
+  tone: ProgramStatusTone;
 }
 
 export function describeProgramStatus(
@@ -71,15 +113,15 @@ export function describeProgramStatus(
       // Output told us it COULDN'T render this command — worth more than any
       // liveness reading, so it is checked first.
       if (program.outputFailure) {
-        return { pill: 'FAILED', phrase: 'Output couldn’t render it' };
+        return { pill: 'FAILED', phrase: 'Output couldn’t render it' , tone: TONE_BY_PILL['FAILED'] };
       }
       if (program.confirmation !== 'confirmed') {
         // No acknowledgement yet — the honest default, exactly as before.
-        return { pill: 'SENT', phrase: 'Awaiting output' };
+        return { pill: 'SENT', phrase: 'Awaiting output' , tone: TONE_BY_PILL['SENT'] };
       }
       // Confirmed claims survive only while the output heartbeat is fresh.
       if (outputPresence(output, now) !== 'fresh') {
-        return { pill: 'UNVERIFIED', phrase: 'Output status is stale' };
+        return { pill: 'UNVERIFIED', phrase: 'Output status is stale' , tone: TONE_BY_PILL['UNVERIFIED'] };
       }
       /**
        * Visibility outranks activity. OBS reports these independently, and
@@ -90,29 +132,29 @@ export function describeProgramStatus(
        * things for an operator to fix.
        */
       if (output?.sourceVisible === false) {
-        return { pill: 'SOURCE HIDDEN', phrase: 'OBS source hidden' };
+        return { pill: 'SOURCE HIDDEN', phrase: 'OBS source hidden' , tone: TONE_BY_PILL['SOURCE HIDDEN'] };
       }
       if (output?.sourceActive === false) {
-        return { pill: 'SOURCE INACTIVE', phrase: 'OBS source not active' };
+        return { pill: 'SOURCE INACTIVE', phrase: 'OBS source not active' , tone: TONE_BY_PILL['SOURCE INACTIVE'] };
       }
       if (output?.sourceActive === true) {
         // Active, and visibility is either true or simply not reported.
-        return { pill: 'OUTPUT ACTIVE', phrase: 'OBS source active' };
+        return { pill: 'OUTPUT ACTIVE', phrase: 'OBS source active' , tone: TONE_BY_PILL['OUTPUT ACTIVE'] };
       }
       // No host binding (plain browser tab): the page applied it; active
       // state is unknown and stays unclaimed.
-      return { pill: 'OUTPUT READY', phrase: 'Output page applied the graphic' };
+      return { pill: 'OUTPUT READY', phrase: 'Output page applied the graphic' , tone: TONE_BY_PILL['OUTPUT READY'] };
     }
     case 'clearing':
       // The clear went out; nothing has confirmed the graphic is gone. Claims
       // nothing, so it needs no staleness downgrade.
-      return { pill: 'SENT', phrase: 'Clearing — awaiting output' };
+      return { pill: 'SENT', phrase: 'Clearing — awaiting output' , tone: TONE_BY_PILL['SENT'] };
     case 'recovering':
-      return { pill: 'UNVERIFIED', phrase: 'Not confirmed' };
+      return { pill: 'UNVERIFIED', phrase: 'Not confirmed' , tone: TONE_BY_PILL['UNVERIFIED'] };
     case 'failed':
-      return { pill: 'FAILED', phrase: 'Send failed' };
+      return { pill: 'FAILED', phrase: 'Send failed' , tone: TONE_BY_PILL['FAILED'] };
     default:
-      return { pill: 'CLEAR', phrase: 'Clear' };
+      return { pill: 'CLEAR', phrase: 'Clear' , tone: TONE_BY_PILL['CLEAR'] };
   }
 }
 

@@ -26,13 +26,14 @@ describe('the decision table', () => {
   it('SENT / Awaiting output while nothing has answered', () => {
     expect(describeProgramStatus(program(), null, NOW)).toEqual<ProgramStatusWords>({
       pill: 'SENT',
-      phrase: 'Awaiting output'
+      phrase: 'Awaiting output',
+      tone: 'pending'
     });
   });
 
   it('OUTPUT READY once the matching ack arrived and the heartbeat is fresh (no host binding)', () => {
     const words = describeProgramStatus(program({ confirmation: 'confirmed' }), output(), NOW);
-    expect(words).toEqual<ProgramStatusWords>({ pill: 'OUTPUT READY', phrase: 'Output page applied the graphic' });
+    expect(words).toEqual<ProgramStatusWords>({ pill: 'OUTPUT READY', phrase: 'Output page applied the graphic' , tone: 'ready' });
   });
 
   it('OUTPUT ACTIVE only for a fresh sourceActive === true reading', () => {
@@ -50,7 +51,7 @@ describe('the decision table', () => {
   it('a stale heartbeat downgrades confirmed claims to UNVERIFIED — OUTPUT ACTIVE never latches', () => {
     const staleOutput = output({ sourceActive: true, lastSeenAt: NOW - OUTPUT_STALE_MS - 1 });
     const words = describeProgramStatus(program({ confirmation: 'confirmed' }), staleOutput, NOW);
-    expect(words).toEqual<ProgramStatusWords>({ pill: 'UNVERIFIED', phrase: 'Output status is stale' });
+    expect(words).toEqual<ProgramStatusWords>({ pill: 'UNVERIFIED', phrase: 'Output status is stale' , tone: 'attention' });
   });
 
   it('confirmed with NO presence record at all is also UNVERIFIED, never READY', () => {
@@ -70,14 +71,15 @@ describe('the decision table', () => {
       output({ sourceActive: true }),
       NOW
     );
-    expect(words).toEqual<ProgramStatusWords>({ pill: 'FAILED', phrase: 'Output couldn’t render it' });
+    expect(words).toEqual<ProgramStatusWords>({ pill: 'FAILED', phrase: 'Output couldn’t render it' , tone: 'failed' });
   });
 
   it('clearing reads as a pending command, whatever the presence', () => {
     for (const o of [null, output(), output({ lastSeenAt: NOW - OUTPUT_STALE_MS - 1 })]) {
       expect(describeProgramStatus(program({ status: 'clearing' }), o, NOW)).toEqual<ProgramStatusWords>({
         pill: 'SENT',
-        phrase: 'Clearing — awaiting output'
+        phrase: 'Clearing — awaiting output',
+        tone: 'pending'
       });
     }
   });
@@ -86,9 +88,10 @@ describe('the decision table', () => {
     expect(describeProgramStatus(program({ status: 'recovering' }), null, NOW).pill).toBe('UNVERIFIED');
     expect(describeProgramStatus(program({ status: 'failed' }), null, NOW)).toEqual({
       pill: 'FAILED',
-      phrase: 'Send failed'
+      phrase: 'Send failed',
+      tone: 'failed'
     });
-    expect(describeProgramStatus(program({ status: 'clear' }), null, NOW)).toEqual({ pill: 'CLEAR', phrase: 'Clear' });
+    expect(describeProgramStatus(program({ status: 'clear' }), null, NOW)).toEqual({ pill: 'CLEAR', phrase: 'Clear' , tone: 'idle' });
   });
 });
 
@@ -106,7 +109,8 @@ describe('visibility outranks activity', () => {
   it('claims active only when it is active and not hidden', () => {
     expect(words({ sourceActive: true, sourceVisible: true })).toEqual({
       pill: 'OUTPUT ACTIVE',
-      phrase: 'OBS source active'
+      phrase: 'OBS source active',
+      tone: 'live'
     });
     // Visibility simply unreported is not the same as hidden.
     expect(words({ sourceActive: true, sourceVisible: null }).pill).toBe('OUTPUT ACTIVE');
@@ -115,7 +119,8 @@ describe('visibility outranks activity', () => {
   it('says hidden when the eye is off, even while OBS still calls it active', () => {
     expect(words({ sourceActive: true, sourceVisible: false })).toEqual({
       pill: 'SOURCE HIDDEN',
-      phrase: 'OBS source hidden'
+      phrase: 'OBS source hidden',
+      tone: 'attention'
     });
   });
 
@@ -126,7 +131,8 @@ describe('visibility outranks activity', () => {
   it('says inactive when it is visible but not active', () => {
     expect(words({ sourceActive: false, sourceVisible: true })).toEqual({
       pill: 'SOURCE INACTIVE',
-      phrase: 'OBS source not active'
+      phrase: 'OBS source not active',
+      tone: 'attention'
     });
   });
 
@@ -140,7 +146,8 @@ describe('visibility outranks activity', () => {
     // A plain browser tab, or OBS before it has dispatched either event.
     expect(words({ sourceActive: null, sourceVisible: null })).toEqual({
       pill: 'OUTPUT READY',
-      phrase: 'Output page applied the graphic'
+      phrase: 'Output page applied the graphic',
+      tone: 'ready'
     });
   });
 
@@ -153,7 +160,8 @@ describe('visibility outranks activity', () => {
      */
     expect(describeProgramStatus(confirmed, null, NOW)).toEqual({
       pill: 'UNVERIFIED',
-      phrase: 'Output status is stale'
+      phrase: 'Output status is stale',
+      tone: 'attention'
     });
   });
 
@@ -170,7 +178,7 @@ describe('visibility outranks activity', () => {
       { sourceActive: false, sourceVisible: false },
       { sourceActive: null, sourceVisible: null }
     ]) {
-      expect(words(o, stale)).toEqual({ pill: 'UNVERIFIED', phrase: 'Output status is stale' });
+      expect(words(o, stale)).toEqual({ pill: 'UNVERIFIED', phrase: 'Output status is stale' , tone: 'attention' });
     }
   });
 

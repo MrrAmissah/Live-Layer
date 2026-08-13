@@ -303,12 +303,48 @@ describe('the Program strip is honest', () => {
     expect(owners).toEqual(['ResetLocalData.tsx']);
   });
 
-  it('drives the status chip colour off the real status, never hardcoded green', () => {
-    expect(files.strip).toContain('data-status={program.status}');
-    const chipRules = css.match(/\.dock-program__chip\[data-status='\w+'\]/g) ?? [];
-    // All five Program statuses have their own treatment (clearing joined when
-    // Clear became a pending command awaiting OUTPUT_CLEARED).
-    expect(new Set(chipRules).size).toBe(5);
+  it('drives the status chip colour off the CLAIM, not off Program status', () => {
+    /**
+     * This used to pin `data-status={program.status}`, and that was the defect.
+     * OUTPUT ACTIVE and SOURCE HIDDEN are both `showing`, so the chip painted a
+     * hidden source in live green — the colour contradicting its own label.
+     * The tone is derived beside the words in `describeProgramStatus`, so it
+     * cannot drift from what the pill actually says.
+     */
+    expect(files.strip).toContain('data-tone={words.tone}');
+    expect(files.strip).not.toContain('data-status={program.status}');
+    const chipRules = css.match(/\.dock-program__chip\[data-tone='(\w+)'\]/g) ?? [];
+    const tones = new Set(chipRules.map((rule) => /'(\w+)'/.exec(rule)![1]));
+    // Every tone the vocabulary can produce has a treatment; a new one cannot
+    // ship uncoloured and fall back to the bare chip.
+    expect(tones).toEqual(new Set(['live', 'ready', 'pending', 'attention', 'failed', 'idle']));
+  });
+
+  it('reserves green for OUTPUT ACTIVE alone', () => {
+    // Green is the strongest claim this product makes about a source. It is
+    // earned by an OBS binding reporting active, and by nothing else — a
+    // pending Take or an unverified one borrowing it would be the same lie the
+    // banned word LIVE would be.
+    const status = read('src/lib/programStatus.ts');
+    expect(status).toMatch(/'OUTPUT ACTIVE': 'live'/);
+    const liveTones = [...status.matchAll(/'([A-Z ]+)': 'live'/g)].map((m) => m[1]);
+    expect(liveTones).toEqual(['OUTPUT ACTIVE']);
+    // ...and only the live tone may paint with the live token in the dock.
+    const greenChips = css.match(/\.dock-program__chip\[data-tone='(\w+)'\][^}]*--ll-live-text/g) ?? [];
+    expect(greenChips.every((rule) => rule.includes("data-tone='live'"))).toBe(true);
+  });
+
+  it('moves only for the states that need somebody', () => {
+    // The dock sits inside OBS while the operator watches the programme. Gold
+    // alone is missed at that size; a chip that moved for every state would be
+    // wallpaper within a minute.
+    const animated = css.match(/\.dock-program__chip\[data-tone='(\w+)'\],?\n?(?=[^{]*animation: ll-attention-breath)/g) ?? [];
+    expect(css).toContain('animation: ll-attention-breath');
+    expect(css).not.toMatch(/data-tone='live'[^}]*animation: ll-attention/);
+    expect(css).not.toMatch(/data-tone='idle'[^}]*animation: ll-attention/);
+    // A service is long and some operators cannot tolerate motion at all.
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(animated.length).toBeGreaterThanOrEqual(0);
   });
 });
 

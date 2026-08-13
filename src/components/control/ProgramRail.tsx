@@ -42,10 +42,13 @@ function OutputCard({ program, outputs }: { program: ProgramState; outputs: Outp
   const stalled = describeStalledScreens(outputs, now);
 
   return (
-    <div className={`program-card program-card--${program.status}`}>
+    <div className={`program-card program-card--${program.status}`} data-tone={words.tone}>
       <div className="program-card__row">
         <span className="program-card__label">Output</span>
-        <span className="program-card__badge">{words.phrase}</span>
+        <span className="program-card__badge">
+          <span className="program-card__badge-dot" aria-hidden />
+          {words.phrase}
+        </span>
       </div>
       <div className="program-card__detail">
         {program.status === 'showing' && program.snapshot ? (
@@ -128,7 +131,7 @@ export default function ProgramRail({ onTake, onTakeNext, onClear, onTakeInstanc
   // Ticks at the shared cadence so the pill can fall to UNVERIFIED when the
   // output heartbeat goes stale (staleness is derived from `now`).
   const now = useTicks(programClockMs(program, Date.now()));
-  const statusLabel = describeProgramStatus(program, worstOutput(outputs, now), now).pill;
+  const status = describeProgramStatus(program, worstOutput(outputs, now), now);
 
   return (
     <div className="program-rail">
@@ -139,13 +142,17 @@ export default function ProgramRail({ onTake, onTakeNext, onClear, onTakeInstanc
               styled closely enough to be mistaken for a third — `role="status"`
               names it for assistive tech and the CSS stops it reading as a
               button. */}
+          {/* Coloured by what it CLAIMS, not by Program's status: `showing`
+              covers OUTPUT ACTIVE and SOURCE HIDDEN alike, so keying off it
+              painted a hidden source in the same colour as a live one. */}
           <span
-            className={`program-rail__status program-rail__status--${program.status}`}
+            className="program-rail__status"
+            data-tone={status.tone}
             role="status"
             aria-live="polite"
           >
             <span className="program-rail__status-dot" aria-hidden />
-            {statusLabel}
+            {status.pill}
           </span>
         </div>
 
