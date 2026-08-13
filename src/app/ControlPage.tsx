@@ -30,6 +30,40 @@ import { resolveCanonicalControlPath } from './workspaces/controlPaths';
 import { withUrlState } from '../lib/navigateTo';
 import { PackSwitchGuardProvider } from '../hooks/usePackSwitchGuard';
 
+/**
+ * Where the OBS scene bridge is listening, or '' for off — the default, and
+ * what every machine without OBS gets.
+ *
+ * localStorage rather than an env var for two reasons: this project has no
+ * `vite/client` types wired up, so `import.meta.env` would not typecheck, and a
+ * key can be flipped at the venue without a rebuild. `read()` in
+ * `rundownStore.ts` guards its localStorage the same way.
+ *
+ * On the show machine, once:
+ *   localStorage.setItem('livelayer.obsBridge', 'http://127.0.0.1:7331')
+ */
+const OBS_BRIDGE = (() => {
+  try {
+    return localStorage.getItem('livelayer.obsBridge') ?? '';
+  } catch {
+    return '';
+  }
+})();
+
+/**
+ * The scene this rundown item names, or undefined.
+ *
+ * An explicit `obs:` line in the item's notes wins, so the operator can keep a
+ * human title on screen ("Rev. Mensah — Welcome") and still name a scene. That
+ * is not polish: titles are AUTO-DERIVED from the graphic
+ * (`deriveItemTitle`), so an untouched rundown holds things like "Psalm 90:1"
+ * — which the bridge refuses, correctly, and nothing switches.
+ */
+function obsCueFor(item: { title?: string; notes?: string } | undefined): string | undefined {
+  const cue = /(?:^|\n)\s*obs:\s*(.+)/i.exec(item?.notes ?? '')?.[1]?.trim();
+  return cue || item?.title || undefined;
+}
+
 /** Deep clone so a taken graphic shares no references with editable draft state. */
 function snapshot<T>(value: T): T {
   if (typeof structuredClone === 'function') return structuredClone(value);
@@ -163,6 +197,41 @@ export default function ControlPage() {
     markProgramShowing({ snapshot: instance, commandId: message.id, source });
     setLastAction('taken');
     setLastTakenAt(Date.now());
+
+    /**
+     * Mirror the take to OBS, when a bridge is configured and listening.
+     *
+     * INSIDE the one door, not beside it. `publishShow` is the single publish
+     * path — the draft, the selected rundown item and the quick queue all come
+     * through here, and `takeNextWiring.test.ts` forbids a second one. A scene
+     * switch that could fire without a Take is a scene switch that will.
+     *
+     * Fire-and-forget by contract. The graphic is already published and Program
+     * already recorded, so a bridge that is off, unreachable or wedged must
+     * change nothing above: no await (a wedged bridge would stall a Take), no
+     * failure path (the graphic reached air, only the mirror did not), and no
+     * effect on the returned value, which drives the live cursor.
+     *
+     * RUNDOWN ONLY. The draft and the quick queue have no segment to match, and
+     * a stray label would push OBS to an unrelated scene mid-service.
+     *
+     * `.catch` is what stops an unhandled rejection: `fetch` rejects on
+     * connection refused. A 404 — the bridge running but refusing to guess at
+     * an unmatched label — resolves normally and is silent by design, which is
+     * why the rundown has to be swept with the bridge's `/map` before a service
+     * rather than discovered on air.
+     */
+    if (OBS_BRIDGE && source.sourceType === 'rundown' && source.sourceId) {
+      const rundownId = getActiveRundownId();
+      const item = rundownId
+        ? getRundown(rundownId)?.items.find((entry) => entry.id === source.sourceId)
+        : undefined;
+      const label = obsCueFor(item);
+      if (label) {
+        void fetch(`${OBS_BRIDGE}/goto?name=${encodeURIComponent(label)}`).catch(() => {});
+      }
+    }
+
     return outcome.addRecent && outcome.advanceLiveCursor;
   };
 
