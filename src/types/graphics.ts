@@ -154,7 +154,8 @@ export type ControlCommandType =
   | 'CLEAR_ALL'
   | 'UPDATE_PREVIEW'
   | 'LOAD_PRESET'
-  | 'SET_THEME';
+  | 'SET_THEME'
+  | 'SET_SCRIPTURE_OUTPUTS';
 
 export type OutputEventType =
   | 'OUTPUT_APPLIED'
@@ -206,13 +207,31 @@ export interface SetThemeMessage {
   timestamp: number;
 }
 
+/**
+ * Which look each named screen renders for a scripture card
+ * (`lib/scriptureOutputs.ts`). On the wire because the control surface and a
+ * browser source are usually different BROWSERS — Chrome and OBS CEF share no
+ * localStorage, so a setting that only persists locally never reaches the
+ * screen it configures.
+ *
+ * It changes no graphic and no Program record: an output applies it the next
+ * time it renders a scripture card, and every other template ignores it.
+ */
+export interface SetScriptureOutputsMessage {
+  id: string;
+  type: 'SET_SCRIPTURE_OUTPUTS';
+  payload: Record<string, string>;
+  timestamp: number;
+}
+
 export type ControlCommandMessage =
   | ShowGraphicMessage
   | HideGraphicMessage
   | ClearAllMessage
   | UpdatePreviewMessage
   | LoadPresetMessage
-  | SetThemeMessage;
+  | SetThemeMessage
+  | SetScriptureOutputsMessage;
 
 /**
  * Output acknowledged that a SHOW command was parsed, its assets were prepared
@@ -272,6 +291,13 @@ export interface OutputStatusMessage {
     outputId: string;
     sourceActive: boolean | null;
     sourceVisible: boolean | null;
+    /**
+     * Which named screen this page is (`lib/scriptureOutputs.ts`). Optional
+     * because an older output does not send it, and reported so the desk can
+     * say WHICH screen stopped rather than that one of them did — a session id
+     * names nothing an operator can go and fix.
+     */
+    screen?: string;
   };
   timestamp: number;
 }

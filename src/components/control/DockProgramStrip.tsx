@@ -1,6 +1,7 @@
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { useDockPrefs } from '../../store/useDockPrefs';
-import { describeProgramStatus } from '../../lib/programStatus';
+import { describeProgramStatus, describeStalledScreens } from '../../lib/programStatus';
+import { worstOutput } from '../../lib/outputPresence';
 import { describeGraphic } from '../../lib/graphicTitle';
 import { useTicks, elapsed, ago } from '../../hooks/useTicks';
 import { programClockMs } from '../../lib/programClock';
@@ -46,7 +47,7 @@ interface DockProgramStripProps {
  */
 export default function DockProgramStrip({ onTake, onTakeNext, onClear, sending = false, lastAction }: DockProgramStripProps) {
   const program = useLiveLayerStore((state) => state.program);
-  const output = useLiveLayerStore((state) => state.outputStatus);
+  const outputs = useLiveLayerStore((state) => state.outputs);
   /**
    * The operator's persisted preference, and only that. The SHORT-DOCK override
    * is CSS (`@container dock (max-height: 470px)`) — the dock has a definite
@@ -67,7 +68,10 @@ export default function DockProgramStrip({ onTake, onTakeNext, onClear, sending 
   // tick is also what lets a confirmed claim DECAY — staleness is derived from
   // `now`, so a surface that never ticked would leave OUTPUT ACTIVE latched
   // after OBS closed.
-  const words = describeProgramStatus(program, output, now);
+  const words = describeProgramStatus(program, worstOutput(outputs, now), now);
+  // Same reason as the studio's Output card: with two browser sources the pill
+  // says stale without saying which source stopped.
+  const stalled = describeStalledScreens(outputs, now);
 
   const snapshotMeta = program.snapshot ? describeGraphic(program.snapshot) : null;
   // Clock on the chip only while SHOWING — same rule as the studio's OutputCard.
@@ -121,6 +125,14 @@ export default function DockProgramStrip({ onTake, onTakeNext, onClear, sending 
           <span className="dock-program__sub" title={sub}>{sub}</span>
         </span>
       </div>
+
+      {/* Nothing at all while every screen reports — a permanent warning row
+          is a warning nobody reads. */}
+      {stalled ? (
+        <p className="dock-program__stalled" role="status">
+          {stalled}
+        </p>
+      ) : null}
 
       <LiveActions surface="dock" onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} lastAction={lastAction} />
     </section>

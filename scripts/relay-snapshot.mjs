@@ -19,19 +19,27 @@
  *              so a late ack for a superseded command can never be replayed
  *              beside the command it does not answer.
  *   status   — latest OUTPUT_STATUS (host-source state heartbeat).
+ *   scriptureOutputs — latest SET_SCRIPTURE_OUTPUTS (which look each named
+ *              screen renders). Retained rather than relayed-and-forgotten
+ *              because it is CONFIGURATION, not traffic: a browser source that
+ *              connects an hour after the operator set it must still get it,
+ *              and on a Chrome-control/OBS-CEF rig this replay is the only way
+ *              it ever can (the two browsers share no localStorage).
  *   outputLastSeenAt — relay-clock time of the last output event of any kind.
  *
- * Replay order is command → ack → status: an output restores its graphic
- * before any control draws conclusions, and a control hydrates the command
- * before the ack that confirms it.
+ * Replay order is scriptureOutputs → command → ack → status: a reconnecting
+ * output knows how it paints before it is told what to paint, so a restored
+ * scripture card never flashes the main screen's look on the split scene. Then
+ * a control hydrates the command before the ack that confirms it.
  */
 
 const AIR_COMMAND_TYPES = new Set(['SHOW_GRAPHIC', 'HIDE_GRAPHIC', 'CLEAR_ALL']);
 const TRANSIENT_COMMAND_TYPES = new Set(['UPDATE_PREVIEW', 'LOAD_PRESET', 'SET_THEME']);
+const SCRIPTURE_OUTPUTS_TYPE = 'SET_SCRIPTURE_OUTPUTS';
 const OUTPUT_ACK_TYPES = new Set(['OUTPUT_APPLIED', 'OUTPUT_CLEARED', 'OUTPUT_FAILED']);
 
 export function createRelaySnapshot() {
-  return { command: null, ack: null, status: null, outputLastSeenAt: null };
+  return { command: null, ack: null, status: null, scriptureOutputs: null, outputLastSeenAt: null };
 }
 
 function isRecord(value) {
@@ -63,6 +71,15 @@ export function validateRelayMessage(value) {
   }
 
   const { type, payload } = value;
+  if (type === SCRIPTURE_OUTPUTS_TYPE) {
+    // Flat string->string only. Which screens and variants are real is the
+    // client's registry question, not the relay's — the relay is transport.
+    if (!isRecord(payload)) return { ok: false, error: `${type} payload must be an object` };
+    if (Object.values(payload).some((variantId) => !isNonEmptyString(variantId))) {
+      return { ok: false, error: `${type} maps a screen to something that is not a variant id` };
+    }
+    return { ok: true, message: value };
+  }
   if (AIR_COMMAND_TYPES.has(type) || TRANSIENT_COMMAND_TYPES.has(type)) {
     if (!isRecord(payload)) return { ok: false, error: `${type} payload must be an object` };
     return { ok: true, message: value };
@@ -87,6 +104,11 @@ export function validateRelayMessage(value) {
 
 /** Pure: (snapshot, validated message, now) → next snapshot. */
 export function reduceRelaySnapshot(snapshot, message, now) {
+  if (message.type === SCRIPTURE_OUTPUTS_TYPE) {
+    // Its own slot, so a burst of commands can never evict it — this is the
+    // only copy a cross-browser output will ever see.
+    return { ...snapshot, scriptureOutputs: message };
+  }
   if (AIR_COMMAND_TYPES.has(message.type)) {
     // A new command supersedes the previous one AND the ack that answered it —
     // keeping the old ack would replay a confirmation beside a command it
@@ -116,9 +138,13 @@ export function reduceRelaySnapshot(snapshot, message, now) {
 
 /**
  * What a new SSE client receives, in an order that is safe to apply blindly:
- * the command first (restores `/output` and hydrates control Program), then
- * the matching ack (confirms it), then the latest source status.
+ * the per-screen looks first (so a restored scripture card is painted the way
+ * this screen is configured rather than flashing the default), then the command
+ * (restores `/output` and hydrates control Program), then the matching ack
+ * (confirms it), then the latest source status.
  */
 export function snapshotReplay(snapshot) {
-  return [snapshot.command, snapshot.ack, snapshot.status].filter((entry) => entry !== null);
+  return [snapshot.scriptureOutputs, snapshot.command, snapshot.ack, snapshot.status].filter(
+    (entry) => entry !== null
+  );
 }

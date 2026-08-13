@@ -3,6 +3,7 @@ import { RELAY_LABEL } from '../../lib/relayReadiness';
 import type { RelayStatus } from '../../hooks/useRelayStatus';
 import { Icon } from '../../lib/icons';
 import ResetLocalData from './ResetLocalData';
+import ScriptureOutputsPanel from './ScriptureOutputsPanel';
 import { useServiceContext, setServiceContext } from '../../hooks/useServiceContext';
 import { isConfiguredStart } from '../../lib/serviceContext';
 
@@ -88,6 +89,13 @@ export default function DockSettingsTab({ relay }: DockSettingsTabProps) {
               : 'Set a start time to use the event time and countdown fields.'}
           </span>
         </label>
+      </section>
+
+      {/* Scripture Outputs. Above Connection because it is something the
+          operator SETS; Connection only reports. */}
+      <section className="dock-card">
+        <span className="ll-kicker">Scripture Outputs</span>
+        <ScriptureOutputsPanel />
       </section>
 
       <section className="dock-card">

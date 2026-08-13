@@ -14,6 +14,8 @@ import {
   reduceRelaySnapshot,
   snapshotReplay
 } from '../../scripts/relay-snapshot.mjs';
+import { outputPresence, overallPresence, stalledOutputs } from './outputPresence';
+import { describeStalledScreens } from './programStatus';
 
 /**
  * The Program sync reducer — the rule that makes two control clients tell one
@@ -70,17 +72,25 @@ function outputFailed(commandId: string, reason: string, timestamp: number): Rea
   };
 }
 
-function outputStatus(sourceActive: boolean | null, timestamp: number, outputId = 'out-1'): RealtimeMessage {
+function outputStatus(
+  sourceActive: boolean | null,
+  timestamp: number,
+  outputId = 'out-1',
+  screen?: string
+): RealtimeMessage {
   return {
-    id: `st-${timestamp}`,
+    id: `st-${timestamp}-${outputId}`,
     type: 'OUTPUT_STATUS',
-    payload: { outputId, sourceActive, sourceVisible: sourceActive },
+    payload: { outputId, sourceActive, sourceVisible: sourceActive, ...(screen ? { screen } : {}) },
     timestamp
   };
 }
 
 function clientState(program: Partial<ProgramState> = {}, output: OutputStatusState | null = null): ProgramSyncState {
-  return { program: { ...CLEAR_PROGRAM_STATE, ...program }, outputStatus: output };
+  return {
+    program: { ...CLEAR_PROGRAM_STATE, ...program },
+    outputs: output ? { [output.outputId]: output } : {}
+  };
 }
 
 /** Apply a change the way the store does: absent field = unchanged. */
@@ -88,7 +98,7 @@ function apply(state: ProgramSyncState, message: RealtimeMessage, now: number): 
   const change = reduceRealtimeMessage(state, message, now);
   return {
     program: change.program ?? state.program,
-    outputStatus: change.outputStatus ?? state.outputStatus
+    outputs: change.outputs ?? state.outputs
   };
 }
 
@@ -196,7 +206,7 @@ describe('acknowledgement matching — the load-bearing rule', () => {
     expect(next.program.confirmation).toBe('unconfirmed');
     expect(next.program.appliedAt).toBeNull();
     // …but the ack still proves the output page is alive.
-    expect(next.outputStatus?.lastSeenAt).toBe(T0 + 110);
+    expect(next.outputs['out-1']?.lastSeenAt).toBe(T0 + 110);
   });
 
   it('OUTPUT_FAILED with the matching commandId surfaces the failure', () => {
@@ -305,11 +315,14 @@ describe('output presence', () => {
     const showing = apply(clientState(), show('cmd-A', T0), T0);
     const change = reduceRealtimeMessage(showing, outputStatus(true, T0 + 10), T0 + 42);
     expect(change.program).toBeUndefined();
-    expect(change.outputStatus).toEqual({
-      outputId: 'out-1',
-      sourceActive: true,
-      sourceVisible: true,
-      lastSeenAt: T0 + 42 // receiver clock, not the message's
+    expect(change.outputs).toEqual({
+      'out-1': {
+        outputId: 'out-1',
+        sourceActive: true,
+        sourceVisible: true,
+        lastSeenAt: T0 + 42, // receiver clock, not the message's
+        screen: null // this fixture's output names no screen
+      }
     });
   });
 
@@ -317,16 +330,46 @@ describe('output presence', () => {
     const withStatus = apply(clientState(), outputStatus(true, T0), T0);
     const state = apply(withStatus, show('cmd-A', T0 + 1), T0 + 1);
     const next = apply(state, applied('cmd-A', T0 + 10), T0 + 10);
-    expect(next.outputStatus?.sourceActive).toBe(true); // same output session: reading survives
-    expect(next.outputStatus?.lastSeenAt).toBe(T0 + 10);
+    expect(next.outputs['out-1']?.sourceActive).toBe(true); // same output session: reading survives
+    expect(next.outputs['out-1']?.lastSeenAt).toBe(T0 + 10);
   });
 
-  it("a different output session's ack resets source readings to unknown", () => {
+  it("a second screen's ack opens its own record and leaves the first screen's alone", () => {
+    // The defect the map exists to fix. With a single record, out-2's ack was
+    // rebuilt from scratch and out-1's `sourceActive: true` was discarded as
+    // somebody else's story — so the desk reported whichever screen spoke last
+    // instead of whether both were up.
     const withStatus = apply(clientState(), outputStatus(true, T0), T0);
     const state = apply(withStatus, show('cmd-A', T0 + 1), T0 + 1);
     const next = apply(state, applied('cmd-A', T0 + 10, 'out-2'), T0 + 10);
-    expect(next.outputStatus?.outputId).toBe('out-2');
-    expect(next.outputStatus?.sourceActive).toBeNull();
+    expect(next.outputs['out-2']?.sourceActive).toBeNull(); // an ack carries no source reading
+    expect(next.outputs['out-2']?.lastSeenAt).toBe(T0 + 10);
+    expect(next.outputs['out-1']?.sourceActive).toBe(true); // ...and out-1 is untouched
+    expect(next.outputs['out-1']?.lastSeenAt).toBe(T0);
+  });
+
+  it('two screens are tracked independently, and each goes stale on its own', () => {
+    let state = apply(clientState(), outputStatus(true, T0, 'out-1', 'main'), T0);
+    state = apply(state, outputStatus(true, T0, 'out-2', 'split'), T0);
+    state = apply(state, outputStatus(true, T0 + 60_000, 'out-1'), T0 + 60_000);
+    // out-1 kept reporting; out-2 stopped 60s ago. Worst case wins, so the desk
+    // says stale rather than live.
+    expect(outputPresence(state.outputs['out-1'], T0 + 60_000)).toBe('fresh');
+    expect(outputPresence(state.outputs['out-2'], T0 + 60_000)).toBe('stale');
+    expect(overallPresence(state.outputs, T0 + 60_000)).toBe('stale');
+    expect(stalledOutputs(state.outputs, T0 + 60_000).map((o) => o.outputId)).toEqual(['out-2']);
+    // The dead screen is NAMED. An output session id is not something an
+    // operator can go and fix; "Split screen" is.
+    expect(describeStalledScreens(state.outputs, T0 + 60_000)).toBe('Split screen has stopped reporting');
+    // ...and the name survives the screen going quiet, because it was recorded
+    // when the screen was still speaking.
+    expect(state.outputs['out-1']?.screen).toBe('main');
+  });
+
+  it('nothing is said while every screen is reporting', () => {
+    let state = apply(clientState(), outputStatus(true, T0, 'out-1', 'main'), T0);
+    state = apply(state, outputStatus(true, T0, 'out-2', 'split'), T0);
+    expect(describeStalledScreens(state.outputs, T0 + 1000)).toBeNull();
   });
 });
 
@@ -429,7 +472,7 @@ describe('two control clients and the relay snapshot', () => {
     }
     expect(dock.program.status).toBe('showing');
     expect(dock.program.confirmation).toBe('confirmed');
-    expect(dock.outputStatus?.sourceActive).toBe(true);
+    expect(dock.outputs['out-1']?.sourceActive).toBe(true);
   });
 
   it('two clients that heard the same traffic hold identical Program cores', () => {

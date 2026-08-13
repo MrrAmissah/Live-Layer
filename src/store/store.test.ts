@@ -24,7 +24,7 @@ beforeEach(() => {
   useLiveLayerStore.setState({
     program: { ...CLEAR_PROGRAM_STATE },
     quickQueue: [],
-    outputStatus: null,
+    outputs: {},
     pendingOutputAcks: []
   });
 });

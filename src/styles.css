@@ -9518,6 +9518,47 @@ body.gfx-transparent {
   background: rgba(32, 165, 250, 0.08); border: 1px solid rgba(32, 165, 250, 0.24);
 }
 .control-root .dock-set__link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; }
+
+/* A screen that stopped reporting, NAMED. Amber rather than red: the graphic
+   on air is unaffected, and a red row beside a working Program reads as a
+   failure that has not happened. */
+.control-root .program-card__stalled,
+.control-root .dock-program__stalled {
+  margin: 6px 0 0; padding: 5px 8px; border-radius: 5px;
+  font-size: 11.5px; line-height: 1.4; color: #ffcf8f;
+  background: rgba(255, 176, 62, 0.09); border: 1px solid rgba(255, 176, 62, 0.26);
+}
+
+/* --- Scripture Outputs -----------------------------------------------------
+   A mapping the operator can READ. Each row is one browser source: its name,
+   the address that makes it that screen, and the look it renders. The address
+   is the load-bearing part — it is the only place the OBS source and this row
+   are visibly the same thing — so it is set in mono and never truncated. */
+.control-root .scr-out { display: flex; flex-direction: column; gap: 12px; }
+.control-root .scr-out__intro { margin: 0; }
+.control-root .scr-out__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 44%);
+  align-items: center;
+  gap: 6px 10px;
+}
+.control-root .scr-out__label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.control-root .scr-out__name { font-size: 13px; font-weight: 640; color: var(--ll-text); }
+.control-root .scr-out__url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--ll-blue); overflow-wrap: anywhere;
+}
+.control-root .scr-out__select { justify-self: stretch; }
+.control-root .scr-out__select select { width: 100%; }
+/* Spans both columns so a full sentence never squeezes the picker. */
+.control-root .scr-out__hint {
+  grid-column: 1 / -1;
+  font-size: 11.5px; line-height: 1.4; color: var(--ll-muted-2);
+}
+/* Narrow docks stack: a 132px picker beside a URL is unreadable at 320px. */
+@container dock (max-width: 380px) {
+  .control-root .scr-out__row { grid-template-columns: minmax(0, 1fr); }
+}
 .control-root .dock-set__danger { border-color: rgba(244, 63, 94, 0.22); }
 
 /* NEXT — a position in the list, never an on-air claim, so it wears the

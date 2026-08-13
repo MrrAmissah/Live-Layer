@@ -38,7 +38,7 @@ const PERSON: PersonProfile = {
 beforeEach(() => {
   useLiveLayerStore.setState({
     program: { ...CLEAR_PROGRAM_STATE },
-    outputStatus: null,
+    outputs: {},
     pendingOutputAcks: [],
     currentTemplateId: 'preacher-lower-third',
     draftValues: { name: 'Rev. Ishmael K. Awotwe', title: 'Lead Pastor', subtitle: 'Old Church' }
@@ -64,7 +64,7 @@ describe('the draft path', () => {
     // Same reference: authoring did not touch Program at all.
     expect(after).toBe(before);
     expect(after.status).toBe('clear');
-    expect(useLiveLayerStore.getState().outputStatus).toBeNull();
+    expect(useLiveLayerStore.getState().outputs).toEqual({});
   });
 
   it('does not change the template', () => {

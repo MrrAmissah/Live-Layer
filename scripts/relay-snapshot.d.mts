@@ -10,6 +10,7 @@ export interface RelaySnapshot {
   command: RealtimeMessage | null;
   ack: RealtimeMessage | null;
   status: RealtimeMessage | null;
+  scriptureOutputs: RealtimeMessage | null;
   outputLastSeenAt: number | null;
 }
 

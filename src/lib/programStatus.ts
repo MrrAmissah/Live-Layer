@@ -1,5 +1,6 @@
-import type { OutputStatusState, ProgramState } from '../types/program';
-import { outputPresence } from './outputPresence';
+import type { OutputStatusMap, OutputStatusState, ProgramState } from '../types/program';
+import { outputPresence, stalledOutputs } from './outputPresence';
+import { screenDisplayName } from './scriptureOutputs';
 
 /**
  * The one place Program status becomes words.
@@ -113,4 +114,26 @@ export function describeProgramStatus(
     default:
       return { pill: 'CLEAR', phrase: 'Clear' };
   }
+}
+
+/**
+ * WHICH screen went quiet — the sentence the pill cannot say.
+ *
+ * `describeProgramStatus` reduces the whole rig to one phrase, and with several
+ * browser sources up that phrase falls to UNVERIFIED without saying which
+ * source to go and look at. That is precisely the failure two outputs
+ * introduce: the split screen can die mid-service while the main one keeps the
+ * heartbeat alive, and "Output status is stale" sends the operator hunting.
+ *
+ * Returns null while every known screen is reporting, which is the normal case
+ * and must render nothing at all — a permanent warning row is a warning nobody
+ * reads.
+ */
+export function describeStalledScreens(outputs: OutputStatusMap, now: number): string | null {
+  const stalled = stalledOutputs(outputs, now);
+  if (!stalled.length) return null;
+  // One is the case worth naming. Beyond that the rig has a bigger problem than
+  // which source it is, and listing four names in a status card helps nobody.
+  if (stalled.length === 1) return `${screenDisplayName(stalled[0].screen)} has stopped reporting`;
+  return `${stalled.length} output screens have stopped reporting`;
 }

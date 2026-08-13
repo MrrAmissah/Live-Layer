@@ -17,6 +17,7 @@ const STORAGE_KEYS = {
   scriptureFavorites: 'livelayer.scriptureFavorites',
   dockPrefs: 'livelayer.dockPrefs',
   serviceContext: 'livelayer.serviceContext',
+  scriptureOutputs: 'livelayer.scriptureOutputs',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
@@ -36,6 +37,20 @@ export const SCRIPTURE_FAVORITES_KEY = STORAGE_KEYS.scriptureFavorites;
 /** The service being produced. Registered here so "Reset all local data" clears
  *  it with everything else. */
 export const SERVICE_CONTEXT_KEY = STORAGE_KEYS.serviceContext;
+
+/**
+ * Which look each named screen renders for a scripture card.
+ *
+ * The key is registered here so "Reset all local data" clears it with
+ * everything else; the READ lives in `lib/scriptureOutputs.ts` because the
+ * output page needs it and may not import this module. The write stays here,
+ * where writing is what this module is for.
+ */
+export const SCRIPTURE_OUTPUTS_KEY = STORAGE_KEYS.scriptureOutputs;
+
+export function saveScriptureOutputs(outputs: Record<string, string>) {
+  safeWrite(STORAGE_KEYS.scriptureOutputs, outputs);
+}
 
 const DEFAULT_THEME: TemplateDefinition['theme'] = {
   primaryColor: '#f8fafc',

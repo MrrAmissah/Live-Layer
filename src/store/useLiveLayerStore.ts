@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { GraphicInstance, QuickQueueItem, RealtimeMessage, TemplateDefinition } from '../types/graphics';
-import type { OutputStatusState, ProgramSourceType, ProgramState } from '../types/program';
+import type { OutputStatusMap, ProgramSourceType, ProgramState } from '../types/program';
+import {
+  loadScriptureOutputs,
+  sanitizeScriptureOutputs,
+  type ScriptureOutputMap,
+  type ScriptureOutputScreen
+} from '../lib/scriptureOutputs';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 import {
   bufferPendingAck,
@@ -12,7 +18,7 @@ import {
 } from '../lib/programSync';
 import type { PersonProfile } from '../types/people';
 import type { LayoutSettings } from '../types/layout';
-import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, saveExplicitBrandKeys, savePresets, saveProgram, saveQuickQueue, saveRecentGraphics, type ExplicitBrandKey } from '../lib/storage';
+import { clearAllData, defaultBrandTheme, loadBrandOverrides, loadExplicitBrandKeys, loadPresets, loadProgram, loadQuickQueue, loadRecentGraphics, saveBrandOverrides, saveExplicitBrandKeys, savePresets, saveProgram, saveQuickQueue, saveScriptureOutputs, saveRecentGraphics, type ExplicitBrandKey } from '../lib/storage';
 import { clearAllAssets } from '../lib/assets/assetStore';
 import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
@@ -74,8 +80,16 @@ interface LiveLayerState {
   updateQuickQueueItem: (update: QuickQueueUpdate) => QuickQueueUpdateResult;
   /** Operator-side record of what has been commanded on air (never a second protocol). */
   program: ProgramState;
-  /** Latest liveness/source reading OF the output page. Never persisted. */
-  outputStatus: OutputStatusState | null;
+  /**
+   * Liveness/source readings of every output screen that has spoken, keyed by
+   * output session id. Never persisted — presence is about right now.
+   *
+   * A map rather than one record because a second browser source is an
+   * ordinary rig, not an exotic one: with a single slot the two screens
+   * overwrote each other every few seconds and the desk reported whichever
+   * spoke last instead of whether both were up.
+   */
+  outputs: OutputStatusMap;
   /** Acks that arrived before their command was recorded (see programSync.ts —
    *  a same-browser output acknowledges over BroadcastChannel faster than the
    *  relay answers the publish POST). Drained by markProgramShowing/Clearing. */
@@ -101,6 +115,12 @@ interface LiveLayerState {
   setFields: (patch: Record<string, string>) => void;
   setTheme: (theme: Partial<TemplateDefinition['theme']>) => void;
   setLayout: (layout: Partial<LayoutSettings>) => void;
+  /**
+   * Which look each named screen renders for a scripture card. Scripture only
+   * — see `lib/scriptureOutputs.ts` for why the boundary is hard.
+   */
+  scriptureOutputs: ScriptureOutputMap;
+  setScriptureOutput: (screen: ScriptureOutputScreen, variantId: string) => void;
   resetLayout: () => void;
   setDurationSeconds: (duration: number) => void;
   resetDraft: () => void;
@@ -300,7 +320,8 @@ export const useLiveLayerStore = create<LiveLayerState>()(
       set({ quickQueue: next });
       return { ok: true, item: updated };
     },
-    outputStatus: null,
+    outputs: {},
+    scriptureOutputs: loadScriptureOutputs(),
     pendingOutputAcks: [],
     markProgramShowing: ({ snapshot, commandId, source }) =>
       set((state) => {
@@ -321,12 +342,12 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         // A same-browser output may have acknowledged this command before we
         // got here (ack-before-mark race) — settle with anything buffered.
         const drained = drainPendingAcks(
-          { program: next, outputStatus: state.outputStatus },
+          { program: next, outputs: state.outputs },
           state.pendingOutputAcks,
           Date.now()
         );
         saveProgram(drained.program);
-        return { program: drained.program, outputStatus: drained.outputStatus, pendingOutputAcks: drained.pending };
+        return { program: drained.program, outputs: drained.outputs, pendingOutputAcks: drained.pending };
       }),
     /**
      * A published Clear is a command like any other: until output answers with
@@ -359,18 +380,18 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         // acknowledged instantly (no asset work), so a same-browser output's
         // OUTPUT_CLEARED reliably beats the relay's POST response.
         const drained = drainPendingAcks(
-          { program: next, outputStatus: state.outputStatus },
+          { program: next, outputs: state.outputs },
           state.pendingOutputAcks,
           Date.now()
         );
         saveProgram(drained.program);
-        return { program: drained.program, outputStatus: drained.outputStatus, pendingOutputAcks: drained.pending };
+        return { program: drained.program, outputs: drained.outputs, pendingOutputAcks: drained.pending };
       }),
     applyRealtimeMessage: (message) =>
       set((state) => {
         const now = Date.now();
         const change = reduceRealtimeMessage(
-          { program: state.program, outputStatus: state.outputStatus },
+          { program: state.program, outputs: state.outputs },
           message,
           now
         );
@@ -381,7 +402,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         const pendingOutputAcks = bufferPendingAck(state.pendingOutputAcks, refusedAck, now);
         return {
           ...(change.program ? { program: change.program } : {}),
-          ...(change.outputStatus ? { outputStatus: change.outputStatus } : {}),
+          ...(change.outputs ? { outputs: change.outputs } : {}),
           ...(pendingOutputAcks !== state.pendingOutputAcks ? { pendingOutputAcks } : {})
         };
       }),
@@ -472,6 +493,12 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         saveBrandOverrides(brandTheme);
         saveExplicitBrandKeys(explicitBrandKeys);
         return { theme: next, brandTheme, explicitBrandKeys };
+      }),
+    setScriptureOutput: (screen, variantId) =>
+      set((state) => {
+        const next = sanitizeScriptureOutputs({ ...state.scriptureOutputs, [screen]: variantId });
+        saveScriptureOutputs(next);
+        return { scriptureOutputs: next };
       }),
     setLayout: (layout) =>
       set((state) => ({

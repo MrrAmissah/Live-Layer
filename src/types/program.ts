@@ -62,11 +62,28 @@ export interface ProgramState {
  * (`lib/outputPresence.ts`) compares like with like and machine clock skew
  * cannot latch a dead output as fresh.
  */
+/**
+ * Presence for EVERY screen, keyed by output session id.
+ *
+ * It was a single record. With one browser source that was the whole truth;
+ * with two it is a lie — `refreshPresence` rebuilt the record around whichever
+ * output acked last, so the desk reported the most recent speaker rather than
+ * whether both screens were up. A split screen could die mid-service and the
+ * indicator would stay green because the main screen was still talking.
+ */
+export type OutputStatusMap = Record<string, OutputStatusState>;
+
 export interface OutputStatusState {
   outputId: string;
   sourceActive: boolean | null;
   sourceVisible: boolean | null;
   lastSeenAt: number;
+  /**
+   * The named screen that reported (`lib/scriptureOutputs.ts`), when it said.
+   * Null until a status message names one — an acknowledgement carries no
+   * screen, and an older output sends none at all.
+   */
+  screen: string | null;
 }
 
 export const CLEAR_PROGRAM_STATE: ProgramState = {

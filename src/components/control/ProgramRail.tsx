@@ -2,14 +2,15 @@ import { useLocation } from 'react-router-dom';
 import { useLiveLayerStore } from '../../store/useLiveLayerStore';
 import { templateRegistry } from '../templates/registry';
 import { useLiveTakeContext } from '../../hooks/useLiveTakeContext';
-import { describeProgramStatus } from '../../lib/programStatus';
+import { describeProgramStatus, describeStalledScreens } from '../../lib/programStatus';
+import { worstOutput } from '../../lib/outputPresence';
 // Shared with the dock's Program strip — one title rule, one clock.
 import { graphicTitle } from '../../lib/graphicTitle';
 import { useTicks, elapsed, ago } from '../../hooks/useTicks';
 import { programClockMs } from '../../lib/programClock';
 import LiveActions from './LiveActions';
 import type { GraphicInstance } from '../../types/graphics';
-import type { OutputStatusState, ProgramState } from '../../types/program';
+import type { OutputStatusMap, ProgramState } from '../../types/program';
 import { Icon } from '../../lib/icons';
 import LiveSettings from './LiveSettings';
 import RailQueue from './RailQueue';
@@ -28,14 +29,17 @@ function templateName(templateId: string | null): string {
  * arrives, OUTPUT READY / OUTPUT ACTIVE only while the output heartbeat is
  * fresh, never a confident LIVE. Flat surface, status word right-aligned.
  */
-function OutputCard({ program, output }: { program: ProgramState; output: OutputStatusState | null }) {
+function OutputCard({ program, outputs }: { program: ProgramState; outputs: OutputStatusMap }) {
   // The cleared readout is a live counter too — it used to freeze because the
   // clock only ran for on-air states. Both branches tick; each drops to a
   // one-minute cadence once it is only reporting whole minutes.
   // Shared cadence rule (`lib/programClock.ts`). The `showing` tick is also
   // what lets a confirmed reading fall to UNVERIFIED once the heartbeat lapses.
   const now = useTicks(programClockMs(program, Date.now()));
-  const words = describeProgramStatus(program, output, now);
+  const words = describeProgramStatus(program, worstOutput(outputs, now), now);
+  // Named, because the pill reduces every screen to one phrase and an operator
+  // told "stale" with two browser sources up does not know which to go and fix.
+  const stalled = describeStalledScreens(outputs, now);
 
   return (
     <div className={`program-card program-card--${program.status}`}>
@@ -87,6 +91,11 @@ function OutputCard({ program, output }: { program: ProgramState; output: Output
             {program.clearedAt ? <>Cleared {ago(program.clearedAt, now)}</> : 'Ready — nothing on air'}
           </span>
         )}
+        {stalled ? (
+          <span className="program-card__stalled" role="status">
+            {stalled}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -110,7 +119,7 @@ interface ProgramRailProps {
  */
 export default function ProgramRail({ onTake, onTakeNext, onClear, onTakeInstance, onEditInstance, sending = false }: ProgramRailProps) {
   const program = useLiveLayerStore((state) => state.program);
-  const output = useLiveLayerStore((state) => state.outputStatus);
+  const outputs = useLiveLayerStore((state) => state.outputs);
   // The rail rides along in every workspace, so it hands the editable list to
   // the Rundown workspace when that is what the operator is looking at.
   const managingRundown = useLocation().pathname.startsWith('/control/rundown');
@@ -119,7 +128,7 @@ export default function ProgramRail({ onTake, onTakeNext, onClear, onTakeInstanc
   // Ticks at the shared cadence so the pill can fall to UNVERIFIED when the
   // output heartbeat goes stale (staleness is derived from `now`).
   const now = useTicks(programClockMs(program, Date.now()));
-  const statusLabel = describeProgramStatus(program, output, now).pill;
+  const statusLabel = describeProgramStatus(program, worstOutput(outputs, now), now).pill;
 
   return (
     <div className="program-rail">
@@ -140,7 +149,7 @@ export default function ProgramRail({ onTake, onTakeNext, onClear, onTakeInstanc
           </span>
         </div>
 
-        <OutputCard program={program} output={output} />
+        <OutputCard program={program} outputs={outputs} />
 
         <div className="program-rail__actions">
           <LiveActions surface="studio" onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} />

@@ -94,7 +94,10 @@ describe('the vocabulary stays in one place', () => {
       'src/components/control/StudioLiveBar.tsx'
     ]) {
       const source = read(path);
-      expect(source, path).toMatch(/describeProgramStatus\(program, output(Status)?, now\)/);
+      // Every surface reduces the whole map through `worstOutput` rather than
+      // picking a screen of its own — with two browser sources up, a surface
+      // that read only one would claim OUTPUT ACTIVE while the other sat hidden.
+      expect(source, path).toMatch(/describeProgramStatus\(program, worstOutput\(outputs, now\), now\)/);
       // Awake surfaces: staleness is derived from `now`, so a surface that
       // never ticks would leave OUTPUT ACTIVE latched after OBS closes.
       expect(source, path).toContain('useTicks(programClockMs(program, Date.now()))');

@@ -78,6 +78,27 @@ export default function ControlPage() {
   }, []);
 
   /**
+   * BROADCAST THE PER-SCREEN LOOKS.
+   *
+   * Scripture Outputs is a SETTING, and a setting normally just persists — but
+   * the screen it configures is usually a different browser. Chrome and OBS CEF
+   * share no localStorage, so without this the split scene would keep rendering
+   * whatever this build's defaults say no matter what the operator picked.
+   *
+   * Sent on mount and on every change: the relay retains it in its own snapshot
+   * slot, so a browser source that connects an hour later still receives it,
+   * and a same-browser output gets it over BroadcastChannel immediately. It is
+   * fire-and-forget on purpose — a failed publish is not a failed Take, and the
+   * output already has a working look from its own defaults.
+   */
+  const scriptureOutputs = useLiveLayerStore((state) => state.scriptureOutputs);
+  useEffect(() => {
+    const channel = channelRef.current;
+    if (!channel) return;
+    void publishCommand(channel, createMessage('SET_SCRIPTURE_OUTPUTS', scriptureOutputs));
+  }, [scriptureOutputs]);
+
+  /**
    * Publish a SHOW command and record the operator-side Program state. The
    * realtime message stays the authority for what was *commanded*; the Program
    * slice only records our view of it (status 'showing' / 'unconfirmed' — never

@@ -10,6 +10,14 @@ import { GFX_OUT_MS, resolveAnimationVariant } from '../components/graphics/stag
 import { GraphicInstance, RealtimeMessage, TemplateTheme } from '../types/graphics';
 import { decodeImage, resolveAssetSource } from '../lib/assets/assetStore';
 import { useDynamicValues } from '../hooks/useDynamicValues';
+import { SCRIPTURE_TEMPLATE_ID } from '../lib/graphicReadiness';
+import {
+  loadScriptureOutputs,
+  readOutputScreen,
+  sanitizeScriptureOutputs,
+  scriptureLookFor,
+  type ScriptureOutputMap
+} from '../lib/scriptureOutputs';
 
 const FALLBACK_THEME: TemplateTheme = {
   primaryColor: '#f8fafc',
@@ -52,6 +60,21 @@ export default function OutputPage() {
   const resolvedAssetUrls = useRef<string[]>([]);
   const showRequestId = useRef(0);
   const debugMode = useMemo(() => new URLSearchParams(window.location.search).get('debug') === '1', []);
+  /**
+   * WHICH SCREEN THIS IS. A browser source's identity is its address and
+   * nothing else — there is no per-source setting OBS could carry — so this is
+   * read once from the URL and never changes for the life of the page. An
+   * absent or unknown `screen` is the main screen, which is what keeps every
+   * existing /output URL working untouched.
+   */
+  const screen = useMemo(() => readOutputScreen(window.location.search), []);
+  /**
+   * What each screen LOOKS like. Seeded from this browser's own settings (a
+   * same-browser rig needs no broadcast at all) and then kept current by
+   * SET_SCRIPTURE_OUTPUTS, which is the only path that works when the control
+   * surface is Chrome and this page is OBS CEF — the two share no localStorage.
+   */
+  const [scriptureOutputs, setScriptureOutputs] = useState<ScriptureOutputMap>(() => loadScriptureOutputs());
   // Display-only, and only under ?debug=1. Nothing here reaches Program truth,
   // OUTPUT_STATUS, or the relay — it exists so one screenshot of the real
   // Browser Source says which bridge is delivering, instead of another blind
@@ -177,6 +200,13 @@ export default function OutputPage() {
           })
         );
       }
+      if (message.type === 'SET_SCRIPTURE_OUTPUTS') {
+        // Configuration, not a command: it changes how a scripture card is
+        // painted here, never what is on air. Nothing is acknowledged, because
+        // there is no command to acknowledge and an ack would be a claim about
+        // a graphic this message says nothing about.
+        setScriptureOutputs(sanitizeScriptureOutputs(message.payload));
+      }
       // OUTPUT_* events (including this page's own, echoed back by the
       // transports) carry no rendering instruction and fall through untouched.
     };
@@ -212,7 +242,10 @@ export default function OutputPage() {
         createOutputEvent('OUTPUT_STATUS', {
           outputId: getOutputSessionId(),
           sourceActive: source.sourceActive,
-          sourceVisible: source.sourceVisible
+          sourceVisible: source.sourceVisible,
+          // Which screen this is, so a desk watching two browser sources can
+          // name the one that stopped instead of reporting a session id.
+          screen
         })
       );
     // The subscription emits the initial (unknown) state synchronously, which
@@ -293,6 +326,23 @@ export default function OutputPage() {
     activeGraphic?.dynamicContext
   );
 
+  /**
+   * THE SCRIPTURE-ONLY GATE.
+   *
+   * The screen re-skins scripture cards and nothing else: every other template
+   * renders the variant the operator chose, byte for byte as before. Written
+   * against `SCRIPTURE_TEMPLATE_ID` rather than a literal so the boundary
+   * cannot drift, and applied to the values handed to the RENDERER only —
+   * `activeGraphic` is untouched, so `OUTPUT_APPLIED` still acknowledges the
+   * command as it was sent and Recent, presets and the rundown keep showing
+   * the look the operator actually picked.
+   */
+  const outputValues = useMemo(() => {
+    if (activeGraphic?.templateId !== SCRIPTURE_TEMPLATE_ID) return renderedValues;
+    const look = scriptureLookFor(screen, scriptureOutputs);
+    return look ? { ...renderedValues, variantId: look } : renderedValues;
+  }, [activeGraphic?.templateId, renderedValues, screen, scriptureOutputs]);
+
   useEffect(() => {
     if (!activeGraphic) return;
     if (!templateRendererMap[activeGraphic.templateId]) {
@@ -314,7 +364,7 @@ export default function OutputPage() {
             data-density={activeGraphic.layout?.density}
             data-safe-margin={activeGraphic.layout?.safeMargin}
           >
-            <resolved.Renderer values={renderedValues} theme={resolved.theme} />
+            <resolved.Renderer values={outputValues} theme={resolved.theme} />
           </div>
         ) : null}
       </GraphicStage>
@@ -322,6 +372,8 @@ export default function OutputPage() {
         <div className="gfx-debug-chip">
           <div>DEBUG MODE</div>
           <div>Template: {activeGraphic?.templateId ?? 'none'}</div>
+          <div>Screen: {screen}</div>
+          <div>Scripture look: {scriptureOutputs[screen]}</div>
           <div>Duration: {activeGraphic?.durationSeconds ?? 0}s</div>
           <div>{showing ? 'Visible' : 'Hidden'}</div>
           <div>OBS binding: {bridge?.binding ?? 'waiting'}</div>

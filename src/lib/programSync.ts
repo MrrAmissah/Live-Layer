@@ -1,5 +1,5 @@
 import type { GraphicInstance, RealtimeMessage } from '../types/graphics';
-import type { OutputStatusState, ProgramState } from '../types/program';
+import type { OutputStatusMap, OutputStatusState, ProgramState } from '../types/program';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 
 /**
@@ -37,13 +37,13 @@ import { CLEAR_PROGRAM_STATE } from '../types/program';
  */
 export interface ProgramSyncState {
   program: ProgramState;
-  outputStatus: OutputStatusState | null;
+  outputs: OutputStatusMap;
 }
 
 /** Absent field = unchanged. */
 export interface ProgramSyncChange {
   program?: ProgramState;
-  outputStatus?: OutputStatusState;
+  outputs?: OutputStatusMap;
 }
 
 export function reduceRealtimeMessage(
@@ -60,10 +60,12 @@ export function reduceRealtimeMessage(
     case 'UPDATE_PREVIEW':
     case 'LOAD_PRESET':
     case 'SET_THEME':
-      // Preview/theme traffic never represents what is on air.
+    case 'SET_SCRIPTURE_OUTPUTS':
+      // Preview, theme and per-screen look traffic never represents what is on
+      // air. A screen's look changes how a card is painted, not which card.
       return {};
     case 'OUTPUT_APPLIED': {
-      const outputStatus = refreshPresence(state.outputStatus, message.payload.outputId, now);
+      const outputs = refreshPresence(state.outputs, message.payload.outputId, now);
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
       // `recovering` is included on purpose: output restoring its last command
@@ -71,15 +73,15 @@ export function reduceRealtimeMessage(
       // which is exactly the evidence the reload was missing.
       const confirmable = p.status === 'showing' || p.status === 'recovering';
       if (!matches || !confirmable || p.confirmation === 'confirmed') {
-        return { outputStatus };
+        return { outputs };
       }
       return {
-        outputStatus,
+        outputs,
         program: { ...p, status: 'showing', confirmation: 'confirmed', appliedAt: now, outputFailure: null }
       };
     }
     case 'OUTPUT_FAILED': {
-      const outputStatus = refreshPresence(state.outputStatus, message.payload.outputId, now);
+      const outputs = refreshPresence(state.outputs, message.payload.outputId, now);
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
       // A failure never *un*-confirms: if output applied it and a stale retry
@@ -87,16 +89,16 @@ export function reduceRealtimeMessage(
       // records the failure.
       const failable = p.status === 'showing' || p.status === 'recovering';
       if (!matches || !failable || p.confirmation === 'confirmed') {
-        return { outputStatus };
+        return { outputs };
       }
-      if (p.outputFailure?.reason === message.payload.reason) return { outputStatus };
+      if (p.outputFailure?.reason === message.payload.reason) return { outputs };
       return {
-        outputStatus,
+        outputs,
         program: { ...p, status: 'showing', outputFailure: { reason: message.payload.reason, at: now } }
       };
     }
     case 'OUTPUT_CLEARED': {
-      const outputStatus = refreshPresence(state.outputStatus, message.payload.outputId, now);
+      const outputs = refreshPresence(state.outputs, message.payload.outputId, now);
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
       // Only the clear we are actually waiting on may complete — an
@@ -105,20 +107,28 @@ export function reduceRealtimeMessage(
       // never match a clear acknowledgement, so including it is safe.)
       const clearable = p.status === 'clearing' || p.status === 'recovering';
       if (!matches || !clearable) {
-        return { outputStatus };
+        return { outputs };
       }
       return {
-        outputStatus,
+        outputs,
         program: { ...CLEAR_PROGRAM_STATE, clearedAt: now }
       };
     }
     case 'OUTPUT_STATUS':
+      // A source reading belongs to the screen that reported it, and only that
+      // screen — which is exactly what the single record could not express.
       return {
-        outputStatus: {
-          outputId: message.payload.outputId,
-          sourceActive: message.payload.sourceActive,
-          sourceVisible: message.payload.sourceVisible,
-          lastSeenAt: now
+        outputs: {
+          ...state.outputs,
+          [message.payload.outputId]: {
+            outputId: message.payload.outputId,
+            sourceActive: message.payload.sourceActive,
+            sourceVisible: message.payload.sourceVisible,
+            lastSeenAt: now,
+            // An output that stops sending is exactly the one the operator
+            // needs named, so the last name it gave is kept.
+            screen: message.payload.screen ?? state.outputs[message.payload.outputId]?.screen ?? null
+          }
         }
       };
     default:
@@ -209,16 +219,32 @@ function reduceClearCommand(program: ProgramState, commandId: string, timestamp:
  * session. A different output's readings are somebody else's story.
  */
 function refreshPresence(
-  previous: OutputStatusState | null,
+  previous: OutputStatusMap,
   outputId: string,
   now: number
-): OutputStatusState {
-  const sameOutput = previous !== null && previous.outputId === outputId;
+): OutputStatusMap {
+  /**
+   * Each screen keeps its own readings, which is what the single record could
+   * not do: it was rebuilt around whichever output acked last and threw away
+   * the other's `sourceActive`/`sourceVisible` as "somebody else's story". With
+   * two browser sources they overwrote each other every few seconds, so the
+   * desk reported the most recent speaker rather than whether both were up.
+   *
+   * Keyed by output session id, so a screen that dies stops refreshing its own
+   * entry and goes stale on its own while the others carry on.
+   */
+  const mine = previous[outputId];
   return {
-    outputId,
-    sourceActive: sameOutput ? previous.sourceActive : null,
-    sourceVisible: sameOutput ? previous.sourceVisible : null,
-    lastSeenAt: now
+    ...previous,
+    [outputId]: {
+      outputId,
+      sourceActive: mine ? mine.sourceActive : null,
+      sourceVisible: mine ? mine.sourceVisible : null,
+      lastSeenAt: now,
+      // An ack names no screen, so this is remembered rather than re-derived —
+      // the alternative is a screen losing its name every time it acknowledges.
+      screen: mine ? mine.screen : null
+    }
   };
 }
 
@@ -283,19 +309,19 @@ export function drainPendingAcks(
   state: ProgramSyncState,
   pending: PendingAck[],
   now: number
-): { program: ProgramState; outputStatus: OutputStatusState | null; pending: PendingAck[] } {
+): { program: ProgramState; outputs: OutputStatusMap; pending: PendingAck[] } {
   let program = state.program;
-  let outputStatus = state.outputStatus;
+  let outputs = state.outputs;
   const remaining: PendingAck[] = [];
   for (const entry of pending) {
     if (now - entry.at >= PENDING_ACK_TTL_MS) continue;
-    const change = reduceRealtimeMessage({ program, outputStatus }, entry.message, now);
-    if (change.outputStatus) outputStatus = change.outputStatus;
+    const change = reduceRealtimeMessage({ program, outputs }, entry.message, now);
+    if (change.outputs) outputs = change.outputs;
     if (change.program) {
       program = change.program;
     } else {
       remaining.push(entry);
     }
   }
-  return { program, outputStatus, pending: remaining };
+  return { program, outputs, pending: remaining };
 }

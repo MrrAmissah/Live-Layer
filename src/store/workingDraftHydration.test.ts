@@ -223,10 +223,10 @@ describe('hydration cannot touch Program', () => {
     expect(state.draftValues.body).toBeUndefined();
   });
 
-  it('leaves outputStatus and pending acks alone', async () => {
+  it('leaves output presence and pending acks alone', async () => {
     const { store } = await bootStore({ session: { [WORKING_DRAFT_KEY]: record(fullDraft()) } });
     const state = store.getState();
-    expect(state.outputStatus).toBeNull();
+    expect(state.outputs).toEqual({});
     expect(state.pendingOutputAcks).toEqual([]);
   });
 

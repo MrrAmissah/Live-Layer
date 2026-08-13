@@ -58,6 +58,21 @@ export function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
     if (!isTemplateTheme(value.payload)) return null;
     return { id: value.id, type: value.type, payload: value.payload, timestamp: value.timestamp };
   }
+  if (value.type === 'SET_SCRIPTURE_OUTPUTS') {
+    // Shape only: a flat string->string record. WHICH screens and variants are
+    // real is `sanitizeScriptureOutputs`'s job, because that answer depends on
+    // the receiving build's template registry and this parser must not pretend
+    // to know it.
+    if (!isRecord(value.payload)) return null;
+    const entries = Object.entries(value.payload);
+    if (entries.some(([, variantId]) => typeof variantId !== 'string')) return null;
+    return {
+      id: value.id,
+      type: value.type,
+      payload: Object.fromEntries(entries) as Record<string, string>,
+      timestamp: value.timestamp
+    };
+  }
 
   if (value.type === 'OUTPUT_APPLIED') {
     const p = value.payload;
@@ -110,7 +125,14 @@ export function parseRealtimeMessage(value: unknown): RealtimeMessage | null {
     return {
       id: value.id,
       type: value.type,
-      payload: { outputId: p.outputId, sourceActive: p.sourceActive, sourceVisible: p.sourceVisible },
+      payload: {
+        outputId: p.outputId,
+        sourceActive: p.sourceActive,
+        sourceVisible: p.sourceVisible,
+        // Optional and free-form here: which screen names are real is the
+        // receiver's registry question, and an older output sends none.
+        ...(typeof p.screen === 'string' && p.screen ? { screen: p.screen } : {})
+      },
       timestamp: value.timestamp
     };
   }
