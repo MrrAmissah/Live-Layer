@@ -14,6 +14,22 @@ import { templateColorStyle } from './colorVars';
  * through here, so a performer graphic that stores no variant falls back to this
  * preacher default rather than to its own `defaultValues.variantId`.
  */
+/**
+ * What this renderer paints when a graphic names no variant.
+ *
+ * DELIBERATELY NOT the preacher default, which is now `modern-minimal`. The two
+ * answer different questions: the registry default is what a NEW graphic starts
+ * as, and this is what an EXISTING one paints when it stored no variant at all.
+ *
+ * Moving this with the default was tried and reverted. It is shared with
+ * `performer-lower-third` and sits at the head of the logo-resolution chain, so
+ * changing it repaints saved graphics on both templates and alters which logo
+ * the renderer selects for them — a wide change, made in passing, for something
+ * nobody asked for. (There IS a real oddity here: `signature-medallion` is not
+ * in the performer variant list, so a performer graphic with no variant paints a
+ * design its own template does not offer. Worth fixing on purpose, with the
+ * logo chain in view, and not five days before a convention.)
+ */
 export const DEFAULT_VARIANT_ID = 'signature-medallion';
 
 /**

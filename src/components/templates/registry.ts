@@ -149,7 +149,14 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional logo URL', optional: true }
     ],
     defaultValues: {
-      variantId: 'signature-medallion',
+      /**
+       * The one the operator actually reaches for, so it is what a new graphic
+       * starts as. `PreacherLowerThird.DEFAULT_VARIANT_ID` is deliberately NOT
+       * changed with it: that is the renderer's fallback for a graphic which
+       * stores no variant at all, it is shared with the performer template, and
+       * moving it would repaint saved graphics on both.
+       */
+      variantId: 'modern-minimal',
       name: 'Rev. Ishmael K. Awotwe',
       title: 'Lead Pastor',
       subtitle: 'Mathapoly Church International',
@@ -167,8 +174,10 @@ export const templateRegistry: TemplateDefinition[] = [
       surfaceColor: HOUSE_BLUE.surface,
       accent2Color: HOUSE_BLUE.gold
     },
+    /* Order is the shortlist: the two that get used are the two in front. */
     variants: l3Variants(
       'modern-minimal',
+      'soft-broadcast',
       'angled-accent',
       'signature-medallion',
       'clean-broadcast',
@@ -179,7 +188,6 @@ export const templateRegistry: TemplateDefinition[] = [
       'canva-host-bar',
       'canva-celebration',
       'canva-ministry',
-      'soft-broadcast',
       'convention-strap'
     ),
     animation: { in: 'slide', out: 'slide' }

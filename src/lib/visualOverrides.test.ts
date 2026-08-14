@@ -26,6 +26,39 @@ const compare = (
   logoAssetStatus?: string
 ) => compareVisualStates(resolveGraphicVisualState({ templateId: TEMPLATE_ID, values, theme, logoAssetStatus }), seed);
 
+/**
+ * The logo-chain tests below need a variant that actually PAINTS a medallion,
+ * and they must not depend on which variant happens to be the default.
+ *
+ * They broke when the preacher default moved to `modern-minimal`, which shows
+ * no medallion — so `logoFallbackForVariant` returns nothing for it and a
+ * cleared logo genuinely differs from the seed. That is correct behaviour and
+ * the tests were only ever about the fallback chain, so they now name a
+ * medallion variant themselves and are immune to the default moving again.
+ */
+const MEDALLION_VARIANT = 'signature-medallion';
+const medallionSeedValues: Record<string, string> = {
+  ...template.defaultValues,
+  variantId: MEDALLION_VARIANT
+};
+// Built through the graphic resolver rather than the seed resolver: the seed
+// resolver derives its values from the template and takes no override, and what
+// these tests need is "the state a medallion graphic renders as".
+const medallionSeed = resolveGraphicVisualState({
+  templateId: TEMPLATE_ID,
+  values: medallionSeedValues,
+  theme: brandTheme
+});
+const compareMedallion = (
+  values: Record<string, string>,
+  theme: Partial<TemplateTheme> = brandTheme,
+  logoAssetStatus?: string
+) =>
+  compareVisualStates(
+    resolveGraphicVisualState({ templateId: TEMPLATE_ID, values, theme, logoAssetStatus }),
+    medallionSeed
+  );
+
 describe('compareVisualStates', () => {
   it('reports nothing for an untouched graphic', () => {
     expect(compare({ ...seedValues })).toEqual([]);
@@ -69,7 +102,7 @@ describe('compareVisualStates', () => {
     // the seed names that very URL — so Preview and Program show the same image
     // and there is nothing to report. Reporting "Logo URL removed" here was the
     // false claim this closes.
-    expect(compare({ ...seedValues, logoUrl: '' })).toEqual([]);
+    expect(compareMedallion({ ...medallionSeedValues, logoUrl: '' })).toEqual([]);
   });
 
   it('counts an upload that resolves, because that is what paints', () => {
@@ -133,8 +166,18 @@ describe('compareVisualStates — sparse premium graphics', () => {
     }
   });
 
-  it('an absent variant is the renderer’s fallback, which the seed also renders', () => {
-    expect(compare({ ...seedValues, variantId: '' })).toEqual([]);
+  it('an absent variant is reported, now that the seed is not the renderer’s fallback', () => {
+    /**
+     * These two used to be the same design, so storing no variant was invisible.
+     * The preacher default is `modern-minimal` now while the renderer's fallback
+     * for a variant-less graphic is still `signature-medallion` — deliberately,
+     * because that fallback is shared with the performer template and sits at
+     * the head of the logo chain. So an absent variant really does paint
+     * something other than the seed, and saying so is the honest answer.
+     */
+    expect(compare({ ...seedValues, variantId: '' })).toEqual([
+      { id: 'variantId', label: 'Design variant', value: 'signature-medallion' }
+    ]);
   });
 
   it('reports a legacy variant id that no longer exists, because it is not the seed’s look', () => {
@@ -306,9 +349,10 @@ describe('compareVisualStates — the logo the renderer selects', () => {
   });
 
   it('is silent when the same clearing leaves the renderer painting the seed’s logo', () => {
-    // The default variant DOES draw the medallion, so the identical edit is
-    // invisible — the case the panel used to get wrong.
-    expect(compare({ ...seedValues, logoUrl: '', logoAssetId: '' })).toEqual([]);
+    // A variant that DOES draw the medallion makes the identical edit invisible
+    // — the case the panel used to get wrong. Named explicitly rather than
+    // relying on the default, which no longer draws one.
+    expect(compareMedallion({ ...medallionSeedValues, logoUrl: '', logoAssetId: '' })).toEqual([]);
   });
 
   it('is silent when both paint the same image, however each stores it', () => {
