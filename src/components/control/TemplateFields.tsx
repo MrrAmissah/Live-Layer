@@ -13,6 +13,7 @@ import { Icon } from '../../lib/icons';
 import { PALETTE_FIELD_IDS, resolveEffectiveVariantId, resolveResetPalette } from '../../lib/variantPalette';
 import { resolvePaletteColors } from '../../lib/visualState';
 import { composeThumbTheme } from './TemplateThumb';
+import { hideableFieldIds, isFieldHidden, withFieldHidden } from '../../lib/fieldVisibility';
 
 /**
  * Chip labels only. The field list lives in `variantPalette` and the resolution
@@ -60,11 +61,17 @@ function FieldRow({
   field,
   value,
   onChange,
+  hidden = false,
+  onToggleHidden,
   children
 }: {
   field: TemplateField;
   value: string;
   onChange: (value: string) => void;
+  /** Kept off the graphic, with its text intact (`lib/fieldVisibility.ts`). */
+  hidden?: boolean;
+  /** Absent for fields that may not be hidden — the eye is then not rendered. */
+  onToggleHidden?: () => void;
   children?: ReactNode;
 }) {
   /**
@@ -84,17 +91,45 @@ function FieldRow({
   const overMax = cap !== undefined && value.length > cap;
 
   return (
-    <label className="field">
+    <label className={`field${hidden ? ' field--hidden' : ''}`}>
       <span className="field__label">
         <span>
           {field.label}
           {field.optional ? <span className="field__opt">Optional</span> : null}
         </span>
-        {cap !== undefined ? (
-          <span className={`field__count${overMax ? ' field__count--over' : overRecommended ? ' field__count--warn' : ''}`}>
-            {value.length} / {cap}
-          </span>
-        ) : null}
+        <span className="field__label-aside">
+          {cap !== undefined ? (
+            <span className={`field__count${overMax ? ' field__count--over' : overRecommended ? ' field__count--warn' : ''}`}>
+              {value.length} / {cap}
+            </span>
+          ) : null}
+          {/**
+            * HIDE WITHOUT DELETING.
+            *
+            * Not every speaker has a title, and the only way to leave one out
+            * was to clear it — which meant retyping it next time that person
+            * came up, so in practice it went to air unwanted rather than lose
+            * the words. This takes the field off the graphic and keeps the text
+            * exactly where it was.
+            */}
+          {onToggleHidden ? (
+            <button
+              type="button"
+              className={`field__eye${hidden ? ' field__eye--off' : ''}`}
+              aria-pressed={hidden}
+              aria-label={hidden ? `Show ${field.label} on the graphic` : `Hide ${field.label} from the graphic`}
+              title={hidden ? 'Hidden — click to show' : 'Showing — click to hide'}
+              onClick={(event) => {
+                // The row is a <label>: without this the click also focuses the
+                // input, which reads as the toggle having typed something.
+                event.preventDefault();
+                onToggleHidden();
+              }}
+            >
+              <Icon name={hidden ? 'eyeOff' : 'eye'} size={15} />
+            </button>
+          ) : null}
+        </span>
       </span>
       {field.type === 'textarea' ? (
         <textarea
@@ -620,6 +655,9 @@ export default function TemplateFields({
   const excluded = new Set(excludeFieldIds ?? []);
 
   const template = templateRegistry.find((item) => item.id === currentTemplateId);
+  /* Which fields this template lets an operator take off the graphic — every
+     text field but the one the graphic is about (`lib/fieldVisibility.ts`). */
+  const hideable = new Set(hideableFieldIds(currentTemplateId));
   const required = template?.fields.filter((field) => !field.optional && !excluded.has(field.id)) ?? [];
   const optional = template?.fields.filter((field) => field.optional && !excluded.has(field.id)) ?? [];
 
@@ -685,6 +723,12 @@ export default function TemplateFields({
               field={field}
               value={draftValues[field.id] ?? ''}
               onChange={(value) => setField(field.id, value)}
+              hidden={isFieldHidden(draftValues, field.id)}
+              onToggleHidden={
+                hideable.has(field.id)
+                  ? () => setFields(withFieldHidden(draftValues, field.id, !isFieldHidden(draftValues, field.id)))
+                  : undefined
+              }
             >
               {currentTemplateId === 'announcement-banner' && field.id === 'dateTime' ? (
                 <DateTimeInsertHelper onInsert={(value) => setField(field.id, value)} />
@@ -702,6 +746,12 @@ export default function TemplateFields({
               field={field}
               value={draftValues[field.id] ?? ''}
               onChange={(value) => setField(field.id, value)}
+              hidden={isFieldHidden(draftValues, field.id)}
+              onToggleHidden={
+                hideable.has(field.id)
+                  ? () => setFields(withFieldHidden(draftValues, field.id, !isFieldHidden(draftValues, field.id)))
+                  : undefined
+              }
             >
               {currentTemplateId === 'announcement-banner' && field.id === 'dateTime' ? (
                 <DateTimeInsertHelper onInsert={(value) => setField(field.id, value)} />

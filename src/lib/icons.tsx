@@ -74,6 +74,8 @@ const PATHS = {
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>,
   /* The house screen is a projector throwing onto a wall, not a monitor — the
      shape says "in the room" before the label does. */
+  eye: <><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></>,
+  eyeOff: <><path d="M10.6 6.7A9.9 9.9 0 0 1 12 6.6c6.4 0 10 5.4 10 5.4a17.6 17.6 0 0 1-3.4 3.9" /><path d="M6.3 8.2A17.4 17.4 0 0 0 2 12s3.6 5.4 10 5.4a10.6 10.6 0 0 0 3.5-.6" /><path d="M3 3l18 18" /></>,
   screenHouse: <><rect x="3" y="3.5" width="18" height="12" rx="1" /><path d="M12 15.5v3" /><path d="M6.5 21.5 12 18.5l5.5 3" /></>
 } as const;
 

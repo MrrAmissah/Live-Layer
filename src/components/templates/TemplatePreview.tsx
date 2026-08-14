@@ -11,6 +11,7 @@ import {
 import { measureStageContent, cropFromContent, sameRect } from '../graphics/contentCrop';
 import { TemplateDefinition } from '../../types/graphics';
 import { useDynamicValues } from '../../hooks/useDynamicValues';
+import { applyFieldVisibility } from '../../lib/fieldVisibility';
 import { useServiceDynamicContext } from '../../hooks/useServiceContext';
 import type { LayoutSettings } from '../../types/layout';
 
@@ -169,7 +170,9 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
    * time updates what the operator is looking at immediately. Program does not
    * move until the next Take.
    */
-  const resolvedValues = useDynamicValues(values, useServiceDynamicContext());
+  // The same render boundary the output uses: what the operator sees here is
+  // what airs, hidden fields included (`lib/fieldVisibility.ts`).
+  const resolvedValues = applyFieldVisibility(useDynamicValues(values, useServiceDynamicContext()));
 
   const template = templateRegistry.find((item) => item.id === templateId);
   const Renderer = templateRendererMap[templateId];

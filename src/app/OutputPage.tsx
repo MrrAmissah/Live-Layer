@@ -10,6 +10,7 @@ import { GFX_OUT_MS, resolveAnimationVariant } from '../components/graphics/stag
 import { GraphicInstance, RealtimeMessage, TemplateTheme } from '../types/graphics';
 import { decodeImage, resolveAssetSource } from '../lib/assets/assetStore';
 import { useDynamicValues } from '../hooks/useDynamicValues';
+import { applyFieldVisibility } from '../lib/fieldVisibility';
 import {
   loadScriptureOutputs,
   readOutputScreen,
@@ -358,7 +359,12 @@ export default function OutputPage() {
    * sent and Recent, presets and the rundown keep the look the operator picked.
    */
   const outputValues = useMemo(
-    () => resolveScreenValues(activeGraphic?.templateId, renderedValues, screen, scriptureOutputs),
+    () =>
+      // Hidden fields are blanked at the render boundary — one place, every
+      // template, and the stored graphic keeps the words (`lib/fieldVisibility.ts`).
+      applyFieldVisibility(
+        resolveScreenValues(activeGraphic?.templateId, renderedValues, screen, scriptureOutputs)
+      ),
     [activeGraphic?.templateId, renderedValues, screen, scriptureOutputs]
   );
 

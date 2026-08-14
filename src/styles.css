@@ -10728,3 +10728,22 @@ body.gfx-transparent {
   background: rgba(32, 165, 250, 0.08);
   border: 1px solid rgba(32, 165, 250, 0.2);
 }
+
+/* --- hide a field without deleting it -----------------------------------
+   The eye sits with the character count, on the label's right, so it reads as
+   a property of the field rather than an action on the form. */
+.control-root .field__label-aside { display: inline-flex; align-items: center; gap: 8px; }
+.control-root .field__eye {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 22px; padding: 0; border-radius: 5px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--ll-muted-3);
+}
+.control-root .field__eye:hover { color: var(--ll-text); background: rgba(255, 255, 255, 0.06); }
+.control-root .field__eye--off { color: var(--ll-warn); border-color: rgba(232, 185, 60, 0.32); background: rgba(232, 185, 60, 0.1); }
+
+/* A hidden field stays legible and stays editable — it is not disabled, it is
+   just not on the graphic. Dimming the INPUT rather than the label keeps the
+   name of the field readable while making its absence from air obvious. */
+.control-root .field--hidden .field__input,
+.control-root .field--hidden .field__textarea { opacity: 0.45; }
+.control-root .field--hidden .field__label > span:first-child { text-decoration: line-through; text-decoration-color: rgba(232, 185, 60, 0.6); }
