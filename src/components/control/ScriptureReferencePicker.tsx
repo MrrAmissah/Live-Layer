@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
 import { useChapterVerses } from '../../hooks/useChapterVerses';
+import { availableTranslations } from '../../lib/scripture/providers';
 import { buildReference, parseReference, suggestBibleBooks } from '../../lib/scripture/bibleBooks';
 import { chapterNumbers, numberRange } from '../../lib/scripture/bibleStructure';
 
@@ -19,7 +20,8 @@ interface Props {
  */
 export default function ScriptureReferencePicker({ reference, onReferenceChange, onApply }: Props) {
   const { provider, status, message, lookup } = useScriptureLookup();
-  const [translation, setTranslation] = useState(provider.translations[0]?.id ?? 'web');
+  const translations = availableTranslations();
+  const [translation, setTranslation] = useState(translations[0]?.id ?? 'web');
   // Verse hints fetch only after an explicit chapter tap — never for the prefilled default.
   const [versesRequested, setVersesRequested] = useState(false);
 
@@ -212,7 +214,7 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
             value={translation}
             onChange={(event) => setTranslation(event.target.value)}
           >
-            {provider.translations.map((item) => (
+            {translations.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.label}
               </option>

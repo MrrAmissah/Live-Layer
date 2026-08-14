@@ -16,6 +16,7 @@ import {
   type ScriptureFavorite
 } from '../../lib/scripture/scriptureFavorites';
 import type { ScriptureLookupResult } from '../../types/scripture';
+import { availableTranslations } from '../../lib/scripture/providers';
 
 interface Props {
   query: string;
@@ -100,7 +101,7 @@ export default function ScriptureLookupPanel({
 
   const parsed = useMemo(() => parseScriptureReference(query), [query]);
   const pending = status === 'loading';
-  const translation = provider.translations.find((item) => item.id === translationId);
+  const translation = availableTranslations().find((item) => item.id === translationId);
 
   /**
    * Locally invalid input is shown as guidance while typing, not as an error —
@@ -351,7 +352,7 @@ export default function ScriptureLookupPanel({
               value={translationId}
               onChange={(event) => changeTranslation(event.target.value)}
             >
-              {provider.translations.map((item) => (
+              {availableTranslations().map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.label} — {item.name ?? item.label}
                   {item.partial ? ` (${item.partial})` : ''}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SetupDiagnostics from '../components/control/SetupDiagnostics';
+import { loadEsvApiKey, saveEsvApiKey } from '../lib/storage';
 
 /**
  * One step, as a step.
@@ -85,6 +86,7 @@ export default function SetupPage() {
   const lanOutputUrl = useMemo(() => `${outputUrl}?relay=${encodeURIComponent(relayUrl)}`, [outputUrl, relayUrl]);
   /** Same rule the diagnostics used: name the trap the operator is standing in. */
   const isLocalhost = useMemo(() => window.location.hostname === 'localhost', []);
+  const [esvKey, setEsvKey] = useState(() => loadEsvApiKey());
   const [copyHint, setCopyHint] = useState('');
   const copyTimerRef = useRef<number | undefined>(undefined);
 
@@ -250,6 +252,35 @@ export default function SetupPage() {
                 </summary>
 
                 <div className="setup-advanced__body">
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">Add the ESV</h3>
+                  <div className="setup-body">
+                    <p className="setup-text">
+                      The built-in translations are public-domain texts, which is why they need no
+                      account. The ESV is Crossway&rsquo;s, and they give API access away for
+                      non-commercial use — get a key at <code className="setup-kbd">api.esv.org</code>,
+                      paste it here, and ESV appears in the translation picker.
+                    </p>
+                    <label className="field">
+                      <span className="field__label"><span>ESV API key</span></span>
+                      <input
+                        className="field__input"
+                        type="password"
+                        value={esvKey}
+                        placeholder="Paste your Crossway API key"
+                        onChange={(event) => {
+                          setEsvKey(event.target.value);
+                          saveEsvApiKey(event.target.value);
+                        }}
+                      />
+                      <span className="field__hint">
+                        Stored in this browser only, sent nowhere but Crossway, and cleared by
+                        &ldquo;Reset all local data&rdquo;. Leave empty and nothing changes.
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
                 <div className="setup-sub">
                   <h3 className="setup-sub__title">Send the OBS output over NDI</h3>
                   <div className="setup-body">

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ScriptureLookupResult } from '../types/scripture';
-import { defaultScriptureProvider } from '../lib/scripture/providers';
+import { defaultScriptureProvider, providerForTranslation } from '../lib/scripture/providers';
 import { getCachedScripture, saveCachedScripture } from '../lib/scripture/scriptureCache';
 import { runScriptureLookup } from '../lib/scripture/runLookup';
 import type { ScriptureFailureKind } from '../lib/scripture/lookupOutcome';
@@ -57,7 +57,9 @@ export function useScriptureLookup() {
     setState({ status: 'loading', message: 'Looking up scripture…' });
 
     const outcome = await runScriptureLookup(reference, translation, {
-      provider: defaultScriptureProvider,
+      // Routed by translation: the operator picks "ESV", and which service
+      // serves it is this layer's problem rather than theirs.
+      provider: providerForTranslation(translation),
       getCached: getCachedScripture,
       saveCached: saveCachedScripture,
       isCurrent: () => requestId.current === id,

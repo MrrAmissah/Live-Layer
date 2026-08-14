@@ -18,6 +18,7 @@ const STORAGE_KEYS = {
   dockPrefs: 'livelayer.dockPrefs',
   serviceContext: 'livelayer.serviceContext',
   scriptureOutputs: 'livelayer.scriptureOutputs',
+  esvApiKey: 'livelayer.esvApiKey',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
@@ -47,6 +48,32 @@ export const SERVICE_CONTEXT_KEY = STORAGE_KEYS.serviceContext;
  * where writing is what this module is for.
  */
 export const SCRIPTURE_OUTPUTS_KEY = STORAGE_KEYS.scriptureOutputs;
+
+/**
+ * The Crossway API key, per machine.
+ *
+ * Registered in STORAGE_KEYS so "Reset all local data" clears it with
+ * everything else — a credential that survives a reset is a credential nobody
+ * knows is still there. Never committed, never sent anywhere but Crossway.
+ */
+export function loadEsvApiKey(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.esvApiKey) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveEsvApiKey(key: string) {
+  try {
+    const trimmed = key.trim();
+    if (trimmed) localStorage.setItem(STORAGE_KEYS.esvApiKey, trimmed);
+    else localStorage.removeItem(STORAGE_KEYS.esvApiKey);
+  } catch {
+    // Storage denied — the key simply does not persist; the picker will show
+    // no ESV, which is the honest result.
+  }
+}
 
 export function saveScriptureOutputs(outputs: Record<string, string>) {
   safeWrite(STORAGE_KEYS.scriptureOutputs, outputs);
