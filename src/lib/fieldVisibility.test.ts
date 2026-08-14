@@ -32,12 +32,18 @@ describe('remembering what is hidden', () => {
     expect(shown.title).toBe('Lead Pastor');
   });
 
-  it('leaves no trace when nothing is hidden', () => {
-    // A graphic that never used this carries no extra key, so saved graphics,
-    // exports and the visual-override comparison are unchanged for everyone
-    // who does not touch it.
+  it('writes the key even when nothing is hidden, so a merge can clear it', () => {
+    /**
+     * This used to DROP the key, which looked tidier and did not work: every
+     * writer into a draft is a patch that merges, so a returned object with the
+     * key missing left the old value in place. Hiding worked; showing again did
+     * nothing. The store treats empty and absent as equal for this key, so a
+     * graphic toggled and untoggled still reads as unedited.
+     */
     const shown = withFieldHidden(withFieldHidden({ title: 'x' }, 'title', true), 'title', false);
-    expect(HIDDEN_FIELDS_KEY in shown).toBe(false);
+    expect(shown[HIDDEN_FIELDS_KEY]).toBe('');
+    expect(hiddenFieldIds(shown)).toEqual([]);
+    expect(isFieldHidden(shown, 'title')).toBe(false);
   });
 
   it('holds several, and does not duplicate one', () => {

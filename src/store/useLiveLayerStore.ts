@@ -24,7 +24,8 @@ import { clearPeople } from '../lib/people/peopleStore';
 import { clearAllRundowns } from '../lib/rundown/rundownStore';
 import { templateRegistry } from '../components/templates/registry';
 import { loadActivePackId, saveActivePackId } from '../lib/packs';
-import { createDraftValues, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
+import { createDraftValues, scopeValuesToTemplate, THEME_SEEDED_FIELDS } from '../lib/draftSeed';
+import { HIDDEN_FIELDS_KEY } from '../lib/fieldVisibility';
 import { createWorkingDraftWriter, readWorkingDraft, type WorkingDraft } from '../lib/workingDraft';
 import { applyVariantSelection } from '../lib/variantPalette';
 import { applyLogoUrl } from '../lib/brandWrites';
@@ -164,6 +165,16 @@ function sameFieldValue(key: string, a: string | undefined, b: string | undefine
   if (key.startsWith('color')) {
     return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
   }
+  /**
+   * Hiding nothing is the same as never having hidden anything.
+   *
+   * The visibility key is always written so a merging patch can CLEAR it
+   * (`lib/fieldVisibility.ts`), which means a graphic that hid a field and
+   * showed it again carries an empty string where a fresh one carries nothing.
+   * Without this they compare as different and the graphic reads as edited —
+   * a spurious pack-switch warning, and a spurious override in the panel.
+   */
+  if (key === HIDDEN_FIELDS_KEY) return (a ?? '') === (b ?? '');
   return a === b;
 }
 
@@ -453,10 +464,24 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     setTemplate: (templateId) =>
       set((state) => {
         const template = templateRegistry.find((item) => item.id === templateId);
-        // Park what is on screen under the template being left, so it is here
-        // to come back to.
-        const parked = { ...state.valuesByTemplate, [state.currentTemplateId]: state.draftValues };
-        const remembered = parked[templateId];
+        /**
+         * Park what is on screen under the template being left — SCOPED to that
+         * template.
+         *
+         * A draft is not guaranteed to hold only one template's fields:
+         * `applyPersonToLowerThird` spreads the previous draft into a preacher
+         * one on purpose, so that a logo and a palette survive a person swap.
+         * Parking the blob whole meant those foreign keys came back on a
+         * template they did not belong to, and the scripture card started
+         * carrying a preacher's name. Scoped on the way in AND on the way out,
+         * so a blob parked before this fix cannot leak either.
+         */
+        const parked = {
+          ...state.valuesByTemplate,
+          [state.currentTemplateId]: scopeValuesToTemplate(state.currentTemplateId, state.draftValues)
+        };
+        const rememberedRaw = parked[templateId];
+        const remembered = rememberedRaw ? scopeValuesToTemplate(templateId, rememberedRaw) : undefined;
         return {
           currentTemplateId: templateId,
           valuesByTemplate: parked,

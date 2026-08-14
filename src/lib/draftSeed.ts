@@ -71,3 +71,39 @@ export function createDraftValues(
     ...packOverridesFor(packId, templateId)
   };
 }
+
+/**
+ * The values that belong to THIS template, with any other template's fields
+ * stripped out.
+ *
+ * `draftValues` is not guaranteed to hold only one template's fields.
+ * `applyPersonToLowerThird` spreads the previous draft into a preacher one on
+ * purpose — that is how a logo and a palette carry across a person swap — so a
+ * draft can legitimately be carrying `reference` and `verseText` from the
+ * scripture card the operator was on a moment ago.
+ *
+ * That was harmless while a template switch re-seeded from scratch. It stopped
+ * being harmless when drafts started being PARKED and restored per template: a
+ * blob captured with foreign keys in it came back on a template it did not
+ * belong to, and the scripture card was suddenly carrying a preacher's name.
+ *
+ * Filtering by "is this a field of some OTHER template" rather than by an
+ * allow-list keeps every shared key — `variantId`, the palette, logo and
+ * headshot ids, `personId`, `hiddenFields` — which are exactly the ones meant
+ * to travel.
+ */
+export function scopeValuesToTemplate(
+  templateId: string,
+  values: Record<string, string>
+): Record<string, string> {
+  const template = templateRegistry.find((entry) => entry.id === templateId);
+  if (!template) return values;
+  const own = new Set(template.fields.map((field) => field.id));
+  const foreign = new Set<string>();
+  for (const entry of templateRegistry) {
+    if (entry.id === templateId) continue;
+    for (const field of entry.fields) if (!own.has(field.id)) foreign.add(field.id);
+  }
+  if (!Object.keys(values).some((key) => foreign.has(key))) return values;
+  return Object.fromEntries(Object.entries(values).filter(([key]) => !foreign.has(key)));
+}

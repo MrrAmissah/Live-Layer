@@ -52,9 +52,16 @@ export function isFieldHidden(values: Record<string, string>, fieldId: string): 
 /**
  * Turn a field's visibility on or off, returning new values.
  *
- * The key is removed entirely when nothing is hidden, so a graphic that hides
- * nothing carries no trace of the feature — which keeps saved graphics, exports
- * and the visual-override comparison unchanged for everyone who never uses it.
+ * ALWAYS WRITES THE KEY, empty when nothing is hidden. Dropping it looked
+ * tidier and did not work: every writer into a draft is a PATCH that merges, so
+ * a returned object with the key missing left the previous value in place —
+ * hiding worked and showing again did nothing at all, which is the "cannot turn
+ * it back on" this fixes.
+ *
+ * An empty string reads back as nothing hidden (`hiddenFieldIds` filters it),
+ * and `sameFieldValue` in the store treats empty and absent as the same for
+ * this key, so a graphic that toggled once and toggled back is not counted as
+ * edited.
  */
 export function withFieldHidden(
   values: Record<string, string>,
@@ -64,8 +71,7 @@ export function withFieldHidden(
   const next = new Set(hiddenFieldIds(values));
   if (hidden) next.add(fieldId);
   else next.delete(fieldId);
-  const { [HIDDEN_FIELDS_KEY]: _current, ...rest } = values;
-  return next.size ? { ...rest, [HIDDEN_FIELDS_KEY]: [...next].join(',') } : rest;
+  return { ...values, [HIDDEN_FIELDS_KEY]: [...next].join(',') };
 }
 
 /**
