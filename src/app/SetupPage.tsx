@@ -1,7 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Panel from '../components/control/Panel';
-import SectionHeader from '../components/control/SectionHeader';
 import SetupDiagnostics from '../components/control/SetupDiagnostics';
+
+/**
+ * One step, as a step.
+ *
+ * The page used generic panels with a kicker reading "Step 1", so three
+ * sequential instructions carried exactly the same visual weight as two
+ * optional reference sections below them — nothing said where the required
+ * part ended. A numbered badge and a shared frame make the sequence legible
+ * before a word is read, which is the whole job of an onboarding page.
+ */
+function Step({
+  n,
+  title,
+  children
+}: {
+  n: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="setup-step">
+      <span className="setup-step__n" aria-hidden>{n}</span>
+      <div className="setup-step__body">
+        <h2 className="setup-step__title">{title}</h2>
+        {children}
+      </div>
+    </section>
+  );
+}
 
 function UrlRow({
   url,
@@ -56,6 +83,8 @@ export default function SetupPage() {
   const relayUrl = useMemo(() => `${window.location.protocol}//${window.location.hostname}:4174`, []);
   const lanControlUrl = useMemo(() => `${controlUrl}?relay=${encodeURIComponent(relayUrl)}`, [controlUrl, relayUrl]);
   const lanOutputUrl = useMemo(() => `${outputUrl}?relay=${encodeURIComponent(relayUrl)}`, [outputUrl, relayUrl]);
+  /** Same rule the diagnostics used: name the trap the operator is standing in. */
+  const isLocalhost = useMemo(() => window.location.hostname === 'localhost', []);
   const [copyHint, setCopyHint] = useState('');
   const copyTimerRef = useRef<number | undefined>(undefined);
 
@@ -113,17 +142,46 @@ export default function SetupPage() {
             sat pinned to the left edge with no gutters. */}
         <main className="setup-main">
           <div className="setup-head">
+            <p className="setup-eyebrow">Three steps, no install</p>
             <h1 className="setup-title">Connect LiveLayer to OBS</h1>
             <p className="setup-lead">
-              Add the control page as a dock and the output page as a transparent browser source. Two surfaces, no install.
+              One page becomes your control dock, and each output screen becomes a transparent browser
+              source. Everything runs on this machine.
             </p>
+            {/**
+              * The origin, stated once, at the top.
+              *
+              * It is the single fact that decides whether the whole setup works
+              * — the dock and every source must use this exact address or they
+              * are different browsers to the storage layer and share nothing.
+              * It was buried in the diagnostics column, below the fold, under a
+              * heading about readiness.
+              */}
+            <div className="setup-origin">
+              <p className="setup-origin__row">
+                <span className="setup-origin__label">Use this address everywhere</span>
+                <code className="setup-origin__value">{window.location.origin}</code>
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--xs"
+                  onClick={() => copyToClipboard(window.location.origin, 'Origin')}
+                >
+                  Copy
+                </button>
+              </p>
+              <p className="setup-origin__why">
+                The dock and every browser source must use this <em>exact</em> address. Mixing
+                <code> localhost</code> and <code> 127.0.0.1</code> makes them different origins:
+                they stop sharing Take/Clear and your uploaded logos.
+                {isLocalhost ? ' You are on localhost — 127.0.0.1 is recommended for both.' : ''}
+              </p>
+            </div>
           </div>
 
           <div className="setup-grid">
             <div className="setup-col">
-              <Panel>
-                <SectionHeader kicker="Step 1" title="Add the control dock" />
-                <div className="ll-panel__body setup-body">
+              <Step n={1} title="Add the control dock">
+                <div className="setup-body">
                   <p className="setup-text">
                     Add the control page to OBS as a Custom Browser Dock — where you choose templates, edit fields, and press Take.
                   </p>
@@ -135,11 +193,10 @@ export default function SetupPage() {
                     openLabel="Open"
                   />
                 </div>
-              </Panel>
+              </Step>
 
-              <Panel>
-                <SectionHeader kicker="Step 2" title="Add your output screens" />
-                <div className="ll-panel__body setup-body">
+              <Step n={2} title="Add your output screens">
+                <div className="setup-body">
                   <p className="setup-text">
                     Each OBS Browser Source is one screen — the full-frame one, the split-screen scene,
                     the house projectors. <strong>Screens</strong> lists them all with the exact address
@@ -166,11 +223,10 @@ export default function SetupPage() {
                     scene resolution.
                   </p>
                 </div>
-              </Panel>
+              </Step>
 
-              <Panel>
-                <SectionHeader kicker="Step 3" title="Recommended OBS settings" />
-                <div className="ll-panel__body">
+              <Step n={3} title="Set each browser source up like this">
+                <div className="setup-body">
                   <ul className="setup-list">
                     <li>Browser source size: 1920×1080</li>
                     <li>Enable transparent background</li>
@@ -178,11 +234,25 @@ export default function SetupPage() {
                     <li>Use the dock for editing, the browser source for live output</li>
                   </ul>
                 </div>
-              </Panel>
+              </Step>
 
-              <Panel>
-                <SectionHeader kicker="Optional" title="Send the OBS output over NDI" />
-                <div className="ll-panel__body setup-body">
+              {/**
+                * Everything below is OPTIONAL and now reads that way.
+                *
+                * NDI and second-machine control were full panels with the same
+                * weight as the three required steps, so the page looked like
+                * five things to do. Collapsed, the required path is the page and
+                * the rest is there when wanted.
+                */}
+              <details className="setup-advanced">
+                <summary className="setup-advanced__summary">
+                  Optional — NDI to another machine, and controlling from a tablet
+                </summary>
+
+                <div className="setup-advanced__body">
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">Send the OBS output over NDI</h3>
+                  <div className="setup-body">
                   <p className="setup-text">
                     LiveLayer does not emit native NDI. To send graphics to another PC or Mac today, render
                     <code className="setup-kbd">/output</code> inside OBS on the graphics machine, then use
@@ -198,12 +268,12 @@ export default function SetupPage() {
                     This sends rendered video only. Control and Take/Clear still run on the local graphics
                     machine until LiveLayer has a LAN event bus.
                   </p>
+                  </div>
                 </div>
-              </Panel>
 
-              <Panel>
-                <SectionHeader kicker="Optional" title="Control from a second machine" />
-                <div className="ll-panel__body setup-body">
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">Control from a second machine</h3>
+                  <div className="setup-body">
                   <p className="setup-text">
                     A tablet or second PC can drive the desk. On the graphics machine run
                     <code className="setup-kbd">npm run dev:lan</code> and
@@ -225,16 +295,18 @@ export default function SetupPage() {
                     This relays live commands only. Uploaded asset libraries, People, presets, and saved
                     rundowns are still stored per browser until host-owned asset storage is added.
                   </p>
+                  </div>
                 </div>
-              </Panel>
+                </div>
+              </details>
             </div>
 
             {/* Live state only. The checklist that used to head this column
                 restated the three steps immediately to its left, and its first
                 item was "open /setup" — read on /setup. */}
-            <div className="setup-col">
+            <div className="setup-col setup-col--aside">
               <p className="setup-statusline" role="status" aria-live="polite">
-                {copyHint || 'This column reports what is true on this machine right now.'}
+                {copyHint || 'Checks below report what is true on this machine right now.'}
               </p>
               <SetupDiagnostics />
             </div>

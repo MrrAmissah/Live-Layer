@@ -10583,3 +10583,80 @@ body.gfx-transparent {
 }
 .control-root .rd-item__cue-input { width: 100%; }
 .control-root .rd-item__cue-hint { font-size: 11px; line-height: 1.4; color: var(--ll-muted-2); }
+
+/* --- /setup, rebuilt as a flow ------------------------------------------
+   It read as documentation with buttons: five equally weighted panels, a
+   right-hand rail of badges, and nothing saying where the required part
+   ended. These give the three steps a sequence you can see before reading,
+   put the origin — the one fact that decides whether any of it works — at the
+   top, and fold the optional half away. */
+.control-root .setup-eyebrow {
+  margin: 0 0 6px; font-size: 11px; font-weight: 750; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ll-blue);
+}
+.control-root .setup-origin {
+  margin: 16px 0 0; padding: 11px 13px;
+  border-radius: 8px;
+  background: rgba(32, 165, 250, 0.08);
+  border: 1px solid rgba(32, 165, 250, 0.26);
+}
+.control-root .setup-origin__label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ll-muted-2);
+}
+.control-root .setup-origin__row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0; }
+.control-root .setup-origin__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px; color: var(--ll-blue); overflow-wrap: anywhere;
+}
+.control-root .setup-origin__why {
+  margin: 7px 0 0; max-width: 68ch;
+  font-size: 12px; line-height: 1.5; color: var(--ll-muted-2);
+}
+.control-root .setup-origin__why code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #cbd6e6;
+}
+
+/* A step reads as one of a sequence: numbered, joined by a rule down the
+   left, so the eye counts them without reading a word. */
+.control-root .setup-step {
+  position: relative;
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px;
+  padding: 0 0 22px 0;
+}
+.control-root .setup-step::before {
+  content: ''; position: absolute; left: 16px; top: 34px; bottom: 0;
+  width: 1px; background: var(--ll-border-soft);
+}
+.control-root .setup-step:last-of-type::before { display: none; }
+.control-root .setup-step__n {
+  display: grid; place-items: center; position: relative; z-index: 1;
+  width: 34px; height: 34px; border-radius: 999px;
+  font-size: 14px; font-weight: 750; color: var(--ll-blue);
+  background: var(--ll-panel); border: 1px solid rgba(32, 165, 250, 0.34);
+}
+.control-root .setup-step__body { min-width: 0; padding-top: 4px; }
+.control-root .setup-step__title {
+  margin: 0 0 8px; font-size: 17px; font-weight: 700; color: var(--ll-text-strong);
+}
+
+/* Optional content, folded. Open it and it reads as two ordinary sections. */
+.control-root .setup-advanced {
+  margin-top: 6px; border-radius: 10px;
+  border: 1px solid var(--ll-border-soft); background: var(--ll-panel-soft);
+}
+.control-root .setup-advanced__summary {
+  cursor: pointer; list-style: none; padding: 14px 16px;
+  font-size: 13px; font-weight: 640; color: var(--ll-text);
+}
+.control-root .setup-advanced__summary::-webkit-details-marker { display: none; }
+.control-root .setup-advanced__summary::before {
+  content: '＋'; margin-right: 10px; color: var(--ll-muted-2); font-weight: 700;
+}
+.control-root .setup-advanced[open] .setup-advanced__summary::before { content: '−'; }
+.control-root .setup-advanced__body { padding: 0 16px 6px; }
+.control-root .setup-sub { padding: 0 0 18px; }
+.control-root .setup-sub__title {
+  margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--ll-text-strong);
+}
+.control-root .setup-col--aside { position: sticky; top: 16px; align-self: start; }

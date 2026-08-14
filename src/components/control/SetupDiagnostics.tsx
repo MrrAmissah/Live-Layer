@@ -357,20 +357,11 @@ export default function SetupDiagnostics() {
     <Panel className="setup-aside">
       <SectionHeader kicker="Diagnostics" title="Production readiness" />
       <div className="ll-panel__body setup-body">
-        <div className="diag-origin">
-          <span className="diag-origin__label">This page’s origin</span>
-          <code className="setup-url__value">{origin}</code>
-          <button type="button" className="btn btn--ghost btn--xs" onClick={() => copy(origin, 'Origin')} aria-label="Copy this page origin">Copy</button>
-        </div>
-
-        <div className="diag-warn">
-          <strong>Use the same origin everywhere.</strong> Add the OBS dock and the
-          Browser Source at the <em>exact same</em> address. Don’t mix
-          <code> localhost</code> and <code> 127.0.0.1</code> — they are different
-          origins and won’t share Take/Clear or your uploaded logos/headshots.
-          {isLocalhost ? ' You’re on localhost; 127.0.0.1 is recommended — use it for both.' : ''}
-        </div>
-
+        {/* The origin and its warning moved to the top of the page, where the
+            address they are about now lives. Repeating them here would be the
+            same duplication this column already shed once — and the warning
+            belongs beside the value it warns about, not two columns away from
+            it. `isLocalhost` still decides the extra sentence, up there. */}
         {/* The URL pair that used to sit here was the THIRD copy of the same
             two strings on one page — Step 1 has the dock, Screens has every
             output address with the relay already in it. What belongs in a
