@@ -10346,12 +10346,15 @@ body.gfx-transparent {
 
 .control-root .live-mic {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 12px 14px;
+  padding: 9px 14px;
   /* Both states occupy the same height, so starting or stopping changes what the
      strip SAYS and never where anything beneath it sits. The off state is the
      shorter one — button and a line of text — so the height of the listening
      state, which also carries the meter, is what gets reserved. */
-  min-height: 62px;
+  /* Trimmed from 62 with the padding: both states still match each other,
+     which is the property that matters, and the strip gives ~10px back to the
+     passage below it. */
+  min-height: 54px;
   box-sizing: border-box;
   /* Stays put while a long passage is scrolled. The scrolling ancestor is
      `.studio__center`, and every element between it and this one is
@@ -10418,6 +10421,22 @@ body.gfx-transparent {
    Scripture workflow, so the live panel belongs at the top whether or not the
    microphone happens to be on. */
 .control-root .scripture-workspace { display: flex; flex-direction: column; gap: 1rem; }
+/**
+ * The live panel keeps the top slot, in every state.
+ *
+ * I tried swapping these to lift the retrieved passage higher, and reverted it:
+ * `micLifecycle.test.ts` pins the order, and the reason is a real screenshot
+ * review — Start rendered below the lookup and the Stop that replaced it jumped
+ * to the top, so the operator pressed a button and then had to hunt for it,
+ * worst at the moment Stop matters most. The fix made this the ONE fixed slot.
+ *
+ * Below the lookup it would be fixed against listening state but not against
+ * content: a retrieved passage is ~370px tall, so the mic would slide down the
+ * moment a verse loaded. Same family of fault, different trigger.
+ *
+ * The height above the lookup is reclaimed by making this block SHORTER
+ * instead — see `.live-mic` and `.live-heard` below.
+ */
 .control-root .scripture-workspace__live { order: 0; }
 .control-root .scripture-workspace__manual { order: 1; }
 .control-root .live-problem { margin: 0; font-size: 12.5px; line-height: 1.5; color: #f5c77e; }
@@ -10478,8 +10497,27 @@ body.gfx-transparent {
 .control-root .live-alt__ref { font-size: 13px; font-weight: 720; color: var(--ll-text); }
 .control-root .live-alt__why { font-size: 11px; color: var(--ll-muted); }
 
-.control-root .live-type { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
-.control-root .live-type__field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
+/**
+ * The typed-transcript row, on ONE line.
+ *
+ * Its label sat on a line of its own above the input, which cost ~28px at the
+ * very top of the workspace — before the reference field, before the passage.
+ * That is the height that pushed the retrieved verse below the fold on a
+ * laptop, and the label is not carrying 28px of meaning: the placeholder
+ * already says what to type, in the operator's own words.
+ *
+ * Inline and to the left instead, so the row reads as one line and the lookup
+ * beneath it starts higher. The wording is unchanged — it is guidance a
+ * first-time operator uses, and shortening it to buy the same pixels would
+ * have traded the wrong thing.
+ */
+.control-root .live-type { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.control-root .live-type__field {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 220px;
+}
+.control-root .live-type__field .field__label { flex: none; margin: 0; white-space: nowrap; }
+.control-root .live-type__field .field__input { flex: 1; min-width: 0; }
 
 /* A provisional reading is visibly not-yet-settled, without becoming a different
    card when it settles — the operator is reading it, and swapping the layout under
