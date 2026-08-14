@@ -1745,13 +1745,18 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-stack {
-  /* Content-fitted, with the old fixed width as the FLOOR. A pinned width is
-     what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
+  /* Content-fitted, with a floor a short name actually reaches. A pinned width
+     is what cut "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" to "…KWABENA OW" on the
      mask's `overflow: hidden` — a hard cut with no ellipsis, which reads as a
-     rendering fault rather than a long name. Ordinary names are unchanged
-     because they never reach the floor. */
+     rendering fault rather than a long name.
+
+     THE FLOOR MATCHES THE NAME PLATE'S FLOOR, and that is load-bearing rather
+     than tidy. The white role bar is `min-width: 100%` of this stack and the
+     gold arrowhead is anchored to its right edge, so a stack floor ABOVE the
+     plate's leaves both hanging in space past the end of a short teal bar. The
+     two numbers move together or not at all. */
   width: fit-content;
-  min-width: 1240px;
+  min-width: 560px;
   max-width: var(--gfx-l3-max-width);
 }
 
@@ -1779,39 +1784,57 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='split-bar'] .l3-name-plate {
   box-sizing: border-box;
-  min-width: 1080px;
-  height: 84px;
-  padding: 0 260px 0 156px;
+  /* Reported from the desk: "split bar is too long and huge for the text it
+     holds." It was — a 1080px floor plus 260px of right padding held open for a
+     210x110 end slab meant "Ps. Ato Mensah" flew a bar most of the way across
+     the frame with two thirds of it empty. The floor is now roughly what the
+     shortest credible name needs, and the right padding only has to clear the
+     56px arrowhead. */
+  min-width: 560px;
+  height: 76px;
+  padding: 0 84px 0 150px;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-role-plate {
   box-sizing: border-box;
-  min-width: 920px;
-  height: 42px;
-  margin-left: 88px;
-  padding: 0 72px;
+  height: 40px;
+  /* 34px is the same inset as this plate's own top-left clip corner, so the
+     white bar's top-right corner lands exactly on the stack's right edge —
+     which is the tip of the gold arrowhead above it. At the old 88px the
+     overhang was 8% of a 1080px bar and read as composition; against a 560px
+     bar the same 88px is 16% and reads as a rendering fault.
+
+     Left padding is measured, not chosen: the badge ends at x=96 in stack
+     coordinates, and 34 + 116 puts the role text at 150 — clear of it and
+     flush with the name above. */
+  margin-left: 34px;
+  padding: 0 60px 0 116px;
   background: #ffffff !important;
   clip-path: polygon(34px 0, calc(100% - 34px) 0, 100% 100%, 0 100%) !important;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-name {
   color: #ffffff;
-  font-size: 42px;
+  font-size: 38px;
   text-shadow: none;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-role,
 .gfx-l3[data-variant='split-bar'] .l3-org {
   color: #04756f;
-  font-size: 20px;
+  font-size: 19px;
   text-shadow: none;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-stripe {
-  left: -30px;
-  top: -18px;
-  width: 134px !important;
-  height: 134px !important;
+  /* Shrunk with the bar. Holding the badge at 134 while the plate came down to
+     76 would have made it 1.8x the bar's height instead of 1.6x — the badge
+     reading BIGGER was the opposite of the note. Centred on the plate at
+     (37, 38) in stack coordinates; the medallion below repeats that centre. */
+  left: -22px;
+  top: -21px;
+  width: 118px !important;
+  height: 118px !important;
   border-radius: 50%;
   background:
     radial-gradient(circle at 50% 50%, #18d7aa 0 44%, #0ca184 45% 100%) !important;
@@ -1821,23 +1844,29 @@ body.gfx-transparent {
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-end-slab {
-  right: 78px;
-  top: -12px;
-  width: 210px;
-  height: 110px;
-  background:
-    radial-gradient(circle at 24% 50%, transparent 0 34%, #f7cf27 35% 48%, transparent 49%),
-    linear-gradient(120deg, transparent 0 60%, #f7cf27 61% 100%);
+  /* The gold IS the plate's point now, rather than a slab parked near it.
+     `56px` is the same depth as the name plate's own right cut
+     (`polygon(… calc(100% - 56px) 0, 100% 50% …)`), so the triangle lands on
+     that cut exactly and the teal-to-navy bar terminates in a gold arrowhead.
+     The old slab overlapped the plate at 210x110 with a circle punched through
+     it, which at this size read as a rendering fault rather than an accent. */
+  right: 0;
+  top: 0;
+  width: 56px;
+  height: 76px;
+  background: linear-gradient(150deg, #ffe071, #f7cf27 42%, #e0ab10);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
   border-radius: 0;
   z-index: 4;
 }
 
 .gfx-l3[data-variant='split-bar'] .l3-medallion {
   display: block;
-  /* Concentric with the painted ring cluster on the stripe (measured). */
+  /* Concentric with the badge above: the element is 150px square and scales
+     about its own centre, so left/top are centre − 75 whatever the scale. */
   left: -38px;
-  top: -26px;
-  transform: scale(0.58);
+  top: -37px;
+  transform: scale(0.52);
   transform-origin: center;
   z-index: 9;
   --gfx-accent-2: #ffffff;
@@ -2409,33 +2438,44 @@ body.gfx-transparent {
   background: #e8b93c;
 }
 
+/**
+ * THE TWO HAIRLINES END IN NOTHING, BOTH OF THEM.
+ *
+ * Reported from the desk: "soft broadcast has some weird edges." It did, and
+ * they were the same mistake twice. The gold line began at full strength at
+ * x=128 — a hard square end floating in the middle of a plate whose whole idea
+ * is that it has no corners — and the blue line under the role pill did the same
+ * thing 38px right of the pill's own left edge, so it read as a slab poking out
+ * from underneath rather than an underline belonging to it.
+ *
+ * Fading in as well as out is what fixes it. A rounded cap on a 4px bar is two
+ * pixels of radius and does nothing; a gradient that starts transparent has no
+ * end to misalign, so neither line has to be measured against anything.
+ */
 .gfx-l3[data-variant='soft-broadcast'] .l3-cap {
-  left: 128px;
-  right: 34px;
+  left: 60px;
+  right: 60px;
   top: 0;
-  height: 5px;
-  background: linear-gradient(90deg, #e8b93c, rgba(232, 185, 60, 0));
+  height: 4px;
+  background: linear-gradient(90deg, rgba(232, 185, 60, 0), #e8b93c 20%, rgba(232, 185, 60, 0));
 }
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-stripe {
-  display: block;
-  left: 34px;
-  top: 18px;
-  width: 80px !important;
-  height: 80px !important;
-  border-radius: 26px;
-  background: rgba(248, 250, 252, 0.1) !important;
-  border: 1px solid rgba(248, 250, 252, 0.28);
-  transform: none;
-  z-index: 6;
+  /* Off. It was an 80px rounded square sitting entirely behind the medallion —
+     invisible where the badge covers it and a stray corner where it does not,
+     which is the third weird edge. Nothing on this variant needs it: the badge
+     is the left anchor. */
+  display: none;
 }
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-underbar {
-  left: 134px;
-  right: 190px;
-  bottom: -8px;
-  height: 8px;
-  background: linear-gradient(90deg, #1284ff, rgba(18, 132, 255, 0));
+  /* Left edge is the ROLE PILL's left edge (its `margin-left`), so the line is
+     read as belonging to the pill above it rather than as a separate bar. */
+  left: 96px;
+  right: 150px;
+  bottom: -6px;
+  height: 6px;
+  background: linear-gradient(90deg, rgba(18, 132, 255, 0), #1284ff 18%, rgba(18, 132, 255, 0));
   border-radius: 999px;
   clip-path: none;
 }
@@ -2566,8 +2606,51 @@ body.gfx-transparent {
   color: #c7d4ff;
 }
 
+/**
+ * THE DIAMOND GOES, AND THE BAR STOPS BEING A SINGLE RECTANGLE.
+ *
+ * Reported from the desk: the strap "looks rigid", and "the shape between the
+ * title and church needs to go".
+ *
+ * The shape was the house divider — a 9px square rotated 45deg. It is a fine
+ * mark on the plated variants, where it sits on ink between two heavy plates;
+ * on this strap it is the only rotated thing in a composition made entirely of
+ * horizontals, so it reads as a stray glyph rather than punctuation.
+ *
+ * A thin upright rule replaces it, in the same idiom as the accent below: the
+ * strap now has one vertical mark inside the text and one beside the bar, and
+ * they answer each other. A bordered chip around "PPC 2026" was the other
+ * candidate and was dropped — adding a rectangle to the thing that was called
+ * rigid is the wrong direction, and a chip that suits a short event tag does
+ * not suit the house pack's church name in the same field.
+ */
 .gfx-l3[data-variant='convention-strap'] .l3-role-divider {
-  background: #ffffff;
+  width: 3px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--gfx-premium-accent);
+  transform: none;
+  opacity: 0.85;
+}
+
+.gfx-l3[data-variant='convention-strap'] .l3-end-slab {
+  /* The repelling magnet: a thin upright bar the EXACT height of the strap,
+     held off its end by a gap it never closes.
+     `top`/`bottom` repeat the underbar's own -7px, so the two ends stay level
+     whatever the text does to the bar's height — a fixed height here would
+     drift the moment a role line wrapped or a font metric changed.
+     `right: -26px` with `width: 9px` leaves 17px of air: close enough to belong
+     to the bar, far enough that it never reads as part of it. */
+  display: block;
+  position: absolute;
+  right: -26px;
+  top: -7px;
+  bottom: -7px;
+  width: 9px;
+  height: auto;
+  background: linear-gradient(180deg, var(--gfx-premium-accent), color-mix(in srgb, var(--gfx-premium-accent) 74%, #b8791a));
+  border-radius: 2px;
+  z-index: 2;
 }
 
 .gfx-l3[data-variant='convention-strap'] .l3-strap-logo {
@@ -10589,10 +10672,16 @@ body.gfx-transparent {
  * Each number is `furniture left edge − line left edge − optical gap`, measured
  * at 1920x1080 with the longest role and church name this church uses. Ordinary
  * roles never reach it; the existing ellipsis handles anything longer.
+ *
+ * SPLIT-BAR NO LONGER NEEDS ONE and its cap was removed rather than re-measured.
+ * Its trailing furniture became the name plate's own arrowhead, which sits in
+ * the name plate's vertical band — there is nothing beside the role line to run
+ * under any more, so the plate's own width and ellipsis are the honest bound. A
+ * cap kept from the old geometry would only ellipsise a role line early for a
+ * clearance that no longer exists.
  */
 .gfx-l3[data-variant='canva-ministry'] .l3-role-line { max-width: 956px; }
 .gfx-l3[data-variant='event-style'] .l3-role-line { max-width: 993px; }
-.gfx-l3[data-variant='split-bar'] .l3-role-line { max-width: 1061px; }
 
 /* Setup: the actions that replaced a duplicated URL row, and the quieter note
    under them. */
