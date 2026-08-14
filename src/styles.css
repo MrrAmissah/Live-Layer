@@ -1798,11 +1798,24 @@ body.gfx-transparent {
 .gfx-l3[data-variant='split-bar'] .l3-role-plate {
   box-sizing: border-box;
   height: 40px;
-  /* 34px is the same inset as this plate's own top-left clip corner, so the
-     white bar's top-right corner lands exactly on the stack's right edge —
-     which is the tip of the gold arrowhead above it. At the old 88px the
-     overhang was 8% of a 1080px bar and read as composition; against a 560px
-     bar the same 88px is 16% and reads as a rendering fault.
+  /* At the old 88px the overhang was 8% of a 1080px bar and read as
+     composition; against a 560px bar the same 88px is 16% and reads as a
+     rendering fault, and it lands directly under the gold arrowhead.
+
+     WHAT SQUARES THE RIGHT END IS `.l3-role-mask`, NOT THIS PLATE'S CLIP. The
+     plate is `min-width: 100%` of that mask (see the rule near the end of this
+     file) AND shifted right by this margin, so it overflows by exactly 34px and
+     the mask's `overflow: hidden` shears it off — the trapezoid's bottom-right
+     point never renders, and the visible right edge is a clean vertical
+     landing on the stack's edge, which is the arrowhead's tip. Relax the mask's
+     `max-width` or its `overflow` and that corner springs 34px past the
+     arrowhead; the clip-path below is not what is holding it.
+
+     The right padding leans on the same overflow: 60px puts the role text's
+     limit at `stack width − 26`, comfortably inside the mask. Raise this margin
+     without raising that padding and a long role line reaches the mask's edge
+     and gets SHEARED rather than ellipsised — a hard cut with no ellipsis,
+     which is the exact fault the stack's floor comment above is about.
 
      Left padding is measured, not chosen: the badge ends at x=96 in stack
      coordinates, and 34 + 116 puts the role text at 150 — clear of it and
@@ -2470,7 +2483,13 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='soft-broadcast'] .l3-underbar {
   /* Left edge is the ROLE PILL's left edge (its `margin-left`), so the line is
-     read as belonging to the pill above it rather than as a separate bar. */
+     read as belonging to the pill above it rather than as a separate bar.
+
+     When there is no role row at all — the eye toggle blanks the title and the
+     church line, and the renderer drops the plate — this line lands under the
+     NAME plate instead, 96px in from an edge it no longer matches. It survives
+     that only because it fades in from nothing: there is no end to be out of
+     line with. Shot as `--case nameonly`. */
   left: 96px;
   right: 150px;
   bottom: -6px;

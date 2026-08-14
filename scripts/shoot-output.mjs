@@ -71,7 +71,18 @@ const CASES = {
       title: 'General Overseer, Mathapoly Church International',
       subtitle: 'Annual Peace Prayer Convention 2026'
     },
-    nologo: { name: 'Ps. Ato Mensah', title: 'Guest Speaker', subtitle: '', logoUrl: '' }
+    nologo: { name: 'Ps. Ato Mensah', title: 'Guest Speaker', subtitle: '', logoUrl: '' },
+    /**
+     * Name only — no role row AT ALL.
+     *
+     * This is not an edge case any more. `hasRoleRow` in the renderer is
+     * `title || subtitle`, and the eye toggle blanks both at the render
+     * boundary, so an operator hiding the title and the church line takes the
+     * whole role plate out of the DOM. Every variant's trailing furniture,
+     * underbar and badge centring is measured against a two-row stack; this is
+     * the case that shows what happens when the second row is gone.
+     */
+    nameonly: { name: 'Ps. Ato Mensah', title: '', subtitle: '' }
   },
   'performer-lower-third': {
     short: { name: 'The Promised Land Choir', title: 'Ministration', subtitle: 'PPC 2026' },
