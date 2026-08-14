@@ -72,6 +72,21 @@ interface LiveLayerState {
   recent: GraphicInstance[];
   /** Last-used auto-hide duration per template, so defaults don't leak across. */
   durationByTemplate: Record<string, number>;
+  /**
+   * The values the operator last had for each template, so leaving one and
+   * coming back does not throw the work away.
+   *
+   * Switching template has always re-seeded from scratch — a deliberate rule
+   * ("selecting a template starts a new graphic"), and right for the FIRST
+   * visit. It was wrong for the second: an operator who typed a name, looked at
+   * a scripture card and came back found the name gone, with no warning and
+   * nothing to undo it. Same shape as `durationByTemplate`, which has kept a
+   * per-template preference this way all along.
+   *
+   * In memory for the session, not persisted: it exists to survive switching,
+   * and the working draft (`lib/workingDraft.ts`) is what survives a reload.
+   */
+  valuesByTemplate: Record<string, Record<string, string>>;
   quickQueue: QuickQueueItem[];
   addToQuickQueue: (label: string, valueOverrides?: Record<string, string>) => void;
   removeFromQuickQueue: (id: string) => void;
@@ -243,6 +258,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           // A pack switch re-seeds a fresh ad-hoc graphic, so it wears the
           // brand default — never a theme carried in by a loaded snapshot.
           theme: { ...state.brandTheme },
+          // Parked drafts belong to the pack that seeded them: their palette,
+          // their logo, their variant. Carrying them into a new pack would put
+          // the old event's branding back on a template the operator returns to.
+          valuesByTemplate: {},
           draftValues: createDraftValues(state.currentTemplateId, packId, state.brandTheme, state.explicitBrandKeys)
         };
       }),
@@ -267,6 +286,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     layout: restoredDraft ? { ...restoredDraft.layout } : {},
     durationSeconds: restoredDraft?.durationSeconds ?? DEFAULT_DURATION_SECONDS,
     durationByTemplate: {},
+    valuesByTemplate: {},
     presets: loadPresets(),
     recent: loadRecentGraphics(),
     quickQueue: loadQuickQueue(),
@@ -433,8 +453,13 @@ export const useLiveLayerStore = create<LiveLayerState>()(
     setTemplate: (templateId) =>
       set((state) => {
         const template = templateRegistry.find((item) => item.id === templateId);
+        // Park what is on screen under the template being left, so it is here
+        // to come back to.
+        const parked = { ...state.valuesByTemplate, [state.currentTemplateId]: state.draftValues };
+        const remembered = parked[templateId];
         return {
           currentTemplateId: templateId,
+          valuesByTemplate: parked,
           // Each template keeps its own auto-hide duration: the operator's
           // last choice for it, else its declared default, else 6s.
           durationSeconds:
@@ -444,7 +469,14 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           // Selecting a template starts a new graphic: it wears the brand
           // default, so a previously loaded snapshot's theme cannot leak in.
           theme: { ...state.brandTheme },
-          draftValues: {
+          /**
+           * A remembered draft is restored WHOLE. The seed's carried logo is
+           * only applied to a first visit — on a return the remembered values
+           * already carry whatever logo the operator settled on, and layering
+           * the current template's logo over them would quietly change a
+           * graphic they had finished with.
+           */
+          draftValues: remembered ?? {
             ...createDraftValues(templateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
             ...carriedLogo(state.draftValues)
           }
@@ -514,13 +546,20 @@ export const useLiveLayerStore = create<LiveLayerState>()(
         durationByTemplate: { ...state.durationByTemplate, [state.currentTemplateId]: duration }
       })),
     resetDraft: () =>
-      set((state) => ({
-        theme: { ...state.brandTheme },
-        draftValues: {
-          ...createDraftValues(state.currentTemplateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
-          ...carriedLogo(state.draftValues)
-        }
-      })),
+      set((state) => {
+        // Forget what was parked for THIS template too. Without it, Reset would
+        // clear the screen and switching away and back would bring the old
+        // values straight back — a reset that did not reset.
+        const { [state.currentTemplateId]: _dropped, ...keptForOthers } = state.valuesByTemplate;
+        return {
+          theme: { ...state.brandTheme },
+          valuesByTemplate: keptForOthers,
+          draftValues: {
+            ...createDraftValues(state.currentTemplateId, state.activePackId, state.brandTheme, state.explicitBrandKeys),
+            ...carriedLogo(state.draftValues)
+          }
+        };
+      }),
     resetTheme: () =>
       set((state) => {
         // Back to "nothing chosen": templates seed their own accents again.
@@ -579,6 +618,7 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           layout: {},
           durationSeconds: 6,
           durationByTemplate: {},
+    valuesByTemplate: {},
           presets: [],
           recent: [],
           quickQueue: [],

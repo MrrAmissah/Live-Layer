@@ -111,7 +111,11 @@ describe('createDraftValues', () => {
   it('keeps a pack template’s non-palette overrides alongside the brand seed', () => {
     const theme = { ...defaultBrandTheme(), accentColor: '#ff0000' };
     const seeded = createDraftValues('preacher-lower-third', 'ppc-2026', theme, ['accentColor']);
-    expect(seeded.variantId).toBe('convention-strap');
+    // The pack's own variant choice, whatever it currently is — what this test
+    // is about is that a pack's NON-palette overrides survive the brand seed,
+    // and naming the variant literally made it fail when the pack's default
+    // moved to modern-minimal.
+    expect(seeded.variantId).toBe('modern-minimal');
     expect(seeded.subtitle).toBe("Annual PPC '26");
   });
 

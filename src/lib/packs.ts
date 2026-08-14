@@ -51,12 +51,18 @@ export const graphicPacks: GraphicPack[] = [
     description:
       "Annual Peace Prayer Convention '26 — royal palette, convention strap and ticker layouts, and the event logo.",
     variantChoices: {
-      'preacher-lower-third': ['convention-strap', 'modern-minimal', 'split-bar', 'soft-broadcast'],
-      'performer-lower-third': ['performer-pill', 'performer-note', 'convention-strap', 'soft-broadcast']
+      /* A pack's curated list REPLACES the registry order, so reordering the
+         registry alone left this one leading with the strap. The two that get
+         reached for lead here too. */
+      'preacher-lower-third': ['modern-minimal', 'soft-broadcast', 'convention-strap', 'split-bar'],
+      'performer-lower-third': ['performer-pill', 'performer-note', 'soft-broadcast', 'convention-strap']
     },
     valueOverrides: {
       'preacher-lower-third': {
-        variantId: 'convention-strap',
+        /* Was `convention-strap`. A new preacher graphic on this pack now seeds
+           as modern-minimal like everywhere else — the strap is still one click
+           away and still carries the event branding when chosen. */
+        variantId: 'modern-minimal',
         subtitle: "Annual PPC '26",
         logoUrl: PPC_LOGO_URL,
         ...PPC_PALETTE
