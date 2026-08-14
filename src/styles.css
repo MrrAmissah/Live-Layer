@@ -10719,3 +10719,12 @@ body.gfx-transparent {
 /* On the two split layouts and the house wall the accent is the gold the card
    is edged in; keep the number from competing with the reference above it. */
 .gfx-scripture[data-variant='house-wall'] .scripture-versenum { opacity: 0.75; }
+
+/* A screen's content scope, stated on its card. Quiet — it is a fact about the
+   screen, not a warning. */
+.control-root .screen-card__scope {
+  margin: 0; padding: 6px 9px; border-radius: 6px;
+  font-size: 11px; line-height: 1.4; color: var(--ll-blue);
+  background: rgba(32, 165, 250, 0.08);
+  border: 1px solid rgba(32, 165, 250, 0.2);
+}

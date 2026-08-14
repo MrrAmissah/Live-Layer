@@ -15,6 +15,7 @@ import {
   readOutputScreen,
   resolveScreenValues,
   sanitizeScriptureOutputs,
+  screenRenders,
   type ScriptureOutputMap
 } from '../lib/scriptureOutputs';
 
@@ -139,6 +140,22 @@ export default function OutputPage() {
     const applyMessage = (message: RealtimeMessage) => {
       if (message.type === 'SHOW_GRAPHIC') {
         const graphic = message.payload as GraphicInstance;
+        /**
+         * IS THIS COMMAND ADDRESSED TO THIS SCREEN?
+         *
+         * The split and house scenes are compositions built around scripture —
+         * a camera squeezed to one side, or a wall in a field. A lower third
+         * arriving in that column does not replace the graphic, it dismantles
+         * the scene, and the operator who sent it was addressing the stream.
+         *
+         * A screen that is not addressed does NOTHING: it keeps what it has,
+         * and it sends no acknowledgement. Staying silent is the load-bearing
+         * half — `OUTPUT_APPLIED` means "I put this on screen", so a screen
+         * that ignored the command must not confirm the Take on behalf of one
+         * that did. Program is confirmed by the screens that actually rendered
+         * it, which is what makes the desk's reading true.
+         */
+        if (!screenRenders(screen, graphic.templateId)) return;
         const ackApplied = () =>
           sendOutputEvent(
             createOutputEvent('OUTPUT_APPLIED', {

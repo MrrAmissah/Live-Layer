@@ -215,6 +215,13 @@ export default function ScreenCard({ screen }: Props) {
         </span>
       </label>
 
+      {/* Stated, not hidden. A screen that silently ignores half the graphics
+          sent to it is a surprise waiting for a service; on the card it is a
+          property of the screen the operator chose. */}
+      {screen.scope === 'scripture' ? (
+        <p className="screen-card__scope">Scripture only — other graphics leave this screen untouched.</p>
+      ) : null}
+
       <div className="screen-card__url">
         <code className="screen-card__address">{url}</code>
         <button type="button" className="btn btn--secondary btn--xs screen-card__copy" onClick={copy}>

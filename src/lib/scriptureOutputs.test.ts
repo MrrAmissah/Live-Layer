@@ -7,6 +7,7 @@ import {
   readOutputScreen,
   resolveScreenValues,
   sanitizeScriptureOutputs,
+  screenRenders,
   scriptureLookFor,
   scriptureVariantIds
 } from './scriptureOutputs';
@@ -260,6 +261,59 @@ describe('the scripture-only gate', () => {
     const source = read('src/app/OutputPage.tsx');
     expect(source).toContain('<resolved.Renderer values={outputValues}');
     expect(source).not.toMatch(/setActiveGraphic\([^)]*variantId/);
+  });
+});
+
+/**
+ * WHICH COMMANDS A SCREEN IS ADDRESSED BY.
+ *
+ * Reported from the desk: with a verse up on the split scene, taking a lower
+ * third replaced it — so the composition the split scene exists to hold came
+ * apart because the operator addressed the stream. A scoped screen is the
+ * answer, and the acknowledgement rule is the part that keeps it honest.
+ */
+describe('what a screen will render at all', () => {
+  it('lets the full-frame screens carry anything, as they always have', () => {
+    for (const template of ['scripture-card', 'preacher-lower-third', 'quote-card', 'fullscreen-message']) {
+      expect(screenRenders('main', template), template).toBe(true);
+      expect(screenRenders('lower', template), template).toBe(true);
+    }
+  });
+
+  it('keeps the split and house screens to scripture', () => {
+    expect(screenRenders('split', 'scripture-card')).toBe(true);
+    expect(screenRenders('house', 'scripture-card')).toBe(true);
+    for (const template of ['preacher-lower-third', 'performer-lower-third', 'quote-card', 'announcement-banner', 'fullscreen-message']) {
+      expect(screenRenders('split', template), template).toBe(false);
+      expect(screenRenders('house', template), template).toBe(false);
+    }
+  });
+
+  it('treats a graphic with no template as not addressed to a scoped screen', () => {
+    expect(screenRenders('split', null)).toBe(false);
+    expect(screenRenders('split', undefined)).toBe(false);
+  });
+
+  it('is enforced BEFORE the acknowledgement, not after', () => {
+    /**
+     * The load-bearing half. `OUTPUT_APPLIED` means "I put this on screen", so a
+     * screen that ignored a command must not confirm the Take on behalf of one
+     * that rendered it — otherwise the desk reads OUTPUT ACTIVE because the
+     * house wall replied about a lower third it never showed.
+     */
+    const source = read('src/app/OutputPage.tsx');
+    const guard = source.indexOf('if (!screenRenders(screen, graphic.templateId)) return;');
+    const ack = source.indexOf("createOutputEvent('OUTPUT_APPLIED'");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(ack);
+  });
+
+  it('never filters a clear', () => {
+    // Clear means clear, on every screen. An operator reaching for it in a
+    // hurry must not have to work out which screens were listening.
+    const source = read('src/app/OutputPage.tsx');
+    const clearBlock = source.slice(source.indexOf("message.type === 'HIDE_GRAPHIC'"));
+    expect(clearBlock.slice(0, 400)).not.toContain('screenRenders');
   });
 });
 

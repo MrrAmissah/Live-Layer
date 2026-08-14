@@ -72,6 +72,21 @@ export interface ScriptureOutputScreenInfo {
   icon: 'screenMain' | 'screenLower' | 'screenSplit' | 'screenHouse';
   /** One line of "what is this for", shown under the card. */
   hint: string;
+  /**
+   * WHAT THIS SCREEN WILL RENDER AT ALL.
+   *
+   * `all` is every graphic, which is what a full-frame source has always done.
+   * `scripture` renders scripture cards and ignores everything else — it does
+   * not clear, it does not acknowledge, it simply is not addressed by that
+   * command.
+   *
+   * The split and house scenes exist because of this. They are COMPOSITIONS: a
+   * camera squeezed to one side with scripture holding the rest, or a wall in a
+   * field showing one verse. A lower third arriving in that column is not a
+   * different graphic, it is the scene falling apart — and the operator who
+   * sent it was addressing the stream, not the projectors.
+   */
+  scope: 'all' | 'scripture';
 }
 
 /**
@@ -87,6 +102,7 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
     name: 'Main screen',
     query: '',
     icon: 'screenMain',
+    scope: 'all',
     hint: 'The full-frame source. Any /output URL without a screen is this one.'
   },
   {
@@ -94,6 +110,7 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
     name: 'Lower third',
     query: 'screen=lower',
     icon: 'screenLower',
+    scope: 'all',
     hint: 'A source that only ever carries the band at the foot of frame.'
   },
   {
@@ -101,14 +118,16 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
     name: 'Split screen',
     query: 'screen=split',
     icon: 'screenSplit',
-    hint: 'The scene where the camera is scaled down and scripture owns the rest.'
+    scope: 'scripture',
+    hint: 'The scene where the camera is scaled down and scripture owns the rest. Scripture only — a lower third sent to air will not disturb it.'
   },
   {
     id: 'house',
     name: 'House screen',
     query: 'screen=house',
     icon: 'screenHouse',
-    hint: 'The projectors and LED wall in the room. Never reaches program — it switches independently of the stream.'
+    scope: 'scripture',
+    hint: 'The projectors and LED wall in the room. Scripture only, and it switches independently of the stream.'
   }
 ];
 
@@ -285,4 +304,27 @@ export function resolveScreenValues(
   if (templateId !== SCRIPTURE_TEMPLATE_ID) return values;
   const look = scriptureLookFor(screen, outputs);
   return look ? { ...values, variantId: look } : values;
+}
+
+/**
+ * May this screen render this graphic at all?
+ *
+ * Separate from `resolveScreenValues`, which decides what a scripture card
+ * LOOKS like here. This decides whether the command is addressed to this screen
+ * in the first place.
+ *
+ * A screen that answers false does nothing: it keeps what it is showing, sends
+ * no acknowledgement, and lets the graphic pass. Not acknowledging is the
+ * honest part — `OUTPUT_APPLIED` means "I put this on screen", and a screen
+ * that ignored a command must not confirm a Take on its behalf. Program is then
+ * confirmed by whichever screens did render it, and by nothing else.
+ *
+ * A CLEAR is never filtered. Clear means clear, on every screen, and an
+ * operator reaching for it in a hurry must not have to think about which
+ * screens were listening.
+ */
+export function screenRenders(screen: ScriptureOutputScreen, templateId: string | null | undefined): boolean {
+  const info = SCRIPTURE_OUTPUT_SCREENS.find((entry) => entry.id === screen);
+  if (!info || info.scope === 'all') return true;
+  return templateId === SCRIPTURE_TEMPLATE_ID;
 }
