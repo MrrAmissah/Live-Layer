@@ -10660,3 +10660,24 @@ body.gfx-transparent {
   margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--ll-text-strong);
 }
 .control-root .setup-col--aside { position: sticky; top: 16px; align-self: start; }
+
+/* The verse number, set the way a printed Bible sets it: raised, smaller, and
+   in the accent so it reads as apparatus rather than as part of the sentence.
+   `baseline` + a negative top rather than `vertical-align: super`, which
+   inflates the line box and would make one numbered line taller than its
+   neighbours. */
+.gfx-scripture .scripture-versenum {
+  display: inline-block;
+  position: relative;
+  top: -0.42em;
+  margin-right: 0.22em;
+  font-size: 0.52em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--gfx-accent-2);
+  opacity: 0.92;
+}
+/* On the two split layouts and the house wall the accent is the gold the card
+   is edged in; keep the number from competing with the reference above it. */
+.gfx-scripture[data-variant='house-wall'] .scripture-versenum { opacity: 0.75; }

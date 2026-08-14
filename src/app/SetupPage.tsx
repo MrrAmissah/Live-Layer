@@ -286,10 +286,35 @@ export default function SetupPage() {
                     onOpen={() => window.open(lanControlUrl, '_blank')}
                     openLabel="Open"
                   />
+                  <UrlRow
+                    url={lanOutputUrl}
+                    label="LAN Output URL"
+                    onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
+                    onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
+                    openLabel="Debug"
+                  />
+                  {/**
+                    * THE RELAY OUTPUT ADDRESS BELONGS HERE, and removing it was
+                    * wrong.
+                    *
+                    * The reasoning was that Screens builds every address with
+                    * the relay already in it — true only when the control page
+                    * ITSELF was opened with `?relay=`. On the graphics machine
+                    * it usually is not: control is local, so `getRealtimeRelayUrl()`
+                    * returns nothing and Screens hands out plain addresses. The
+                    * operator setting up a second machine then had no
+                    * relay-bearing output URL anywhere in the product.
+                    *
+                    * This page can always build one, because it derives the
+                    * relay from its own hostname rather than from stored config.
+                    */}
                   <p className="setup-note">
-                    Output screens take the relay automatically — the addresses on Screens already
-                    include it. Check the connection with <strong>Check LAN relay</strong> in the
-                    column beside this one.
+                    That is the main screen. For the split or house scenes, add
+                    <code className="setup-kbd">&amp;screen=split</code> or
+                    <code className="setup-kbd">&amp;screen=house</code> to it — or open
+                    <strong> Screens</strong> on a browser that already has the relay and copy
+                    each address whole. Check the link with <strong>Check LAN relay</strong> beside
+                    this column.
                   </p>
                   <p className="setup-text">
                     This relays live commands only. Uploaded asset libraries, People, presets, and saved

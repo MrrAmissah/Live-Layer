@@ -38,10 +38,24 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
     setVersesRequested(false);
     onReferenceChange(buildReference(name));
   };
+  /**
+   * CHOOSING A CHAPTER CHOOSES VERSE 1 WITH IT.
+   *
+   * It used to set `Book chapter` with no verse, which left the picker in a
+   * half-chosen state — and the operator one Take away from airing whatever
+   * verse the PREVIOUS reference had ended on, simply because they had not got
+   * round to the verse row yet. A chapter with no verse is not a thing anybody
+   * means to put on screen; verse 1 is what "I have moved to chapter 3" means.
+   *
+   * It loads the text too, the same way a verse chip does, so the reference on
+   * the preview and the words under it can never disagree.
+   */
   const pickChapter = (chapter: number) => {
     if (!parsed.book) return;
     setVersesRequested(true);
-    onReferenceChange(buildReference(parsed.book, chapter));
+    const ref = buildReference(parsed.book, chapter, 1);
+    onReferenceChange(ref);
+    void runLookup(ref);
   };
   const runLookup = async (ref: string) => {
     const found = await lookup(ref, translation);

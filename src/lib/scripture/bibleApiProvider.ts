@@ -10,11 +10,46 @@ interface BibleApiResponse {
   translation_name?: string;
   translation_note?: string;
   error?: string;
-  verses?: { verse?: number }[];
+  verses?: { verse?: number; text?: string }[];
 }
 
 function cleanVerseText(text?: string) {
   return (text ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The passage as a printed Bible sets it: each verse preceded by its number.
+ *
+ * The response has always carried per-verse structure and this provider threw
+ * it away, keeping only the flat `text`. So a four-verse passage arrived as one
+ * paragraph and nothing on air could show where verse 5 began.
+ *
+ * The marker is a NUMBER FOLLOWED BY A NON-BREAKING SPACE. `values` is a flat
+ * `Record<string, string>` all the way to the renderer and the operator edits
+ * this exact text in a textarea, so anything more structured would either not
+ * survive the trip or would show them markup.
+ *
+ * The NBSP is what makes it unambiguous. A plain space would leave the renderer
+ * guessing, and "40 days and 40 nights" would be sliced into a new verse; a
+ * character nobody types by hand cannot collide with the text. It is invisible
+ * everywhere — the textarea, the passage list, an exported pack all show
+ * "4 Charity" — and it keeps the number attached to its first word, which is
+ * where a printed Bible puts it.
+ *
+ * An operator who retypes the line loses the marker and gets plain text. That
+ * is the right failure: their words, unstyled, rather than a number the layer
+ * invented.
+ *
+ * Only used when the provider gives us the parts. A single verse gets no
+ * number: it is already named by the reference above it, and a lone "1" in
+ * front of one sentence reads as a list item.
+ */
+function numberedPassage(verses: BibleApiResponse['verses']): string | undefined {
+  const parts = (verses ?? [])
+    .map((verse) => ({ n: verse.verse, text: cleanVerseText(verse.text) }))
+    .filter((part): part is { n: number; text: string } => typeof part.n === 'number' && part.text.length > 0);
+  if (parts.length < 2) return undefined;
+  return parts.map((part) => `${part.n}\u00a0${part.text}`).join(' ');
 }
 
 export const bibleApiProvider: ScriptureProvider = {
@@ -104,7 +139,9 @@ export const bibleApiProvider: ScriptureProvider = {
     const translationLabel = (data.translation_id || translation).toUpperCase();
     return {
       reference: data.reference || normalized,
-      text: cleanVerseText(data.text),
+      // Numbered when the response carried its parts; the flat text otherwise,
+      // which is exactly what shipped before.
+      text: numberedPassage(data.verses) ?? cleanVerseText(data.text),
       translation: translationLabel,
       attribution: data.translation_note || data.translation_name,
       providerId: bibleApiProvider.id,

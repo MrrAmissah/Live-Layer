@@ -18,6 +18,36 @@ interface Props {
 }
 
 /**
+ * Split a passage on its verse markers so each number can be set as one.
+ *
+ * The marker is `<digits>` followed by a non-breaking space — written by the
+ * provider, invisible to the operator, and impossible to type by accident, so
+ * "40 days" is never mistaken for verse 40
+ * (`lib/scripture/bibleApiProvider.ts`). Text without markers comes back as a
+ * single unnumbered run, which covers every hand-typed verse and every passage
+ * saved before this existed.
+ */
+export function splitNumberedVerses(text: string): { n?: string; text: string }[] {
+  const NBSP = '\u00a0';
+  if (!text.includes(NBSP)) return [{ text }];
+  const marker = new RegExp(`(\\d+)${NBSP}`, 'g');
+  const hits: { n: string; from: number; to: number }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = marker.exec(text)) !== null) {
+    hits.push({ n: match[1], from: match.index, to: match.index + match[0].length });
+  }
+  if (!hits.length) return [{ text }];
+  const parts: { n?: string; text: string }[] = [];
+  const lead = text.slice(0, hits[0].from).trim();
+  if (lead) parts.push({ text: lead });
+  hits.forEach((hit, index) => {
+    const end = index + 1 < hits.length ? hits[index + 1].from : text.length;
+    parts.push({ n: hit.n, text: text.slice(hit.to, end).trim() });
+  });
+  return parts;
+}
+
+/**
  * Step the verse size to the passage, so it never blows past the card.
  *
  * The steps are bands, and each layout decides what a band MEANS in its own
@@ -99,7 +129,15 @@ export default function ScriptureCard({ values }: Props) {
         <Plate fill="paper" className="scripture-plate">
           <span className="scripture-rule" aria-hidden />
           <p className={`scripture-verse ${verseSizeClass(verseText)}`.trim()}>
-            <MaskedLine index={1}>{verseText}</MaskedLine>
+            <MaskedLine index={1}>
+              {splitNumberedVerses(verseText).map((part, index) => (
+                <span key={index}>
+                  {part.n ? <span className="scripture-versenum">{part.n}</span> : null}
+                  {part.text}
+                  {index < splitNumberedVerses(verseText).length - 1 ? ' ' : ''}
+                </span>
+              ))}
+            </MaskedLine>
           </p>
           {translationLabel ? <span className="scripture-translation">{translationLabel}</span> : null}
         </Plate>
