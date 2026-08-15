@@ -60,7 +60,7 @@ import { SCRIPTURE_OUTPUTS_KEY } from './storage';
  * acknowledges the command as it was sent.
  */
 
-export type ScriptureOutputScreen = 'main' | 'lower' | 'split' | 'house';
+export type ScriptureOutputScreen = 'main' | 'scripture' | 'split' | 'house';
 
 export interface ScriptureOutputScreenInfo {
   id: ScriptureOutputScreen;
@@ -69,7 +69,7 @@ export interface ScriptureOutputScreenInfo {
   /** The query this screen's browser source carries. Empty for the main screen. */
   query: string;
   /** Icon drawn as the shape of the screen, not a generic monitor. */
-  icon: 'screenMain' | 'screenLower' | 'screenSplit' | 'screenHouse';
+  icon: 'screenMain' | 'screenScripture' | 'screenSplit' | 'screenHouse';
   /** One line of "what is this for", shown under the card. */
   hint: string;
   /**
@@ -95,6 +95,21 @@ export interface ScriptureOutputScreenInfo {
  * `main` is first and is deliberately the one with no query string: an existing
  * browser source URL keeps working untouched, which is the difference between
  * shipping this and re-configuring a rig six days before a convention.
+ *
+ * ## MAIN IS THE ONLY SCREEN THAT CARRIES A LOWER THIRD
+ *
+ * Asked for in the operator's words: the lower thirds, the announcements "and
+ * others too be strict for the main screen". Split and house already refused
+ * them; a fourth screen, `lower`, did not — it was `scope: 'all'`, so it was a
+ * second full overlay in everything but name, and it made the rule impossible
+ * to state. It is retired rather than re-scoped: no source on the rig ever used
+ * it, no scripture look was ever defined for it, and a screen that exists only
+ * to be an exception to the rule is worse than one fewer row.
+ *
+ * A URL still carrying `?screen=lower` degrades to `main` through
+ * `readOutputScreen`, which is the safe direction on purpose — an overlay that
+ * shows more than expected is visible and recoverable, while one that silently
+ * renders nothing is a mystery to debug mid-service.
  */
 export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
   {
@@ -106,12 +121,26 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
     hint: 'The full-frame source. Any /output URL without a screen is this one.'
   },
   {
-    id: 'lower',
-    name: 'Lower third',
-    query: 'screen=lower',
-    icon: 'screenLower',
-    scope: 'all',
-    hint: 'A source that only ever carries the band at the foot of frame.'
+    id: 'scripture',
+    name: 'Scripture screen',
+    query: 'screen=scripture',
+    icon: 'screenScripture',
+    scope: 'scripture',
+    /**
+     * The full-frame scripture scene, and the row that made "main only" a rule
+     * an operator could actually apply.
+     *
+     * `PPC · Scripture` on the rig is a whole scene built around a verse — its
+     * camera and NDI are off and a still fills the frame. It was running a MAIN
+     * output source, so a lower third taken while it was on program landed on
+     * it. Neither existing scoped screen could replace that source: `split`
+     * forces a look drawn for a cropped camera and `house` one drawn for a wall
+     * across a field, and this scene is neither.
+     *
+     * So it is scripture-only like those two, and `as-chosen` like main — the
+     * verse in the look the operator picked, with nothing else able to reach it.
+     */
+    hint: 'A full-frame source that only ever carries scripture, in the look the graphic was given.'
   },
   {
     id: 'split',
@@ -174,9 +203,11 @@ export const AS_CHOSEN = 'as-chosen';
 export const DEFAULT_SCRIPTURE_OUTPUTS: ScriptureOutputMap = {
   // Today's behaviour, unchanged: whatever the operator picked on the graphic.
   main: AS_CHOSEN,
-  // Also unchanged. No scripture variant is shaped like a lower third yet, and
-  // defaulting a screen to a look nobody chose is worse than leaving it alone.
-  lower: AS_CHOSEN,
+  // Also as-chosen. This screen's job is scoping, not re-skinning — it exists
+  // so a scripture scene cannot be interrupted, and forcing a look on top of
+  // that would take away the variant picker for the one scene most likely to
+  // want a deliberate one.
+  scripture: AS_CHOSEN,
   // The ask, working out of the box.
   split: 'split-wide',
   // The room reads this one at distance, so it has a look of its own from the

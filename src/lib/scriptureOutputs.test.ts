@@ -36,7 +36,7 @@ describe('which screen a page is', () => {
 
   it('reads the named screens', () => {
     expect(readOutputScreen('?screen=split')).toBe('split');
-    expect(readOutputScreen('?screen=lower')).toBe('lower');
+    expect(readOutputScreen('?screen=house')).toBe('house');
     expect(readOutputScreen('?debug=1&screen=split')).toBe('split');
     expect(readOutputScreen('?screen=SPLIT')).toBe('split');
     expect(readOutputScreen('?screen= split ')).toBe('split');
@@ -153,7 +153,7 @@ describe('what each screen looks like', () => {
     // Both split scenes in OBS carry a browser source at
     // `.../output?relay=...&screen=split`. These four ids and the param name
     // are a running production setup, not an implementation detail.
-    expect(SCRIPTURE_OUTPUT_SCREENS.map((s) => s.id)).toEqual(['main', 'lower', 'split', 'house']);
+    expect(SCRIPTURE_OUTPUT_SCREENS.map((s) => s.id)).toEqual(['main', 'scripture', 'split', 'house']);
     expect(readOutputScreen('?relay=http://192.168.1.4:4174&screen=split')).toBe('split');
     expect(readOutputScreen('?relay=http://192.168.1.4:4174&screen=house')).toBe('house');
   });
@@ -187,7 +187,7 @@ describe('what each screen looks like', () => {
   });
 
   it('refuses to name a look the build cannot render, so the graphic keeps its own', () => {
-    expect(scriptureLookFor('split', { main: AS_CHOSEN, lower: AS_CHOSEN, split: 'gone', house: 'house-wall' })).toBeNull();
+    expect(scriptureLookFor('split', { main: AS_CHOSEN, scripture: AS_CHOSEN, split: 'gone', house: 'house-wall' })).toBeNull();
     expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe(DEFAULT_SCRIPTURE_OUTPUTS.split);
   });
 
@@ -273,17 +273,37 @@ describe('the scripture-only gate', () => {
  * answer, and the acknowledgement rule is the part that keeps it honest.
  */
 describe('what a screen will render at all', () => {
-  it('lets the full-frame screens carry anything, as they always have', () => {
+  it('lets the MAIN screen carry anything, as it always has', () => {
     for (const template of ['scripture-card', 'preacher-lower-third', 'quote-card', 'fullscreen-message']) {
       expect(screenRenders('main', template), template).toBe(true);
-      expect(screenRenders('lower', template), template).toBe(true);
     }
   });
 
-  it('keeps the split and house screens to scripture', () => {
+  it('leaves main as the ONLY screen a lower third can reach', () => {
+    /**
+     * The rule in the operator's words: the lower thirds, the announcements
+     * "and others too be strict for the main screen". It was unstatable while a
+     * fourth screen (`lower`) also carried everything — that screen is retired,
+     * and this asserts the shape rather than the absence, so re-adding a second
+     * `scope: 'all'` screen fails here rather than on air.
+     */
+    const carriesEverything = SCRIPTURE_OUTPUT_SCREENS.filter((s) => s.scope === 'all');
+    expect(carriesEverything.map((s) => s.id)).toEqual(['main']);
+  });
+
+  it('degrades a retired screen to main rather than to a source that renders nothing', () => {
+    // `?screen=lower` was a real address. An overlay that shows more than
+    // expected is visible and recoverable; one that silently draws nothing is a
+    // mystery to debug mid-service.
+    expect(readOutputScreen('?screen=lower')).toBe('main');
+  });
+
+  it('keeps the scripture, split and house screens to scripture', () => {
+    expect(screenRenders('scripture', 'scripture-card')).toBe(true);
     expect(screenRenders('split', 'scripture-card')).toBe(true);
     expect(screenRenders('house', 'scripture-card')).toBe(true);
     for (const template of ['preacher-lower-third', 'performer-lower-third', 'quote-card', 'announcement-banner', 'fullscreen-message']) {
+      expect(screenRenders('scripture', template), template).toBe(false);
       expect(screenRenders('split', template), template).toBe(false);
       expect(screenRenders('house', template), template).toBe(false);
     }

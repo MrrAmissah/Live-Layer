@@ -69,7 +69,9 @@ const PATHS = {
      An operator matching a card to an OBS source reads the shape before the
      label, which is the whole reason these are not all the same monitor glyph. */
   screenMain: <><rect x="2.5" y="4" width="19" height="14" rx="1.5" /><path d="M8 21h8" /><path d="M12 18v3" /></>,
-  screenLower: <><rect x="2.5" y="4" width="19" height="14" rx="1.5" /><rect x="5" y="12.5" width="14" height="3" rx="1" fill="currentColor" stroke="none" /><path d="M8 21h8" /><path d="M12 18v3" /></>,
+  /* The scripture screen is the same full frame with the verse block drawn in
+     it — the shape says "this one carries the words and nothing else". */
+  screenScripture: <><rect x="2.5" y="4" width="19" height="14" rx="1.5" /><path d="M6 8.5h12" /><path d="M6 11.5h12" /><path d="M6 14.5h7" /><path d="M8 21h8" /><path d="M12 18v3" /></>,
   screenSplit: <><rect x="2.5" y="4" width="19" height="14" rx="1.5" /><path d="M11.5 4v14" /><rect x="13.5" y="6.5" width="6" height="9" rx="1" fill="currentColor" stroke="none" opacity="0.55" /><path d="M8 21h8" /><path d="M12 18v3" /></>,
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>,
   /* The house screen is a projector throwing onto a wall, not a monitor — the

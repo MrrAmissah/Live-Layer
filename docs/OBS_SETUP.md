@@ -51,8 +51,8 @@ each show it their own way, with nothing to switch mid-service.
 
 | screen | URL | what it is |
 |---|---|---|
-| main | `/output` | the full-frame source. Any URL without a screen is this one. |
-| lower | `/output?screen=lower` | a source that only carries the band at the foot of frame. |
+| main | `/output` | the full-frame source, and the ONLY one that carries lower thirds, announcements and the rest. Any URL without a screen is this one. |
+| scripture | `/output?screen=scripture` | a full-frame scene built around a verse. Scripture only, in the graphic's own look. |
 | split | `/output?screen=split` | the scene where the camera is scaled down and scripture owns the rest. |
 | house | `/output?screen=house` | the venue projectors and LED wall. Never reaches program. |
 
