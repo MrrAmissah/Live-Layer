@@ -4457,6 +4457,58 @@ body.gfx-transparent {
  */
 .gfx-announce[data-variant='live-tab'] .announce-pattern {
   top: 22px;
+  /* The cluster is anchored to the same edge as the band, so the last shape's
+     outer edge landed exactly on it and read as cut off rather than placed.
+     Inset the whole cluster instead of the one shape, which keeps the lane
+     spacing below intact. Still inside the 330px the band holds open. */
+  right: 14px;
+}
+
+/**
+ * ...and the five shapes stop standing on each other.
+ *
+ * The shared layout overlaps them — leaf 128–210, arch 172–258, box 254–300 —
+ * which read as one layered mark while they were all brand and brand-deep. Give
+ * three of them high-contrast colours and the same 38px overlap reads as a
+ * white crescent poking out from behind a blue square: a collision, not a
+ * composition. The overlap is not the original intent surviving, it is the
+ * original intent no longer being legible.
+ *
+ * Each shape now owns a lane. `__leaf` is measured as its ROTATED bounds, not
+ * its box: 64x36 turned -34deg is ~73 wide about its own centre, so it occupies
+ * 115–187 rather than the 118–182 its width suggests, and the arch starts after
+ * that rather than after the box.
+ */
+.gfx-announce[data-variant='live-tab'] .announce-pattern__dot {
+  left: 4px;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__spark {
+  left: 60px;
+  width: 44px !important;
+  height: 44px !important;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__leaf {
+  left: 118px;
+  top: 14px;
+  width: 64px;
+  height: 36px;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__arch {
+  right: 56px;
+  top: 12px;
+  width: 50px;
+  height: 44px;
+  border-radius: 0 44px 0 0;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__box {
+  right: 0;
+  top: 12px;
+  width: 44px;
+  height: 44px;
 }
 
 .gfx-announce[data-variant='live-tab'] .announce-pattern__dot {

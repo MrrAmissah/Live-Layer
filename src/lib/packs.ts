@@ -57,8 +57,23 @@ export const graphicPacks: GraphicPack[] = [
       'preacher-lower-third': ['modern-minimal', 'soft-broadcast', 'convention-strap', 'split-bar'],
       'performer-lower-third': ['performer-pill', 'performer-note', 'soft-broadcast', 'convention-strap'],
       /* Same trap as the lower thirds: reordering the registry alone would have
-         left this pack still leading with the ticker. */
-      'announcement-banner': ['live-tab', 'convention-ticker', 'info-ribbon', 'service-alert']
+         left this pack still leading with the ticker.
+
+         ALL SEVEN ARE LISTED, and that is the point. A curated list REPLACES
+         the picker rather than leading it (`TemplateFields`/`ContentTab` map
+         the ids and keep nothing else), so a short list here is a curation, not
+         an ordering — naming four would have quietly removed plain-pattern,
+         tag-strip and communion-strip from this pack. The ask was which one
+         comes first. */
+      'announcement-banner': [
+        'live-tab',
+        'convention-ticker',
+        'info-ribbon',
+        'plain-pattern',
+        'tag-strip',
+        'service-alert',
+        'communion-strip'
+      ]
     },
     valueOverrides: {
       'preacher-lower-third': {
