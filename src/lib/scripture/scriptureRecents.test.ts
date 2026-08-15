@@ -6,6 +6,7 @@ import {
   clearScriptureRecents,
   SCRIPTURE_RECENTS_LIMIT
 } from './scriptureRecents';
+import { DEFAULT_TRANSLATION_ID } from './providers';
 import type { ScriptureLookupResult } from '../../types/scripture';
 
 class MemStorage {
@@ -135,7 +136,10 @@ describe('Reset all local data reaches the Scripture scratchpad', () => {
     const after = draft.getScriptureDraft();
     expect(after.passage).toBeNull();
     expect(after.query).toBe('');
-    expect(after.translationId).toBe('web');
+    // The point here is "back to the initial state", not which translation that
+    // is — asserting the id as a literal is what made this fail when the default
+    // moved from the WEB to the KJV, which was a deliberate change.
+    expect(after.translationId).toBe(DEFAULT_TRANSLATION_ID);
     expect(after.fromCache).toBe(false);
   });
 

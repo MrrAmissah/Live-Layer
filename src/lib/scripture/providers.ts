@@ -29,6 +29,33 @@ export function availableTranslations() {
 }
 
 /**
+ * The translation an operator gets before they choose one: the KJV.
+ *
+ * It used to be whatever stood first in the list — the WEB — which was not a
+ * decision about this church so much as an accident of array order. This
+ * congregation reads the King James aloud, and a card that has to be re-picked
+ * to the right translation on every lookup is a step to forget under pressure.
+ *
+ * A CONSTANT, RESOLVED THROUGH THE LIST, not a re-ordering of it. Moving the
+ * KJV to the top of `bibleApiProvider.translations` would set this default as a
+ * side effect of presentation order, so the next person who alphabetises the
+ * picker would silently change what goes to air. The picker may be ordered
+ * however reads best; this says what is CHOSEN.
+ *
+ * The fallback matters on a machine with an unusual provider set: if nothing
+ * offers the KJV, the first available translation is still better than a
+ * hard-coded id nobody can serve.
+ */
+export const DEFAULT_TRANSLATION_ID = 'kjv';
+
+export function defaultTranslationId(): string {
+  const offered = availableTranslations();
+  return offered.some((translation) => translation.id === DEFAULT_TRANSLATION_ID)
+    ? DEFAULT_TRANSLATION_ID
+    : (offered[0]?.id ?? DEFAULT_TRANSLATION_ID);
+}
+
+/**
  * Which provider serves this translation.
  *
  * Falls back to the default rather than throwing: a translation id saved before

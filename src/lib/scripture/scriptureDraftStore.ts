@@ -1,4 +1,5 @@
 import type { ScriptureLookupResult } from '../../types/scripture';
+import { DEFAULT_TRANSLATION_ID } from './providers';
 
 /**
  * What the operator is composing in the Scripture workspace, before they accept it.
@@ -27,7 +28,7 @@ import type { ScriptureLookupResult } from '../../types/scripture';
 export interface ScriptureDraftState {
   /** Exactly what is in the reference box. Never normalised behind the operator. */
   query: string;
-  /** Requested translation id (`web`), not the display label (`WEB`). */
+  /** Requested translation id (`kjv`), not the display label (`KJV`). */
   translationId: string;
   /** The retrieved passage under review, or null. */
   passage: ScriptureLookupResult | null;
@@ -37,7 +38,7 @@ export interface ScriptureDraftState {
 
 const initial: ScriptureDraftState = {
   query: '',
-  translationId: 'web',
+  translationId: DEFAULT_TRANSLATION_ID,
   passage: null,
   fromCache: false
 };

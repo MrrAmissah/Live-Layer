@@ -11,7 +11,13 @@ import { CONVENTION_LOGO_URL, resolveLogoSrc } from '../../lib/brandAssets';
  * a graphic looks like reads that rather than `defaultValues.variantId` — the two
  * differ wherever a renderer is shared by more than one template.
  */
-export const DEFAULT_VARIANT_ID = 'info-ribbon';
+/**
+ * `live-tab`, not `info-ribbon`. The tab-and-band composition is the one this
+ * church reaches for — the headline rides its own label above the band instead
+ * of competing with the body line inside it — so it leads the picker and seeds
+ * a new announcement. `info-ribbon` is one click away and unchanged.
+ */
+export const DEFAULT_VARIANT_ID = 'live-tab';
 
 /**
  * The logo this renderer paints when the graphic names none. Only the

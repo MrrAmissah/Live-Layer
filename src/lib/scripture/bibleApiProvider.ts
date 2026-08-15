@@ -96,7 +96,15 @@ export const bibleApiProvider: ScriptureProvider = {
     },
     { id: 'almeida', label: 'ALMEIDA', name: 'João Ferreira de Almeida', language: 'Portuguese', publicDomain: true }
   ],
-  async lookup(reference, translation = 'web', deps = {}): Promise<ScriptureLookupResult> {
+  /**
+   * The fallback translation is `kjv`, matching `DEFAULT_TRANSLATION_ID` in
+   * `providers.ts`. Written as a literal rather than imported: `providers.ts`
+   * imports THIS module, so reaching back for the constant is a cycle. The two
+   * are pinned together by a test rather than by an import — no caller in the
+   * app omits the argument, so this only fires for a caller that forgets, and a
+   * forgetful caller should still get the translation the church reads.
+   */
+  async lookup(reference, translation = 'kjv', deps = {}): Promise<ScriptureLookupResult> {
     const normalized = normalizeScriptureReference(reference);
     if (!normalized) {
       throw new Error('reference-required');
@@ -148,7 +156,7 @@ export const bibleApiProvider: ScriptureProvider = {
       fetchedAt: new Date().toISOString()
     };
   },
-  async fetchChapterVerseCount(book, chapter, translation = 'web', deps = {}): Promise<number> {
+  async fetchChapterVerseCount(book, chapter, translation = 'kjv', deps = {}): Promise<number> {
     /**
      * One-chapter books are answered from bundled data, not asked.
      *

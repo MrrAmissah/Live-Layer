@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
 import { useChapterVerses } from '../../hooks/useChapterVerses';
-import { availableTranslations } from '../../lib/scripture/providers';
+import { availableTranslations, defaultTranslationId } from '../../lib/scripture/providers';
 import { buildReference, parseReference, suggestBibleBooks } from '../../lib/scripture/bibleBooks';
 import { chapterNumbers, numberRange } from '../../lib/scripture/bibleStructure';
 
@@ -21,7 +21,9 @@ interface Props {
 export default function ScriptureReferencePicker({ reference, onReferenceChange, onApply }: Props) {
   const { provider, status, message, lookup } = useScriptureLookup();
   const translations = availableTranslations();
-  const [translation, setTranslation] = useState(translations[0]?.id ?? 'web');
+  // Not `translations[0]` — picker order is presentation, and it decided what
+  // went to air. `defaultTranslationId()` is the choice, stated once.
+  const [translation, setTranslation] = useState(defaultTranslationId);
   // Verse hints fetch only after an explicit chapter tap — never for the prefilled default.
   const [versesRequested, setVersesRequested] = useState(false);
 

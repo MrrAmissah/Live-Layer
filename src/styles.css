@@ -4408,6 +4408,125 @@ body.gfx-transparent {
   transform-origin: top right;
 }
 
+/* --- live tab: the label reads, and the ornament keeps its own colours -------
+ *
+ * This is the announcement variant an operator now gets by default, so it has
+ * to hold on BOTH packs, and it did not.
+ *
+ * THE TAB TOOK THE BRAND COLOUR AND SAT ON A BRAND PLATE. On the convention
+ * palette that is royal type on a royal band; on house blue it is near-black
+ * type on blue. Either way the headline — the one line the graphic exists to
+ * say — was the least legible thing on screen. Reported as "make it yellow and
+ * the text black if it blends", and it blends on every pack we ship, so the
+ * yellow is unconditional rather than a case.
+ *
+ * The yellow is a LITERAL, deliberately. `--gfx-premium-accent` is what it used
+ * to be reaching for, and on the convention pack that resolves to a pale blue
+ * (#9db1ff) — the tab would go straight back to blue-on-blue the moment someone
+ * switched packs, which is the bug rather than a theme working as intended.
+ */
+.gfx-announce[data-variant='live-tab'] .announce-headline {
+  background: linear-gradient(90deg, #ffcf20 0%, #ffdc5e 100%);
+  color: #07111f;
+  text-shadow: none;
+}
+
+/**
+ * The ornament keeps yellow, white and light blue whatever the pack says.
+ *
+ * Every shape was painted from `--gfx-premium-*`, so on the convention palette
+ * the cluster became royal-on-royal and simply disappeared — five decorations
+ * rendering as one flat rectangle. Pinning them is the ask ("make them retain
+ * the original colours, yellow, white, light blue") and it is also the only way
+ * an ornament survives a pack switch: a decoration that inherits the surface it
+ * sits on is invisible by construction.
+ *
+ * Scoped to `live-tab` alone. `info-ribbon` and `plain-pattern` draw the same
+ * cluster and have the same weakness, but they are graphics nobody asked me to
+ * change and both are still reachable from the picker.
+ */
+/**
+ * The cluster sits INSIDE the band, which it did not before.
+ *
+ * `__leaf` is an 82x46 box turned -34deg, and a rotation expands the visual
+ * bounds about the centre: roughly 84px tall against a 46px box, so it reached
+ * ~19px above the pattern's own top and hung over the band's top edge onto the
+ * camera. That was survivable while it was painted brand-deep — a dark shape on
+ * a dark frame — and became a white blob bleeding out of the graphic the moment
+ * the colours were pinned. The offset is the rotation's overhang, not a nudge.
+ */
+.gfx-announce[data-variant='live-tab'] .announce-pattern {
+  top: 22px;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__dot {
+  background: #ffcf20;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__spark {
+  background: #8fa8ff;
+}
+
+/**
+ * The two WHITE shapes carry a keyline, and that is not decoration.
+ *
+ * `--gfx-premium-surface` is the band itself, and it is royal on the convention
+ * pack and PAPER on the house pack. A pinned white shape therefore reads
+ * beautifully on one and disappears completely on the other — which is the same
+ * bug as the royal-on-royal it was pinned to fix, just pointing the other way.
+ * A hairline keeps the silhouette on a white band and is invisible against a
+ * royal one, so one rule covers both instead of a palette branch.
+ */
+.gfx-announce[data-variant='live-tab'] .announce-pattern__leaf {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(7, 17, 31, 0.2);
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__arch {
+  background: linear-gradient(90deg, #8fa8ff 0 52%, #ffcf20 52% 100%);
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-pattern__box {
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(7, 17, 31, 0.2);
+}
+
+/**
+ * NO DATE ON THIS ONE.
+ *
+ * Asked for directly, and the picture agrees: the date plate is anchored to the
+ * same top-right corner as the ornament, so "Sunday • 10:30 AM" was printing
+ * underneath five decorative shapes. `tag-strip` and `plain-pattern` already
+ * hide it for the same reason — this variant is now the third.
+ *
+ * The `dateTime` FIELD stays. It is still typed, still saved, still on the
+ * graphic, and still drawn by `info-ribbon` and the rest; hiding it here is a
+ * property of this composition, not a change to what an announcement is. An
+ * operator who wants the date on screen switches variant and it is there.
+ */
+.gfx-announce[data-variant='live-tab'] .announce-date {
+  display: none;
+}
+
+/**
+ * ...and the band reclaims what the date was holding open.
+ *
+ * The right padding was 410px, sized for a date plate that no longer draws.
+ * Left as it was, removing the date would have bought nothing: the body line is
+ * `white-space: nowrap` with an ellipsis by design, so every pixel of dead
+ * padding is a word the operator does not get to say. 330px is the ornament's
+ * own 300px plus an optical gap — the only thing still occupying that corner.
+ */
+.gfx-announce[data-variant='live-tab'] .announce-main {
+  padding-right: 330px;
+}
+
+.gfx-announce[data-variant='live-tab'] .announce-body {
+  /* Bounded by the padding above rather than by a number of its own, which is
+     what lets the reclaimed space actually reach the text. */
+  max-width: 100%;
+}
+
 .gfx-announce[data-variant='service-alert'] {
   left: 0;
   right: 0;

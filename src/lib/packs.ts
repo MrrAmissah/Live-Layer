@@ -55,7 +55,10 @@ export const graphicPacks: GraphicPack[] = [
          registry alone left this one leading with the strap. The two that get
          reached for lead here too. */
       'preacher-lower-third': ['modern-minimal', 'soft-broadcast', 'convention-strap', 'split-bar'],
-      'performer-lower-third': ['performer-pill', 'performer-note', 'soft-broadcast', 'convention-strap']
+      'performer-lower-third': ['performer-pill', 'performer-note', 'soft-broadcast', 'convention-strap'],
+      /* Same trap as the lower thirds: reordering the registry alone would have
+         left this pack still leading with the ticker. */
+      'announcement-banner': ['live-tab', 'convention-ticker', 'info-ribbon', 'service-alert']
     },
     valueOverrides: {
       'preacher-lower-third': {
@@ -83,7 +86,10 @@ export const graphicPacks: GraphicPack[] = [
         ...PPC_PALETTE
       },
       'announcement-banner': {
-        variantId: 'convention-ticker',
+        /* Was `convention-ticker`. A new announcement on this pack now seeds as
+           live-tab like everywhere else; the ticker is still one click away and
+           still carries the event logo when chosen. */
+        variantId: 'live-tab',
         logoUrl: PPC_LOGO_URL,
         ...PPC_PALETTE
       },

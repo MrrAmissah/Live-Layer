@@ -348,7 +348,7 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'logoUrl', label: 'Logo URL', type: 'url', placeholder: 'Optional event logo URL', optional: true }
     ],
     defaultValues: {
-      variantId: 'info-ribbon',
+      variantId: 'live-tab',
       headline: 'Weekend Service Tonight',
       body: 'Join us in person or online for worship, community updates, and a powerful message.',
       dateTime: 'Sunday • 10:30 AM',
@@ -367,14 +367,14 @@ export const templateRegistry: TemplateDefinition[] = [
     },
     variants: [
       {
+        id: 'live-tab',
+        name: 'Live Tab',
+        description: 'Yellow label tab above the band, with the ornamental corner marks.'
+      },
+      {
         id: 'info-ribbon',
         name: 'Info Ribbon',
         description: 'White information band with textured blue footer.'
-      },
-      {
-        id: 'live-tab',
-        name: 'Live Tab',
-        description: 'Top label tab, ornamental corner marks, and info footer.'
       },
       {
         id: 'plain-pattern',

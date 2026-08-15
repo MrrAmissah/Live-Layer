@@ -92,6 +92,45 @@ const CASES = {
       subtitle: 'Annual Peace Prayer Convention 2026'
     }
   },
+  /**
+   * The announcement, in both palettes.
+   *
+   * `short` is the house look the registry seeds. `ppc` carries the convention
+   * palette from `lib/packs.ts` — which is what the operator actually has on
+   * screen, and the only way to see whether a plate blends into the royal
+   * background. A variant judged on house blue alone is judged on a palette
+   * this rig never uses.
+   */
+  'announcement-banner': {
+    short: {
+      headline: 'Weekend Service Tonight',
+      body: 'Join us in person or online for worship, community updates, and a powerful message.',
+      dateTime: 'Sunday • 10:30 AM',
+      // The registry's own `defaultValues` palette, spelled out: the harness
+      // sends only what is in the case, so a case without colours photographs
+      // the stylesheet's fallbacks rather than the graphic anyone will see.
+      colorBrand: '#0d2095',
+      colorAccent: '#E8B93C',
+      colorSurface: '#f8fafc',
+      colorText: '#07111f',
+      colorSecondary: '#07106a'
+    },
+    ppc: {
+      headline: 'Weekend Service Tonight',
+      body: 'Join us in person or online for worship, community updates, and a powerful message.',
+      dateTime: 'Sunday • 10:30 AM',
+      colorBrand: '#2338dd',
+      colorAccent: '#9db1ff',
+      colorSurface: '#101fae',
+      colorText: '#ffffff',
+      colorSecondary: '#b9c6ff'
+    },
+    long: {
+      headline: 'Annual Peace Prayer Convention Registration Now Open',
+      body: 'Twelve nights of prayer, teaching and ministration. Register at the welcome desk or online, and bring someone with you.',
+      dateTime: 'Wed 19 – Sun 30 August • 6:00 PM nightly'
+    }
+  },
   'quote-card': {
     short: { quoteText: 'God is our refuge and strength.', attribution: 'Psalm 46:1' },
     long: {
