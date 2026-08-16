@@ -7088,6 +7088,21 @@ body.gfx-transparent {
 .control-root .scripture-ws__field--translation { flex: 0 1 260px; }
 .control-root .scripture-ws__lookup { flex: none; min-height: 38px; }
 .control-root .scripture-ws__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* A candidate LAN address and the two URLs built from it. Grouped, because the
+   page may list several adapters and a flat run of URL rows gives no clue which
+   pair belongs together. */
+.control-root .setup-lan {
+  margin: 0 0 10px; padding: 10px 12px;
+  border: 1px solid var(--ll-border); border-radius: 9px;
+  background: rgba(255, 255, 255, 0.016);
+}
+.control-root .setup-lan__head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 7px;
+}
+.control-root .setup-lan__iface {
+  font-size: 11px; font-weight: 600; color: var(--ll-muted-2);
+}
+
 /* --- /guide: what everything means -----------------------------------------
    Reuses the setup page's frame (`.control-root`, `.setup-inner`, `.setup-main`,
    `.setup-head`) on purpose — the two pages answer the operator's two questions

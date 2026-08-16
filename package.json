@@ -17,7 +17,7 @@
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify": "npm run check:output-isolation && npm run test && npm run test:server && npm run build",
     "test": "vitest run",
-    "test:server": "node --test scripts/serve-dist.test.mjs scripts/packageRelease.test.mjs",
+    "test:server": "node --test scripts/serve-dist.test.mjs scripts/packageRelease.test.mjs scripts/relayAddresses.test.mjs",
     "test:watch": "vitest"
   },
   "engines": {

@@ -123,6 +123,22 @@ export default function SetupPage() {
   /** Same rule the diagnostics used: name the trap the operator is standing in. */
   const isLocalhost = useMemo(() => window.location.hostname === 'localhost', []);
   const [esvKey, setEsvKey] = useState(() => loadEsvApiKey());
+  /**
+   * The machine's REAL LAN addresses, asked of the relay rather than guessed
+   * from this page's own hostname.
+   *
+   * `window.location.hostname` is the address you already loaded this page on,
+   * so opening /setup at 127.0.0.1 built LAN URLs pointing at 127.0.0.1 — an
+   * address that means "this same machine" on the controller device and can
+   * never work. You had to know the IP to reach the page that tells you the IP,
+   * and a router handing out a new one made that a debugging job mid-service.
+   *
+   * A browser cannot enumerate its machine's interfaces. The relay can, it is
+   * already the process a second device must reach, and it is already probed on
+   * this page — so it answers with the candidates.
+   */
+  const [lanAddresses, setLanAddresses] = useState<{ name: string; address: string }[]>([]);
+  const [lanProbe, setLanProbe] = useState<'idle' | 'asking' | 'ok' | 'no-relay'>('idle');
   const [copyHint, setCopyHint] = useState('');
   const copyTimerRef = useRef<number | undefined>(undefined);
 
@@ -138,6 +154,37 @@ export default function SetupPage() {
   useEffect(() => () => {
     if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
   }, []);
+
+  /**
+   * Asked once on load, and re-askable by hand.
+   *
+   * A short abort because this is a same-machine request that either answers at
+   * once or is not running — an operator watching a spinner learns nothing that
+   * "start the relay" does not tell them faster.
+   */
+  useEffect(() => {
+    let alive = true;
+    const ask = async () => {
+      setLanProbe('asking');
+      try {
+        const response = await fetch(`${relayUrl}/health`, {
+          signal: AbortSignal.timeout(2500),
+          cache: 'no-store'
+        });
+        const data = (await response.json()) as { addresses?: { name: string; address: string }[] };
+        if (!alive) return;
+        const found = Array.isArray(data.addresses) ? data.addresses : [];
+        setLanAddresses(found);
+        setLanProbe(found.length ? 'ok' : 'no-relay');
+      } catch {
+        if (alive) setLanProbe('no-relay');
+      }
+    };
+    void ask();
+    return () => {
+      alive = false;
+    };
+  }, [relayUrl]);
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -453,24 +500,88 @@ export default function SetupPage() {
                   <h3 className="setup-sub__title">Control from a second machine</h3>
                   <div className="setup-body">
                   <p className="setup-text">
-                    A tablet or second PC can drive the desk. On the graphics machine run
-                    <code className="setup-kbd">npm run dev:lan</code> and
-                    <code className="setup-kbd">npm run lan:relay</code>, then open this control URL there.
+                    A tablet or second PC can drive the desk. <strong>Nothing is installed there</strong>
+                    {' '}— it opens a link. On <em>this</em> machine run{' '}
+                    <code className="setup-kbd">npm run dev:lan</code> and{' '}
+                    <code className="setup-kbd">npm run lan:relay</code>, then open the address below
+                    on the other device.
                   </p>
-                  <UrlRow
-                    url={lanControlUrl}
-                    label="LAN Control URL"
-                    onCopy={() => copyToClipboard(lanControlUrl, 'LAN Control URL')}
-                    onOpen={() => window.open(lanControlUrl, '_blank')}
-                    openLabel="Open"
-                  />
-                  <UrlRow
-                    url={lanOutputUrl}
-                    label="LAN Output URL"
-                    onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
-                    onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
-                    openLabel="Debug"
-                  />
+
+                  {/**
+                    * THE ADDRESSES THIS MACHINE ACTUALLY HAS, not the one this
+                    * page was loaded on.
+                    *
+                    * Reported from the desk: "having to debug because a wifi
+                    * changed address might be stressful". It was worse than
+                    * stressful, it was circular — the URLs were built from
+                    * `window.location.hostname`, so opening /setup on 127.0.0.1
+                    * produced a "LAN" URL of 127.0.0.1, which on the controller
+                    * device means the controller itself. You had to know the
+                    * address to reach the page that gives you the address.
+                    *
+                    * Several may be listed. Which one reaches the other device
+                    * is not something this machine can know — Wi-Fi, Ethernet, a
+                    * VPN and a virtualiser all look alike from here — so they
+                    * are offered with their adapter names rather than one being
+                    * picked and called the answer.
+                    */}
+                  {lanProbe === 'ok' ? (
+                    lanAddresses.map((candidate) => {
+                      const base = `${window.location.protocol}//${candidate.address}:${window.location.port || '4173'}`;
+                      const relayFor = `${window.location.protocol}//${candidate.address}:4174`;
+                      const control = `${base}/control?relay=${encodeURIComponent(relayFor)}`;
+                      const output = `${base}/output?relay=${encodeURIComponent(relayFor)}`;
+                      return (
+                        <div key={candidate.address} className="setup-lan">
+                          <p className="setup-lan__head">
+                            <code className="setup-kbd">{candidate.address}</code>
+                            <span className="setup-lan__iface">{candidate.name}</span>
+                          </p>
+                          <UrlRow
+                            url={control}
+                            label={`Control URL on ${candidate.address}`}
+                            onCopy={() => copyToClipboard(control, 'LAN Control URL')}
+                            onOpen={() => window.open(control, '_blank')}
+                            openLabel="Open"
+                          />
+                          <UrlRow
+                            url={output}
+                            label={`Output URL on ${candidate.address}`}
+                            onCopy={() => copyToClipboard(output, 'LAN Output URL')}
+                            onOpen={() => window.open(`${output}&debug=1`, '_blank')}
+                            openLabel="Debug"
+                          />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <>
+                      <p className="setup-note">
+                        {lanProbe === 'asking'
+                          ? 'Asking this machine for its network addresses…'
+                          : 'The relay is not answering, so this machine cannot report its network addresses. Start it with npm run lan:relay and reload this page — the exact URLs for the other device will appear here.'}
+                      </p>
+                      <UrlRow
+                        url={lanControlUrl}
+                        label="LAN Control URL"
+                        onCopy={() => copyToClipboard(lanControlUrl, 'LAN Control URL')}
+                        onOpen={() => window.open(lanControlUrl, '_blank')}
+                        openLabel="Open"
+                      />
+                      <UrlRow
+                        url={lanOutputUrl}
+                        label="LAN Output URL"
+                        onCopy={() => copyToClipboard(lanOutputUrl, 'LAN Output URL')}
+                        onOpen={() => window.open(`${lanOutputUrl}&debug=1`, '_blank')}
+                        openLabel="Debug"
+                      />
+                      <p className="setup-note">
+                        Those two are built from the address <em>this page</em> was opened on
+                        (<code className="setup-kbd">{window.location.hostname}</code>). If that is
+                        localhost or 127.0.0.1 they will not work on another device.
+                      </p>
+                    </>
+                  )}
                   {/**
                     * THE RELAY OUTPUT ADDRESS BELONGS HERE, and removing it was
                     * wrong.

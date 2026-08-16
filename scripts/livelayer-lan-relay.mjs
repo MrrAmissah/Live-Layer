@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { networkInterfaces } from 'node:os';
 import {
   createRelaySnapshot,
   reduceRelaySnapshot,
@@ -14,6 +15,35 @@ const clients = new Set();
 // relay-snapshot.mjs for why a single last-message slot became a bug once
 // output events joined the wire.
 let snapshot = createRelaySnapshot();
+
+/**
+ * This machine's real LAN addresses, so /setup can stop guessing at them.
+ *
+ * THE CHICKEN AND EGG THIS SOLVES. The setup page used to build its LAN URLs
+ * from `window.location.hostname` — the address you had ALREADY loaded it on —
+ * so opening it at 127.0.0.1 handed out `127.0.0.1:4174`, an address that means
+ * "this same machine" on the controller device and can never work. You had to
+ * know the IP to reach the page that tells you the IP, and when a router hands
+ * out a different one you get to discover that under time pressure.
+ *
+ * A browser cannot enumerate its machine's interfaces; this process can, and it
+ * is already the process a second device must reach. So it answers with the
+ * candidates and their adapter names, and the page prints ready-made URLs.
+ *
+ * Loopback and IPv6 are filtered out: a link-local IPv6 needs a zone index that
+ * does not survive a URL, and 127.0.0.1 is the wrong answer by construction.
+ * Several may be listed — Wi-Fi, Ethernet, a VPN, a virtualiser — because only
+ * the controller device knows which network it is on.
+ */
+function lanAddresses() {
+  const found = [];
+  for (const [name, list] of Object.entries(networkInterfaces())) {
+    for (const net of list ?? []) {
+      if (net.family === 'IPv4' && !net.internal) found.push({ name, address: net.address });
+    }
+  }
+  return found;
+}
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -79,7 +109,11 @@ const server = http.createServer(async (req, res) => {
       output: {
         lastSeenAt: snapshot.outputLastSeenAt,
         hasStatus: Boolean(snapshot.status)
-      }
+      },
+      // Additive: `relayReadiness.ts` checks `ok` + numeric `clients` and
+      // ignores the rest, so an older page against a newer relay is unaffected
+      // and a newer page against an older relay simply finds none.
+      addresses: lanAddresses()
     });
     return;
   }
