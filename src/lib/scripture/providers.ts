@@ -2,7 +2,8 @@ import type { ScriptureProvider, ScriptureTranslation } from '../../types/script
 import { bibleApiProvider } from './bibleApiProvider';
 import { createEsvProvider } from './esvApiProvider';
 import { getBibleProvider } from './getBibleProvider';
-import { loadEsvApiKey } from '../storage';
+import { createApiBibleProvider } from './apiBibleProvider';
+import { loadEsvApiKey, loadApiBibleKey } from '../storage';
 
 /**
  * Providers, in the order the picker offers their translations.
@@ -15,6 +16,13 @@ import { loadEsvApiKey } from '../storage';
 export const esvProvider = createEsvProvider({ apiKey: loadEsvApiKey });
 
 /**
+ * API.Bible. Like the ESV it shows nothing without a key — and unlike every
+ * other provider it cannot say what it offers until it has ASKED, because two
+ * keys see different catalogues. `refreshCatalogue()` is what fills it.
+ */
+export const apiBibleProvider = createApiBibleProvider({ apiKey: loadApiBibleKey });
+
+/**
  * Order here is picker order. `bibleApiProvider` leads because it carries the
  * public-domain English texts this church reads; `getBibleProvider` adds French,
  * with no key, so it sits with them rather than behind them; the ESV is last and
@@ -23,7 +31,8 @@ export const esvProvider = createEsvProvider({ apiKey: loadEsvApiKey });
 export const scriptureProviders: ScriptureProvider[] = [
   bibleApiProvider,
   getBibleProvider,
-  esvProvider
+  esvProvider,
+  apiBibleProvider
 ];
 export const defaultScriptureProvider = bibleApiProvider;
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SetupDiagnostics from '../components/control/SetupDiagnostics';
-import { loadEsvApiKey, saveEsvApiKey } from '../lib/storage';
+import { loadEsvApiKey, saveEsvApiKey, loadApiBibleKey, saveApiBibleKey } from '../lib/storage';
+import { apiBibleProvider } from '../lib/scripture/providers';
 import { Icon } from '../lib/icons';
 // The address the browser dials, imported rather than retyped: a setup page
 // naming a different port from the one the code connects to is worse than one
@@ -123,6 +124,8 @@ export default function SetupPage() {
   /** Same rule the diagnostics used: name the trap the operator is standing in. */
   const isLocalhost = useMemo(() => window.location.hostname === 'localhost', []);
   const [esvKey, setEsvKey] = useState(() => loadEsvApiKey());
+  const [apiBibleKey, setApiBibleKey] = useState(() => loadApiBibleKey());
+  const [catalogueNote, setCatalogueNote] = useState('');
   /**
    * The machine's REAL LAN addresses, asked of the relay rather than guessed
    * from this page's own hostname.
@@ -430,6 +433,76 @@ export default function SetupPage() {
                         &ldquo;Reset all local data&rdquo;. Leave empty and nothing changes.
                       </span>
                     </label>
+                  </div>
+                </div>
+
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">
+                    <Icon name="book" size={16} />
+                    Add more translations (API.Bible)
+                  </h3>
+                  <div className="setup-body">
+                    <p className="setup-text">
+                      The translations people ask for by name — NIV, NLT, NASB, the Message, the
+                      Amplified — are <strong>all copyrighted</strong>, and no free service carries
+                      them. They are reached by applying to a publisher, and API.Bible is where most
+                      of those applications lead: one key, and whichever texts have been approved
+                      for it. It is also the likeliest route to a <strong>Twi</strong> Bible — the
+                      free catalogues carry none at all.
+                    </p>
+                    <label className="field">
+                      <span className="field__label"><span>API.Bible key</span></span>
+                      <input
+                        className="field__input"
+                        type="password"
+                        value={apiBibleKey}
+                        placeholder="Paste your API.Bible key"
+                        onChange={(event) => {
+                          setApiBibleKey(event.target.value);
+                          saveApiBibleKey(event.target.value);
+                          setCatalogueNote('');
+                        }}
+                      />
+                      <span className="field__hint">
+                        Stored in this browser only, sent nowhere but API.Bible, and cleared by
+                        &ldquo;Reset all local data&rdquo;. Leave empty and nothing changes.
+                      </span>
+                    </label>
+                    {/**
+                      * The list has to be FETCHED, unlike every other provider.
+                      * Two keys pointed at this service see different
+                      * catalogues, so nothing can be listed here in advance —
+                      * and it is why a button exists at all rather than the
+                      * translations simply appearing when a key is pasted.
+                      */}
+                    <div className="setup-actions">
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        disabled={!apiBibleKey.trim()}
+                        onClick={async () => {
+                          setCatalogueNote('Asking API.Bible what this key can read…');
+                          try {
+                            const entries = await apiBibleProvider.refreshCatalogue();
+                            setCatalogueNote(
+                              entries.length
+                                ? `${entries.length} translations available. They are in the picker now.`
+                                : 'That key is valid but has no translations granted yet.'
+                            );
+                          } catch {
+                            setCatalogueNote('Could not reach API.Bible, or that key was refused.');
+                          }
+                        }}
+                      >
+                        Load available translations
+                      </button>
+                    </div>
+                    {catalogueNote ? <p className="setup-note">{catalogueNote}</p> : null}
+                    <p className="setup-note">
+                      Whatever the key grants appears in the translation picker — including a Twi
+                      Bible if one is approved for it. Nothing here needs changing when that
+                      happens.
+                    </p>
                   </div>
                 </div>
 

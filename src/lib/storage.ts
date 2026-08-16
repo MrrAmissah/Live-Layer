@@ -19,6 +19,10 @@ const STORAGE_KEYS = {
   serviceContext: 'livelayer.serviceContext',
   scriptureOutputs: 'livelayer.scriptureOutputs',
   esvApiKey: 'livelayer.esvApiKey',
+  apiBibleKey: 'livelayer.apiBibleKey',
+  /* The catalogue that key was granted. Cached because `translations` is read
+     synchronously on every render and a network round trip cannot answer it. */
+  apiBibleCatalogue: 'livelayer.apiBibleCatalogue',
   lastRealtimeMessage: 'livelayer:lastMessage'
 };
 
@@ -72,6 +76,53 @@ export function saveEsvApiKey(key: string) {
   } catch {
     // Storage denied — the key simply does not persist; the picker will show
     // no ESV, which is the honest result.
+  }
+}
+
+/**
+ * The API.Bible key, kept exactly like Crossway's: this browser only, never
+ * committed, never sent anywhere but the service it belongs to, and cleared by
+ * "Reset all local data".
+ */
+export function loadApiBibleKey(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.apiBibleKey) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveApiBibleKey(key: string) {
+  try {
+    const trimmed = key.trim();
+    if (trimmed) localStorage.setItem(STORAGE_KEYS.apiBibleKey, trimmed);
+    else {
+      localStorage.removeItem(STORAGE_KEYS.apiBibleKey);
+      // The catalogue belonged to that key. Leaving it would offer translations
+      // nothing can now fetch.
+      localStorage.removeItem(STORAGE_KEYS.apiBibleCatalogue);
+    }
+  } catch {
+    // Storage denied — the key does not persist and the picker shows nothing
+    // from this provider, which is the honest result.
+  }
+}
+
+export function loadApiBibleCatalogue(): unknown {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.apiBibleCatalogue);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveApiBibleCatalogue(entries: unknown) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.apiBibleCatalogue, JSON.stringify(entries));
+  } catch {
+    // Not fatal: the catalogue is re-fetchable, it just will not survive a
+    // reload.
   }
 }
 
