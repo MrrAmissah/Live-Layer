@@ -60,7 +60,7 @@ import { SCRIPTURE_OUTPUTS_KEY } from './storage';
  * acknowledges the command as it was sent.
  */
 
-export type ScriptureOutputScreen = 'main' | 'scripture' | 'split' | 'house';
+export type ScriptureOutputScreen = 'main' | 'scripture' | 'split' | 'split-dual' | 'house';
 
 export interface ScriptureOutputScreenInfo {
   id: ScriptureOutputScreen;
@@ -151,6 +151,29 @@ export const SCRIPTURE_OUTPUT_SCREENS: readonly ScriptureOutputScreenInfo[] = [
     hint: 'The scene where the camera is scaled down and scripture owns the rest. Scripture only — a lower third sent to air will not disturb it.'
   },
   {
+    id: 'split-dual',
+    name: 'Split screen (dual)',
+    query: 'screen=split-dual',
+    icon: 'screenSplit',
+    scope: 'scripture',
+    /**
+     * REGISTERED AHEAD OF THE LOOK IT WILL EVENTUALLY WEAR, and that is a safety
+     * fix rather than a head start.
+     *
+     * `PPC GFX · SPLIT DUAL` is live in OBS on this id. An unrecognised screen
+     * falls back to `main` through `readOutputScreen`, and `main` carries
+     * EVERYTHING — so until this row existed, that scene was a full overlay: a
+     * lower third or an announcement taken during a service would have landed
+     * on it, over a plate with two scripture wells cut into it. It was the
+     * program scene when I found it.
+     *
+     * Scoped to scripture like its siblings, so the scene can only ever be
+     * disturbed by a verse. The two-language TEMPLATE that fills both wells is
+     * separate work; this row is what makes the scene safe in the meantime.
+     */
+    hint: 'The dual scene — one passage in two languages, in the plate’s two wells. Scripture only.'
+  },
+  {
     id: 'house',
     name: 'House screen',
     query: 'screen=house',
@@ -210,6 +233,14 @@ export const DEFAULT_SCRIPTURE_OUTPUTS: ScriptureOutputMap = {
   scripture: AS_CHOSEN,
   // The ask, working out of the box.
   split: 'split-wide',
+  /**
+   * `as-chosen` deliberately. The plate paints two RECESSES rather than cards,
+   * and no variant fills both yet — so forcing a look here would place one card
+   * confidently in the wrong place. Left alone, the operator's own choice
+   * renders and the second well shows the plate's quiet panel, which is what
+   * the artwork already does when nothing is taken.
+   */
+  'split-dual': AS_CHOSEN,
   // The room reads this one at distance, so it has a look of its own from the
   // start — an as-chosen house screen would put a stream-sized card on a wall
   // in an open field at night.

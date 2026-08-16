@@ -153,7 +153,13 @@ describe('what each screen looks like', () => {
     // Both split scenes in OBS carry a browser source at
     // `.../output?relay=...&screen=split`. These four ids and the param name
     // are a running production setup, not an implementation detail.
-    expect(SCRIPTURE_OUTPUT_SCREENS.map((s) => s.id)).toEqual(['main', 'scripture', 'split', 'house']);
+    expect(SCRIPTURE_OUTPUT_SCREENS.map((s) => s.id)).toEqual([
+      'main',
+      'scripture',
+      'split',
+      'split-dual',
+      'house'
+    ]);
     expect(readOutputScreen('?relay=http://192.168.1.4:4174&screen=split')).toBe('split');
     expect(readOutputScreen('?relay=http://192.168.1.4:4174&screen=house')).toBe('house');
   });
@@ -187,7 +193,15 @@ describe('what each screen looks like', () => {
   });
 
   it('refuses to name a look the build cannot render, so the graphic keeps its own', () => {
-    expect(scriptureLookFor('split', { main: AS_CHOSEN, scripture: AS_CHOSEN, split: 'gone', house: 'house-wall' })).toBeNull();
+    expect(
+      scriptureLookFor('split', {
+        main: AS_CHOSEN,
+        scripture: AS_CHOSEN,
+        split: 'gone',
+        'split-dual': AS_CHOSEN,
+        house: 'house-wall'
+      })
+    ).toBeNull();
     expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe(DEFAULT_SCRIPTURE_OUTPUTS.split);
   });
 
@@ -298,13 +312,20 @@ describe('what a screen will render at all', () => {
     expect(readOutputScreen('?screen=lower')).toBe('main');
   });
 
-  it('keeps the scripture, split and house screens to scripture', () => {
-    expect(screenRenders('scripture', 'scripture-card')).toBe(true);
-    expect(screenRenders('split', 'scripture-card')).toBe(true);
-    expect(screenRenders('house', 'scripture-card')).toBe(true);
+  it('keeps every scoped screen to scripture', () => {
+    /**
+     * `split-dual` is in this list from the day its id existed, not from the day
+     * its look does. The scene is live in OBS, and an unregistered screen falls
+     * back to `main` — which carries everything — so leaving it out would have
+     * put lower thirds on a program scene.
+     */
+    for (const screen of ['scripture', 'split', 'split-dual', 'house'] as const) {
+      expect(screenRenders(screen, 'scripture-card'), screen).toBe(true);
+    }
     for (const template of ['preacher-lower-third', 'performer-lower-third', 'quote-card', 'announcement-banner', 'fullscreen-message']) {
       expect(screenRenders('scripture', template), template).toBe(false);
       expect(screenRenders('split', template), template).toBe(false);
+      expect(screenRenders('split-dual', template), template).toBe(false);
       expect(screenRenders('house', template), template).toBe(false);
     }
   });

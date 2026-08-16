@@ -3527,6 +3527,21 @@ body.gfx-transparent {
 }
 
 .gfx-scripture[data-variant='theme-lower'] .scripture-plate {
+  /**
+   * THE BAND FITS THE VERSE. It was pinned to both title-safe edges, so
+   * "Lord, thou hast been our dwelling place in all generations." — one line —
+   * flew a white bar across the whole frame with two thirds of it empty and the
+   * translation credit stranded a long way from the words it credits. Same
+   * complaint the operator made about the split-bar lower third, and the same
+   * fix.
+   *
+   * `max-width: 100%` keeps the title-safe edge as a hard stop, so a long
+   * passage still wraps inside the frame rather than growing past it. The floor
+   * stops a two-word verse from becoming a label.
+   */
+  width: fit-content;
+  min-width: 980px;
+  max-width: 100%;
   min-height: 168px;
   padding: 42px 78px 42px 56px;
   gap: 30px;
