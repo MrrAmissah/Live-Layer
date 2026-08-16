@@ -36,6 +36,9 @@ export default function ScriptureWorkspace() {
   const draft = useSyncExternalStore(subscribeScriptureDraft, getScriptureDraft, getScriptureDraft);
   const currentTemplateId = useLiveLayerStore((state) => state.currentTemplateId);
   const draftReference = useLiveLayerStore((state) => state.draftValues.reference ?? '');
+  // The version on the staged card, so the panel can say when it is not the one
+  // the picker is set to — the "stuck to the old version" report.
+  const draftTranslation = useLiveLayerStore((state) => state.draftValues.translationLabel ?? '');
   const setTemplate = useLiveLayerStore((state) => state.setTemplate);
   const setFields = useLiveLayerStore((state) => state.setFields);
   const addToQuickQueue = useLiveLayerStore((state) => state.addToQuickQueue);
@@ -220,6 +223,7 @@ export default function ScriptureWorkspace() {
             recentsVersion={acceptedCount}
             onDismissNotice={() => setNotice('')}
             currentGraphicReference={composing ? draftReference : ''}
+            currentGraphicTranslation={composing ? draftTranslation : ''}
           />
         </div>
       </div>

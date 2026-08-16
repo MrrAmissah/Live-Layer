@@ -36,6 +36,18 @@ interface Props {
   onDismissNotice: () => void;
   /** Reference currently on the graphic draft, when it is a scripture card. */
   currentGraphicReference: string;
+  /**
+   * The VERSION that graphic is carrying — its `translationLabel`.
+   *
+   * Reported from the desk as "the scripture preview seems stuck to the old
+   * version". It was not stuck; it was correct and unexplained. Changing this
+   * panel's Translation empties the panel and starts no lookup by design, so
+   * the staged card keeps the words and the label it was given until a new
+   * passage replaces it — and the only line describing that graphic named its
+   * reference and not its version, so an operator reading "KJV" in the select
+   * and seeing WEB on the preview had nothing on screen tying the two together.
+   */
+  currentGraphicTranslation: string;
 }
 
 /**
@@ -67,7 +79,8 @@ export default function ScriptureLookupPanel({
   notice,
   recentsVersion,
   onDismissNotice,
-  currentGraphicReference
+  currentGraphicReference,
+  currentGraphicTranslation
 }: Props) {
   const { provider, status, message, failure, lookup, reset, cancel } = useScriptureLookup();
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
@@ -130,6 +143,33 @@ export default function ScriptureLookupPanel({
    */
   const latestTranslation = useRef(translationId);
   latestTranslation.current = translationId;
+
+  /**
+   * WHAT IS ON THE GRAPHIC, INCLUDING WHICH VERSION.
+   *
+   * "The scripture preview seems stuck to the old version." It is not stuck: a
+   * translation change empties this panel and starts no lookup on purpose (see
+   * `changeTranslation`), so the staged card keeps the words and the label it
+   * was given until a new passage replaces them. That is right — a graphic must
+   * not silently change under an operator — but the line describing it named
+   * only the reference, so the select could read KJV over a WEB card with
+   * nothing on screen connecting the two.
+   *
+   * The mismatch is stated in the operator's own terms, with the action that
+   * resolves it. Both labels come from the same short form (`result.translation`
+   * on the graphic, `translation.label` in the picker), so they compare
+   * like for like.
+   */
+  const selectedLabel = translation?.label ?? translationId.toUpperCase();
+  const stagedVersion = currentGraphicTranslation.trim();
+  const versionsDiffer =
+    Boolean(stagedVersion) && stagedVersion.toLowerCase() !== selectedLabel.toLowerCase();
+
+  const stagedGraphicLine = !currentGraphicReference
+    ? 'No passage retrieved yet.'
+    : versionsDiffer
+      ? `The current graphic is ${currentGraphicReference} in ${stagedVersion}, and Translation is set to ${selectedLabel}. Look it up again to put ${selectedLabel} on the graphic.`
+      : `The current graphic is ${currentGraphicReference}${stagedVersion ? ` (${stagedVersion})` : ''}. Look up a reference to replace it.`;
 
   /**
    * False once this panel is gone.
@@ -366,10 +406,21 @@ export default function ScriptureLookupPanel({
         </div>
 
         <div className="scripture-ws__meta">
-          {/* Translation is named in text, never by colour alone — WEB and KJV of
-              one verse are different on-air content, and airing the wrong one is a
-              real mistake. */}
-          <span className="ll-tag">{translation?.label ?? translationId.toUpperCase()}</span>
+          {/*
+            The tag that used to sit here said `KJV` directly beneath a select
+            reading "KJV — King James Version", and was removed as the duplicate
+            it was. The rule it existed for is unaffected: translation is still
+            named in TEXT and never by colour alone — WEB and KJV of one verse
+            are different on-air content — by the select itself, by the retrieved
+            passage's own tag, by every recents row, and by the line below that
+            describes the staged graphic.
+
+            The coverage note stays, and it IS a repeat — the option string ends
+            with the same "(New Testament only)". It is kept on purpose: that
+            tail is the part of a long option an operator skims past, and the
+            thing it predicts is a lookup that fails mid-service. The offline tag
+            is not a repeat at all.
+          */}
           {translation?.partial ? <span className="scripture-ws__note">{translation.partial}</span> : null}
           {offline ? (
             <span className="ll-tag ll-tag--warn">Offline — saved passages only</span>
@@ -511,11 +562,7 @@ export default function ScriptureLookupPanel({
           ) : null}
         </section>
       ) : (
-        <p className="scripture-ws__empty">
-          {currentGraphicReference
-            ? `The current graphic is ${currentGraphicReference}. Look up a reference to replace it.`
-            : 'No passage retrieved yet.'}
-        </p>
+        <p className="scripture-ws__empty">{stagedGraphicLine}</p>
       )}
 
       {notice ? (
