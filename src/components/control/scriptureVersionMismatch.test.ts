@@ -57,6 +57,84 @@ describe('the panel can say which version is on the graphic', () => {
   });
 });
 
+describe('reopening a stored row keeps the selected version', () => {
+  /**
+   * Every recent row used to call `onTranslationChange(recent.translationId)`,
+   * so a list captured under the old default dragged the picker back to it on
+   * every click. That was the rest of "I still see WEB".
+   */
+  it('no longer lets a stored row move the picker', () => {
+    const code = stripComments(panel);
+    expect(code).toContain('const openRecent');
+    expect(code).not.toContain('onTranslationChange(recent.translationId)');
+  });
+
+  it('skips the network when the row is already the selected version', () => {
+    // Reopening must still work offline for the common case — the stored result
+    // IS the answer when the versions already agree.
+    const code = stripComments(panel);
+    expect(code).toMatch(/recent\.translationId === translationId/);
+    expect(code).toContain('onPassage(recent.result, true)');
+  });
+
+  it('does not paint the old version while the new one loads', () => {
+    /**
+     * THE SAFETY PROPERTY. Showing the stored copy first would put the old
+     * wording in the passage panel with a live "Set as current graphic" beside
+     * it, so a quick operator could stage the version they had just navigated
+     * away from. An empty panel under "Looking…" cannot be staged.
+     */
+    const code = stripComments(panel);
+    const clearAt = code.indexOf('onPassage(null, false)');
+    const fetchAt = code.indexOf('void reopenInSelected(recent)');
+    expect(clearAt).toBeGreaterThan(-1);
+    expect(fetchAt).toBeGreaterThan(-1);
+    expect(fetchAt).toBeGreaterThan(clearAt);
+  });
+
+  it('falls back to the stored copy, and says that is what happened', () => {
+    /**
+     * Offline, or a reference the selected translation does not carry, must not
+     * leave the operator with nothing where a passage was one click away — and
+     * silently serving the old version to someone who selected a new one is the
+     * bug this whole change exists to fix, so the fallback names itself.
+     */
+    const code = stripComments(panel);
+    expect(code).toContain('const reopenInSelected');
+    expect(code).toMatch(/setReopenNote\(\s*`Couldn’t get/);
+    expect(code).toContain('this is the saved ${recent.result.translation} copy');
+  });
+
+  it('guards the fetch the same way a typed lookup is guarded', () => {
+    // The operator can change translation mid-flight here exactly as they can
+    // during a typed lookup; the same two guards have to apply.
+    const code = stripComments(panel);
+    const body = code.slice(code.indexOf('const reopenInSelected'));
+    expect(body).toContain('if (!alive.current) return');
+    expect(body).toMatch(/latestTranslation\.current !== requested/);
+  });
+});
+
+describe('the operator can empty the recents list', () => {
+  it('wires the clear helper that had no caller', () => {
+    const code = stripComments(panel);
+    expect(code).toContain('clearScriptureRecents');
+    expect(code).toContain('setRecents([])');
+  });
+
+  it('does not sweep up saved passages', () => {
+    /**
+     * Recents roll over on their own; Saved passages are a deliberate keep. A
+     * control sitting on the recents header must not empty the list beside it.
+     */
+    const code = stripComments(panel);
+    const head = code.slice(code.indexOf('scripture-ws__recents-head'));
+    const clearBlock = head.slice(0, head.indexOf('</div>'));
+    expect(clearBlock).toContain('clearScriptureRecents');
+    expect(clearBlock).not.toContain('setFavorites');
+  });
+});
+
 describe('the duplicate translation tag is gone', () => {
   it('no longer prints the selected translation twice', () => {
     /**

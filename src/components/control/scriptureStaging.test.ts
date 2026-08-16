@@ -133,7 +133,17 @@ describe('an in-flight lookup cannot outlive its translation', () => {
      */
     const code = stripComments(panel);
     expect(code).toContain('onPassage(found.result, found.fromCache)');
-    expect(code).not.toMatch(/onPassage\([^)]*,\s*false\s*\)/);
+    /**
+     * `onPassage(null, false)` is exempt, and only that exact form.
+     *
+     * It is not a result being mislabelled — it is the panel being EMPTIED,
+     * which is what reopening a stored row does while it fetches that reference
+     * in the selected version. There is no passage to be from-cache or not.
+     * Anything with a value in the first slot must still carry its own flag,
+     * which is what this rule is for.
+     */
+    expect(code).toContain('onPassage(null, false)');
+    expect(code).not.toMatch(/onPassage\(\s*(?!null\s*,)[^)]*,\s*false\s*\)/);
   });
 });
 

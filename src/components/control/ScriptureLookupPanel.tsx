@@ -8,7 +8,11 @@ import {
   type VerseSpan
 } from '../../lib/scripture/parseReference';
 import { Icon } from '../../lib/icons';
-import { readScriptureRecents, type ScriptureRecent } from '../../lib/scripture/scriptureRecents';
+import {
+  clearScriptureRecents,
+  readScriptureRecents,
+  type ScriptureRecent
+} from '../../lib/scripture/scriptureRecents';
 import {
   isScriptureFavorite,
   readScriptureFavorites,
@@ -86,6 +90,12 @@ export default function ScriptureLookupPanel({
   const [recents, setRecents] = useState<ScriptureRecent[]>([]);
   const [favorites, setFavorites] = useState<ScriptureFavorite[]>([]);
   const [saveNotice, setSaveNotice] = useState('');
+  /**
+   * Set only when reopening a stored row could not produce the selected version
+   * and fell back to the stored one. Separate from `saveNotice` because they can
+   * both be true and describe different actions.
+   */
+  const [reopenNote, setReopenNote] = useState('');
   const [offline, setOffline] = useState(false);
 
   /**
@@ -199,6 +209,7 @@ export default function ScriptureLookupPanel({
   }, []);
 
   const runLookup = async (reference: string) => {
+    setReopenNote('');
     const requested = translationId;
     const found = await lookup(reference, requested);
     if (!alive.current) return; // the panel is gone; the draft store is not ours to write
@@ -244,6 +255,9 @@ export default function ScriptureLookupPanel({
      * lookup the operator had just submitted with Enter.
      */
     if (status === 'error' || status === 'success') reset();
+    // The fallback note describes a row that was reopened, not the reference
+    // being typed now.
+    setReopenNote('');
     onQueryChange(next);
   };
 
@@ -260,6 +274,7 @@ export default function ScriptureLookupPanel({
    */
   const changeTranslation = (next: string) => {
     reset();
+    setReopenNote('');
     onTranslationChange(next);
   };
 
@@ -319,21 +334,78 @@ export default function ScriptureLookupPanel({
   /** How many verses are selected in total — 1 means trimming would empty it. */
   const selectedCount = spans.reduce((total, span) => total + (span.end - span.start + 1), 0);
 
+  /**
+   * REOPENING A STORED ROW KEEPS THE VERSION THE OPERATOR HAS SELECTED.
+   *
+   * It used to do the opposite — `onTranslationChange(recent.translationId)` —
+   * so every row dragged the picker back to whatever it was captured in. After
+   * the default moved to the King James that was the whole of "I still see
+   * WEB": a list of passages saved in the old version, each one silently
+   * resetting the picker on click. These rows are references the operator
+   * reaches for again, not a version they are choosing.
+   *
+   * The saved copy is NOT painted while the new version loads, and that is the
+   * careful part. Showing it first would put the old wording in the passage
+   * panel with a live "Set as current graphic" beside it — an operator who
+   * clicked through quickly could stage the version they had just navigated
+   * away from, which is precisely the mislabelled-text-on-air failure this
+   * surface exists to prevent. An empty panel under "Looking…" cannot be
+   * staged. It comes back only as the fallback below, named as such.
+   */
   const openRecent = (recent: ScriptureRecent) => {
     /**
      * Cancel anything in flight FIRST.
      *
-     * Reopening a recent starts no lookup of its own, so a request already in
-     * flight still passed the hook's request-id check and overwrote the restored
-     * passage when it landed. The translation guard above does not catch it: a
-     * recent in the SAME translation as the pending request clears that check.
-     * `reset` bumps the request id, so the older lookup resolves to null.
+     * A request already in flight would otherwise still pass the hook's
+     * request-id check and overwrite whatever this restores. The translation
+     * guard does not catch it: a recent in the SAME translation as the pending
+     * request clears that check. `reset` bumps the request id, so the older
+     * lookup resolves to null.
      */
     reset();
-    // No fetch: the stored result is complete, so this works with no network.
+    setReopenNote('');
     onQueryChange(recent.result.reference);
-    onTranslationChange(recent.translationId);
+
+    if (recent.translationId === translationId) {
+      // Already the selected version: the stored result IS the answer, so this
+      // still works with no network at all.
+      onPassage(recent.result, true);
+      return;
+    }
+
+    onPassage(null, false);
+    void reopenInSelected(recent);
+  };
+
+  /**
+   * Fetch a stored row's reference in the CURRENTLY selected version, falling
+   * back to the stored copy when that cannot be had.
+   *
+   * The fallback is the whole reason this is not just `runLookup`: offline, or
+   * a reference the selected translation does not carry, must not leave the
+   * operator with nothing where a passage used to be one click away. What they
+   * get back is the old version, so it says so — silently serving WEB to
+   * someone who selected KJV is the bug this function exists to fix.
+   */
+  const reopenInSelected = async (recent: ScriptureRecent) => {
+    const requested = translationId;
+    const requestedLabel = availableTranslations().find((item) => item.id === requested)?.label
+      ?? requested.toUpperCase();
+    const found = await lookup(recent.result.reference, requested);
+    if (!alive.current) return;
+    // Same guard as `runLookup`: the operator may have moved on mid-flight.
+    if (latestTranslation.current !== requested) {
+      reset();
+      return;
+    }
+    if (found) {
+      onPassage(found.result, found.fromCache);
+      return;
+    }
     onPassage(recent.result, true);
+    setReopenNote(
+      `Couldn’t get ${recent.result.reference} in ${requestedLabel} — this is the saved ${recent.result.translation} copy.`
+    );
   };
 
   /**
@@ -574,6 +646,10 @@ export default function ScriptureLookupPanel({
         </p>
       ) : null}
 
+      {reopenNote ? (
+        <p className="scripture-ws__note" role="status" aria-live="polite">{reopenNote}</p>
+      ) : null}
+
       {saveNotice ? (
         <p className="scripture-ws__note" role="status" aria-live="polite">{saveNotice}</p>
       ) : null}
@@ -599,7 +675,32 @@ export default function ScriptureLookupPanel({
       ) : null}
 
       <section className="scripture-ws__recents" aria-label="Recent passages">
-        <span className="ll-kicker">Recent passages</span>
+        <div className="scripture-ws__recents-head">
+          <span className="ll-kicker">Recent passages</span>
+          {/*
+            Clearing is the operator's own action and nothing else's. The list
+            rolls over on its own, but a list captured under a translation the
+            church has since moved off stays useful-looking and is not — which
+            is how a row saved in the old version keeps getting reached for.
+            `clearScriptureRecents` existed with no way to call it.
+
+            Recents only. Saved passages are a deliberate keep and are not swept
+            up by a control labelled for the list beside them.
+          */}
+          {recents.length ? (
+            <button
+              type="button"
+              className="btn btn--ghost btn--xs"
+              onClick={() => {
+                clearScriptureRecents();
+                setRecents([]);
+                setReopenNote('');
+              }}
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
         {recents.length ? (
           <div className="scripture-ws__recent-row" role="group" aria-label="Reopen a recent passage">
             {recents.map((recent) => (

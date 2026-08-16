@@ -7067,6 +7067,11 @@ body.gfx-transparent {
 .control-root .scripture-ws__field--translation { flex: 0 1 260px; }
 .control-root .scripture-ws__lookup { flex: none; min-height: 38px; }
 .control-root .scripture-ws__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Recents header: the kicker and its Clear control on one line, so clearing is
+   discoverable where the list is rather than buried in a settings page. */
+.control-root .scripture-ws__recents-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
 
 /* Amber rather than red: an offline controller is a degraded state the operator
    can work in (recents still resolve), not a failure. */
