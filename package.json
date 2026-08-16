@@ -9,6 +9,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "start": "node scripts/serve-dist.mjs",
+    "package": "npm run build && node scripts/package-release.mjs",
     "start:lan": "node scripts/serve-dist.mjs --host 0.0.0.0",
     "preview:lan": "vite preview --host 0.0.0.0",
     "lan:relay": "node scripts/livelayer-lan-relay.mjs",
@@ -16,7 +17,7 @@
     "smoke:routes": "node scripts/smoke-routes.mjs",
     "verify": "npm run check:output-isolation && npm run test && npm run test:server && npm run build",
     "test": "vitest run",
-    "test:server": "node --test scripts/serve-dist.test.mjs",
+    "test:server": "node --test scripts/serve-dist.test.mjs scripts/packageRelease.test.mjs",
     "test:watch": "vitest"
   },
   "engines": {

@@ -149,6 +149,18 @@ npm install && npm run build   # needs node_modules
 npm run start                  # http://127.0.0.1:4173 — same origin as npm run dev
 ```
 
+**As one file, for a machine that has no repo at all:**
+
+```bash
+npm run package     # builds, then writes out/livelayer-<version>.zip
+```
+
+That archive is the built app plus the two dependency-free servers plus a
+`RUNME.txt`. Copy it across, unpack it anywhere, and run `node
+scripts/serve-dist.mjs` from inside — nothing to install but Node. It is what
+would be attached to a GitHub release; there is no published release yet, so it
+is built on demand.
+
 **On the service machine** — copy over just `dist/` and `scripts/` (keeping them
 side by side) and run, with **only Node 22 or newer installed**, no `npm install`:
 

@@ -22,6 +22,19 @@ import { DEFAULT_SPEECH_SERVICE } from '../lib/scripture/liveTranscriptSource';
  * than in the user's home default — without it the first run re-downloads
  * several gigabytes that are already on the machine.
  */
+/**
+ * Named here rather than typed into the prose, so the page cannot promise a
+ * filename or a Node version that has moved. Both are single sources: the
+ * archive `scripts/package-release.mjs` writes is `livelayer-<version>.zip`
+ * from `package.json`, and the floor is `engines.node`.
+ *
+ * Read through Vite's `define`-free path — a literal here, checked by a test
+ * against `package.json`, because importing the manifest into the bundle would
+ * ship the whole thing to the browser to print two strings.
+ */
+const APP_VERSION = '0.1.0';
+const NODE_FLOOR = '22 or newer';
+
 const SPEECH_SERVICE_COMMAND =
   'HF_HOME=~/LiveLayer-ASR-Eval/hf \\\n  ~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py --verbose';
 
@@ -380,6 +393,48 @@ export default function SetupPage() {
                     This sends rendered video only. Control and Take/Clear still run on the local graphics
                     machine until LiveLayer has a LAN event bus.
                   </p>
+                  </div>
+                </div>
+
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">
+                    <Icon name="screenMain" size={16} />
+                    Run LiveLayer on another machine
+                  </h3>
+                  <div className="setup-body">
+                    <p className="setup-text">
+                      This is <strong>installing</strong> it somewhere else — a backup laptop, the
+                      church&rsquo;s other rig. It is not the same as the section below, which is a
+                      tablet <em>driving</em> this machine.
+                    </p>
+                    <p className="setup-text">
+                      No repository, no <code className="setup-kbd">npm install</code>, no toolchain.
+                      The other machine needs <strong>Node {NODE_FLOOR}</strong> from{' '}
+                      <code className="setup-kbd">nodejs.org</code> and nothing else. On this machine,
+                      build the archive:
+                    </p>
+                    <pre className="setup-pre"><code>npm run package</code></pre>
+                    <p className="setup-note">
+                      That writes <code className="setup-kbd">out/livelayer-{APP_VERSION}.zip</code> —
+                      the built app plus the two dependency-free servers. Copy it across on a USB
+                      stick, unpack it anywhere, and from inside the unpacked folder run:
+                    </p>
+                    <pre className="setup-pre"><code>node scripts/serve-dist.mjs</code></pre>
+                    <p className="setup-note">
+                      It prints the exact control and output addresses to paste into OBS on that
+                      machine. Keep <code className="setup-kbd">dist</code> and{' '}
+                      <code className="setup-kbd">scripts</code> side by side — the server looks for
+                      the build next to its own folder. A <code className="setup-kbd">RUNME.txt</code>{' '}
+                      in the archive says all of this again, for whoever opens it without you there.
+                    </p>
+                    <p className="setup-note">
+                      <strong>Your work does not travel with it.</strong> Logos, speaker photos, saved
+                      graphics, presets and rundowns live in the browser that made them — a different
+                      machine is a different origin and starts empty. That is expected, not a failed
+                      copy. Export a rundown as a{' '}
+                      <code className="setup-kbd">.livelayerpack</code> from Library and import it
+                      there; it carries the graphics and the images they reference.
+                    </p>
                   </div>
                 </div>
 
