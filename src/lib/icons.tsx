@@ -74,10 +74,14 @@ const PATHS = {
   screenScripture: <><rect x="2.5" y="4" width="19" height="14" rx="1.5" /><path d="M6 8.5h12" /><path d="M6 11.5h12" /><path d="M6 14.5h7" /><path d="M8 21h8" /><path d="M12 18v3" /></>,
   screenSplit: <><rect x="2.5" y="4" width="19" height="14" rx="1.5" /><path d="M11.5 4v14" /><rect x="13.5" y="6.5" width="6" height="9" rx="1" fill="currentColor" stroke="none" opacity="0.55" /><path d="M8 21h8" /><path d="M12 18v3" /></>,
   copy: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>,
-  /* The house screen is a projector throwing onto a wall, not a monitor — the
-     shape says "in the room" before the label does. */
+  /* A question mark in a circle: the one glyph that reads as "explain this"
+     without a label, which matters on the dock's narrow command bar. */
+  help: <><circle cx="12" cy="12" r="9" /><path d="M9.6 9.2a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.5" /><path d="M12 17.2h.01" /></>,
   eye: <><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" /><circle cx="12" cy="12" r="2.6" /></>,
   eyeOff: <><path d="M10.6 6.7A9.9 9.9 0 0 1 12 6.6c6.4 0 10 5.4 10 5.4a17.6 17.6 0 0 1-3.4 3.9" /><path d="M6.3 8.2A17.4 17.4 0 0 0 2 12s3.6 5.4 10 5.4a10.6 10.6 0 0 0 3.5-.6" /><path d="M3 3l18 18" /></>,
+  /* The house screen is a projector throwing onto a wall, not a monitor — the
+     shape says "in the room" before the label does. It had drifted six icons
+     away from the glyph it describes. */
   screenHouse: <><rect x="3" y="3.5" width="18" height="12" rx="1" /><path d="M12 15.5v3" /><path d="M6.5 21.5 12 18.5l5.5 3" /></>
 } as const;
 

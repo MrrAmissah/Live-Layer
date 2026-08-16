@@ -7088,6 +7088,80 @@ body.gfx-transparent {
 .control-root .scripture-ws__field--translation { flex: 0 1 260px; }
 .control-root .scripture-ws__lookup { flex: none; min-height: 38px; }
 .control-root .scripture-ws__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* --- /guide: what everything means -----------------------------------------
+   Reuses the setup page's frame (`.control-root`, `.setup-inner`, `.setup-main`,
+   `.setup-head`) on purpose — the two pages answer the operator's two questions
+   and should feel like one pair, not two apps. Only what is new is here. */
+.control-root .guide-rule {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 0 0 22px; padding: 14px 16px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 10px;
+  background: rgba(34, 211, 238, 0.07);
+  color: var(--ll-text-strong);
+}
+.control-root .guide-rule svg { flex: none; margin-top: 2px; color: #67e8f9; }
+.control-root .guide-rule__title { margin: 0 0 4px; font-size: 15px; font-weight: 700; line-height: 1.35; }
+.control-root .guide-rule__body { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ll-muted-2); }
+
+.control-root .guide-section { margin: 0 0 26px; }
+.control-root .guide-section__title {
+  margin: 0 0 4px; font-size: 15px; font-weight: 700; color: var(--ll-text-strong);
+}
+.control-root .guide-section__lead {
+  margin: 0 0 12px; font-size: 13px; line-height: 1.6; color: var(--ll-muted-2); max-width: 68ch;
+}
+
+/* Cards adapt to the width the way the chapter grid does: the dock gets one
+   column, the studio gets three, without a breakpoint to maintain. */
+.control-root .guide-cards {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.control-root .guide-card {
+  padding: 13px 15px; border: 1px solid var(--ll-border); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.018);
+}
+.control-root .guide-card__title {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 0 6px; font-size: 14px; font-weight: 700; color: var(--ll-text-strong);
+}
+.control-root .guide-card__one { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: #cdd6e4; }
+.control-root .guide-card__more { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ll-muted-2); }
+
+.control-root .guide-defs { margin: 0; display: grid; gap: 10px; }
+.control-root .guide-def {
+  display: grid; gap: 3px 14px; align-items: baseline;
+  grid-template-columns: minmax(150px, 210px) 1fr;
+}
+.control-root .guide-def__term {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0; font-size: 13px; font-weight: 700; color: var(--ll-text-strong);
+}
+.control-root .guide-def__desc { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ll-muted-2); }
+.control-root .guide-def__tone { font-size: 11px; font-weight: 600; color: var(--ll-muted-2); }
+.control-root .guide-foot { margin-top: 24px; }
+
+/* The pills wear the SAME tone palette the Program rail uses, because a reader
+   is matching a colour they saw on the desk to a paragraph here. */
+.control-root .guide-pill {
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em;
+  border: 1px solid var(--ll-status-border, rgba(148, 163, 184, 0.3));
+  background: var(--ll-status-bg, rgba(148, 163, 184, 0.12));
+  color: var(--ll-status-fg, #cdd6e4);
+}
+.control-root .guide-pill--live { --ll-status-fg: #6ee7a8; --ll-status-bg: rgba(52, 211, 153, 0.14); --ll-status-border: rgba(52, 211, 153, 0.4); }
+.control-root .guide-pill--ready { --ll-status-fg: #7dd3fc; --ll-status-bg: rgba(56, 189, 248, 0.14); --ll-status-border: rgba(56, 189, 248, 0.4); }
+.control-root .guide-pill--pending { --ll-status-fg: #fcd34d; --ll-status-bg: rgba(251, 191, 36, 0.14); --ll-status-border: rgba(251, 191, 36, 0.4); }
+.control-root .guide-pill--attention { --ll-status-fg: #fcd34d; --ll-status-bg: rgba(251, 191, 36, 0.14); --ll-status-border: rgba(251, 191, 36, 0.4); }
+.control-root .guide-pill--failed { --ll-status-fg: #fca5a5; --ll-status-bg: rgba(248, 113, 113, 0.14); --ll-status-border: rgba(248, 113, 113, 0.42); }
+.control-root .guide-pill--idle { --ll-status-fg: #9fb0c6; --ll-status-bg: rgba(148, 163, 184, 0.12); --ll-status-border: rgba(148, 163, 184, 0.3); }
+
+@media (max-width: 720px) {
+  .control-root .guide-def { grid-template-columns: 1fr; }
+}
+
 /* Recents header: the kicker and its Clear control on one line, so clearing is
    discoverable where the list is rather than buried in a settings page. */
 .control-root .scripture-ws__recents-head {

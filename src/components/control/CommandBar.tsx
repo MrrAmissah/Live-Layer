@@ -74,6 +74,13 @@ export default function CommandBar() {
           <Icon name="previewOutput" size={17} />
           <span>Preview Output</span>
         </button>
+        {/* Beside Setup, because they answer the two different questions an
+            operator arrives with: "what is wrong with this machine" and "what
+            does this button do". */}
+        <button type="button" className="btn btn--ghost btn--md cmd-action" onClick={() => openRoute('/guide')}>
+          <Icon name="help" size={17} />
+          <span>Guide</span>
+        </button>
         <button type="button" className="btn btn--ghost btn--md cmd-action" onClick={() => openRoute('/setup')}>
           <Icon name="settings" size={17} />
           <span>Setup</span>

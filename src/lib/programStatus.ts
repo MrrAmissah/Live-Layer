@@ -64,7 +64,14 @@ import { screenDisplayName } from './scriptureOutputs';
  */
 export type ProgramStatusTone = 'live' | 'ready' | 'pending' | 'attention' | 'failed' | 'idle';
 
-const TONE_BY_PILL: Record<ProgramStatusWords['pill'], ProgramStatusTone> = {
+/**
+ * Exported so a surface that EXPLAINS the vocabulary can enumerate it rather
+ * than retype it. `programSyncWiring.test.ts` forbids a control component
+ * hardcoding these claims precisely so this file stays their only author —
+ * reading the record keeps that true, where a hand-copied list in a help page
+ * would be the second copy that rule exists to prevent.
+ */
+export const TONE_BY_PILL: Record<ProgramStatusWords['pill'], ProgramStatusTone> = {
   'OUTPUT ACTIVE': 'live',
   'OUTPUT READY': 'ready',
   SENT: 'pending',

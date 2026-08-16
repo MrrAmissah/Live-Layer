@@ -3,7 +3,7 @@ import { linkTo } from '../../lib/navigateTo';
 import { Icon, type IconName } from '../../lib/icons';
 import TemplateLibrary from './TemplateLibrary';
 
-interface Workspace {
+export interface Workspace {
   to: string;
   label: string;
   icon: IconName;
@@ -18,7 +18,7 @@ interface Workspace {
  * an operator is doing: composing a graphic, preparing the running order, or
  * finding something they kept.
  */
-const WORKSPACES: Workspace[] = [
+export const CONTROL_WORKSPACES: Workspace[] = [
   { to: '/control/studio', label: 'Studio', icon: 'grid' },
   { to: '/control/scripture', label: 'Scripture', icon: 'book' },
   { to: '/control/rundown', label: 'Rundown', icon: 'queue' },
@@ -50,7 +50,7 @@ export default function StudioNav() {
         </p>
 
         <ul className="studio-nav__list studio-nav__list--primary">
-          {WORKSPACES.map((workspace) => (
+          {CONTROL_WORKSPACES.map((workspace) => (
             <li key={workspace.to}>
               <NavLink
                 to={linkTo(workspace.to, location)}

@@ -168,6 +168,17 @@ export default function SetupPage() {
             </div>
           </div>
           <div className="cmd-bar__right">
+            {/* The pair completed. Setup answers "what is wrong with this
+                machine"; Guide answers "what does this button do" — and an
+                operator who lands on the wrong one should not have to know the
+                other exists. */}
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              onClick={() => window.open(`${window.location.origin}/guide`, '_self')}
+            >
+              Guide
+            </button>
             <button type="button" className="btn btn--ghost btn--sm" onClick={() => window.open(controlUrl, '_blank')}>
               Open control
             </button>

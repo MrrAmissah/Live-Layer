@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 import ControlPage from './app/ControlPage';
 import OutputPage from './app/OutputPage';
 import SetupPage from './app/SetupPage';
+import GuidePage from './app/GuidePage';
 import ScriptureRedirect from './app/ScriptureRedirect';
 import CatchAllRedirect from './app/CatchAllRedirect';
 import StudioWorkspace from './app/workspaces/StudioWorkspace';
@@ -44,6 +45,11 @@ function App() {
       </Route>
       <Route path="/output" element={<OutputPage />} />
       <Route path="/setup" element={<SetupPage />} />
+      {/* What things mean, not a place you work — so a top-level route beside
+          /setup rather than a sixth workspace. A `/control/*` child would have
+          to be listed in `WORKSPACES` in controlPaths.ts or ControlPage would
+          canonicalise it away to Studio before it ever mounted. */}
+      <Route path="/guide" element={<GuidePage />} />
       {/* Was a reserved placeholder page. The workspace had to move inside the
           /control layout to reach the one channel and the one Take, so the
           reserved URL redirects there, carrying search and hash. */}
