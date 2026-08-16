@@ -8,6 +8,8 @@ import {
 } from '../../lib/scripture/providers';
 import { buildReference, parseReference, suggestBibleBooks } from '../../lib/scripture/bibleBooks';
 import { chapterNumbers, numberRange } from '../../lib/scripture/bibleStructure';
+import { useQuickTake } from '../../app/quickTake';
+import { Icon } from '../../lib/icons';
 
 interface Props {
   reference: string;
@@ -24,6 +26,7 @@ interface Props {
  */
 export default function ScriptureReferencePicker({ reference, onReferenceChange, onApply }: Props) {
   const { provider, status, message, lookup } = useScriptureLookup();
+  const quickTake = useQuickTake();
   const translations = availableTranslations();
   // Not `translations[0]` — picker order is presentation, and it decided what
   // went to air. `defaultTranslationId()` is the choice, stated once.
@@ -84,7 +87,7 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
     onReferenceChange(ref);
     void runLookup(ref);
   };
-  const runLookup = async (ref: string) => {
+  const runLookup = async (ref: string, airIt = false) => {
     const found = await lookup(ref, translation);
     if (!found) return; // stale (hook seq guard) or failed — reference stands, hint shows the error
     // Reference-match guard: ignore if the operator moved to a different reference
@@ -92,6 +95,14 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
     if (latestReference.current !== ref) return;
     const { result } = found;
     onApply({ reference: result.reference, verseText: result.text, translationLabel: result.translation });
+    /**
+     * AIR IT ONLY AFTER THE WORDS ARE IN. `onApply` writes the passage into the
+     * draft and `takeNow` publishes that draft, so calling them the other way
+     * round — or in parallel — would air the PREVIOUS verse. React batches the
+     * state write, but `takeNow` reads the store directly rather than a
+     * rendered prop, so the ordering here is what makes it correct.
+     */
+    if (airIt && quickTake.enabled && !quickTake.blocked) quickTake.takeNow();
   };
 
   // Picking a verse via chips auto-loads its text (cached) so the preview's
@@ -100,12 +111,22 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   // the text, while editing the verse without changing the reference is
   // preserved. Typed references and the offline number inputs do NOT auto-load
   // (they keep the explicit Lookup button).
-  const setVerse = (verseStart?: number, verseEnd?: number, autoLoad = false) => {
+  const setVerse = (verseStart?: number, verseEnd?: number, autoLoad = false, airIt = false) => {
     if (!parsed.book || !parsed.chapter) return;
     const ref = buildReference(parsed.book, parsed.chapter, verseStart, verseEnd);
-    if (ref === reference) return;
+    /**
+     * A double-click on the verse ALREADY loaded must still air it.
+     * The early return exists so that re-selecting the same verse does not
+     * refetch, and it would have made the second click of a double-click do
+     * nothing at all — which is the common case, because the first click
+     * selected that very verse.
+     */
+    if (ref === reference) {
+      if (airIt && quickTake.enabled && !quickTake.blocked) quickTake.takeNow();
+      return;
+    }
     onReferenceChange(ref);
-    if (autoLoad) void runLookup(ref);
+    if (autoLoad) void runLookup(ref, airIt);
   };
 
   const onLookup = () => runLookup(reference);
@@ -128,7 +149,9 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
-              onLookup();
+              // Armed, Enter looks up AND airs — the keyboard path for
+              // verse-by-verse while someone is preaching.
+              void runLookup(reference, quickTake.enabled);
             }
           }}
         />
@@ -208,6 +231,14 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
                     type="button"
                     className={`ref-chip ref-chip--num ${verseActive(verse) ? 'ref-chip--active' : ''}`}
                     onClick={() => setVerse(verse, undefined, true)}
+                    /* Single click still only loads it. The second click is what
+                       airs, and only while the switch is on. */
+                    onDoubleClick={() => setVerse(verse, undefined, true, quickTake.enabled)}
+                    title={
+                      quickTake.enabled && !quickTake.blocked
+                        ? `Double-click to put verse ${verse} on air`
+                        : undefined
+                    }
                   >
                     {verse}
                   </button>
@@ -279,6 +310,33 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
         <button type="button" className="btn btn--secondary btn--sm ref-picker__lookup" onClick={onLookup} disabled={status === 'loading'}>
           {status === 'loading' ? 'Looking…' : 'Look up'}
         </button>
+      </div>
+
+      {/**
+        * The switch, and the badge that makes it impossible to miss.
+        *
+        * Off is the default and off is the promise: nothing here airs. On, this
+        * surface is hot and says so, because someone else standing at the desk
+        * has to be able to see that a double-click is now a broadcast.
+        */}
+      <div className="ref-picker__quick">
+        <label className="ref-picker__quick-switch">
+          <input
+            type="checkbox"
+            checked={quickTake.enabled}
+            onChange={(event) => quickTake.setEnabled(event.target.checked)}
+          />
+          <span>Quick take</span>
+        </label>
+        {quickTake.enabled && !quickTake.blocked ? (
+          <span className="ref-picker__quick-live">
+            <Icon name="broadcast" size={12} />
+            Double-click a verse, or press Enter, to put it on air
+          </span>
+        ) : null}
+        {quickTake.enabled && quickTake.blocked ? (
+          <span className="ref-picker__quick-blocked">{quickTake.blocked}</span>
+        ) : null}
       </div>
 
       <div className={`field__hint ${status === 'error' ? 'field__hint--error' : ''}`} role={status === 'error' ? 'alert' : undefined}>

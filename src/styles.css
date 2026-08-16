@@ -7103,6 +7103,27 @@ body.gfx-transparent {
   font-size: 11px; font-weight: 600; color: var(--ll-muted-2);
 }
 
+/* Quick take: the switch that makes this surface hot, and the badge that says
+   so. The badge is not decoration — someone else at the desk has to be able to
+   see that a double-click is now a broadcast. */
+.control-root .ref-picker__quick {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 2px;
+}
+.control-root .ref-picker__quick-switch {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--ll-muted-2); cursor: pointer;
+}
+.control-root .ref-picker__quick-live {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  animation: ll-attention-breath 2.4s ease-in-out infinite;
+}
+.control-root .ref-picker__quick-blocked { font-size: 11px; color: #fcd34d; }
+
 /* --- /guide: what everything means -----------------------------------------
    Reuses the setup page's frame (`.control-root`, `.setup-inner`, `.setup-main`,
    `.setup-head`) on purpose — the two pages answer the operator's two questions

@@ -27,6 +27,7 @@ import ProgramRail from '../components/control/ProgramRail';
 import StudioNav from '../components/control/StudioNav';
 import StudioLiveBar from '../components/control/StudioLiveBar';
 import type { WorkspaceContext } from './workspaces/workspaceContext';
+import { QuickTakeProvider } from './quickTake';
 import { resolveCanonicalControlPath } from './workspaces/controlPaths';
 import { withUrlState } from '../lib/navigateTo';
 import { PackSwitchGuardProvider } from '../hooks/usePackSwitchGuard';
@@ -276,6 +277,29 @@ export default function ControlPage() {
     });
 
   /**
+   * Quick take: air the DRAFT, through the same door as everything else.
+   *
+   * Not a second Take. `publishShow` is still the only publisher — the
+   * quick-queue rows already call it the same way — and this adds no new
+   * decision about what a Take means. It exists because `onTake` fires the
+   * selected RUNDOWN ROW when a rundown is active, which is exactly the wrong
+   * graphic for a gesture aimed at the verse under the pointer; the provider
+   * refuses in that state rather than airing something else.
+   */
+  const onQuickTakeDraft = useCallback(
+    () =>
+      runCommand(async () => {
+        if (getActiveRundownId()) return;
+        const state = useLiveLayerStore.getState();
+        const instance = buildInstanceFromDraft(state);
+        if (await publishShow(instance, { sourceType: 'draft', sourceId: null })) {
+          state.addRecent(instance);
+        }
+      }),
+    []
+  );
+
+  /**
    * Take Next — send the next takeable item and move the operator onto it.
    *
    * Goes through `publishShow`, the same single publish boundary Take uses, so
@@ -424,6 +448,7 @@ export default function ControlPage() {
   if (!isStudio) {
     return (
       <PackSwitchGuardProvider>
+        <QuickTakeProvider takeDraft={onQuickTakeDraft} rundownActive={Boolean(getActiveRundownId())}>
         <DockShell
           onTake={onTake}
           onTakeNext={onTakeNext}
@@ -432,6 +457,7 @@ export default function ControlPage() {
           lastTakenAt={lastTakenAt}
           sending={sending}
         />
+        </QuickTakeProvider>
       </PackSwitchGuardProvider>
     );
   }
@@ -440,6 +466,7 @@ export default function ControlPage() {
 
   return (
     <PackSwitchGuardProvider>
+      <QuickTakeProvider takeDraft={onQuickTakeDraft} rundownActive={Boolean(getActiveRundownId())}>
       <ControlShell
         commandBar={<CommandBar />}
         nav={<StudioNav />}
@@ -461,6 +488,7 @@ export default function ControlPage() {
            is never a second Take on screen or in the accessibility tree. */
         liveBar={<StudioLiveBar onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} />}
       />
+      </QuickTakeProvider>
     </PackSwitchGuardProvider>
   );
 }

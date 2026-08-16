@@ -107,6 +107,10 @@ const ACTIONS: { name: string; what: string }[] = [
     what: 'Puts it in the prepared running order instead of the queue — that is the difference: the queue is for today, the rundown is the plan.'
   },
   {
+    name: 'Quick take',
+    what: 'A switch in the verse picker, off by default. While it is on, double-clicking a verse or pressing Enter airs it immediately — for verse-by-verse preaching. The picker wears a red badge the whole time it is armed, and a page reload turns it off again.'
+  },
+  {
     name: 'Reset draft',
     what: 'Throws away what is in Studio and starts the template fresh. It does not touch anything saved.'
   }
@@ -172,6 +176,17 @@ export default function GuidePage() {
                 Typing, previewing, looking up a verse, building a running order — none of it is
                 visible to anyone watching. The preview is a rehearsal of what Take would send.
                 So click things. You cannot put something on air by accident.
+              </p>
+              {/* The one exception, stated where the promise is, because a
+                  promise with an unmentioned exception is worse than no
+                  promise. It is off unless somebody turned it on, and it says
+                  so on screen when they have. */}
+              <p className="guide-rule__body">
+                <strong>One exception, and it announces itself.</strong> If someone has turned on
+                <strong> Quick take</strong> in the verse picker, double-clicking a verse — or
+                pressing Enter — puts it straight on air. That is for fast verse-by-verse
+                preaching. While it is on, the picker shows a red badge saying so; it is off by
+                default and it switches itself off again whenever the page is reloaded.
               </p>
             </div>
           </section>
