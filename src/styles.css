@@ -7423,12 +7423,14 @@ body.gfx-transparent {
 
 /* The second-language chooser, sitting with the staging actions rather than in
    a settings pane: it is part of building the graphic, not configuring it. */
-.control-root .scripture-ws__second {
+.control-root .second-lang { display: flex; flex-direction: column; gap: 5px; margin: 8px 0 2px; }
+.control-root .second-lang__row {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 12px; color: var(--ll-muted-2);
 }
-.control-root .scripture-ws__second select { width: auto; min-width: 190px; max-width: 280px; }
-.control-root .scripture-ws__second-label { white-space: nowrap; font-weight: 600; }
+.control-root .second-lang__row select { width: auto; min-width: 190px; max-width: 300px; }
+.control-root .second-lang__label { white-space: nowrap; font-weight: 600; }
+.control-root .second-lang__note { margin: 0; font-size: 12px; color: #fcd34d; }
 
 /* Quick take: the switch that makes this surface hot, and the badge that says
    so. The badge is not decoration — someone else at the desk has to be able to

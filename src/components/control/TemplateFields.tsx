@@ -717,6 +717,17 @@ export default function TemplateFields({
                   translationLabel: values.translationLabel
                 })
               }
+              /* The second passage, written in ONE call for the same reason as
+                 the first: sequential writes on a rundown item each start from
+                 the same render-time snapshot and silently lose all but the
+                 last. */
+              onApplySecond={(values) =>
+                setFields({
+                  referenceB: values.reference,
+                  verseTextB: values.verseText,
+                  translationLabelB: values.translationLabel
+                })
+              }
             />
           ) : (
             <FieldRow

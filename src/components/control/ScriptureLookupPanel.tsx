@@ -20,13 +20,8 @@ import {
   type ScriptureFavorite
 } from '../../lib/scripture/scriptureFavorites';
 import type { ScriptureLookupResult } from '../../types/scripture';
-import {
-  availableTranslations,
-  describeTranslation,
-  providerForTranslation
-} from '../../lib/scripture/providers';
-import { getCachedScripture, saveCachedScripture } from '../../lib/scripture/scriptureCache';
-import { runScriptureLookup } from '../../lib/scripture/runLookup';
+import { availableTranslations, describeTranslation } from '../../lib/scripture/providers';
+import SecondLanguagePicker from './SecondLanguagePicker';
 
 interface Props {
   query: string;
@@ -109,9 +104,6 @@ export default function ScriptureLookupPanel({
    * both be true and describe different actions.
    */
   const [reopenNote, setReopenNote] = useState('');
-  /** Which second language is being fetched, so its row can say so. */
-  const [secondBusy, setSecondBusy] = useState('');
-  const [secondNote, setSecondNote] = useState('');
   const [offline, setOffline] = useState(false);
 
   /**
@@ -431,43 +423,6 @@ export default function ScriptureLookupPanel({
    */
   const openSaved = openRecent;
 
-  /**
-   * Fetch THIS passage's reference in another language and fill the second half.
-   *
-   * Deliberately NOT the panel's own `lookup`: that hook owns the displayed
-   * passage and the status line, so using it would blank the verse the operator
-   * is looking at and replace it with the translation they only wanted
-   * alongside. Calling `runScriptureLookup` with the same ports keeps the cache
-   * and the provider routing while leaving this surface alone.
-   */
-  const addSecondLanguage = async (id: string) => {
-    if (!passage || !id || !onAcceptSecond) return;
-    setSecondBusy(id);
-    setSecondNote('');
-    try {
-      const outcome = await runScriptureLookup(passage.reference, id, {
-        provider: providerForTranslation(id),
-        getCached: getCachedScripture,
-        saveCached: saveCachedScripture,
-        // This request is not racing anything: it is not the surface's own
-        // lookup and nothing else can supersede it.
-        isCurrent: () => true,
-        online: typeof navigator === 'undefined' || navigator.onLine !== false
-      });
-      if (!alive.current) return;
-      if (outcome.kind === 'fresh' || outcome.kind === 'cached') {
-        onAcceptSecond(outcome.result, id);
-      } else {
-        const label = availableTranslations().find((item) => item.id === id)?.label ?? id;
-        setSecondNote(`Couldn’t get ${passage.reference} in ${label}. The first passage is unchanged.`);
-      }
-    } catch {
-      if (alive.current) setSecondNote('That translation could not be reached. The first passage is unchanged.');
-    } finally {
-      if (alive.current) setSecondBusy('');
-    }
-  };
-
   const saved = passage ? isScriptureFavorite(passage, translationId) : false;
   const onToggleSaved = () => {
     if (!passage) return;
@@ -661,44 +616,15 @@ export default function ScriptureLookupPanel({
             >
               Set as current graphic
             </button>
-            {/**
-              * ONE CHOICE, NOT A SECOND SEARCH.
-              *
-              * This was a button that staged whatever was on screen, so filling
-              * the dual screen's lower well meant switching translation, typing
-              * the reference again and looking it up again — reported from the
-              * desk as too slow for production, and it was: the reference is
-              * already known, only the language is in question.
-              *
-              * Picking a language fetches THIS passage's reference in it and
-              * fills the second half. The panel's own passage is untouched,
-              * because the fetch goes through `runScriptureLookup` directly
-              * rather than the hook that owns this surface's state — same
-              * cache, same provider routing, no effect on what is displayed.
-              */}
-            {onAcceptSecond ? (
-              <label className="scripture-ws__second">
-                <span className="scripture-ws__second-label">
-                  {secondBusy ? 'Fetching…' : 'Add second language'}
-                </span>
-                <select
-                  className="field__input"
-                  value=""
-                  disabled={stagingDisabled || Boolean(secondBusy)}
-                  onChange={(event) => void addSecondLanguage(event.target.value)}
-                >
-                  <option value="">Choose…</option>
-                  {availableTranslations()
-                    /* Not the one already on the card: a passage beside itself
-                       in the same translation is two of the same thing. */
-                    .filter((item) => item.id !== translationId)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {describeTranslation(item)}
-                      </option>
-                    ))}
-                </select>
-              </label>
+            {/* One component, shared with Studio's Content tab — see
+                `SecondLanguagePicker`. Both surfaces edit the same card, so
+                both must offer the same speed. */}
+            {onAcceptSecond && passage ? (
+              <SecondLanguagePicker
+                reference={passage.reference}
+                currentTranslationId={translationId}
+                onFilled={onAcceptSecond}
+              />
             ) : null}
             <button
               type="button"
@@ -735,10 +661,6 @@ export default function ScriptureLookupPanel({
             Dismiss
           </button>
         </p>
-      ) : null}
-
-      {secondNote ? (
-        <p className="scripture-ws__note" role="status" aria-live="polite">{secondNote}</p>
       ) : null}
 
       {reopenNote ? (

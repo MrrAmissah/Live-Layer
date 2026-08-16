@@ -9,12 +9,23 @@ import {
 import { buildReference, parseReference, suggestBibleBooks } from '../../lib/scripture/bibleBooks';
 import { chapterNumbers, numberRange } from '../../lib/scripture/bibleStructure';
 import { useQuickTake } from '../../app/quickTake';
+import SecondLanguagePicker from './SecondLanguagePicker';
 import { Icon } from '../../lib/icons';
 
 interface Props {
   reference: string;
   onReferenceChange: (reference: string) => void;
   onApply: (values: { reference: string; verseText: string; translationLabel: string }) => void;
+  /**
+   * Fill the card's SECOND passage — the dual screen's lower well.
+   *
+   * Optional so a surface with no use for it simply omits the control. It
+   * exists here as well as on the Scripture page because THIS is where the
+   * second-passage fields render as ordinary text boxes, so without it an
+   * operator working in Studio still had to type the reference again — the
+   * exact complaint the chooser was built to answer.
+   */
+  onApplySecond?: (values: { reference: string; verseText: string; translationLabel: string }) => void;
 }
 
 /**
@@ -24,7 +35,12 @@ interface Props {
  * Tapping chips only edits the draft reference; only the explicit Look up button
  * fills the verse text (which the operator then edits in the field below).
  */
-export default function ScriptureReferencePicker({ reference, onReferenceChange, onApply }: Props) {
+export default function ScriptureReferencePicker({
+  reference,
+  onReferenceChange,
+  onApply,
+  onApplySecond
+}: Props) {
   const { provider, status, message, lookup } = useScriptureLookup();
   const quickTake = useQuickTake();
   const translations = availableTranslations();
@@ -311,6 +327,22 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
           {status === 'loading' ? 'Looking…' : 'Look up'}
         </button>
       </div>
+
+      {/* The same chooser the Scripture page offers, so the two surfaces cannot
+          drift into different speeds for one job. */}
+      {onApplySecond ? (
+        <SecondLanguagePicker
+          reference={reference}
+          currentTranslationId={translation}
+          onFilled={(result) =>
+            onApplySecond({
+              reference: result.reference,
+              verseText: result.text,
+              translationLabel: result.translation
+            })
+          }
+        />
+      ) : null}
 
       {/**
         * The switch, and the badge that makes it impossible to miss.
