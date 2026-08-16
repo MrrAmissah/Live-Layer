@@ -24,8 +24,19 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   // Not `translations[0]` — picker order is presentation, and it decided what
   // went to air. `defaultTranslationId()` is the choice, stated once.
   const [translation, setTranslation] = useState(defaultTranslationId);
-  // Verse hints fetch only after an explicit chapter tap — never for the prefilled default.
-  const [versesRequested, setVersesRequested] = useState(false);
+  /**
+   * Has the operator asked for this chapter at all?
+   *
+   * The gate exists for ONE reason: not to probe the provider for the graphic's
+   * prefilled default on every mount. It used to be satisfied only by a chapter
+   * TAP, and typing actively cleared it — so an operator who typed "Psalm 119"
+   * never saw a verse chip in their life and was handed two number inputs
+   * instead. Typing a reference is not a lesser way of asking for one.
+   *
+   * Still false on first render, which is the whole point: the seeded reference
+   * costs nothing until somebody touches the picker.
+   */
+  const [verseHintsWanted, setVerseHintsWanted] = useState(false);
 
   // Mirror of the latest intended reference, so a slow response can be discarded
   // if the operator has since moved to a different verse/reference.
@@ -36,10 +47,10 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   const bookSuggestions = useMemo(() => suggestBibleBooks(reference), [reference]);
   const showBookChips = parsed.book === null && bookSuggestions.length > 0;
   const chapters = parsed.book ? chapterNumbers(parsed.book) : [];
-  const verseHints = useChapterVerses(parsed.book, parsed.chapter, translation, versesRequested);
+  const verseHints = useChapterVerses(parsed.book, parsed.chapter, translation, verseHintsWanted);
 
   const pickBook = (name: string) => {
-    setVersesRequested(false);
+    setVerseHintsWanted(false);
     onReferenceChange(buildReference(name));
   };
   /**
@@ -56,7 +67,7 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
    */
   const pickChapter = (chapter: number) => {
     if (!parsed.book) return;
-    setVersesRequested(true);
+    setVerseHintsWanted(true);
     const ref = buildReference(parsed.book, chapter, 1);
     onReferenceChange(ref);
     void runLookup(ref);
@@ -102,7 +113,9 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
           placeholder="e.g. John 3:16 or Psalm 23:1-3"
           aria-label="Scripture reference"
           onChange={(event) => {
-            setVersesRequested(false);
+            // Typing IS asking. The fetch is debounced in `useChapterVerses`,
+            // so getting to "Psalm 119" does not probe 1 and 11 on the way.
+            setVerseHintsWanted(true);
             onReferenceChange(event.target.value);
           }}
           onKeyDown={(event) => {
@@ -131,8 +144,29 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
 
       {parsed.book ? (
         <div className="ref-picker__section">
-          <span className="ref-picker__label">Choose chapter — {parsed.book}</span>
-          <div className="ref-picker__row ref-picker__row--scroll">
+          <span className="ref-picker__label">
+            Choose chapter — {parsed.book}
+            {/* The count, because a grid of 150 and a grid of 4 look like the
+                same control until you read the numbers in them. */}
+            <span className="ref-picker__count">{chapters.length}</span>
+          </span>
+          {/*
+            A GRID THAT SHOWS EVERY CHAPTER, not a 112px window onto them.
+
+            This row was `--scroll`: a fixed-height box with its own scrollbar,
+            so Psalms showed about three rows of a hundred and fifty and the
+            operator hunted for chapter 119 inside a viewport smaller than the
+            list. A nested scroller is also the worst thing to hit on a trackpad
+            mid-service — the wheel either moves the inner box or the page, and
+            which one is a guess.
+
+            `auto-fill` adapts to the WIDTH, so the same markup is a tight strip
+            in the OBS dock and a wide block in the studio; wrapping adapts to
+            the COUNT, so Jude is one chip and Psalms is a full board. Nothing is
+            capped: the surrounding page already scrolls, and one honest scroll
+            beats two competing ones.
+          */}
+          <div className="ref-picker__row ref-picker__row--grid">
             {chapters.map((chapter) => (
               <button
                 key={chapter}
@@ -149,10 +183,18 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
 
       {parsed.book && parsed.chapter ? (
         <div className="ref-picker__section">
-          <span className="ref-picker__label">Choose verse</span>
+          <span className="ref-picker__label">
+            Choose verse
+            {verseHints.verseCount ? (
+              <span className="ref-picker__count">{verseHints.verseCount}</span>
+            ) : null}
+          </span>
           {verseHints.verseCount ? (
             <>
-              <div className="ref-picker__row ref-picker__row--scroll">
+              {/* Same adaptive grid as the chapters above, for the same reason:
+                  Psalm 119 has 176 verses and a 112px window onto them is not a
+                  picker, it is a search. */}
+              <div className="ref-picker__row ref-picker__row--grid">
                 {numberRange(verseHints.verseCount).map((verse) => (
                   <button
                     key={verse}

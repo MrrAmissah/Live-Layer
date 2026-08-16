@@ -6988,7 +6988,28 @@ body.gfx-transparent {
 .control-root .ref-picker__section:focus-within { border-left-color: rgba(34, 211, 238, 0.42); }
 .control-root .ref-picker__label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ll-muted-2); }
 .control-root .ref-picker__row { display: flex; flex-wrap: wrap; gap: 6px; }
-.control-root .ref-picker__row--scroll { max-height: 112px; overflow-y: auto; align-content: flex-start; padding: 1px 4px 1px 0; }
+/* Every chapter, laid out rather than scrolled.
+   `auto-fill` fills whatever width the surface gives — a narrow strip in the
+   OBS dock, a wide board in the studio — and the row count follows the book, so
+   Jude is one chip and Psalms is a hundred and fifty. Deliberately UNCAPPED: the
+   page it sits in already scrolls, and a nested scroller is the thing this
+   replaces. `1fr` columns keep the numbers in true columns, which flex-wrap
+   cannot do and which is what makes a long grid scannable. */
+.control-root .ref-picker__row--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 6px;
+  align-content: start;
+}
+.control-root .ref-picker__row--grid .ref-chip { min-width: 0; }
+
+/* The count beside the label: a grid of 150 and a grid of 4 look like the same
+   control until you read what is in them. */
+.control-root .ref-picker__count {
+  margin-left: 6px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14); color: var(--ll-muted-2);
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
 
 .control-root .ref-chip {
   padding: 5px 9px;
