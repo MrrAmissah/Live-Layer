@@ -28,19 +28,6 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   // Not `translations[0]` — picker order is presentation, and it decided what
   // went to air. `defaultTranslationId()` is the choice, stated once.
   const [translation, setTranslation] = useState(defaultTranslationId);
-  /**
-   * Has the operator asked for this chapter at all?
-   *
-   * The gate exists for ONE reason: not to probe the provider for the graphic's
-   * prefilled default on every mount. It used to be satisfied only by a chapter
-   * TAP, and typing actively cleared it — so an operator who typed "Psalm 119"
-   * never saw a verse chip in their life and was handed two number inputs
-   * instead. Typing a reference is not a lesser way of asking for one.
-   *
-   * Still false on first render, which is the whole point: the seeded reference
-   * costs nothing until somebody touches the picker.
-   */
-  const [verseHintsWanted, setVerseHintsWanted] = useState(false);
 
   // Mirror of the latest intended reference, so a slow response can be discarded
   // if the operator has since moved to a different verse/reference.
@@ -51,10 +38,32 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
   const bookSuggestions = useMemo(() => suggestBibleBooks(reference), [reference]);
   const showBookChips = parsed.book === null && bookSuggestions.length > 0;
   const chapters = parsed.book ? chapterNumbers(parsed.book) : [];
-  const verseHints = useChapterVerses(parsed.book, parsed.chapter, translation, verseHintsWanted);
+  /**
+   * VERSE CHIPS WHENEVER THERE IS A CHAPTER TO ASK ABOUT — no gate.
+   *
+   * There used to be one, and it was false on first render so that the
+   * graphic's prefilled reference cost nothing until somebody touched the
+   * picker. Reported from the desk: "the choose verse being an input sometimes
+   * still comes back on refresh… it changes to the correct one when we click a
+   * different verse". That was the gate, exactly as written — after a reload
+   * the box held a real reference and the picker still showed two number
+   * inputs until the operator interacted, which reads as the fix for this not
+   * having worked rather than as a deliberate saving.
+   *
+   * The saving it protected has since evaporated. The fetch is debounced by
+   * 400ms in `useChapterVerses`, and its answer is cached in localStorage per
+   * provider, translation, book and chapter — so the seeded reference costs ONE
+   * request, once, per machine, and every reload afterwards is free. That is
+   * not worth a picker that looks broken on refresh.
+   */
+  const verseHints = useChapterVerses(
+    parsed.book,
+    parsed.chapter,
+    translation,
+    Boolean(parsed.book && parsed.chapter)
+  );
 
   const pickBook = (name: string) => {
-    setVerseHintsWanted(false);
     onReferenceChange(buildReference(name));
   };
   /**
@@ -71,7 +80,6 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
    */
   const pickChapter = (chapter: number) => {
     if (!parsed.book) return;
-    setVerseHintsWanted(true);
     const ref = buildReference(parsed.book, chapter, 1);
     onReferenceChange(ref);
     void runLookup(ref);
@@ -116,12 +124,7 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
           value={reference}
           placeholder="e.g. John 3:16 or Psalm 23:1-3"
           aria-label="Scripture reference"
-          onChange={(event) => {
-            // Typing IS asking. The fetch is debounced in `useChapterVerses`,
-            // so getting to "Psalm 119" does not probe 1 and 11 on the way.
-            setVerseHintsWanted(true);
-            onReferenceChange(event.target.value);
-          }}
+          onChange={(event) => onReferenceChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
