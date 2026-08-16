@@ -234,13 +234,19 @@ export const DEFAULT_SCRIPTURE_OUTPUTS: ScriptureOutputMap = {
   // The ask, working out of the box.
   split: 'split-wide',
   /**
-   * `as-chosen` deliberately. The plate paints two RECESSES rather than cards,
-   * and no variant fills both yet — so forcing a look here would place one card
-   * confidently in the wrong place. Left alone, the operator's own choice
-   * renders and the second well shows the plate's quiet panel, which is what
-   * the artwork already does when nothing is taken.
+   * `dual-well`, not `as-chosen`.
+   *
+   * As-chosen was the honest holding position while nothing fitted this plate:
+   * the operator's own look rendered, which for `blue-quote-card` meant a card
+   * sprawled across the camera column and the lower recess. Reported from the
+   * desk as the dual screen not being synced — it was addressed correctly and
+   * drawn in the wrong place, which looks the same from the auditorium.
+   *
+   * `dual-well` fills the UPPER recess. The lower one keeps the plate's quiet
+   * panel until a two-language template exists, which is the same thing the
+   * artwork shows when nothing is taken.
    */
-  'split-dual': AS_CHOSEN,
+  'split-dual': 'dual-well',
   // The room reads this one at distance, so it has a look of its own from the
   // start — an as-chosen house screen would put a stream-sized card on a wall
   // in an open field at night.

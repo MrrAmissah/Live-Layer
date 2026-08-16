@@ -346,6 +346,26 @@ export const templateRegistry: TemplateDefinition[] = [
         description: 'Wide scripture lower band with a pill reference label and textured blue reading surface.'
       },
       {
+        id: 'dual-well',
+        name: 'Split — Dual Well',
+        /**
+         * For the SPLIT DUAL scene, whose plate paints two dark recesses down
+         * the right with the camera in a portrait window on the left.
+         *
+         * It fills the UPPER well exactly. Filling it rather than fitting the
+         * verse is deliberate here and the opposite of every other variant: the
+         * recess is already drawn at a fixed size, so a content-sized card
+         * inside it is a card inside a card — the fault this whole layout was
+         * redrawn to remove. The card IS the well's content and aligns to it.
+         *
+         * The lower well is left showing the plate's own quiet panel. Two
+         * languages at once needs a template carrying two references and two
+         * verses, which is separate work; until then this puts one verse where
+         * a verse belongs instead of across the camera.
+         */
+        description: 'Fills the upper well of the dual split plate — camera left, two scripture recesses right.'
+      },
+      {
         id: 'split-wide',
         name: 'Split — Wide',
         /**

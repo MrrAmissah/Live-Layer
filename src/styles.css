@@ -3867,6 +3867,161 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='split-tall'] .scripture-verse-sm { font-size: 46px; line-height: 1.27; }
 .gfx-scripture[data-variant='split-tall'] .scripture-translation { font-size: 26px; }
 
+/* --- scripture: dual-well ---------------------------------------------------
+ *
+ * The SPLIT DUAL plate draws the camera in a portrait window on the left and
+ * TWO dark recesses stacked down the right. This fills the upper one.
+ *
+ * IT FILLS THE WELL RATHER THAN FITTING THE VERSE, which is the opposite of
+ * every other variant here and is deliberate. The recess is already drawn at a
+ * fixed 1140x450, so a content-sized card inside it is a card inside a card —
+ * the exact fault this layout was redrawn to remove. The card IS the recess's
+ * content and aligns to it exactly.
+ *
+ * Geometry measured against the built `split.png`, not taken on trust: well A
+ * reads x 700-1843, y 63-518 against a specced 1140x450 at (700, 70). It
+ * matched this time, which is worth recording because the plate numbers in the
+ * brief have not always.
+ */
+.gfx-scripture[data-variant='dual-well'] {
+  /* Unset the base rule, which anchors scripture across the foot of the frame —
+     inheriting either edge puts the verse over the camera column. */
+  left: 700px;
+  right: auto;
+  top: 70px;
+  bottom: auto;
+  width: 1140px;
+  height: 450px;
+  display: flex;
+  /* The plate's recess is the depth cue. A drop-shadow from a card sitting
+     inside a drawn hole reads as a second floating layer. */
+  filter: none;
+}
+
+/* Layout position overrides must not move it: it is pinned to artwork. */
+.gfx-layer[data-position='center'] .gfx-scripture[data-variant='dual-well'],
+.gfx-layer[data-position='full'] .gfx-scripture[data-variant='dual-well'] {
+  left: 700px;
+  right: auto;
+  transform: none;
+}
+
+/**
+ * THE CARD IS THE BAND, NOT THE PLATE, and that is structural rather than
+ * stylistic.
+ *
+ * `.scripture-tab` — which carries the reference — is a SIBLING of
+ * `.scripture-plate`, not a child. Drawing the card on the plate therefore put
+ * the reference OUTSIDE it, sitting on the recess's own top edge. The band is
+ * the only element containing both, so the card has to be drawn there for
+ * "reference above the verse, in the card" to be possible at all.
+ */
+.gfx-scripture[data-variant='dual-well'] .scripture-band {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Centred as a GROUP. Left to the shared rules the verse rode the top of the
+     card and the credit the bottom, with a hand's width of nothing between
+     them — three centred things read as one block, which is what a recess this
+     size can hold. */
+  justify-content: center;
+  gap: 18px;
+  padding: 30px 52px;
+  /* The card the brief specifies: deep ground, gold keyline, soft corner. The
+     ground is darker than the recess, so it reads as sitting IN the hole rather
+     than as a patch over it. */
+  background: rgb(5, 10, 36);
+  border: 3px solid rgba(232, 185, 60, 0.88);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.gfx-scripture[data-variant='dual-well'] .scripture-plate {
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 0;
+  /* Transparent: the band above is the card now, and a second filled plate
+     inside it is the card-in-card fault again, one level down. */
+  background: none !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: none !important;
+}
+
+/* Reference centred ABOVE the verse, in gold — the plate's own idiom. */
+.gfx-scripture[data-variant='dual-well'] .scripture-tab {
+  position: static;
+  height: auto;
+  padding: 0;
+  background: none !important;
+  border: 0;
+  border-radius: 0;
+}
+
+.gfx-scripture[data-variant='dual-well'] .scripture-tab-body {
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.gfx-scripture[data-variant='dual-well'] .scripture-ref {
+  font-size: 34px;
+  letter-spacing: 0.08em;
+  color: #e8b93c;
+  text-align: center;
+}
+
+/* Everything else the shared renderer can draw, off: inside a 1140x450 recess
+   there is no room for a rule, a chip or a quote mark, and each would be
+   competing with the one thing the well exists to show. */
+.gfx-scripture[data-variant='dual-well'] .scripture-tab-accent,
+.gfx-scripture[data-variant='dual-well'] .scripture-theme-chip,
+.gfx-scripture[data-variant='dual-well'] .scripture-rule,
+.gfx-scripture[data-variant='dual-well'] .scripture-quote {
+  display: none !important;
+}
+
+.gfx-scripture[data-variant='dual-well'] .scripture-verse {
+  font-family: var(--gfx-font-text);
+  font-weight: 500;
+  line-height: 1.24;
+  text-align: center;
+  color: #ffffff;
+  text-wrap: balance;
+  text-shadow: none;
+}
+
+/**
+ * Sized for the WELL, not the frame. 1140x450 with ~90px of padding and the
+ * reference above leaves roughly 1028 x 300 for the verse, so each band is the
+ * largest that keeps its worst case inside that box — a card that overflows a
+ * drawn recess is worse than one set a step small, because the recess edge
+ * makes the overflow obvious.
+ */
+.gfx-scripture[data-variant='dual-well'] .scripture-verse { font-size: 40px; }
+.gfx-scripture[data-variant='dual-well'] .scripture-verse-xl { font-size: 52px; }
+.gfx-scripture[data-variant='dual-well'] .scripture-verse-md { font-size: 34px; }
+.gfx-scripture[data-variant='dual-well'] .scripture-verse-sm { font-size: 29px; }
+
+.gfx-scripture[data-variant='dual-well'] .scripture-translation {
+  align-self: center;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  color: rgba(232, 185, 60, 0.72);
+}
+
 /* --- scripture: house-wall ------------------------------------------------
    The venue's projectors and the LED wall, read at distance in an open field at
    night. Everything about it follows from that one fact.
