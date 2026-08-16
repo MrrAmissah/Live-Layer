@@ -266,9 +266,26 @@ export const templateRegistry: TemplateDefinition[] = [
        * The text moves with it. A reference of one verse over the words of two
        * would put a citation on air that does not match what is under it.
        */
+      /**
+       * THE SEED IS IN THE DEFAULT TRANSLATION, AND ITS WORDS ARE THAT
+       * TRANSLATION'S WORDS.
+       *
+       * Reported as "I still see WEB" after the default moved to the King
+       * James: the picker opened on KJV and a new scripture card still seeded
+       * Psalm 23:1 as "Yahweh is my shepherd" labelled WEB, because this seed
+       * was written when the WEB was the default and nothing tied the two
+       * together.
+       *
+       * All three move as one. Changing the label without the words would put a
+       * citation on air that does not match what is under it — the same fault as
+       * the reference/text pairing described above, and worse, because it is the
+       * label that tells a viewer which Bible they are reading.
+       * `defaultTranslation.test.ts` pins this label to `DEFAULT_TRANSLATION_ID`
+       * so the two cannot drift apart again.
+       */
       reference: 'Psalm 23:1',
-      verseText: 'Yahweh is my shepherd: I shall lack nothing.',
-      translationLabel: 'WEB',
+      verseText: 'The LORD is my shepherd; I shall not want.',
+      translationLabel: 'KJV',
       themeTitle: 'Scripture',
       colorBrand: HOUSE_BLUE.brand,
       colorAccent: HOUSE_BLUE.electric,

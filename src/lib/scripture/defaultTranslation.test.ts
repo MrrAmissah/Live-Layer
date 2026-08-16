@@ -6,6 +6,7 @@ import {
 } from './providers';
 import { bibleApiProvider } from './bibleApiProvider';
 import { getScriptureDraft } from './scriptureDraftStore';
+import { templateRegistry } from '../../components/templates/registry';
 
 /**
  * THE KING JAMES IS THE DEFAULT, AND IT IS A DECISION RATHER THAN AN ARRAY INDEX.
@@ -44,6 +45,33 @@ describe('the default translation', () => {
 
   it('is what an untouched Scripture workspace is already set to', () => {
     expect(getScriptureDraft().translationId).toBe(DEFAULT_TRANSLATION_ID);
+  });
+
+  it('is also what a NEW scripture card is seeded with', () => {
+    /**
+     * Reported as "I still see WEB" after the default moved. The picker opened
+     * on KJV and a new card still seeded `translationLabel: 'WEB'`, because the
+     * template's `defaultValues` were written when the WEB was the default and
+     * nothing tied the two together. This is that tie.
+     */
+    const card = templateRegistry.find((entry) => entry.id === 'scripture-card');
+    expect(card?.defaultValues.translationLabel).toBe(DEFAULT_TRANSLATION_ID.toUpperCase());
+  });
+
+  it('seeds the WORDS of that translation, not just its name', () => {
+    /**
+     * The label and the text move together or not at all. A KJV label over the
+     * WEB's wording is a citation on air that does not match what is under it —
+     * worse than a stale label, because the label is what tells a viewer which
+     * Bible they are reading.
+     *
+     * "Yahweh" is the World English Bible's rendering of the divine name and
+     * appears in no King James verse, so its presence is a precise detector for
+     * the seed having been left behind.
+     */
+    const card = templateRegistry.find((entry) => entry.id === 'scripture-card');
+    expect(card?.defaultValues.verseText).not.toContain('Yahweh');
+    expect(card?.defaultValues.verseText).toContain('The LORD is my shepherd');
   });
 
   it('is also what the provider falls back to when a caller omits it', async () => {
