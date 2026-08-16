@@ -64,6 +64,22 @@ const CASES = {
       themeTitle: 'God Our Help in Ages Past'
     },
     /**
+     * EIGHT VERSES — the worst case a reader actually calls out.
+     *
+     * `long` is four verses and every layout survives it. The house wall is
+     * read at distance in a field, so its type is the largest in the system and
+     * it is the first place a passage of this length stops fitting. Reported as
+     * "when the verses are a lot it should adjust and move up while staying
+     * centred", which is exactly what this photographs.
+     */
+    verylong: {
+      reference: 'Romans 8:35-39',
+      verseText:
+        '35\u00a0Who shall separate us from the love of Christ? shall tribulation, or distress, or persecution, or famine, or nakedness, or peril, or sword? 36\u00a0As it is written, For thy sake we are killed all the day long; we are accounted as sheep for the slaughter. 37\u00a0Nay, in all these things we are more than conquerors through him that loved us. 38\u00a0For I am persuaded, that neither death, nor life, nor angels, nor principalities, nor powers, nor things present, nor things to come, 39\u00a0Nor height, nor depth, nor any other creature, shall be able to separate us from the love of God, which is in Christ Jesus our Lord.',
+      translationLabel: 'KJV',
+      themeTitle: 'God Our Help in Ages Past'
+    },
+    /**
      * The dual screen's real case: one passage, two languages. Both halves are
      * filled, because the failure worth photographing is the two cards
      * disagreeing in size or drifting off their recesses.

@@ -138,9 +138,17 @@ describe('what each screen looks like', () => {
   });
 
   it('gives the split screen its own look out of the box', () => {
-    // The ask: set the verse once, and the split scene renders its own way
-    // without anybody switching anything mid-service.
-    expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe('split-wide');
+    /**
+     * The ask: set the verse once, and the split scene renders its own way
+     * without anybody switching anything mid-service.
+     *
+     * `split-tall`, not `split-wide`. The wide SCENE was deleted when the dual
+     * layout replaced it, so the only scene on this id has tall plates and a
+     * portrait camera — and it was being served the wide look, which pins type
+     * to the top of a column drawn for a card. That is what "it's high up even
+     * for a simple scripture" was.
+     */
+    expect(scriptureLookFor('split', DEFAULT_SCRIPTURE_OUTPUTS)).toBe('split-tall');
   });
 
   it('lets a screen be set back to the graphic’s own look', () => {

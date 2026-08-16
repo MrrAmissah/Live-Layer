@@ -61,6 +61,22 @@ export function splitNumberedVerses(text: string): { n?: string; text: string }[
  * size, so this is additive.
  */
 function verseSizeClass(text: string): string {
+  /**
+   * A FIFTH TIER, and it returns TWO classes on purpose.
+   *
+   * The banding stopped at 220 characters, so a 640-character passage —
+   * Romans 8:35-39, which a reader really does call out — was set at the same
+   * size as a 230-character one. On the house wall, whose type is the largest
+   * in the system, that overflowed the safe box at both ends and ran the last
+   * lines straight over the identity lockup in the plate's bottom corner.
+   *
+   * `sm xs` rather than `xs` alone because only the variants that need a fifth
+   * step declare one. Returning `xs` by itself would drop every other variant
+   * back to the UNBANDED base size for its longest passages — bigger, not
+   * smaller, which is the opposite of the fix. Carrying `sm` keeps their
+   * existing behaviour and lets a variant that styles `xs` override it.
+   */
+  if (text.length > 380) return 'scripture-verse-sm scripture-verse-xs';
   if (text.length > 220) return 'scripture-verse-sm';
   if (text.length > 130) return 'scripture-verse-md';
   if (text.length > 72) return '';

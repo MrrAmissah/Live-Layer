@@ -231,8 +231,20 @@ export const DEFAULT_SCRIPTURE_OUTPUTS: ScriptureOutputMap = {
   // that would take away the variant picker for the one scene most likely to
   // want a deliberate one.
   scripture: AS_CHOSEN,
-  // The ask, working out of the box.
-  split: 'split-wide',
+  /**
+   * `split-tall`, not `split-wide`.
+   *
+   * The wide SCENE no longer exists — it was deleted when the dual layout
+   * replaced it — so the only scene on `?screen=split` is `PPC GFX · SPLIT
+   * TALL`, with tall plates and a camera cropped to portrait. It was still
+   * being served the wide look: type pinned to the top of a column drawn for a
+   * card, which is what "it's high up even for a simple scripture" was.
+   *
+   * A default rather than a migration: an operator who has chosen a look for
+   * this screen in Settings keeps it, because `sanitizeScriptureOutputs` only
+   * falls back here when nothing is stored.
+   */
+  split: 'split-tall',
   /**
    * `dual-well`, not `as-chosen`.
    *

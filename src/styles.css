@@ -3651,6 +3651,23 @@ body.gfx-transparent {
   top: var(--gfx-split-wide-safe-y);
   width: var(--gfx-split-wide-safe-w);
   height: var(--gfx-split-wide-safe-h);
+  /**
+   * CENTRED IN THE COLUMN, not pinned to the top of it.
+   *
+   * Reported from the desk: "it's high up even for a simple scripture, it
+   * needs to balance in the middle and expand when it should." It did sit
+   * high — the box is the column's full height and the band was top-aligned
+   * inside it, so a one-line verse left a screen's worth of empty ground
+   * beneath it with the translation credit stranded at the very bottom.
+   *
+   * The safe box is a MAXIMUM EXTENT, not a shape to fill — the same thing
+   * already written for `split-tall` above, which is why that variant looks
+   * balanced and this one did not. Centring makes the band content-height and
+   * splits the remaining space evenly, so a short verse sits in the middle and
+   * a long one grows outward from there until it reaches the box.
+   */
+  display: flex;
+  align-items: center;
 }
 
 .gfx-scripture[data-variant='split-tall'] {
@@ -4149,6 +4166,20 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='house-wall'] .scripture-verse-xl { font-size: 112px; line-height: 1.16; }
 .gfx-scripture[data-variant='house-wall'] .scripture-verse-md { font-size: 70px; line-height: 1.22; }
 .gfx-scripture[data-variant='house-wall'] .scripture-verse-sm { font-size: 64px; line-height: 1.24; }
+/**
+ * BELOW THE BRIEF'S FLOOR, deliberately, and only here.
+ *
+ * The stated floors are 82px short and 64px long, and they hold for everything
+ * up to about four verses. Romans 8:35-39 is eight, and at 64px it left the
+ * safe box at both ends and printed the last lines over the church logo — so
+ * the floor could not be met and honouring it would have been worse than
+ * missing it. 46px is the largest that keeps ~640 characters inside 1600x560
+ * after the reference, derived the same way as the bands above.
+ *
+ * A verse this long is rare on a wall read at distance; the alternative to a
+ * smaller step is not a bigger one, it is type over the identity.
+ */
+.gfx-scripture[data-variant='house-wall'] .scripture-verse-xs { font-size: 46px; line-height: 1.26; }
 
 /* Fades rather than travels. The shared band animation slides up from the
    bottom of the frame, which is where these are not, and type sitting on a card
