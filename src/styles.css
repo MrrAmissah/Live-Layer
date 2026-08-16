@@ -7421,6 +7421,15 @@ body.gfx-transparent {
 
 .gfx-l3[data-variant='strap-type'] .l3-role-line { gap: 14px; }
 
+/* The second-language chooser, sitting with the staging actions rather than in
+   a settings pane: it is part of building the graphic, not configuring it. */
+.control-root .scripture-ws__second {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--ll-muted-2);
+}
+.control-root .scripture-ws__second select { width: auto; min-width: 190px; max-width: 280px; }
+.control-root .scripture-ws__second-label { white-space: nowrap; font-weight: 600; }
+
 /* Quick take: the switch that makes this surface hot, and the badge that says
    so. The badge is not decoration — someone else at the desk has to be able to
    see that a double-click is now a broadcast. */

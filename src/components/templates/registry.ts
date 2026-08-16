@@ -269,6 +269,20 @@ export const templateRegistry: TemplateDefinition[] = [
     name: 'Scripture Card',
     category: 'Card',
     description: 'A scripture card with reference, verse text, translation label, and optional theme title.',
+    /**
+     * AUTO-HIDE OFF, unlike every other template.
+     *
+     * A lower third names someone and gets out of the way; a verse is READ
+     * ALOUD, and how long that takes is the reader's business, not a timer's.
+     * At six seconds — the default everywhere else — a passage of four verses
+     * left the screen while the congregation was still on the second line, and
+     * the operator's only recovery was to take it again.
+     *
+     * `0` is Off in `DurationControl`. The operator can still set a timer per
+     * graphic; this only changes what a NEW scripture card starts as, and
+     * `durationByTemplate` remembers their choice for next time either way.
+     */
+    defaultDurationSeconds: 0,
     primaryField: 'reference',
     fields: [
       { id: 'reference', label: 'Reference', type: 'text', placeholder: 'John 3:16' },
