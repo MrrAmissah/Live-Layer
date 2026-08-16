@@ -62,6 +62,22 @@ const TEXTS: LocalText[] = [
     language: 'Akuapem Twi',
     attribution:
       'Biblica® Wonhia ɛho kwamma nhoma Akuapem Twi Nkwa Asɛm™ © 1996, 2020 Biblica, Inc. CC BY-SA 4.0.'
+  },
+  {
+    id: 'twi-asante',
+    label: 'ASANTE',
+    name: 'Asante Twi Nkwa Asɛm',
+    language: 'Asante Twi',
+    attribution:
+      'Biblica® Wɔnhia ɛho kwamma nwoma Asante Twi Nkwa Asɛm™ © 1996, 2020 Biblica, Inc. CC BY-SA 4.0.'
+  },
+  {
+    id: 'ewe',
+    label: 'EWE',
+    name: 'Agbenya La',
+    language: 'Ewe',
+    attribution:
+      'Biblica® Se aɖeke mebla Biblia zazã o Agbenya La™ © 1988, 2006, 2020 Biblica, Inc. CC BY-SA 4.0.'
   }
 ];
 

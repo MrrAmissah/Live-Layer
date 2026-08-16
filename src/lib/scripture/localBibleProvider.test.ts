@@ -7,14 +7,18 @@ import { BIBLE_BOOKS } from './bibleBooks';
 
 const NBSP = '\u00a0';
 const TWI_DIR = 'public/bibles/twi';
-const VENDORED = existsSync(`${TWI_DIR}/about.json`);
+/** Every text the provider claims to serve, checked against what is on disk. */
+const VENDORED_IDS = ['twi', 'twi-asante', 'ewe'];
+const VENDORED = VENDORED_IDS.every((id) => existsSync(`public/bibles/${id}/about.json`));
 
 const readBook = (code: string) => JSON.parse(readFileSync(`${TWI_DIR}/${code}.json`, 'utf8'));
 
 /** Serve the real vendored files the way the browser would. */
 const fromDisk = (async (url: string) => {
-  const code = String(url).split('/').pop()?.replace('.json', '') ?? '';
-  const path = `${TWI_DIR}/${code}.json`;
+  const parts = String(url).split('/');
+  const code = parts.pop()?.replace('.json', '') ?? '';
+  const textId = parts.pop() ?? '';
+  const path = `public/bibles/${textId}/${code}.json`;
   if (!existsSync(path)) return { ok: false, status: 404 } as unknown as Response;
   return {
     ok: true,
@@ -33,26 +37,44 @@ const fromDisk = (async (url: string) => {
  * the fetch script yet is not a red suite.
  */
 describe.skipIf(!VENDORED)('the Twi text on disk', () => {
-  it('has all 66 books under the codes the app asks for', () => {
+  it('serves every text the provider offers', () => {
+    // The picker must never list a translation whose files are not there.
+    for (const declared of localBibleProvider.translations) {
+      expect(VENDORED_IDS, declared.id).toContain(declared.id);
+      expect(existsSync(`public/bibles/${declared.id}/about.json`), declared.id).toBe(true);
+    }
+    expect(localBibleProvider.translations).toHaveLength(VENDORED_IDS.length);
+  });
+
+  it('gives every text a distinct label, so two cannot read alike on air', () => {
+    const labels = localBibleProvider.translations.map((t) => t.label);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('has all 66 books under the codes the app asks for, in every text', () => {
     /**
      * eBible's own VPL codes are NOT USFM for eleven books — `JOH` for John,
      * `1JO` for 1 John, `SOL` for Song of Songs. The fetch script normalises
      * them, and without that a lookup for the single most likely first request,
      * John 3:16, would have 404'd.
      */
-    for (const book of BIBLE_BOOKS) {
-      const code = usfmCodeFor(book.name)!;
-      expect(existsSync(`${TWI_DIR}/${code}.json`), `${book.name} → ${code}`).toBe(true);
+    for (const id of VENDORED_IDS) {
+      for (const book of BIBLE_BOOKS) {
+        const code = usfmCodeFor(book.name)!;
+        expect(existsSync(`public/bibles/${id}/${code}.json`), `${id}: ${book.name} → ${code}`).toBe(true);
+      }
     }
   });
 
-  it('carries the licence beside the text, not only in a comment', () => {
-    // CC BY-SA is the entire permission for this file existing. It has to be
+  it('carries the licence beside every text, not only in a comment', () => {
+    // CC BY-SA is the entire permission for these files existing. It has to be
     // recorded where the text is, so a copy of the folder carries it too.
-    const about = JSON.parse(readFileSync(`${TWI_DIR}/about.json`, 'utf8'));
-    expect(about.licence).toBe('CC BY-SA 4.0');
-    expect(about.attribution).toContain('Biblica');
-    expect(about.source).toContain('ebible.org');
+    for (const id of VENDORED_IDS) {
+      const about = JSON.parse(readFileSync(`public/bibles/${id}/about.json`, 'utf8'));
+      expect(about.licence, id).toBe('CC BY-SA 4.0');
+      expect(about.attribution, id).toContain('Biblica');
+      expect(about.source, id).toContain('ebible.org');
+    }
   });
 
   it('agrees with the provider about what it is', () => {
@@ -61,11 +83,13 @@ describe.skipIf(!VENDORED)('the Twi text on disk', () => {
      * synchronous; the script writes them beside the text. A disagreement would
      * put the wrong name under the right words, so the two are pinned.
      */
-    const about = JSON.parse(readFileSync(`${TWI_DIR}/about.json`, 'utf8'));
-    const declared = localBibleProvider.translations.find((t) => t.id === 'twi')!;
-    expect(declared.label).toBe(about.label);
-    expect(declared.name).toBe(about.name);
-    expect(declared.language).toBe(about.language);
+    for (const id of VENDORED_IDS) {
+      const about = JSON.parse(readFileSync(`public/bibles/${id}/about.json`, 'utf8'));
+      const declared = localBibleProvider.translations.find((t) => t.id === id)!;
+      expect(declared.label, id).toBe(about.label);
+      expect(declared.name, id).toBe(about.name);
+      expect(declared.language, id).toBe(about.language);
+    }
   });
 
   it('is a real Bible, not a truncated download', () => {
@@ -79,8 +103,21 @@ describe.skipIf(!VENDORED)('the Twi text on disk', () => {
 
 describe.skipIf(!VENDORED)('reading it', () => {
   it('is offered in the picker, and routes back to itself', () => {
-    expect(availableTranslations().map((t) => t.id)).toContain('twi');
-    expect(providerForTranslation('twi').id).toBe('local-bible');
+    for (const id of VENDORED_IDS) {
+      expect(availableTranslations().map((t) => t.id), id).toContain(id);
+      expect(providerForTranslation(id).id, id).toBe('local-bible');
+    }
+  });
+
+  it('reads each Ghanaian text in its own words', async () => {
+    // Same verse, three texts: they must differ, or one of them is being served
+    // from another's files.
+    const said = await Promise.all(
+      VENDORED_IDS.map((id) =>
+        localBibleProvider.lookup('John 3:16', id, { fetchImpl: fromDisk }).then((r) => r.text)
+      )
+    );
+    expect(new Set(said).size).toBe(VENDORED_IDS.length);
   });
 
   it('returns the Twi words for an English reference', async () => {

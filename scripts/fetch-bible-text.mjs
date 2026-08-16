@@ -62,6 +62,32 @@ const AVAILABLE = {
     language: 'Akuapem Twi',
     attribution:
       'Biblica® Wonhia ɛho kwamma nhoma Akuapem Twi Nkwa Asɛm™ © 1996, 2020 Biblica, Inc. CC BY-SA 4.0.'
+  },
+  /**
+   * Asante Twi — asked for as FANTE, which does not exist in any open form.
+   *
+   * Checked, not assumed: no Fante Bible on eBible, getbible or bolls, under
+   * that name or `fat` or Mfantse. It is published, but by houses that do not
+   * license it openly, so the only route is a key. This is the nearest thing
+   * that IS free — the other main Akan dialect, and the one most Fante readers
+   * can follow. Same licence as its Akuapem sibling.
+   */
+  'twi-asante': {
+    ebibleId: 'twiasante',
+    label: 'ASANTE',
+    name: 'Asante Twi Nkwa Asɛm',
+    language: 'Asante Twi',
+    attribution:
+      'Biblica® Wɔnhia ɛho kwamma nwoma Asante Twi Nkwa Asɛm™ © 1996, 2020 Biblica, Inc. CC BY-SA 4.0.'
+  },
+  /* Ghana's other major language, same publisher and same licence. */
+  ewe: {
+    ebibleId: 'ewe',
+    label: 'EWE',
+    name: 'Agbenya La',
+    language: 'Ewe',
+    attribution:
+      'Biblica® Se aɖeke mebla Biblia zazã o Agbenya La™ © 1988, 2006, 2020 Biblica, Inc. CC BY-SA 4.0.'
   }
 };
 
