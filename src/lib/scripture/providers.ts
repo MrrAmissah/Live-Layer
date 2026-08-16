@@ -1,6 +1,7 @@
 import type { ScriptureProvider } from '../../types/scripture';
 import { bibleApiProvider } from './bibleApiProvider';
 import { createEsvProvider } from './esvApiProvider';
+import { getBibleProvider } from './getBibleProvider';
 import { loadEsvApiKey } from '../storage';
 
 /**
@@ -13,7 +14,17 @@ import { loadEsvApiKey } from '../storage';
  */
 export const esvProvider = createEsvProvider({ apiKey: loadEsvApiKey });
 
-export const scriptureProviders: ScriptureProvider[] = [bibleApiProvider, esvProvider];
+/**
+ * Order here is picker order. `bibleApiProvider` leads because it carries the
+ * public-domain English texts this church reads; `getBibleProvider` adds French,
+ * with no key, so it sits with them rather than behind them; the ESV is last and
+ * contributes nothing until a key is stored.
+ */
+export const scriptureProviders: ScriptureProvider[] = [
+  bibleApiProvider,
+  getBibleProvider,
+  esvProvider
+];
 export const defaultScriptureProvider = bibleApiProvider;
 
 /**
