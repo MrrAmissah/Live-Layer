@@ -7103,6 +7103,135 @@ body.gfx-transparent {
   font-size: 11px; font-weight: 600; color: var(--ll-muted-2);
 }
 
+/* --- strap type-only: the plate is in OBS, not here -------------------------
+ *
+ * The convention's lower-third background is a Nine3 image source sitting UNDER
+ * this output — textured ground, L-bracket, theme in gold leaf. Every other
+ * variant paints its own plate, so on top of that strap they STACK: an opaque
+ * card inside a card, which is the same fault the scripture split screens had.
+ *
+ * This paints nothing at all. It places type in the strap's name zone and stops.
+ *
+ * THE ZONE IS ABSOLUTE, not the usual safe-area offsets. `x 150, y 726, h 150`
+ * is a position in the strap artwork, so it is written as left/top from the
+ * stage origin and must NOT follow `--gfx-safe-*`: those move with the layout's
+ * safe-margin setting, and moving would slide the name off a background that
+ * cannot move with it.
+ *
+ * No width is set. The strap comes in three PNGs — compact, standard, wide —
+ * and the operator swaps the image to suit the speaker, so a width here would
+ * be right for one of them and wrong for two. Content-fitted sizing already
+ * handles the long names; the plate is no longer the constraint.
+ */
+.gfx-l3[data-variant='strap-type'] {
+  left: 150px;
+  right: auto;
+  top: 726px;
+  bottom: auto;
+  filter: none;
+}
+
+/* Layout position overrides must not move it either — it is pinned to artwork. */
+.gfx-layer[data-position='center'] .gfx-l3[data-variant='strap-type'],
+.gfx-layer[data-position='full'] .gfx-l3[data-variant='strap-type'] {
+  left: 150px;
+  right: auto;
+  transform: none;
+}
+
+.gfx-l3[data-variant='strap-type'] .l3-stack {
+  width: fit-content;
+  min-width: 0;
+  /**
+   * The WIDEST strap's name zone, measured from the artwork that exists:
+   * `theme-strap-wide.png` gives 1578px from x=150. The brief's 1674 belongs to
+   * a single-width strap that was never built. Capping here means a name too
+   * long for even the wide strap ellipsises INSIDE the artwork rather than
+   * running off the end of it onto the camera.
+   */
+  max-width: 1578px;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Everything that draws furniture, off. Listed one per line rather than as a
+   wildcard so a NEW piece of furniture added to the renderer shows up here as
+   an omission rather than being silently hidden. */
+.gfx-l3[data-variant='strap-type'] .l3-underbar,
+.gfx-l3[data-variant='strap-type'] .l3-symbol-block,
+.gfx-l3[data-variant='strap-type'] .l3-stripe,
+.gfx-l3[data-variant='strap-type'] .l3-cap,
+.gfx-l3[data-variant='strap-type'] .l3-end-slab,
+.gfx-l3[data-variant='strap-type'] .l3-medallion,
+.gfx-l3[data-variant='strap-type'] .l3-role-divider,
+.gfx-l3[data-variant='strap-type'] .l3-strap-logo {
+  display: none !important;
+}
+
+.gfx-l3[data-variant='strap-type'] .l3-mask,
+.gfx-l3[data-variant='strap-type'] .l3-role-mask {
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.gfx-l3[data-variant='strap-type'] .l3-name-plate,
+.gfx-l3[data-variant='strap-type'] .l3-role-plate {
+  min-width: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: none !important;
+}
+
+/* Type only, so the type carries all the weight. A shadow stays: the strap is
+   textured and a name with no separation from it is harder to read than the
+   plate ever made it. */
+.gfx-l3[data-variant='strap-type'] .l3-name {
+  color: #ffffff;
+  font-size: 62px;
+  line-height: 1;
+  letter-spacing: 0.005em;
+  text-shadow: 0 2px 14px rgba(2, 8, 40, 0.55);
+}
+
+/**
+ * THE STEP-DOWN STILL APPLIES, and a flat 62px silently removed it.
+ *
+ * `nameSizeClass` puts `l3-name-md/sm/xs` on the longest names, and a single
+ * `font-size` on `.l3-name` at this specificity overrode all three — so
+ * "REV. DR. EMMANUEL KWABENA OWUSU-ANSAH" rendered at full size and ran past
+ * the end of the strap artwork. Measured against the real
+ * `theme-strap-wide.png`, not assumed.
+ *
+ * The brief states that name "fits at full 62px with ~380px to spare" against a
+ * 1674px zone. Against the WIDE strap that actually exists — a 1578px zone —
+ * it does not, which is why these tiers are here and why the cap below is a
+ * hard stop rather than a suggestion.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-md { font-size: 56px; }
+.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-sm { font-size: 50px; }
+.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-xs { font-size: 44px; }
+
+.gfx-l3[data-variant='strap-type'] .l3-role,
+.gfx-l3[data-variant='strap-type'] .l3-org {
+  color: #ffd75e;
+  font-size: 26px;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 10px rgba(2, 8, 40, 0.5);
+}
+
+.gfx-l3[data-variant='strap-type'] .l3-role-line { gap: 14px; }
+
 /* Quick take: the switch that makes this surface hot, and the badge that says
    so. The badge is not decoration — someone else at the desk has to be able to
    see that a double-click is now a broadcast. */

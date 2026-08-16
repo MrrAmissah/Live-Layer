@@ -130,6 +130,29 @@ const L3_VARIANTS: Record<string, TemplateVariant> = {
     name: 'Praise Tag',
     description: 'Dark glass nameplate with a floating gold performance tag.',
     palette: { colorBrand: '#2338dd', colorAccent: '#E8B93C', colorSurface: '#0a1130', colorText: '#ffffff', colorSecondary: '#9db1ff' }
+  },
+  /**
+   * Type only — the plate lives in OBS, not here.
+   *
+   * The convention's lower-third BACKGROUND is now a Nine3 asset: an image
+   * source sitting UNDER this output, carrying the textured ground, the
+   * L-bracket and the theme in gold leaf. Every other variant paints its own
+   * plate, so on top of that strap they stack — an opaque card inside a card,
+   * the same fault the scripture split screens already had.
+   *
+   * So this one paints NOTHING. No background, no border, no bracket, no
+   * medallion, no theme line. It positions type inside the strap's name zone
+   * and stops.
+   *
+   * Additive: the other thirteen are untouched, and this is only correct when
+   * the strap PNG is actually under it — which is why it says so in its own
+   * description rather than being offered as a general-purpose look.
+   */
+  'strap-type': {
+    id: 'strap-type',
+    name: 'Strap Type-Only',
+    description: 'Name and role with NO plate — for the Nine3 strap image sitting under this output in OBS.',
+    palette: { ...PPC_PALETTE }
   }
 };
 
@@ -188,7 +211,8 @@ export const templateRegistry: TemplateDefinition[] = [
       'canva-host-bar',
       'canva-celebration',
       'canva-ministry',
-      'convention-strap'
+      'convention-strap',
+      'strap-type'
     ),
     animation: { in: 'slide', out: 'slide' }
   },
