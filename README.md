@@ -60,7 +60,9 @@ as the compositor and keeps everything on your machine.
 - **People and scripture helpers** — speaker profiles, headshot/logo references,
   book/chapter/verse picking, lookup across fourteen public-domain translations
   (WEB, KJV, ASV, BBE, Darby, DRA, WEBBE, OEB-US, OEB-CW, YLT, Almeida in Portuguese,
-  AKJV, Swahili, and **LSG** — the French Louis Segond 1910), and manual paste fallback. The KJV is
+  AKJV, Swahili, and **LSG** — the French Louis Segond 1910), plus **Twi** (Akuapem
+  *Nkwa Asɛm*, CC BY-SA, served from your own machine so it works with the network
+  down), and manual paste fallback. The KJV is
   the default.
 - **Voice assist preview** — type what the preacher said and get ranked candidate
   references to choose between. **No microphone, no speech provider, no model.**

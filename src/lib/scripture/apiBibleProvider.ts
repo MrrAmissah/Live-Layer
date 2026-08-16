@@ -193,10 +193,13 @@ export function createApiBibleProvider({ apiKey }: ApiBibleProviderOptions): Api
         name: entry.name,
         language: entry.language,
         /**
-         * Never assumed public domain. This provider exists to reach LICENSED
-         * texts, so a passage from it must not be treated as freely
-         * redistributable — that flag is what downstream reads before putting
-         * verse text inside an exported pack.
+         * Never assumed public domain, because these are licensed texts.
+         *
+         * To be accurate about what this does: NOTHING reads `publicDomain`
+         * today — it is declared on the type and consumed nowhere. An earlier
+         * version of this comment claimed it gated pack export, which was
+         * wrong. It documents a fact about the text, and is the place to look
+         * first if an export rule is ever written.
          */
         publicDomain: false
       }));

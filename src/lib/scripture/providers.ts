@@ -3,6 +3,7 @@ import { bibleApiProvider } from './bibleApiProvider';
 import { createEsvProvider } from './esvApiProvider';
 import { getBibleProvider } from './getBibleProvider';
 import { createApiBibleProvider } from './apiBibleProvider';
+import { localBibleProvider } from './localBibleProvider';
 import { loadEsvApiKey, loadApiBibleKey } from '../storage';
 
 /**
@@ -31,6 +32,9 @@ export const apiBibleProvider = createApiBibleProvider({ apiKey: loadApiBibleKey
 export const scriptureProviders: ScriptureProvider[] = [
   bibleApiProvider,
   getBibleProvider,
+  /* Served from this machine, so it answers with the network down — which is
+     also the only place a Twi Bible exists in a form we can read. */
+  localBibleProvider,
   esvProvider,
   apiBibleProvider
 ];
