@@ -154,7 +154,13 @@ describe('the duplicate translation tag is gone', () => {
      */
     const code = stripComments(panel);
     expect(code).toContain('{passage.translation}');
-    expect(code).toContain('{item.label} — {item.name ?? item.label}');
+    /**
+     * The select spells the full name out through `describeTranslation`, which
+     * both pickers now share — this used to assert the inline JSX and so failed
+     * the moment the two surfaces were given one voice. What matters is that
+     * the option carries more than a bare code, not how it is assembled.
+     */
+    expect(code).toContain('describeTranslation(item)');
     expect(code).toContain('selectedLabel');
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { defaultScriptureProvider } from '../lib/scripture/providers';
+import { providerForTranslation } from '../lib/scripture/providers';
 import { chapterCacheKey, getCachedVerseCount, saveCachedVerseCount } from '../lib/scripture/chapterCache';
 
 type Status = 'idle' | 'loading' | 'ready' | 'unavailable';
@@ -31,12 +31,30 @@ export function useChapterVerses(
 
   useEffect(() => {
     setVerseCount(null);
-    if (!enabled || !book || !chapter || !defaultScriptureProvider.fetchChapterVerseCount) {
+    /**
+     * ASK THE PROVIDER THAT SERVES THIS TRANSLATION, not the default one.
+     *
+     * This read `defaultScriptureProvider` — permanently `bibleApiProvider` —
+     * so choosing the LSG sent a verse-count request for `lsg` to a service
+     * that has no French at all. It failed, the hook degraded to `unavailable`
+     * exactly as designed, and the operator got two number inputs where the KJV
+     * had given them a grid of chips. Silent and per-translation, which is the
+     * worst shape for this: everything looked fine until you picked the one
+     * translation that had just been added.
+     *
+     * The ESV still lands on the typed inputs, and that is correct rather than
+     * broken — Crossway's endpoint cannot answer how long a chapter is, so that
+     * provider deliberately implements no `fetchChapterVerseCount`.
+     */
+    const provider = providerForTranslation(translation);
+    if (!enabled || !book || !chapter || !provider.fetchChapterVerseCount) {
       setStatus('idle');
       return;
     }
 
-    const key = chapterCacheKey(defaultScriptureProvider.id, translation, book, chapter);
+    // Keyed on the provider that ANSWERED, so two services' counts for the same
+    // chapter cannot overwrite each other.
+    const key = chapterCacheKey(provider.id, translation, book, chapter);
     const cached = getCachedVerseCount(key);
     if (cached && cached > 0) {
       setVerseCount(cached);
@@ -60,7 +78,7 @@ export function useChapterVerses(
      * nothing to spare. Only the network call waits.
      */
     const timer = setTimeout(() => {
-      defaultScriptureProvider
+      provider
         .fetchChapterVerseCount?.(book, chapter, translation)
         .then((count) => {
           if (requestId.current !== id) return;

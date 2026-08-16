@@ -20,7 +20,7 @@ import {
   type ScriptureFavorite
 } from '../../lib/scripture/scriptureFavorites';
 import type { ScriptureLookupResult } from '../../types/scripture';
-import { availableTranslations } from '../../lib/scripture/providers';
+import { availableTranslations, describeTranslation } from '../../lib/scripture/providers';
 
 interface Props {
   query: string;
@@ -466,8 +466,7 @@ export default function ScriptureLookupPanel({
             >
               {availableTranslations().map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.label} — {item.name ?? item.label}
-                  {item.partial ? ` (${item.partial})` : ''}
+                  {describeTranslation(item)}
                 </option>
               ))}
             </select>

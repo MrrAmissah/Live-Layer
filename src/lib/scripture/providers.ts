@@ -1,4 +1,4 @@
-import type { ScriptureProvider } from '../../types/scripture';
+import type { ScriptureProvider, ScriptureTranslation } from '../../types/scripture';
 import { bibleApiProvider } from './bibleApiProvider';
 import { createEsvProvider } from './esvApiProvider';
 import { getBibleProvider } from './getBibleProvider';
@@ -64,6 +64,31 @@ export function defaultTranslationId(): string {
   return offered.some((translation) => translation.id === DEFAULT_TRANSLATION_ID)
     ? DEFAULT_TRANSLATION_ID
     : (offered[0]?.id ?? DEFAULT_TRANSLATION_ID);
+}
+
+/**
+ * How a translation reads in a picker — one function, because there are two.
+ *
+ * The lookup panel spelled the full name out and the reference picker printed
+ * the bare code, so the same list read as "KJV — King James Version" in one
+ * surface and "KJV" in the other. That is survivable for the KJV. It is not for
+ * `LSG`, `DRA` or `OEB-CW`, which say nothing at all to an operator who has not
+ * met them, and the list grew past a dozen the moment French arrived.
+ *
+ * THE LANGUAGE IS SHOWN ONLY WHEN IT IS NOT ENGLISH. Eleven rows reading
+ * "English" is noise that hides the two rows where the language is the whole
+ * point — the non-English entries stand out precisely because the others say
+ * nothing.
+ *
+ * Coverage stays in brackets at the end, because it is a warning rather than an
+ * identity: a Genesis lookup against a New-Testament-only text returns "not
+ * found", which reads as a broken service rather than a missing book.
+ */
+export function describeTranslation(translation: ScriptureTranslation): string {
+  const parts = [`${translation.label} — ${translation.name ?? translation.label}`];
+  if (translation.language && translation.language !== 'English') parts.push(translation.language);
+  const described = parts.join(' \u00b7 ');
+  return translation.partial ? `${described} (${translation.partial})` : described;
 }
 
 /**

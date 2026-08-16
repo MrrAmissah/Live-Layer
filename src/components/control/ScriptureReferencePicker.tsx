@@ -1,7 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
 import { useChapterVerses } from '../../hooks/useChapterVerses';
-import { availableTranslations, defaultTranslationId } from '../../lib/scripture/providers';
+import {
+  availableTranslations,
+  defaultTranslationId,
+  describeTranslation
+} from '../../lib/scripture/providers';
 import { buildReference, parseReference, suggestBibleBooks } from '../../lib/scripture/bibleBooks';
 import { chapterNumbers, numberRange } from '../../lib/scripture/bibleStructure';
 
@@ -258,9 +262,13 @@ export default function ScriptureReferencePicker({ reference, onReferenceChange,
             value={translation}
             onChange={(event) => setTranslation(event.target.value)}
           >
+            {/* Was the bare code. `LSG`, `DRA` and `OEB-CW` say nothing at all
+                to an operator who has not met them, and the list passed a dozen
+                when French arrived. Same words as the Scripture workspace's
+                picker, from the same function, so the two cannot drift. */}
             {translations.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.label}
+                {describeTranslation(item)}
               </option>
             ))}
           </select>
