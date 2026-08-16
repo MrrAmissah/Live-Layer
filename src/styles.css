@@ -10980,7 +10980,26 @@ body.gfx-transparent {
 .control-root .setup-sub { padding: 0 0 18px; }
 .control-root .setup-sub__title {
   margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--ll-text-strong);
+  /* Flex so a heading that carries an icon sits on the text's baseline row
+     rather than pushing it down; headings without one are unaffected. */
+  display: flex; align-items: center; gap: 7px;
 }
+
+/* A command to run, not a URL to copy — the setup page's other affordance is
+   UrlRow, and a multi-line shell command does not fit it. Scrolls on its own
+   rather than wrapping: a wrapped shell line invites pasting a broken one. */
+.control-root .setup-pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--ll-border);
+  border-radius: 8px;
+  background: var(--ll-surface-2, rgba(0, 0, 0, 0.22));
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+}
+.control-root .setup-pre code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .control-root .setup-col--aside { position: sticky; top: 16px; align-self: start; }
 
 /* The verse number, set the way a printed Bible sets it: raised, smaller, and

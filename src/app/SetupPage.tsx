@@ -1,6 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SetupDiagnostics from '../components/control/SetupDiagnostics';
 import { loadEsvApiKey, saveEsvApiKey } from '../lib/storage';
+import { Icon } from '../lib/icons';
+// The address the browser dials, imported rather than retyped: a setup page
+// naming a different port from the one the code connects to is worse than one
+// that names none.
+import { DEFAULT_SPEECH_SERVICE } from '../lib/scripture/liveTranscriptSource';
+
+/**
+ * What to run so the Scripture microphone works.
+ *
+ * NO `--repo` AND NO `--engine`. Both default correctly now — `--engine` is
+ * `whisper` and `--repo` is empty, meaning "the checkpoint that engine ships
+ * with". `docs/OBS_SETUP.md` still pins the previous recogniser's checkpoint
+ * (`--repo …/w2v-bert-en`), which since the engine changed would hand a
+ * w2v-BERT repo to Whisper. A setup page that prints a command nobody has run
+ * is worse than one that prints none, so this is the command from
+ * `docs/LIVE_SCRIPTURE_GATE.md`, which is the one that is actually used.
+ *
+ * `HF_HOME` keeps the model cache with the rest of the evaluation rig rather
+ * than in the user's home default — without it the first run re-downloads
+ * several gigabytes that are already on the machine.
+ */
+const SPEECH_SERVICE_COMMAND =
+  'HF_HOME=~/LiveLayer-ASR-Eval/hf \\\n  ~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py --verbose';
 
 /**
  * One step, as a step.
@@ -248,10 +271,68 @@ export default function SetupPage() {
                 */}
               <details className="setup-advanced">
                 <summary className="setup-advanced__summary">
-                  Optional — NDI to another machine, and controlling from a tablet
+                  Optional — the Scripture microphone, the ESV, NDI, and controlling from a tablet
                 </summary>
 
                 <div className="setup-advanced__body">
+                {/**
+                  * THE MICROPHONE NEEDS A SECOND PROCESS, AND NOTHING SAID SO.
+                  *
+                  * "Start listening" is on the Scripture page whether or not the
+                  * recogniser is running, and when it is not the operator gets a
+                  * refusal with no way to find out what to start. The command
+                  * lived only in `docs/`, which is not where someone standing at
+                  * the desk ten minutes before a service is looking.
+                  *
+                  * Optional on purpose, and first in this block rather than
+                  * promoted to a numbered step: Scripture is fully usable by
+                  * typing, the microphone is unvalidated, and a fourth required
+                  * step would say the opposite of both.
+                  */}
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">
+                    <Icon name="mic" size={16} />
+                    Turn on the Scripture microphone
+                  </h3>
+                  <div className="setup-body">
+                    <p className="setup-text">
+                      The Scripture page can listen and turn a spoken reference into candidates you
+                      review. It needs a recogniser running <strong>on this machine</strong> — the
+                      model never enters the browser, no audio leaves the machine, and nothing is
+                      written to disk. Without it, <strong>Start listening</strong> refuses and you
+                      type the reference, which is the normal way to work.
+                    </p>
+                    <p className="setup-text">
+                      In a terminal, from the LiveLayer folder:
+                    </p>
+                    <pre className="setup-pre"><code>{SPEECH_SERVICE_COMMAND}</code></pre>
+                    <div className="setup-actions">
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        onClick={() => copyToClipboard(SPEECH_SERVICE_COMMAND, 'Recogniser command')}
+                      >
+                        Copy command
+                      </button>
+                    </div>
+                    <p className="setup-note">
+                      Wait for it to report that it is listening on{' '}
+                      <code className="setup-kbd">{DEFAULT_SPEECH_SERVICE.replace('ws://', '')}</code> —
+                      loading the model takes a few seconds. <code className="setup-kbd">--verbose</code>{' '}
+                      prints timings and <strong>never</strong> prints a transcript, so the terminal is
+                      safe to leave on screen. Then open Scripture and press{' '}
+                      <strong>Start listening</strong>; the browser asks for microphone permission once.
+                    </p>
+                    <p className="setup-note">
+                      First time on a machine, the Python environment and the model have to be
+                      installed — that is in{' '}
+                      <code className="setup-kbd">scripts/asr-benchmark/README.md</code>. And treat what
+                      it hears as a suggestion: it is unvalidated, it refuses more often than it
+                      answers, and nothing reaches air without an Accept and a separate Take.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="setup-sub">
                   <h3 className="setup-sub__title">Add the ESV</h3>
                   <div className="setup-body">

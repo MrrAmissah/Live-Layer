@@ -213,9 +213,16 @@ It needs a local recogniser running on this machine. Nothing is uploaded and no
 audio is stored:
 
 ```sh
-~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py \
-  --repo ~/LiveLayer-ASR-Eval/models/w2v-bert-en
+HF_HOME=~/LiveLayer-ASR-Eval/hf \
+  ~/LiveLayer-ASR-Eval/venv/bin/python scripts/speech-service/server.py --verbose
 ```
+
+No `--repo` and no `--engine`: both default correctly now. This ran the previous
+recogniser's checkpoint explicitly, and since `--engine` became `whisper` that
+line would hand a w2v-BERT repo to Whisper. `--verbose` logs timings and never a
+transcript. The same command, and the reasoning behind the change of recogniser,
+are in [`LIVE_SCRIPTURE_GATE.md`](LIVE_SCRIPTURE_GATE.md) and
+[`ASR_EVALUATION.md`](ASR_EVALUATION.md) §10.
 
 Full setup — the virtualenv and the model download — is in
 [`scripts/asr-benchmark/README.md`](../scripts/asr-benchmark/README.md); the
