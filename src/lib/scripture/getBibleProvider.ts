@@ -53,14 +53,44 @@ import { parseScriptureReference, formatSpans, type VerseSpan } from './parseRef
 const ENDPOINT = 'https://api.getbible.net/v2';
 
 /**
- * Our translation id, and the slug this service uses for it.
+ * What this provider serves, and the slug each one has on the service.
  *
- * `lsg` is what a French congregation calls it and what belongs on the card;
- * `ls1910` is an implementation detail of one API. Keeping them apart means the
- * label on air does not change if the service renames its slug.
+ * OUR ID IS NOT THEIR SLUG, deliberately. `lsg` is what a French congregation
+ * calls that Bible and what belongs on the card; `ls1910` is an implementation
+ * detail of one API. Keeping them apart means the label on air does not change
+ * if the service renames a slug, and the id stored inside a saved graphic stays
+ * meaningful if the text ever comes from somewhere else.
+ *
+ * Every entry was fetched and read before being listed — the names and languages
+ * come from the service's own catalogue rather than from memory, and John 3:16
+ * was pulled in each to confirm it returns real text rather than an empty
+ * chapter.
+ *
+ * Public domain, all of them, which is what lets a passage be cached, saved into
+ * a graphic and exported inside a rundown pack with no permission question.
  */
-const TRANSLATION_ID = 'lsg';
-const SERVICE_SLUG = 'ls1910';
+interface GetBibleTranslation {
+  id: string;
+  slug: string;
+  label: string;
+  name: string;
+  language: string;
+}
+
+const CATALOGUE: GetBibleTranslation[] = [
+  { id: 'lsg', slug: 'ls1910', label: 'LSG', name: 'Louis Segond (1910)', language: 'French' },
+  /* The King James with modern spelling — "you" for "thee", no "-eth" endings.
+     Easier to read aloud than the 1611 while keeping the wording the church
+     knows, which is why it sits beside the KJV rather than replacing it. */
+  { id: 'akjv', slug: 'akjv', label: 'AKJV', name: 'American King James Version', language: 'English' },
+  /* The only African language this service carries. East African rather than
+     West, so it is for visitors rather than for Ghana — there is no Twi, Akan,
+     Ewe or Ga here, and that was checked rather than assumed. */
+  { id: 'swahili', slug: 'swahili', label: 'SWA', name: 'Swahili Bible', language: 'Swahili' }
+];
+
+const slugFor = (translationId?: string): string | undefined =>
+  CATALOGUE.find((entry) => entry.id === (translationId ?? '').toLowerCase())?.slug;
 
 interface GetBibleVerse {
   chapter?: number;
@@ -111,21 +141,24 @@ export const getBibleProvider: ScriptureProvider = {
   id: 'getbible',
   label: 'getbible.net',
   requiresKey: false,
-  translations: [
-    {
-      id: TRANSLATION_ID,
-      label: 'LSG',
-      name: 'Louis Segond (1910)',
-      language: 'French',
-      publicDomain: true
-    }
-  ],
+  translations: CATALOGUE.map((entry) => ({
+    id: entry.id,
+    label: entry.label,
+    name: entry.name,
+    language: entry.language,
+    publicDomain: true
+  })),
 
   async lookup(
     reference: string,
-    _translation?: string,
+    translation?: string,
     deps: ScriptureProviderDeps = {}
   ): Promise<ScriptureLookupResult> {
+    /* Which text was asked for. It used to ignore the argument entirely and
+       always serve the LSG, which was correct while there was one and would
+       have silently put French on screen for someone who picked the AKJV. */
+    const wantedTranslation =
+      CATALOGUE.find((entry) => entry.id === (translation ?? '').toLowerCase()) ?? CATALOGUE[0];
     const parsed = parseScriptureReference(reference);
     if (!parsed.ok) {
       // The parser's own words: it says which part it could not read, and the
@@ -138,7 +171,7 @@ export const getBibleProvider: ScriptureProvider = {
 
     const fetchImpl = deps.fetchImpl ?? fetch;
     const response = await fetchImpl(
-      `${ENDPOINT}/${SERVICE_SLUG}/${book.order}/${parsed.reference.chapter}.json`,
+      `${ENDPOINT}/${wantedTranslation.slug}/${book.order}/${parsed.reference.chapter}.json`,
       { headers: { Accept: 'application/json' } }
     );
     if (!response.ok) throw new ScriptureHttpError(response.status);
@@ -152,7 +185,7 @@ export const getBibleProvider: ScriptureProvider = {
      * TTL and nothing downstream could detect it.
      */
     const received = (data.abbreviation ?? '').toLowerCase();
-    if (received && received !== SERVICE_SLUG) throw new Error('lookup-not-found');
+    if (received && received !== wantedTranslation.slug) throw new Error('lookup-not-found');
 
     const selected = (data.verses ?? [])
       .map((verse) => ({ n: verse.verse ?? 0, text: clean(verse.text) }))
@@ -173,8 +206,8 @@ export const getBibleProvider: ScriptureProvider = {
     return {
       reference: `${frenchBook} ${parsed.reference.chapter}${locator}`,
       text: passageText(selected),
-      translation: 'LSG',
-      attribution: 'Louis Segond 1910 — domaine public.',
+      translation: wantedTranslation.label,
+      attribution: `${wantedTranslation.name} — public domain.`,
       providerId: 'getbible',
       fetchedAt: new Date().toISOString()
     };
@@ -192,13 +225,14 @@ export const getBibleProvider: ScriptureProvider = {
   async fetchChapterVerseCount(
     book: string,
     chapter: number,
-    _translation?: string,
+    translation?: string,
     deps: ScriptureProviderDeps = {}
   ): Promise<number> {
     const meta = getBibleBook(book);
+    const slug = slugFor(translation) ?? CATALOGUE[0].slug;
     if (!meta) return 0;
     const fetchImpl = deps.fetchImpl ?? fetch;
-    const response = await fetchImpl(`${ENDPOINT}/${SERVICE_SLUG}/${meta.order}/${chapter}.json`, {
+    const response = await fetchImpl(`${ENDPOINT}/${slug}/${meta.order}/${chapter}.json`, {
       headers: { Accept: 'application/json' }
     });
     if (!response.ok) return 0;

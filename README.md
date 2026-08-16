@@ -58,9 +58,9 @@ as the compositor and keeps everything on your machine.
 - **Local assets** — upload logos and speaker headshots into same-origin IndexedDB,
   then reuse them in previews, presets, rundowns, and `/output`.
 - **People and scripture helpers** — speaker profiles, headshot/logo references,
-  book/chapter/verse picking, lookup across twelve public-domain translations
+  book/chapter/verse picking, lookup across fourteen public-domain translations
   (WEB, KJV, ASV, BBE, Darby, DRA, WEBBE, OEB-US, OEB-CW, YLT, Almeida in Portuguese,
-  and **LSG** — the French Louis Segond 1910), and manual paste fallback. The KJV is
+  AKJV, Swahili, and **LSG** — the French Louis Segond 1910), and manual paste fallback. The KJV is
   the default.
 - **Voice assist preview** — type what the preacher said and get ranked candidate
   references to choose between. **No microphone, no speech provider, no model.**

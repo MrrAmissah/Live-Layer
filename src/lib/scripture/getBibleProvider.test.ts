@@ -34,6 +34,51 @@ let seenUrl = '';
  * suite that passes on a machine with the Wi-Fi off.
  */
 describe('the French provider', () => {
+  it('routes to the text that was ASKED FOR, not always the first', async () => {
+    /**
+     * `lookup` ignored its translation argument entirely and always served the
+     * LSG. Correct while there was one, and it would have put French on screen
+     * for an operator who picked the AKJV the moment a second arrived — silently,
+     * because a verse is a verse until you read it.
+     *
+     * SEQUENTIAL, not `Promise.all`. `seenUrl` is one module-level spy, so two
+     * concurrent lookups overwrite each other's record and the assertion reads
+     * whichever finished last — which is how this test first "failed" against
+     * code that was working.
+     *
+     * Each fixture claims its OWN abbreviation, because the mismatch guard
+     * rejects a chapter served under a different translation's name.
+     */
+    const akjv = await getBibleProvider.lookup('John 3:16', 'akjv', {
+      fetchImpl: respond({ ...JOHN_3, abbreviation: 'akjv' })
+    });
+    expect(seenUrl).toContain('/akjv/43/3.json');
+    expect(akjv.translation).toBe('AKJV');
+
+    const swa = await getBibleProvider.lookup('John 3:16', 'swahili', {
+      fetchImpl: respond({ ...JOHN_3, abbreviation: 'swahili' })
+    });
+    expect(seenUrl).toContain('/swahili/43/3.json');
+    expect(swa.translation).toBe('SWA');
+  });
+
+  it('counts verses against the chosen text too', async () => {
+    await getBibleProvider.fetchChapterVerseCount!('John', 3, 'akjv', {
+      fetchImpl: respond({ ...JOHN_3, abbreviation: 'akjv' })
+    });
+    expect(seenUrl).toContain('/akjv/43/3.json');
+  });
+
+  it('offers every translation in its catalogue as public domain', () => {
+    const ids = getBibleProvider.translations.map((t) => t.id);
+    expect(ids).toContain('lsg');
+    expect(ids).toContain('akjv');
+    expect(ids).toContain('swahili');
+    expect(getBibleProvider.translations.every((t) => t.publicDomain)).toBe(true);
+    // Each says what language it is, which is what the picker prints.
+    expect(getBibleProvider.translations.every((t) => Boolean(t.language && t.name))).toBe(true);
+  });
+
   it('offers the LSG, and says it is public domain', () => {
     const [french] = getBibleProvider.translations;
     expect(french.id).toBe('lsg');
