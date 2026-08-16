@@ -1,4 +1,4 @@
-import { BIBLE_BOOKS, splitReference } from './bibleBooks';
+import { BIBLE_BOOKS, foldBookText, splitReference } from './bibleBooks';
 import { getChapterCount } from './bibleStructure';
 
 /**
@@ -109,19 +109,28 @@ const MIN_PREFIX_LENGTH = 3;
  * called Foo" and "J could be John, Jonah, Joshua…" need different recoveries.
  */
 function resolveBook(raw: string): BookResolution {
-  const q = raw.toLowerCase().trim();
+  /**
+   * FOLDED, not merely lowercased — and this is the function that decides it.
+   *
+   * `normalizeBibleBook` in `bibleBooks.ts` does the same job for the other
+   * picker and folding it there was not enough: THIS is the matcher the typed
+   * reference box goes through, so `Esaie 40:31` still failed while `Jean 3:16`
+   * worked, purely because `jean` happens to have no accent to lose and `Ésaïe`
+   * has two. A test that exercised the other function passed and proved nothing.
+   */
+  const q = foldBookText(raw).trim();
   if (!q) return { candidates: [] };
 
   const exact = BIBLE_BOOKS.find(
-    (book) => book.name.toLowerCase() === q || book.aliases.some((alias) => alias.toLowerCase() === q)
+    (book) => foldBookText(book.name) === q || book.aliases.some((alias) => foldBookText(alias) === q)
   );
   if (exact) return { book: exact.name, candidates: [exact.name] };
 
   const prefixed = BIBLE_BOOKS.filter(
     (book) =>
-      book.name.toLowerCase().startsWith(q) ||
-      book.name.toLowerCase().replace(/\s/g, '').startsWith(q.replace(/\s/g, '')) ||
-      book.aliases.some((alias) => alias.toLowerCase().startsWith(q))
+      foldBookText(book.name).startsWith(q) ||
+      foldBookText(book.name).replace(/\s/g, '').startsWith(q.replace(/\s/g, '')) ||
+      book.aliases.some((alias) => foldBookText(alias).startsWith(q))
   );
   if (prefixed.length === 1 && q.replace(/\s/g, '').length >= MIN_PREFIX_LENGTH) {
     return { book: prefixed[0].name, candidates: [prefixed[0].name] };

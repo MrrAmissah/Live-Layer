@@ -13,70 +13,70 @@ export interface BibleBookMeta {
  * chapter chips only — it never triggers a network lookup.
  */
 export const BIBLE_BOOKS: BibleBookMeta[] = [
-  { order: 1, name: 'Genesis', testament: 'old', chapterCount: 50, aliases: ['gen', 'ge', 'gn'] },
-  { order: 2, name: 'Exodus', testament: 'old', chapterCount: 40, aliases: ['exo', 'ex', 'exod'] },
-  { order: 3, name: 'Leviticus', testament: 'old', chapterCount: 27, aliases: ['lev', 'lv', 'levit'] },
-  { order: 4, name: 'Numbers', testament: 'old', chapterCount: 36, aliases: ['num', 'nu', 'nm', 'nb'] },
-  { order: 5, name: 'Deuteronomy', testament: 'old', chapterCount: 34, aliases: ['deut', 'dt', 'deu'] },
-  { order: 6, name: 'Joshua', testament: 'old', chapterCount: 24, aliases: ['josh', 'jos', 'jsh'] },
-  { order: 7, name: 'Judges', testament: 'old', chapterCount: 21, aliases: ['judg', 'jdg', 'jdgs'] },
+  { order: 1, name: 'Genesis', testament: 'old', chapterCount: 50, aliases: ['gen', 'ge', 'gn', 'genèse'] },
+  { order: 2, name: 'Exodus', testament: 'old', chapterCount: 40, aliases: ['exo', 'ex', 'exod', 'exode'] },
+  { order: 3, name: 'Leviticus', testament: 'old', chapterCount: 27, aliases: ['lev', 'lv', 'levit', 'lévitique'] },
+  { order: 4, name: 'Numbers', testament: 'old', chapterCount: 36, aliases: ['num', 'nu', 'nm', 'nb', 'nombres'] },
+  { order: 5, name: 'Deuteronomy', testament: 'old', chapterCount: 34, aliases: ['deut', 'dt', 'deu', 'deutéronome'] },
+  { order: 6, name: 'Joshua', testament: 'old', chapterCount: 24, aliases: ['josh', 'jos', 'jsh', 'josué'] },
+  { order: 7, name: 'Judges', testament: 'old', chapterCount: 21, aliases: ['judg', 'jdg', 'jdgs', 'juges'] },
   { order: 8, name: 'Ruth', testament: 'old', chapterCount: 4, aliases: ['ru', 'rth'] },
   { order: 9, name: '1 Samuel', testament: 'old', chapterCount: 31, aliases: ['1 sam', '1sam', '1 sa', '1sa', 'i samuel'] },
   { order: 10, name: '2 Samuel', testament: 'old', chapterCount: 24, aliases: ['2 sam', '2sam', '2 sa', '2sa', 'ii samuel'] },
-  { order: 11, name: '1 Kings', testament: 'old', chapterCount: 22, aliases: ['1 kgs', '1kgs', '1 ki', '1ki', 'i kings'] },
-  { order: 12, name: '2 Kings', testament: 'old', chapterCount: 25, aliases: ['2 kgs', '2kgs', '2 ki', '2ki', 'ii kings'] },
-  { order: 13, name: '1 Chronicles', testament: 'old', chapterCount: 29, aliases: ['1 chr', '1chr', '1 ch', '1ch', '1 chron'] },
-  { order: 14, name: '2 Chronicles', testament: 'old', chapterCount: 36, aliases: ['2 chr', '2chr', '2 ch', '2ch', '2 chron'] },
-  { order: 15, name: 'Ezra', testament: 'old', chapterCount: 10, aliases: ['ezr', 'ezra'] },
-  { order: 16, name: 'Nehemiah', testament: 'old', chapterCount: 13, aliases: ['neh', 'ne'] },
+  { order: 11, name: '1 Kings', testament: 'old', chapterCount: 22, aliases: ['1 kgs', '1kgs', '1 ki', '1ki', 'i kings', '1 rois', '1rois'] },
+  { order: 12, name: '2 Kings', testament: 'old', chapterCount: 25, aliases: ['2 kgs', '2kgs', '2 ki', '2ki', 'ii kings', '2 rois', '2rois'] },
+  { order: 13, name: '1 Chronicles', testament: 'old', chapterCount: 29, aliases: ['1 chr', '1chr', '1 ch', '1ch', '1 chron', '1 chroniques'] },
+  { order: 14, name: '2 Chronicles', testament: 'old', chapterCount: 36, aliases: ['2 chr', '2chr', '2 ch', '2ch', '2 chron', '2 chroniques'] },
+  { order: 15, name: 'Ezra', testament: 'old', chapterCount: 10, aliases: ['ezr', 'ezra', 'esdras'] },
+  { order: 16, name: 'Nehemiah', testament: 'old', chapterCount: 13, aliases: ['neh', 'ne', 'néhémie'] },
   { order: 17, name: 'Esther', testament: 'old', chapterCount: 10, aliases: ['est', 'esth', 'es'] },
   { order: 18, name: 'Job', testament: 'old', chapterCount: 42, aliases: ['jb'] },
-  { order: 19, name: 'Psalms', testament: 'old', chapterCount: 150, aliases: ['ps', 'psa', 'psm', 'pss', 'psalm'] },
-  { order: 20, name: 'Proverbs', testament: 'old', chapterCount: 31, aliases: ['prov', 'pro', 'prv', 'pr'] },
-  { order: 21, name: 'Ecclesiastes', testament: 'old', chapterCount: 12, aliases: ['eccl', 'ecc', 'ec', 'qoh'] },
-  { order: 22, name: 'Song of Songs', testament: 'old', chapterCount: 8, aliases: ['song', 'sos', 'ss', 'song of solomon', 'canticles'] },
-  { order: 23, name: 'Isaiah', testament: 'old', chapterCount: 66, aliases: ['isa', 'is'] },
-  { order: 24, name: 'Jeremiah', testament: 'old', chapterCount: 52, aliases: ['jer', 'je', 'jr'] },
+  { order: 19, name: 'Psalms', testament: 'old', chapterCount: 150, aliases: ['ps', 'psa', 'psm', 'pss', 'psalm', 'psaumes'] },
+  { order: 20, name: 'Proverbs', testament: 'old', chapterCount: 31, aliases: ['prov', 'pro', 'prv', 'pr', 'proverbes'] },
+  { order: 21, name: 'Ecclesiastes', testament: 'old', chapterCount: 12, aliases: ['eccl', 'ecc', 'ec', 'qoh', 'ecclésiaste'] },
+  { order: 22, name: 'Song of Songs', testament: 'old', chapterCount: 8, aliases: ['song', 'sos', 'ss', 'song of solomon', 'canticles', 'cantique des cantiques', 'cantique', 'cantiques'] },
+  { order: 23, name: 'Isaiah', testament: 'old', chapterCount: 66, aliases: ['isa', 'is', 'ésaïe'] },
+  { order: 24, name: 'Jeremiah', testament: 'old', chapterCount: 52, aliases: ['jer', 'je', 'jr', 'jérémie'] },
   { order: 25, name: 'Lamentations', testament: 'old', chapterCount: 5, aliases: ['lam', 'la'] },
-  { order: 26, name: 'Ezekiel', testament: 'old', chapterCount: 48, aliases: ['ezek', 'eze', 'ezk'] },
+  { order: 26, name: 'Ezekiel', testament: 'old', chapterCount: 48, aliases: ['ezek', 'eze', 'ezk', 'ézéchiel'] },
   { order: 27, name: 'Daniel', testament: 'old', chapterCount: 12, aliases: ['dan', 'da', 'dn'] },
-  { order: 28, name: 'Hosea', testament: 'old', chapterCount: 14, aliases: ['hos', 'ho'] },
-  { order: 29, name: 'Joel', testament: 'old', chapterCount: 3, aliases: ['joe', 'jl'] },
+  { order: 28, name: 'Hosea', testament: 'old', chapterCount: 14, aliases: ['hos', 'ho', 'osée'] },
+  { order: 29, name: 'Joel', testament: 'old', chapterCount: 3, aliases: ['joe', 'jl', 'joël'] },
   { order: 30, name: 'Amos', testament: 'old', chapterCount: 9, aliases: ['amo', 'am'] },
-  { order: 31, name: 'Obadiah', testament: 'old', chapterCount: 1, aliases: ['obad', 'ob'] },
-  { order: 32, name: 'Jonah', testament: 'old', chapterCount: 4, aliases: ['jon', 'jnh'] },
-  { order: 33, name: 'Micah', testament: 'old', chapterCount: 7, aliases: ['mic', 'mc'] },
+  { order: 31, name: 'Obadiah', testament: 'old', chapterCount: 1, aliases: ['obad', 'ob', 'abdias'] },
+  { order: 32, name: 'Jonah', testament: 'old', chapterCount: 4, aliases: ['jon', 'jnh', 'jonas'] },
+  { order: 33, name: 'Micah', testament: 'old', chapterCount: 7, aliases: ['mic', 'mc', 'michée'] },
   { order: 34, name: 'Nahum', testament: 'old', chapterCount: 3, aliases: ['nah', 'na'] },
-  { order: 35, name: 'Habakkuk', testament: 'old', chapterCount: 3, aliases: ['hab', 'hb', 'hk'] },
-  { order: 36, name: 'Zephaniah', testament: 'old', chapterCount: 3, aliases: ['zeph', 'zep', 'zp'] },
-  { order: 37, name: 'Haggai', testament: 'old', chapterCount: 2, aliases: ['hag', 'hg'] },
-  { order: 38, name: 'Zechariah', testament: 'old', chapterCount: 14, aliases: ['zech', 'zec', 'zc'] },
-  { order: 39, name: 'Malachi', testament: 'old', chapterCount: 4, aliases: ['mal', 'ml'] },
-  { order: 40, name: 'Matthew', testament: 'new', chapterCount: 28, aliases: ['matt', 'mt', 'mat'] },
-  { order: 41, name: 'Mark', testament: 'new', chapterCount: 16, aliases: ['mk', 'mrk', 'mar'] },
-  { order: 42, name: 'Luke', testament: 'new', chapterCount: 24, aliases: ['lk', 'luk'] },
-  { order: 43, name: 'John', testament: 'new', chapterCount: 21, aliases: ['jn', 'jhn', 'joh'] },
-  { order: 44, name: 'Acts', testament: 'new', chapterCount: 28, aliases: ['ac', 'act'] },
-  { order: 45, name: 'Romans', testament: 'new', chapterCount: 16, aliases: ['rom', 'ro', 'rm'] },
-  { order: 46, name: '1 Corinthians', testament: 'new', chapterCount: 16, aliases: ['1 cor', '1cor', '1 co', '1co', 'i corinthians'] },
-  { order: 47, name: '2 Corinthians', testament: 'new', chapterCount: 13, aliases: ['2 cor', '2cor', '2 co', '2co', 'ii corinthians'] },
-  { order: 48, name: 'Galatians', testament: 'new', chapterCount: 6, aliases: ['gal', 'ga'] },
-  { order: 49, name: 'Ephesians', testament: 'new', chapterCount: 6, aliases: ['eph', 'ephes'] },
-  { order: 50, name: 'Philippians', testament: 'new', chapterCount: 4, aliases: ['phil', 'php', 'pp'] },
-  { order: 51, name: 'Colossians', testament: 'new', chapterCount: 4, aliases: ['col', 'co'] },
-  { order: 52, name: '1 Thessalonians', testament: 'new', chapterCount: 5, aliases: ['1 thess', '1thess', '1 th', '1th', '1 thes'] },
-  { order: 53, name: '2 Thessalonians', testament: 'new', chapterCount: 3, aliases: ['2 thess', '2thess', '2 th', '2th', '2 thes'] },
-  { order: 54, name: '1 Timothy', testament: 'new', chapterCount: 6, aliases: ['1 tim', '1tim', '1 ti', '1ti'] },
-  { order: 55, name: '2 Timothy', testament: 'new', chapterCount: 4, aliases: ['2 tim', '2tim', '2 ti', '2ti'] },
-  { order: 56, name: 'Titus', testament: 'new', chapterCount: 3, aliases: ['tit', 'ti'] },
-  { order: 57, name: 'Philemon', testament: 'new', chapterCount: 1, aliases: ['philem', 'phlm', 'phm', 'pm'] },
-  { order: 58, name: 'Hebrews', testament: 'new', chapterCount: 13, aliases: ['heb', 'hebr'] },
-  { order: 59, name: 'James', testament: 'new', chapterCount: 5, aliases: ['jas', 'jm'] },
-  { order: 60, name: '1 Peter', testament: 'new', chapterCount: 5, aliases: ['1 pet', '1pet', '1 pe', '1pe', '1 pt'] },
-  { order: 61, name: '2 Peter', testament: 'new', chapterCount: 3, aliases: ['2 pet', '2pet', '2 pe', '2pe', '2 pt'] },
-  { order: 62, name: '1 John', testament: 'new', chapterCount: 5, aliases: ['1 jn', '1jn', '1 jo', '1jo', 'i john'] },
-  { order: 63, name: '2 John', testament: 'new', chapterCount: 1, aliases: ['2 jn', '2jn', '2 jo', '2jo', 'ii john'] },
-  { order: 64, name: '3 John', testament: 'new', chapterCount: 1, aliases: ['3 jn', '3jn', '3 jo', '3jo', 'iii john'] },
+  { order: 35, name: 'Habakkuk', testament: 'old', chapterCount: 3, aliases: ['hab', 'hb', 'hk', 'habacuc'] },
+  { order: 36, name: 'Zephaniah', testament: 'old', chapterCount: 3, aliases: ['zeph', 'zep', 'zp', 'sophonie'] },
+  { order: 37, name: 'Haggai', testament: 'old', chapterCount: 2, aliases: ['hag', 'hg', 'aggée'] },
+  { order: 38, name: 'Zechariah', testament: 'old', chapterCount: 14, aliases: ['zech', 'zec', 'zc', 'zacharie'] },
+  { order: 39, name: 'Malachi', testament: 'old', chapterCount: 4, aliases: ['mal', 'ml', 'malachie'] },
+  { order: 40, name: 'Matthew', testament: 'new', chapterCount: 28, aliases: ['matt', 'mt', 'mat', 'matthieu'] },
+  { order: 41, name: 'Mark', testament: 'new', chapterCount: 16, aliases: ['mk', 'mrk', 'mar', 'marc'] },
+  { order: 42, name: 'Luke', testament: 'new', chapterCount: 24, aliases: ['lk', 'luk', 'luc'] },
+  { order: 43, name: 'John', testament: 'new', chapterCount: 21, aliases: ['jn', 'jhn', 'joh', 'jean'] },
+  { order: 44, name: 'Acts', testament: 'new', chapterCount: 28, aliases: ['ac', 'act', 'actes des apôtres', 'actes'] },
+  { order: 45, name: 'Romans', testament: 'new', chapterCount: 16, aliases: ['rom', 'ro', 'rm', 'romains'] },
+  { order: 46, name: '1 Corinthians', testament: 'new', chapterCount: 16, aliases: ['1 cor', '1cor', '1 co', '1co', 'i corinthians', '1 corinthiens'] },
+  { order: 47, name: '2 Corinthians', testament: 'new', chapterCount: 13, aliases: ['2 cor', '2cor', '2 co', '2co', 'ii corinthians', '2 corinthiens'] },
+  { order: 48, name: 'Galatians', testament: 'new', chapterCount: 6, aliases: ['gal', 'ga', 'galates'] },
+  { order: 49, name: 'Ephesians', testament: 'new', chapterCount: 6, aliases: ['eph', 'ephes', 'éphésiens'] },
+  { order: 50, name: 'Philippians', testament: 'new', chapterCount: 4, aliases: ['phil', 'php', 'pp', 'philippiens'] },
+  { order: 51, name: 'Colossians', testament: 'new', chapterCount: 4, aliases: ['col', 'co', 'colossiens'] },
+  { order: 52, name: '1 Thessalonians', testament: 'new', chapterCount: 5, aliases: ['1 thess', '1thess', '1 th', '1th', '1 thes', '1 thessaloniciens'] },
+  { order: 53, name: '2 Thessalonians', testament: 'new', chapterCount: 3, aliases: ['2 thess', '2thess', '2 th', '2th', '2 thes', '2 thessaloniciens'] },
+  { order: 54, name: '1 Timothy', testament: 'new', chapterCount: 6, aliases: ['1 tim', '1tim', '1 ti', '1ti', '1 timothée'] },
+  { order: 55, name: '2 Timothy', testament: 'new', chapterCount: 4, aliases: ['2 tim', '2tim', '2 ti', '2ti', '2 timothée'] },
+  { order: 56, name: 'Titus', testament: 'new', chapterCount: 3, aliases: ['tit', 'ti', 'tite'] },
+  { order: 57, name: 'Philemon', testament: 'new', chapterCount: 1, aliases: ['philem', 'phlm', 'phm', 'pm', 'philémon'] },
+  { order: 58, name: 'Hebrews', testament: 'new', chapterCount: 13, aliases: ['heb', 'hebr', 'hébreux'] },
+  { order: 59, name: 'James', testament: 'new', chapterCount: 5, aliases: ['jas', 'jm', 'jacques'] },
+  { order: 60, name: '1 Peter', testament: 'new', chapterCount: 5, aliases: ['1 pet', '1pet', '1 pe', '1pe', '1 pt', '1 pierre'] },
+  { order: 61, name: '2 Peter', testament: 'new', chapterCount: 3, aliases: ['2 pet', '2pet', '2 pe', '2pe', '2 pt', '2 pierre'] },
+  { order: 62, name: '1 John', testament: 'new', chapterCount: 5, aliases: ['1 jn', '1jn', '1 jo', '1jo', 'i john', '1 jean'] },
+  { order: 63, name: '2 John', testament: 'new', chapterCount: 1, aliases: ['2 jn', '2jn', '2 jo', '2jo', 'ii john', '2 jean'] },
+  { order: 64, name: '3 John', testament: 'new', chapterCount: 1, aliases: ['3 jn', '3jn', '3 jo', '3jo', 'iii john', '3 jean'] },
   { order: 65, name: 'Jude', testament: 'new', chapterCount: 1, aliases: ['jud', 'jd'] },
   { order: 66, name: 'Revelation', testament: 'new', chapterCount: 22, aliases: ['rev', 're', 'rv', 'apocalypse'] }
 ];
@@ -140,9 +140,26 @@ export function buildReference(book: string, chapter?: number, verseStart?: numb
   return ref;
 }
 
+/**
+ * Lowercase AND strip accents, so the French names are usable by someone typing
+ * on a keyboard that does not make them easy.
+ *
+ * `Genese` has to find `Genèse` and `Esaie` has to find `Ésaïe`. Requiring the
+ * accent would make the French aliases decorative — the operator who most needs
+ * them is typing quickly on whatever keyboard the desk has. Folding is applied
+ * to BOTH sides of every comparison, so it costs the English names nothing and
+ * quietly helps anyone typing them carelessly too.
+ */
+export function foldBookText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
 function scoreBook(book: BibleBookMeta, q: string): number {
-  const name = book.name.toLowerCase();
-  const aliases = book.aliases.map((alias) => alias.toLowerCase());
+  const name = foldBookText(book.name);
+  const aliases = book.aliases.map(foldBookText);
   if (name === q || aliases.includes(q)) return 100;
   if (name.startsWith(q)) return 70;
   if (aliases.some((alias) => alias.startsWith(q))) return 60;
@@ -153,7 +170,7 @@ function scoreBook(book: BibleBookMeta, q: string): number {
 
 /** Local, instant book suggestions for a partial reference. Never fetches. */
 export function suggestBibleBooks(query: string, limit = 6): BibleBookMeta[] {
-  const guess = splitReference(query).book.toLowerCase().trim();
+  const guess = foldBookText(splitReference(query).book).trim();
   if (!guess) return [];
   return BIBLE_BOOKS
     .map((book) => ({ book, score: scoreBook(book, guess) }))
@@ -165,14 +182,14 @@ export function suggestBibleBooks(query: string, limit = 6): BibleBookMeta[] {
 
 /** Resolve a book input to its canonical name, or null if ambiguous/unknown. */
 export function normalizeBibleBook(input: string): string | null {
-  const q = splitReference(input).book.toLowerCase().trim();
+  const q = foldBookText(splitReference(input).book).trim();
   if (!q) return null;
   const exact = BIBLE_BOOKS.find(
-    (book) => book.name.toLowerCase() === q || book.aliases.some((alias) => alias.toLowerCase() === q)
+    (book) => foldBookText(book.name) === q || book.aliases.some((alias) => foldBookText(alias) === q)
   );
   if (exact) return exact.name;
   const starts = BIBLE_BOOKS.filter(
-    (book) => book.name.toLowerCase().startsWith(q) || book.aliases.some((alias) => alias.toLowerCase().startsWith(q))
+    (book) => foldBookText(book.name).startsWith(q) || book.aliases.some((alias) => foldBookText(alias).startsWith(q))
   );
   return starts.length === 1 ? starts[0].name : null;
 }
