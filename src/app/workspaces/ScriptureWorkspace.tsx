@@ -82,6 +82,28 @@ export default function ScriptureWorkspace() {
     });
   };
 
+  /**
+   * The SECOND half of the card — the dual screen's lower well.
+   *
+   * It writes only the `*B` fields, so it never disturbs what is already
+   * staged: the operator sets English, switches translation, looks the same
+   * reference up again and sets it as the second. It also does NOT switch the
+   * template or reseed the draft, because by the time this is pressed the card
+   * being built is already a scripture card and reseeding would discard the
+   * primary passage this is meant to accompany.
+   */
+  const acceptSecond = (result: ScriptureLookupResult, translationId: string) => {
+    setFields({
+      referenceB: result.reference,
+      verseTextB: result.text,
+      translationLabelB: translationLabelFor(result)
+    });
+    rememberScripturePassage(result, translationId);
+    recordAccepted(
+      `${result.reference} is the second language on the card — it shows in the dual screen's lower well. The first passage is untouched.`
+    );
+  };
+
   const accept = (result: ScriptureLookupResult, translationId: string) => {
     applyPassage(result);
     // Recents record ACCEPTED passages, not every lookup — otherwise the four
@@ -216,6 +238,7 @@ export default function ScriptureWorkspace() {
             }
             onPassage={(passage, fromCache) => setScriptureDraft({ passage, fromCache })}
             onAccept={accept}
+            onAcceptSecond={acceptSecond}
             onQueue={queue}
             onAddToRundown={addToRundown}
             rundownActive={Boolean(activeRundownId)}

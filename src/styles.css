@@ -3883,6 +3883,14 @@ body.gfx-transparent {
  * matched this time, which is worth recording because the plate numbers in the
  * brief have not always.
  */
+/**
+ * TWO WELLS, so the root spans BOTH and each band is placed into one.
+ *
+ * It used to be the size of well A alone, which was right while only one verse
+ * existed. Well B sits at (700, 560) — 490px below A's top — so a root sized to
+ * A cannot reach it. The root now covers from A's top to B's bottom and the
+ * bands are positioned absolutely inside it.
+ */
 .gfx-scripture[data-variant='dual-well'] {
   /* Unset the base rule, which anchors scripture across the foot of the frame —
      inheriting either edge puts the verse over the camera column. */
@@ -3891,8 +3899,8 @@ body.gfx-transparent {
   top: 70px;
   bottom: auto;
   width: 1140px;
-  height: 450px;
-  display: flex;
+  height: 940px;
+  display: block;
   /* The plate's recess is the depth cue. A drop-shadow from a card sitting
      inside a drawn hole reads as a second floating layer. */
   filter: none;
@@ -3917,8 +3925,14 @@ body.gfx-transparent {
  * "reference above the verse, in the card" to be possible at all.
  */
 .gfx-scripture[data-variant='dual-well'] .scripture-band {
-  width: 100%;
-  height: 100%;
+  /* Well A. Absolute inside the root so the second band can take well B without
+     either pushing the other — the recesses are drawn at fixed positions and a
+     flow layout would let a long verse in A shove B off its hole. */
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1140px;
+  height: 450px;
   max-width: none;
   display: flex;
   flex-direction: column;
@@ -4020,6 +4034,11 @@ body.gfx-transparent {
   font-size: 18px;
   letter-spacing: 0.14em;
   color: rgba(232, 185, 60, 0.72);
+}
+
+/* Well B: 490px below well A's top — (700, 560) against (700, 70). */
+.gfx-scripture[data-variant='dual-well'] .scripture-band--second {
+  top: 490px;
 }
 
 /* --- scripture: house-wall ------------------------------------------------

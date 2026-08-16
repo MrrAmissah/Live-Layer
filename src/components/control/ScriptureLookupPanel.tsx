@@ -31,6 +31,12 @@ interface Props {
   onTranslationChange: (translationId: string) => void;
   onPassage: (passage: ScriptureLookupResult | null, fromCache: boolean) => void;
   onAccept: (passage: ScriptureLookupResult, translationId: string) => void;
+  /**
+   * Put this passage in the SECOND half of the card — the dual screen's lower
+   * well. Optional, so a surface that has no use for it simply does not pass it
+   * and the button is not offered.
+   */
+  onAcceptSecond?: (passage: ScriptureLookupResult, translationId: string) => void;
   onQueue: (passage: ScriptureLookupResult, translationId: string) => void;
   onAddToRundown: (passage: ScriptureLookupResult, translationId: string) => void;
   rundownActive: boolean;
@@ -77,6 +83,7 @@ export default function ScriptureLookupPanel({
   onTranslationChange,
   onPassage,
   onAccept,
+  onAcceptSecond,
   onQueue,
   onAddToRundown,
   rundownActive,
@@ -608,6 +615,26 @@ export default function ScriptureLookupPanel({
             >
               Set as current graphic
             </button>
+            {/**
+              * The second language, for the dual screen.
+              *
+              * Offered beside the primary rather than behind a mode, because
+              * the sequence is the natural one: look up the passage in English
+              * and set it, switch translation, look it up again and set it as
+              * the second. Two presses of two clearly different buttons, and
+              * nothing about the first is undone by the second.
+              */}
+            {onAcceptSecond ? (
+              <button
+                type="button"
+                className="btn btn--secondary btn--md"
+                disabled={stagingDisabled}
+                onClick={() => passage && onAcceptSecond(passage, translationId)}
+                title="Fills the lower well of the dual split screen"
+              >
+                Set as second language
+              </button>
+            ) : null}
             <button
               type="button"
               className="btn btn--secondary btn--md"

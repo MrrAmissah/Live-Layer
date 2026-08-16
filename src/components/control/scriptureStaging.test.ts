@@ -268,10 +268,23 @@ describe('recents refresh on the action, not on the message', () => {
     expect(code).toMatch(/setRecents\(readScriptureRecents\(\)\);/);
     expect(code).toMatch(/useEffect\(\(\) => \{[\s\S]{0,160}?setRecents\(readScriptureRecents\(\)\);[\s\S]{0,160}?\}, \[recentsVersion\]\)/);
     expect(code).not.toMatch(/\}, \[notice\]\)/);
-    // And the workspace must actually increment it on every accepted action.
+    /**
+     * And the workspace must increment it on EVERY staging verb.
+     *
+     * Named rather than counted. This asserted `=== 3` and failed the moment a
+     * fourth verb arrived — which told me a number had changed, not whether the
+     * new verb records. Listing them says what the rule is: every path that
+     * stages a passage refreshes the recents.
+     */
     const ws = stripComments(workspace);
     expect(ws).toContain('setAcceptedCount((count) => count + 1)');
-    expect(ws.match(/recordAccepted\(/g)?.length).toBe(3);
+    for (const verb of ['const accept =', 'const acceptSecond =', 'const queue =', 'const addToRundown =']) {
+      const at = ws.indexOf(verb);
+      expect(at, verb).toBeGreaterThan(-1);
+      // The body of each ends before the next top-level `const … =` declaration.
+      const body = ws.slice(at, at + 1400);
+      expect(body, verb).toContain('recordAccepted(');
+    }
   });
 });
 

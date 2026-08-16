@@ -62,6 +62,21 @@ const CASES = {
         'Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up, doth not behave itself unseemly, seeketh not her own, is not easily provoked, thinketh no evil; rejoiceth not in iniquity, but rejoiceth in the truth.',
       translationLabel: 'KJV',
       themeTitle: 'God Our Help in Ages Past'
+    },
+    /**
+     * The dual screen's real case: one passage, two languages. Both halves are
+     * filled, because the failure worth photographing is the two cards
+     * disagreeing in size or drifting off their recesses.
+     */
+    dual: {
+      reference: 'John 3:16',
+      verseText:
+        'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.',
+      translationLabel: 'KJV',
+      referenceB: 'Jean 3:16',
+      verseTextB:
+        'Car Dieu a tant aimé le monde qu’il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu’il ait la vie éternelle.',
+      translationLabelB: 'LSG'
     }
   },
   'preacher-lower-third': {

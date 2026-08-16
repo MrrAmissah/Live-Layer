@@ -274,6 +274,26 @@ export const templateRegistry: TemplateDefinition[] = [
       { id: 'reference', label: 'Reference', type: 'text', placeholder: 'John 3:16' },
       { id: 'verseText', label: 'Verse text', type: 'textarea', placeholder: 'Type or paste scripture text', rows: 4 },
       { id: 'translationLabel', label: 'Translation label', type: 'text', placeholder: 'ESV, NIV, MSG, etc.' },
+      /**
+       * The SECOND passage — optional, and only drawn by `dual-well`.
+       *
+       * Fields on the existing card rather than a new template, and that is a
+       * deliberate departure from the brief's "two passages is a new template".
+       * A new template id would be REFUSED by `screenRenders` on every scoped
+       * screen, which is written against `SCRIPTURE_TEMPLATE_ID` — so it would
+       * have needed the scope rule widened, its own readiness rules, its own
+       * preview and its own place in the picker, and it would leave the
+       * operator choosing between two scripture templates that look identical
+       * until they reach the dual scene.
+       *
+       * Optional fields cost none of that. One template, one Take, one lookup
+       * flow, and every other variant simply ignores them — a card with a
+       * second language set still renders exactly as before on main, house and
+       * the tall split.
+       */
+      { id: 'referenceB', label: 'Second reference', type: 'text', placeholder: 'For the dual screen — e.g. Jean 3:16', optional: true },
+      { id: 'verseTextB', label: 'Second verse', type: 'textarea', placeholder: 'The same passage in another language', rows: 3, optional: true },
+      { id: 'translationLabelB', label: 'Second translation label', type: 'text', placeholder: 'LSG, TWI, EWE…', optional: true },
       { id: 'themeTitle', label: 'Optional theme title', type: 'text', placeholder: 'Theme title', optional: true }
     ],
     defaultValues: {

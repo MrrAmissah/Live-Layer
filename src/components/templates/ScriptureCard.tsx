@@ -116,6 +116,20 @@ export default function ScriptureCard({ values }: Props) {
     );
   }
 
+  /**
+   * The second passage, drawn only by `dual-well`.
+   *
+   * Gated on the VARIANT as well as on the text: these fields ride on every
+   * scripture card, so without the variant check a card filled in for the dual
+   * screen would grow a second band on main, on the house wall and on the tall
+   * split — the same graphic quietly meaning something different per screen,
+   * which is the failure the screen scoping exists to prevent.
+   */
+  const referenceB = values.referenceB?.trim() ?? '';
+  const verseTextB = values.verseTextB?.trim() ?? '';
+  const translationLabelB = values.translationLabelB?.trim() || '';
+  const showsSecond = variantId === 'dual-well' && Boolean(verseTextB);
+
   return (
     <div className="gfx-scripture" data-variant={variantId} style={templateColorStyle(values)}>
       <div className="scripture-band">
@@ -142,6 +156,35 @@ export default function ScriptureCard({ values }: Props) {
           {translationLabel ? <span className="scripture-translation">{translationLabel}</span> : null}
         </Plate>
       </div>
+      {showsSecond ? (
+        /**
+         * A second band, same structure as the first, so every escaping and
+         * sizing rule that applies to one applies to the other — React escapes
+         * these text children exactly as it does the primary's, which is what
+         * `scriptureCardSafety.test.ts` is holding.
+         */
+        <div className="scripture-band scripture-band--second">
+          <Plate fill="ink" className="scripture-tab">
+            <span className="scripture-tab-body">
+              <span className="scripture-ref">{referenceB}</span>
+            </span>
+          </Plate>
+          <Plate fill="paper" className="scripture-plate">
+            <p className={`scripture-verse ${verseSizeClass(verseTextB)}`.trim()}>
+              {splitNumberedVerses(verseTextB).map((part, index) => (
+                <span key={index}>
+                  {part.n ? <span className="scripture-versenum">{part.n}</span> : null}
+                  {part.text}
+                  {index < splitNumberedVerses(verseTextB).length - 1 ? ' ' : ''}
+                </span>
+              ))}
+            </p>
+            {translationLabelB ? (
+              <span className="scripture-translation">{translationLabelB}</span>
+            ) : null}
+          </Plate>
+        </div>
+      ) : null}
     </div>
   );
 }
