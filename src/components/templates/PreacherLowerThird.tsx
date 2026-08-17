@@ -43,6 +43,9 @@ export const DEFAULT_VARIANT_ID = 'signature-medallion';
  */
 const MEDALLION_VARIANTS = new Set([
   'signature-medallion',
+  /* The seal at the left of the ministering band — see `headshot-band` in the
+     stylesheet, which switches it back on. */
+  'headshot-band',
   'clean-broadcast',
   'split-bar',
   'event-style',

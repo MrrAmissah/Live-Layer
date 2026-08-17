@@ -132,6 +132,26 @@ const L3_VARIANTS: Record<string, TemplateVariant> = {
     palette: { colorBrand: '#2338dd', colorAccent: '#E8B93C', colorSurface: '#0a1130', colorText: '#ffffff', colorSecondary: '#9db1ff' }
   },
   /**
+   * From Prince's own "LOWER-THIRD DESIGNS" sheet — the ministering band.
+   *
+   * The one design in `reference-samples` that is HIS rather than collected
+   * inspiration, and the only shape in the set built around a HEADSHOT: a
+   * circular logo seal at the left, a teal plate carrying the identity, an
+   * angled role strip stepped in beneath it, and the speaker's photo at the
+   * right on a wedge of accent colour.
+   *
+   * Preacher only. The headshot and the "now ministering" strip are a
+   * speaker's furniture, and six variants are already shared with the performer
+   * template — adding a seventh shared one widens every future change to that
+   * template as well, for a design that was drawn for preachers.
+   */
+  'headshot-band': {
+    id: 'headshot-band',
+    name: 'Ministering Band',
+    description: 'Teal band with a logo seal, an angled role strip and the speaker’s photo at the right.',
+    palette: { colorBrand: '#0e9f8f', colorAccent: '#f7cf27', colorSurface: '#07564f', colorText: '#ffffff', colorSecondary: '#0b7d71' }
+  },
+  /**
    * Type only — the plate lives in OBS, not here.
    *
    * The convention's lower-third BACKGROUND is now a Nine3 asset: an image
@@ -212,7 +232,8 @@ export const templateRegistry: TemplateDefinition[] = [
       'canva-celebration',
       'canva-ministry',
       'convention-strap',
-      'strap-type'
+      'strap-type',
+      'headshot-band'
     ),
     animation: { in: 'slide', out: 'slide' }
   },

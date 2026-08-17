@@ -7350,6 +7350,194 @@ body.gfx-transparent {
   font-size: 11px; font-weight: 600; color: var(--ll-muted-2);
 }
 
+/* --- ministering band: Prince's own lower-third design ----------------------
+ *
+ * Built from `reference-samples/1ooo.jpg`, the sheet headed "LOWER-THIRD
+ * DESIGNS" — the one design in that folder that is his rather than collected
+ * inspiration. Its shape, left to right: a circular logo seal, a teal plate
+ * carrying the name, an angled role strip stepped in beneath, and the speaker's
+ * photo at the right on a wedge of accent colour.
+ *
+ * ONE DEPARTURE FROM THE REFERENCE, and it is deliberate. The sheet sets the
+ * EVENT large ("CELEBRATE JESUS") and the minister's name small beneath the
+ * photo, which is right for a promo sheet advertising a series. On a live desk
+ * the name is what the operator types and what the congregation needs, and
+ * `name` is this template's `primaryField` — so the name takes the plate and
+ * the event rides the role strip beside the role. The geometry is the
+ * reference's; only the hierarchy is inverted, and it is one line to swap back.
+ */
+.gfx-l3[data-variant='headshot-band'] {
+  left: var(--gfx-safe-title-x);
+  right: auto;
+  bottom: calc(var(--gfx-safe-action-bottom) + 12px);
+  filter: drop-shadow(0 20px 40px rgba(3, 26, 24, 0.42));
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-stack {
+  width: fit-content;
+  /* Wide enough that the photo at the right never crowds the name; capped by
+     the shared title-safe maximum so a long name ellipsises rather than runs
+     under the headshot. */
+  min-width: 1180px;
+  max-width: var(--gfx-l3-max-width);
+  padding-right: 300px;
+}
+
+/* The plate: teal, square-cut at the right where the photo wedge begins. */
+.gfx-l3[data-variant='headshot-band'] .l3-name-plate {
+  box-sizing: border-box;
+  min-width: 900px;
+  height: 118px;
+  padding: 0 72px 0 168px;
+  background: linear-gradient(96deg, var(--gfx-premium-brand) 0%, color-mix(in srgb, var(--gfx-premium-brand) 74%, #043c37) 100%) !important;
+  border-radius: 14px 0 0 14px;
+  clip-path: none !important;
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-name {
+  color: #ffffff;
+  font-size: 46px;
+  letter-spacing: 0.005em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+/**
+ * THE STEP-DOWN, and I made this exact mistake once already on `strap-type`.
+ *
+ * A single `font-size` on `.l3-name` at this specificity overrides
+ * `l3-name-md/sm/xs` entirely, so "REV. DR. EMMANUEL KWABENA OWUSU-ANSAH"
+ * rendered at full size, overflowed the mask and was HARD CUT mid-word —
+ * "OWUSU-ANS" — with no ellipsis, which reads as a rendering fault rather than
+ * a long name. It is the failure this repo has fought across ten variants, and
+ * a flat size reintroduces it every time.
+ */
+.gfx-l3[data-variant='headshot-band'] .l3-name.l3-name-md { font-size: 41px; }
+.gfx-l3[data-variant='headshot-band'] .l3-name.l3-name-sm { font-size: 36px; }
+.gfx-l3[data-variant='headshot-band'] .l3-name.l3-name-xs { font-size: 31px; }
+
+/**
+ * And the role line needs a stop of its own.
+ *
+ * The role plate is content-sized here, so a full role plus a full event name
+ * grew past the stack and was sheared by the mask. The cap is the plate's inner
+ * width at the stack's maximum, so the existing ellipsis shortens the line
+ * instead of the mask cutting it.
+ */
+.gfx-l3[data-variant='headshot-band'] .l3-role-line { max-width: 1090px; }
+
+/**
+ * The role strip, STEPPED IN from the left and cut on the diagonal — the
+ * reference's "NOW MINISTERING" bar. It carries the role and the event, which
+ * is where the identity went when the name took the plate.
+ */
+.gfx-l3[data-variant='headshot-band'] .l3-role-plate {
+  box-sizing: border-box;
+  height: 52px;
+  margin-left: 96px;
+  padding: 0 66px 0 48px;
+  background: color-mix(in srgb, var(--gfx-premium-brand) 52%, #032a26) !important;
+  border-radius: 0 0 0 12px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%) !important;
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-role,
+.gfx-l3[data-variant='headshot-band'] .l3-org {
+  color: #ffffff;
+  font-size: 21px;
+  letter-spacing: 0.09em;
+  text-shadow: none;
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-role-divider {
+  width: 3px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--gfx-premium-accent);
+  transform: none;
+}
+
+/* The seal, overlapping the plate's left edge as it does in the sheet. */
+.gfx-l3[data-variant='headshot-band'] .l3-underbar,
+.gfx-l3[data-variant='headshot-band'] .l3-cap,
+.gfx-l3[data-variant='headshot-band'] .l3-symbol-block {
+  /* The sheet has no underbar, cap or symbol block — the plate, the strip, the
+     seal and the photo are the whole design. */
+  display: none !important;
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-stripe {
+  left: -18px;
+  top: -14px;
+  width: 146px !important;
+  height: 146px !important;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--gfx-premium-brand) 62%, #17d3bd) 0 46%, var(--gfx-premium-brand) 47% 100%) !important;
+  box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.92), 0 14px 26px rgba(0, 0, 0, 0.24);
+  transform: none;
+  z-index: 7;
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-medallion {
+  display: block;
+  /* Concentric with the seal: the element is 150px square and scales about its
+     own centre, so left/top are centre − 75 whatever the scale. */
+  left: -20px;
+  top: -16px;
+  transform: scale(0.62);
+  transform-origin: center;
+  z-index: 9;
+  --gfx-accent-2: #ffffff;
+}
+
+/**
+ * THE ACCENT WEDGE behind the photo — the yellow chevrons in the sheet.
+ *
+ * Drawn on `.l3-end-slab`, which is display:none everywhere it is not wanted,
+ * so this needs no new element in a renderer shared with the performer template.
+ */
+.gfx-l3[data-variant='headshot-band'] .l3-end-slab {
+  display: block;
+  /* ABSOLUTE, explicitly. The base rule only sets `display: none` — every
+     variant that shows this slab positions it itself — so `display: block`
+     alone left it in flow and it fell below the band at the left. */
+  position: absolute;
+  right: 8px;
+  top: -34px;
+  width: 286px;
+  height: 186px;
+  background:
+    linear-gradient(118deg, transparent 0 34%, var(--gfx-premium-accent) 35% 52%, transparent 53%),
+    linear-gradient(118deg, transparent 0 58%, color-mix(in srgb, var(--gfx-premium-accent) 70%, #ffffff) 59% 72%, transparent 73%);
+  border-radius: 0;
+  z-index: 3;
+}
+
+/**
+ * The photo. Every other variant hides it — the stylesheet's base rule shows a
+ * headshot only for `signature-medallion` — so this switches it back on and
+ * gives it the reference's upright frame at the band's right end.
+ */
+.gfx-l3[data-variant='headshot-band'] .l3-headshot {
+  display: block;
+  position: absolute;
+  right: 30px;
+  bottom: 0;
+  width: 236px;
+  height: 236px;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+  z-index: 6;
+}
+
+.gfx-l3[data-variant='headshot-band'] .l3-headshot__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Top-anchored: a portrait cropped from its centre cuts the forehead, and a
+     lower third is a face before it is anything else. */
+  object-position: 50% 12%;
+}
+
 /* --- strap type-only: the plate is in OBS, not here -------------------------
  *
  * The convention's lower-third background is a Nine3 image source sitting UNDER

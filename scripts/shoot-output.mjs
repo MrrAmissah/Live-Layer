@@ -113,7 +113,20 @@ const CASES = {
      * underbar and badge centring is measured against a two-row stack; this is
      * the case that shows what happens when the second row is gone.
      */
-    nameonly: { name: 'Ps. Ato Mensah', title: '', subtitle: '' }
+    nameonly: { name: 'Ps. Ato Mensah', title: '', subtitle: '' },
+    /**
+     * WITH A HEADSHOT. `headshot-band` is built around the photo, and a case
+     * without one photographs an empty frame — which is how the first shot of
+     * it looked correct while the picture had nowhere to go.
+     * `headshotResolvedSrc` is the pre-resolved path the renderer prefers, so
+     * this needs no asset in IndexedDB.
+     */
+    photo: {
+      name: 'Ps. Ato Mensah',
+      title: 'Now Ministering',
+      subtitle: 'PPC 2026',
+      headshotResolvedSrc: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc0MDAnIGhlaWdodD0nNDAwJz48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9J2cnIHgxPScwJyB5MT0nMCcgeDI9JzAnIHkyPScxJz48c3RvcCBvZmZzZXQ9JzAnIHN0b3AtY29sb3I9JyM4ZmEzYmYnLz48c3RvcCBvZmZzZXQ9JzEnIHN0b3AtY29sb3I9JyM0YTViNzMnLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0nNDAwJyBoZWlnaHQ9JzQwMCcgZmlsbD0ndXJsKCNnKScvPjxjaXJjbGUgY3g9JzIwMCcgY3k9JzE1MCcgcj0nNzYnIGZpbGw9JyNkZmU2ZjAnLz48cGF0aCBkPSdNNjAgNDAwYzAtODQgNjMtMTQwIDE0MC0xNDBzMTQwIDU2IDE0MCAxNDB6JyBmaWxsPScjZGZlNmYwJy8+PC9zdmc+'
+    }
   },
   'performer-lower-third': {
     short: { name: 'The Promised Land Choir', title: 'Ministration', subtitle: 'PPC 2026' },

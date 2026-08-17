@@ -35,17 +35,26 @@ describe('the variant exists and is additive', () => {
      * The brief is explicit that this is additive. A variant list that LOST one
      * while gaining another would strand every saved graphic and rundown item
      * carrying the missing id.
+     *
+     * The ORIGINALS are named and the list is only required to have grown. This
+     * asserted an exact length of 14 and failed the moment a fifteenth variant
+     * was added — telling me a number had changed rather than whether anything
+     * was lost, which is the only thing this test is for.
      */
     const preacher = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
     const ids = preacher.variants!.map((v) => v.id);
-    for (const existing of [
+    const originals = [
       'modern-minimal', 'soft-broadcast', 'angled-accent', 'signature-medallion',
       'clean-broadcast', 'bold-plate', 'split-bar', 'event-style', 'subtle-elegance',
       'canva-host-bar', 'canva-celebration', 'canva-ministry', 'convention-strap'
-    ]) {
+    ];
+    for (const existing of originals) {
       expect(ids, existing).toContain(existing);
     }
-    expect(ids).toHaveLength(14);
+    expect(ids).toContain('strap-type');
+    expect(ids.length).toBeGreaterThan(originals.length);
+    // No duplicates: two entries with one id is a picker that shows a look twice.
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('is not offered on the performer lower third', () => {
