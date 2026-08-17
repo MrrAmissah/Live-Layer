@@ -110,8 +110,17 @@ export interface ProgramStatusWords {
   tone: ProgramStatusTone;
 }
 
+/**
+ * How long SENT stays a reasonable thing to say.
+ *
+ * An acknowledgement is sub-second on the same machine and barely more over the
+ * LAN relay, so anything past this is not "in flight" — it is a Take nothing
+ * answered. Generous enough that a busy encoder cannot make the desk flicker.
+ */
+export const AWAITING_OUTPUT_GRACE_MS = 10_000;
+
 export function describeProgramStatus(
-  program: Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure'>,
+  program: Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure' | 'takenAt'>,
   output: OutputStatusState | null = null,
   now: number = Date.now()
 ): ProgramStatusWords {
@@ -123,7 +132,31 @@ export function describeProgramStatus(
         return { pill: 'FAILED', phrase: 'Output couldn’t render it' , tone: TONE_BY_PILL['FAILED'] };
       }
       if (program.confirmation !== 'confirmed') {
-        // No acknowledgement yet — the honest default, exactly as before.
+        /**
+         * "AWAITING OUTPUT" HAS TO STOP BEING TRUE EVENTUALLY.
+         *
+         * This said SENT / "Awaiting output" for as long as nothing answered —
+         * which meant forever, in blue, on a desk where blue reads as fine. An
+         * operator cannot tell an acknowledgement still in flight from one that
+         * is never coming, and the difference is the whole question.
+         *
+         * It is never coming more often than you would think. obs-browser
+         * SUSPENDS a browser source whose video is not being rendered — no
+         * stream, no recording, no preview — and a suspended page cannot POST.
+         * Every source then sends one status as it loads and goes silent, the
+         * Take is applied on screen, and nothing acknowledges it. That is a real
+         * afternoon lost on this rig, and the desk's own words sent the search
+         * in the wrong direction.
+         *
+         * UNVERIFIED rather than a new pill: the vocabulary already has a word
+         * for "we knew something once and cannot verify it now", and it is
+         * already gold — the tone that means the operator has something to go
+         * and look at. No new claim, just an honest one after the grace period.
+         */
+        const waited = program.takenAt === null ? 0 : now - program.takenAt;
+        if (waited > AWAITING_OUTPUT_GRACE_MS) {
+          return { pill: 'UNVERIFIED', phrase: 'Not confirmed', tone: TONE_BY_PILL['UNVERIFIED'] };
+        }
         return { pill: 'SENT', phrase: 'Awaiting output' , tone: TONE_BY_PILL['SENT'] };
       }
       // Confirmed claims survive only while the output heartbeat is fresh.

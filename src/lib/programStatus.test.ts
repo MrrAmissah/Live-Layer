@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { describeProgramStatus, type ProgramStatusWords } from './programStatus';
+import { AWAITING_OUTPUT_GRACE_MS, describeProgramStatus, type ProgramStatusWords } from './programStatus';
 import { OUTPUT_STALE_MS, outputPresence } from './outputPresence';
 import type { OutputStatusState, ProgramState } from '../types/program';
 
@@ -12,15 +12,70 @@ import type { OutputStatusState, ProgramState } from '../types/program';
 
 const NOW = 10_000_000;
 
-type Words = Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure'>;
+type Words = Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure' | 'takenAt'>;
 
+/**
+ * `takenAt: NOW` by default, so the existing cases read at the instant of the
+ * Take — which is what they were always describing. The grace period below is
+ * measured from it.
+ */
 function program(overrides: Partial<Words> = {}): Words {
-  return { status: 'showing', confirmation: 'unconfirmed', outputFailure: null, ...overrides };
+  return { status: 'showing', confirmation: 'unconfirmed', outputFailure: null, takenAt: NOW, ...overrides };
 }
 
 function output(overrides: Partial<OutputStatusState> = {}): OutputStatusState {
   return { outputId: 'out-1', sourceActive: null, sourceVisible: null, lastSeenAt: NOW, screen: null, hosted: null, failure: null, ...overrides };
 }
+
+describe('a Take nothing answered stops calling itself “awaiting”', () => {
+  it('says SENT inside the grace period, when an ack really could still arrive', () => {
+    expect(describeProgramStatus(program(), null, NOW + 2_000).pill).toBe('SENT');
+  });
+
+  it('turns to UNVERIFIED once nothing has answered for long enough', () => {
+    /**
+     * The desk said "Awaiting output", in blue, for as long as nothing
+     * answered — which is forever, and blue reads as fine. An operator cannot
+     * tell an ack in flight from one that is never coming.
+     *
+     * It is never coming more often than you would think: obs-browser suspends
+     * a browser source whose video is not being rendered — no stream, no
+     * recording, no preview — and a suspended page cannot POST. Every source
+     * sends one status as it loads, goes silent, applies nothing further, and
+     * the Take is never acknowledged. Confirmed on the rig with OBS reporting
+     * `videoShowing: false` for a source in the CURRENT PROGRAM SCENE.
+     */
+    const words = describeProgramStatus(program(), null, NOW + AWAITING_OUTPUT_GRACE_MS + 1);
+    expect(words.pill).toBe('UNVERIFIED');
+    expect(words.phrase).toBe('Not confirmed');
+    // Gold, because it is now something to go and look at.
+    expect(words.tone).toBe('attention');
+  });
+
+  it('a confirmed Take is never downgraded by the grace period', () => {
+    // The clock only speaks while nothing has answered. An acknowledged Take
+    // hours old still reads from the output's own evidence.
+    const words = describeProgramStatus(
+      program({ confirmation: 'confirmed' }),
+      output({ sourceActive: true, lastSeenAt: NOW + 3_600_000 }),
+      NOW + 3_600_000
+    );
+    expect(words.pill).toBe('OUTPUT ACTIVE');
+  });
+
+  it('never claims more than SENT did — it only stops claiming less urgency', () => {
+    // Both are honest about the same evidence (none). This is a change of
+    // TONE, not of claim: neither says the graphic is on air.
+    const early = describeProgramStatus(program(), null, NOW);
+    const late = describeProgramStatus(program(), null, NOW + 60_000);
+    expect(early.tone).toBe('pending');
+    expect(late.tone).toBe('attention');
+    for (const words of [early, late]) {
+      expect(words.pill).not.toBe('OUTPUT ACTIVE');
+      expect(words.pill).not.toBe('OUTPUT READY');
+    }
+  });
+});
 
 describe('the decision table', () => {
   it('SENT / Awaiting output while nothing has answered', () => {
