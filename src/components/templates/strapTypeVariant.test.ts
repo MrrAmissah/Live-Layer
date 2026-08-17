@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { templateRegistry } from './registry';
+import { graphicPacks, packVariantIdsFor } from '../../lib/packs';
 
 /**
  * TYPE ONLY — the plate lives in OBS, not here.
@@ -64,6 +65,60 @@ describe('the variant exists and is additive', () => {
     expect(performer.variants?.map((v) => v.id)).not.toContain('strap-type');
   });
 
+  it('is REACHABLE on the pack the convention actually runs on', () => {
+    /**
+     * THE FAULT THIS FILE MISSED, and the reason it is worth its own case.
+     *
+     * "Is offered on the preacher lower third" above passed the whole time,
+     * because it asks the REGISTRY. The operator does not see the registry: a
+     * pack's `variantChoices` REPLACES the picker's list rather than leading it,
+     * and this variant was in no pack at all. So on PPC '26 — the pack this
+     * convention runs on — the one look drawn for the convention's own strap
+     * artwork was absent from the carousel AND from "Browse all variants",
+     * which browses the same curated list. It read as never having been built.
+     *
+     * Asserted through `packVariantIdsFor`, the function the picker calls, so
+     * this cannot pass while the picker disagrees.
+     */
+    expect(packVariantIdsFor('ppc-2026', 'preacher-lower-third')).toContain('strap-type');
+  });
+
+  it('leaves every pack’s curated list pointing at variants that exist', () => {
+    /**
+     * A curated id with no registry entry is dropped silently by the picker's
+     * `.map().filter(Boolean)` — so a typo here removes a look from the pack and
+     * nothing anywhere says so. General because the trap is general, not
+     * specific to this variant.
+     */
+    const known = new Map(templateRegistry.map((template) => [template.id, new Set(template.variants?.map((v) => v.id) ?? [])]));
+    const dangling: string[] = [];
+    for (const pack of graphicPacks) {
+      for (const [templateId, ids] of Object.entries(pack.variantChoices ?? {})) {
+        for (const id of ids) {
+          if (!known.get(templateId)?.has(id)) dangling.push(`${pack.id}/${templateId}/${id}`);
+        }
+      }
+    }
+    expect(dangling).toEqual([]);
+  });
+
+  it('is told apart from the strap that paints its own plate', () => {
+    /**
+     * The two sit side by side in the convention pack and the choice between
+     * them is the whole question — one expects the Nine3 image underneath, the
+     * other draws a plate and would stack a card inside a card on top of it.
+     * Two entries both reading "strap" with nothing separating them is how an
+     * operator picks the wrong one under pressure.
+     */
+    const preacher = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
+    const typeOnly = preacher.variants!.find((v) => v.id === 'strap-type')!;
+    const painted = preacher.variants!.find((v) => v.id === 'convention-strap')!;
+    expect(typeOnly.name).not.toBe(painted.name);
+    // The operator searches for the ARTWORK's name, which is what Nine3 calls it.
+    expect(`${typeOnly.name} ${typeOnly.description}`.toLowerCase()).toContain('theme strap');
+    expect(painted.description.toLowerCase()).toContain('own plate');
+  });
+
   it('says in its own description that it needs the strap underneath', () => {
     // It is only correct with that image source present, so the picker says so
     // rather than offering it as a general-purpose look.
@@ -84,10 +139,21 @@ describe('it paints nothing', () => {
      */
     for (const furniture of [
       'l3-underbar', 'l3-symbol-block', 'l3-stripe', 'l3-cap',
-      'l3-end-slab', 'l3-medallion', 'l3-role-divider', 'l3-strap-logo'
+      'l3-end-slab', 'l3-medallion', 'l3-strap-logo'
     ]) {
       expect(block, furniture).toContain(`.gfx-l3[data-variant='strap-type'] .${furniture}`);
     }
+  });
+
+  it('keeps the ◆ between role and church, because the artwork has one', () => {
+    /**
+     * It was hidden with the furniture, which was consistent and wrong: the
+     * strap's own demo render reads "LEAD PASTOR ◆ ANNUAL PPC '26". A separator
+     * drawn INTO the design is not a plate this variant would be duplicating,
+     * and without it the two halves of the role row run together.
+     */
+    expect(block).toContain(".gfx-l3[data-variant='strap-type'] .l3-role-divider");
+    expect(rules).not.toMatch(/l3-role-divider[^{]*\{[^}]*display: none/);
   });
 
   it('makes both plates transparent rather than merely small', () => {
@@ -113,14 +179,58 @@ describe('it is pinned to the artwork, not to the safe area', () => {
     expect(block).toContain("data-position='full'");
   });
 
-  it('caps at the WIDEST strap’s zone, measured from the artwork', () => {
+  it('caps the name at the WIDEST zone the artwork offers', () => {
     /**
-     * 1578, not the brief's 1674 — that number belongs to a single-width strap
-     * that was never built. Three PNGs exist (compact, standard, wide) and the
-     * operator swaps between them, so the cap has to be the widest of the three
-     * or a long name runs off the end of the artwork onto the camera.
+     * 1618 = the wide plate's 1728 minus the 110 of padding the scene's own
+     * `fitSize` call subtracts. Earlier this was 1578, which came from measuring
+     * to the plate's right EDGE and ignoring that the artwork keeps 56px of
+     * inset there — 40px adrift, in the safe direction, but not the contract.
      */
-    expect(block).toContain('max-width: 1578px');
+    expect(block).toContain('max-width: 1618px');
+  });
+
+  it('caps the role row at the NARROWEST zone, so it cannot leave any plate', () => {
+    /**
+     * The bug that put type on open video. Capped with the name at the wide
+     * zone, the role row — role + church + event on one line — measured 1562px,
+     * sat happily inside that cap, and ran clean past the end of the standard
+     * plate.
+     *
+     * Two caps, because the two rows are chosen by different things: the
+     * operator picks the plate to suit the NAME, so the name may use the widest
+     * zone. Nothing about the role row enters that decision, so it gets the
+     * narrowest and ellipsises instead.
+     */
+    expect(block).toMatch(/l3-role-line \{[^}]*max-width: 850px/);
+    expect(block).toMatch(/l3-role-mask \{[^}]*max-width: 850px/);
+  });
+
+  it('centres both rows on the artwork’s y values rather than sitting them on it', () => {
+    /**
+     * The scene draws both lines with `baseline: 'middle'` at
+     * `y + h*0.40` = 786 and `y + h*0.74` = 837. The brief calls those
+     * "baselines"; building to that literally would drop both lines by about
+     * half a cap-height inside a zone with 7px of air between them.
+     *
+     * 60 and 111 are those y values relative to the zone's own top of 726.
+     * Measured back off the page at 786 and 836.
+     */
+    expect(block).toMatch(/l3-mask:not\(\.l3-role-mask\) \{[^}]*top: 60px/);
+    expect(block).toMatch(/l3-role-mask \{[^}]*top: 111px/);
+    expect(block).toMatch(/translateY\(-50%\)/);
+  });
+
+  it('sets the role in white at 80%, tracked in pixels', () => {
+    /**
+     * `rgba(hexToRgb(C.paper), 0.80)` in the scene, and `paper` is `#FFFFFF` in
+     * `brand/theme.json`. It was gold here, which read as a convention accent
+     * and is not what the plate's own demo draws.
+     *
+     * Tracking is 3.4 CANVAS PIXELS at 26px. It was `0.05em`, which lands at
+     * 1.3px — a third of the design's.
+     */
+    expect(block).toMatch(/color: rgba\(255, 255, 255, 0\.8\)/);
+    expect(block).toMatch(/letter-spacing: 3\.4px/);
   });
 
   it('keeps the content-fitted step-down working', () => {

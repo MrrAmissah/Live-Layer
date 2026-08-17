@@ -53,8 +53,27 @@ export const graphicPacks: GraphicPack[] = [
     variantChoices: {
       /* A pack's curated list REPLACES the registry order, so reordering the
          registry alone left this one leading with the strap. The two that get
-         reached for lead here too. */
-      'preacher-lower-third': ['modern-minimal', 'soft-broadcast', 'convention-strap', 'split-bar'],
+         reached for lead here too.
+
+         `strap-type` HAS TO BE HERE, and its absence was a real fault: it was
+         added to the registry for this convention and to no pack, and because a
+         curated list replaces the picker rather than leading it, the one look
+         drawn for the convention's own theme-strap artwork was unreachable on
+         the convention's own pack — including behind "Browse all variants",
+         which browses this same list. Reported from the desk as simply not
+         being there.
+
+         It sits beside `convention-strap` on purpose: they are the two strap
+         looks and choosing between them is the whole question. That one paints
+         its own plate; this one paints none and expects the Nine3 image source
+         underneath. */
+      'preacher-lower-third': [
+        'modern-minimal',
+        'soft-broadcast',
+        'convention-strap',
+        'strap-type',
+        'split-bar'
+      ],
       'performer-lower-third': ['performer-pill', 'performer-note', 'soft-broadcast', 'convention-strap'],
       /* Same trap as the lower thirds: reordering the registry alone would have
          left this pack still leading with the ticker.

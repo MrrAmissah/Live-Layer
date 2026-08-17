@@ -479,6 +479,52 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
      })()`
   );
 
+  /**
+   * `--measure` reads the type back off the page instead of judging it by eye.
+   *
+   * Added for the theme strap, where the contract is arithmetic: the plate is a
+   * PNG that cannot resize, three of them ship at different widths, and the
+   * question "does this name fit that plate" is a number against a number. A
+   * screenshot answers it for the one plate you happened to composite over; the
+   * rendered width answers it for all three at once.
+   *
+   * Reports the LEFT EDGE too, because a variant pinned to artwork can be
+   * correctly sized and still in the wrong place.
+   */
+  if (opt.measure) {
+    const read = await evaluate(
+      cdp,
+      sessionId,
+      `(() => {
+         /* Box from one element, type size from another: the role LINE is the
+            flex row that carries the width, but its own font-size is the
+            inherited 16px — reading size off it reported 16px for type set at
+            26px. Size comes from the text node that actually renders.
+            (No backticks in here: this whole block is a template literal, and
+            quoting a class name with one ends the string mid-comment.) */
+         const pick = (boxSel, typeSel) => {
+           const el = document.querySelector(boxSel);
+           if (!el) return null;
+           const type = document.querySelector(typeSel || boxSel) || el;
+           const r = el.getBoundingClientRect();
+           return { size: parseFloat(getComputedStyle(type).fontSize), left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), mid: Math.round(r.top + r.height / 2) };
+         };
+         return JSON.stringify({ name: pick('.l3-name'), role: pick('.l3-role-line', '.l3-role') });
+       })()`
+    );
+    const m = JSON.parse(read ?? '{}');
+    if (m.name) {
+      console.log(
+        `    name  ${String(m.name.size).padStart(4)}px  x ${m.name.left}–${m.name.right}  (w ${m.name.width})  mid-y ${m.name.mid}`
+      );
+    }
+    if (m.role) {
+      console.log(
+        `    role  ${String(m.role.size).padStart(4)}px  x ${m.role.left}–${m.role.right}  (w ${m.role.width})  mid-y ${m.role.mid}`
+      );
+    }
+  }
+
   const shot = await cdp.send(
     'Page.captureScreenshot',
     { format: 'png', fromSurface: true, captureBeyondViewport: false },
@@ -495,6 +541,18 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
 const templateId = opt.template || opt['all-variants'] || 'scripture-card';
 const caseName = opt.case || 'short';
 const values = CASES[templateId]?.[caseName] ?? CASES[templateId]?.short ?? {};
+
+/**
+ * `--name` / `--title` / `--subtitle` override the case's copy.
+ *
+ * The strap's contract is "this name against that plate width", and the names
+ * that have to be checked are the ones on the programme, not the ones a fixture
+ * happens to carry. Adding them to CASES would freeze one convention's speakers
+ * into the harness.
+ */
+for (const key of ['name', 'title', 'subtitle', 'reference', 'headline']) {
+  if (typeof opt[key] === 'string') values[key] = opt[key];
+}
 
 const { child, userDataDir, wsUrl } = await launchChrome();
 const cdp = await CDP.connect(wsUrl);

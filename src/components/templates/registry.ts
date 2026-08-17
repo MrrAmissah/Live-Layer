@@ -116,7 +116,10 @@ const L3_VARIANTS: Record<string, TemplateVariant> = {
   'convention-strap': {
     id: 'convention-strap',
     name: 'Convention Strap',
-    description: 'Full-bleed royal gradient strap with the event logo anchored at the left.',
+    /* Says "paints its own" because it sits next to `strap-type` in the picker
+       and the difference between them is the entire choice. Stacked over the
+       Nine3 theme-strap image this one gives a card inside a card. */
+    description: 'Full-bleed royal gradient strap with the event logo at the left — paints its own plate.',
     palette: { ...PPC_PALETTE }
   },
   'performer-pill': {
@@ -170,8 +173,17 @@ const L3_VARIANTS: Record<string, TemplateVariant> = {
    */
   'strap-type': {
     id: 'strap-type',
-    name: 'Strap Type-Only',
-    description: 'Name and role with NO plate — for the Nine3 strap image sitting under this output in OBS.',
+    name: 'Theme Strap — Type Only',
+    /**
+     * Named for the ARTWORK, not for what it does here.
+     *
+     * It was "Strap Type-Only", which named the technique. The operator does
+     * not go looking for a technique — they go looking for the plate they
+     * designed and built, which is called `theme-strap` in Nine3, and searching
+     * the picker for "theme strap" found nothing at all. The id stays
+     * `strap-type` because saved graphics carry it.
+     */
+    description: 'Type only, NO plate — sits inside the Nine3 theme-strap image running under this output in OBS.',
     palette: { ...PPC_PALETTE }
   }
 };

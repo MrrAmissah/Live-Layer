@@ -7547,16 +7547,31 @@ body.gfx-transparent {
  *
  * This paints nothing at all. It places type in the strap's name zone and stops.
  *
- * THE ZONE IS ABSOLUTE, not the usual safe-area offsets. `x 150, y 726, h 150`
- * is a position in the strap artwork, so it is written as left/top from the
- * stage origin and must NOT follow `--gfx-safe-*`: those move with the layout's
- * safe-margin setting, and moving would slide the name off a background that
- * cannot move with it.
+ * THE ZONE IS ABSOLUTE, not the usual safe-area offsets. It is a position in
+ * the strap artwork, so it is written as left/top from the stage origin and
+ * must NOT follow `--gfx-safe-*`: those move with the layout's safe-margin
+ * setting, and moving would slide the name off a background that cannot move
+ * with it.
  *
- * No width is set. The strap comes in three PNGs — compact, standard, wide —
- * and the operator swaps the image to suit the speaker, so a width here would
- * be right for one of them and wrong for two. Content-fitted sizing already
- * handles the long names; the plate is no longer the constraint.
+ * ## The contract, read out of the artwork's own source
+ *
+ * `Nine3-Design-Hub/src/scenes/theme-strap.html` is the authority — not a
+ * description of it — and these numbers are copied from the code that draws
+ * the plate:
+ *
+ *     X (plate left)          96
+ *     text left edge          X + 54          = 150
+ *     name zone               y 726, h 150
+ *     name centre             y + h * 0.40    = 786    <- MIDDLE, not baseline
+ *     role centre             y + h * 0.74    = 837    <- MIDDLE, not baseline
+ *     name size               min(62, fit(plate width - 110))
+ *     role                    26px, tracking 3.4px, paper at 80%
+ *     available text width    plate width - 110  = 850 / 1190 / 1618
+ *
+ * BOTH LINES ARE CENTRED ON THOSE Y VALUES, not sat on them. The scene draws
+ * them with `baseline: 'middle'`; the brief calls 786 and 837 "baselines", and
+ * building to that literally would have dropped both lines by about half a
+ * cap-height inside a zone that has only 7px of air between them.
  */
 .gfx-l3[data-variant='strap-type'] {
   left: 150px;
@@ -7574,22 +7589,40 @@ body.gfx-transparent {
   transform: none;
 }
 
+/**
+ * The two rows are placed INDIVIDUALLY, because their centres are 51px apart in
+ * a 150px zone and a centred flex column cannot land both.
+ *
+ * `justify-content: center` with a gap put the pair in the middle of the box —
+ * which looks reasonable in isolation and is not where the plate expects them.
+ * Each row is now pinned to its own centre and nothing about the other can
+ * move it.
+ */
 .gfx-l3[data-variant='strap-type'] .l3-stack {
-  width: fit-content;
+  position: relative;
+  width: 1618px;
   min-width: 0;
-  /**
-   * The WIDEST strap's name zone, measured from the artwork that exists:
-   * `theme-strap-wide.png` gives 1578px from x=150. The brief's 1674 belongs to
-   * a single-width strap that was never built. Capping here means a name too
-   * long for even the wide strap ellipsises INSIDE the artwork rather than
-   * running off the end of it onto the camera.
-   */
-  max-width: 1578px;
+  max-width: 1618px;
   height: 150px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
+  display: block;
+  gap: 0;
+}
+
+/* Centre at y 786 — 60px down the 150px zone. `translateY(-50%)` centres the
+   row itself, so this holds at 62px and at the 44px the longest name steps to. */
+.gfx-l3[data-variant='strap-type'] .l3-mask:not(.l3-role-mask) {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+/* Centre at y 837 — 111px down. */
+.gfx-l3[data-variant='strap-type'] .l3-role-mask {
+  position: absolute;
+  top: 111px;
+  left: 0;
+  transform: translateY(-50%);
 }
 
 /* Everything that draws furniture, off. Listed one per line rather than as a
@@ -7601,17 +7634,51 @@ body.gfx-transparent {
 .gfx-l3[data-variant='strap-type'] .l3-cap,
 .gfx-l3[data-variant='strap-type'] .l3-end-slab,
 .gfx-l3[data-variant='strap-type'] .l3-medallion,
-.gfx-l3[data-variant='strap-type'] .l3-role-divider,
 .gfx-l3[data-variant='strap-type'] .l3-strap-logo {
   display: none !important;
 }
 
-.gfx-l3[data-variant='strap-type'] .l3-mask,
+/**
+ * The diamond STAYS, and it is the one thing in that list that is not furniture.
+ *
+ * It was hidden with the rest, which read as consistent and was wrong against
+ * the artwork: the strap's own demo render sets the role row as
+ * "LEAD PASTOR ◆ ANNUAL PPC '26". The diamond is a type separator drawn in the
+ * design, not a plate this variant would be duplicating — and without it the
+ * role and the church run together with nothing but a gap between them.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-role-divider {
+  background: rgba(255, 255, 255, 0.8);
+  width: 8px;
+  height: 8px;
+}
+
+/**
+ * TWO CAPS, because the two rows are chosen by different things.
+ *
+ * The operator picks the plate to suit the NAME — that is what the three widths
+ * are for — so the name may run to the widest zone the artwork offers and the
+ * report says which plate each name needs.
+ *
+ * The role row is not part of that decision. It is role + church + event on one
+ * line, it is long whatever the name does, and left uncapped it measured
+ * 1562px and ran clean past the end of the standard plate onto the live camera
+ * — photographed over the real PNG, not reasoned about. It is capped at the
+ * NARROWEST zone so it cannot leave any of the three. A secondary line that
+ * ellipsises early is the better of the two failures on air.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-mask:not(.l3-role-mask) {
+  width: fit-content;
+  min-width: 0;
+  max-width: 1618px;
+  overflow: hidden;
+}
+
 .gfx-l3[data-variant='strap-type'] .l3-role-mask {
   width: fit-content;
   min-width: 0;
-  max-width: 100%;
-  overflow: visible;
+  max-width: 850px;
+  overflow: hidden;
 }
 
 .gfx-l3[data-variant='strap-type'] .l3-name-plate,
@@ -7654,18 +7721,50 @@ body.gfx-transparent {
  * hard stop rather than a suggestion.
  */
 .gfx-l3[data-variant='strap-type'] .l3-name.l3-name-md { font-size: 56px; }
-.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-sm { font-size: 50px; }
-.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-xs { font-size: 44px; }
+/**
+ * 47, not 50 — the worst cell in the whole ladder, and it is NOT the longest
+ * name.
+ *
+ * `nameSizeClass` steps to `xs` only past 34 characters, so a name of exactly
+ * 34 sits at the TOP of this tier: "Rev. Dr. Emmanuel Kwabena Owusu-An" at 50px
+ * measured 1239px and overran the standard plate by 49 — while the LONGER
+ * 37-character name, one tier down, fitted with room to spare. Testing only the
+ * longest name would have missed it entirely.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-sm { font-size: 47px; }
+/**
+ * 42, not 44. Measured: at 44px the longest name on the programme —
+ * "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" — renders 1199px wide and overruns
+ * the STANDARD plate's 1190px zone by 9. Nine pixels of type on open video is
+ * still type on open video, and it would have been invisible in any screenshot
+ * taken over the wide plate.
+ *
+ * At 42 it measures 1145 and every name on the programme fits the standard
+ * strap, which is what turns the operator's rule into one sentence instead of
+ * a table.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-xs { font-size: 42px; }
 
+/**
+ * White at 80%, not gold — `rgba(hexToRgb(C.paper), 0.80)` in the scene, and
+ * `paper` is `#FFFFFF` in `brand/theme.json`. It was gold here, which read as
+ * "convention accent" and is not what the plate's own demo draws.
+ *
+ * Tracking is 3.4 CANVAS PIXELS at 26px, so it is written in px rather than as
+ * an em fraction — 0.05em was a guess and lands at 1.3px, a third of it.
+ */
 .gfx-l3[data-variant='strap-type'] .l3-role,
 .gfx-l3[data-variant='strap-type'] .l3-org {
-  color: #ffd75e;
+  color: rgba(255, 255, 255, 0.8);
   font-size: 26px;
-  letter-spacing: 0.05em;
+  letter-spacing: 3.4px;
   text-shadow: 0 2px 10px rgba(2, 8, 40, 0.5);
 }
 
-.gfx-l3[data-variant='strap-type'] .l3-role-line { gap: 14px; }
+/* Matches the role mask above: the narrowest zone, so the row cannot leave any
+   of the three plates. `.l3-org` already carries `text-overflow: ellipsis`, so
+   an over-long church/event line ends in an ellipsis rather than a hard cut. */
+.gfx-l3[data-variant='strap-type'] .l3-role-line { gap: 14px; max-width: 850px; }
 
 /* The second-language chooser, sitting with the staging actions rather than in
    a settings pane: it is part of building the graphic, not configuring it. */
