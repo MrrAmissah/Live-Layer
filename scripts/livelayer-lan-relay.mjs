@@ -171,7 +171,9 @@ const server = http.createServer(async (req, res) => {
     res.write(': LiveLayer LAN relay connected\n\n');
     clients.add(res);
     // Coherent snapshot, in apply-safe order: command → matching ack → status.
-    for (const message of snapshotReplay(snapshot)) {
+    // `Date.now()` so a screen that has gone quiet is not replayed as current —
+    // the receiver stamps arrival time, so anything sent here reads as fresh.
+    for (const message of snapshotReplay(snapshot, Date.now())) {
       sendEvent(res, message);
     }
     req.on('close', () => {

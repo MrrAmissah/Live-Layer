@@ -49,6 +49,12 @@ export function createRelaySnapshot() {
  */
 const OUTPUT_FORGET_MS = 300_000;
 
+/**
+ * How recently a session must have spoken for its status to be replayed as
+ * CURRENT. Mirrors `OUTPUT_STALE_MS` — three missed 15s heartbeats.
+ */
+const OUTPUT_REPLAY_FRESH_MS = 45_000;
+
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -177,12 +183,28 @@ export function reduceRelaySnapshot(snapshot, message, now) {
  * (restores `/output` and hydrates control Program), then the matching ack
  * (confirms it), then the latest source status.
  */
-export function snapshotReplay(snapshot) {
-  /* EVERY screen's status, not the most recent one. A reconnecting control has
-     to learn the whole rig, and one arbitrary screen is how the desk came back
-     believing a source it could not measure was the only one there. Ordered by
-     recency so the newest reading is applied last if two sessions collide. */
+export function snapshotReplay(snapshot, now = null) {
+  /**
+   * EVERY screen's status, not the most recent one. A reconnecting control has
+   * to learn the whole rig, and one arbitrary screen is how the desk came back
+   * believing a source it could not measure was the only one there. Ordered by
+   * recency so the newest reading is applied last if two sessions collide.
+   *
+   * BUT ONLY THE ONES STILL REPORTING. A receiver stamps `lastSeenAt` when a
+   * status ARRIVES, so anything replayed here is treated as fresh evidence —
+   * which means replaying a screen that went quiet four minutes ago would tell
+   * a reconnecting desk that a dead source is alive, and OUTPUT ACTIVE is
+   * exactly the claim this codebase refuses to make without proof. Retention
+   * and replay want different windows: the map keeps five minutes so `/health`
+   * can still show a screen that dropped, and only the last 45 seconds is
+   * repeated as current. Every output heartbeats every 15s, so a live screen is
+   * always inside it.
+   *
+   * `now` omitted (tests, and any caller that has no clock) replays them all,
+   * which is the previous behaviour.
+   */
   const statuses = Object.values(snapshot.statuses ?? {})
+    .filter((entry) => now === null || now - entry.at <= OUTPUT_REPLAY_FRESH_MS)
     .sort((a, b) => a.at - b.at)
     .map((entry) => entry.message);
   return [snapshot.scriptureOutputs, snapshot.command, snapshot.ack, ...statuses].filter(

@@ -26,4 +26,8 @@ export function reduceRelaySnapshot(
   message: RealtimeMessage,
   now: number
 ): RelaySnapshot;
-export function snapshotReplay(snapshot: RelaySnapshot): RealtimeMessage[];
+/**
+ * `now` filters output statuses to those still reporting — omit it to replay
+ * every retained one (tests, and callers with no clock).
+ */
+export function snapshotReplay(snapshot: RelaySnapshot, now?: number | null): RealtimeMessage[];

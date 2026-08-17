@@ -110,6 +110,27 @@ describe('every screen survives a reconnect, not just the last one to speak', ()
     expect(ids).toEqual(['live-session']);
   });
 
+  it('does NOT replay a screen that has gone quiet as though it were current', () => {
+    /**
+     * The wrinkle a per-output map makes worse. A receiver stamps `lastSeenAt`
+     * when a status ARRIVES, so everything replayed is treated as fresh
+     * evidence — and replaying a session that stopped four minutes ago tells a
+     * reconnecting desk a dead source is alive. OUTPUT ACTIVE for a screen that
+     * is gone is precisely the claim this vocabulary refuses to make.
+     *
+     * It stays in the map for `/health`; it is just not repeated as current.
+     */
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, statusFrom('died-4-min-ago', T0, true), T0);
+    s = reduceRelaySnapshot(s, statusFrom('still-here', T0 + 240_000, true), T0 + 240_000);
+    const ids = snapshotReplay(s, T0 + 240_000)
+      .filter((m: RealtimeMessage) => m.type === 'OUTPUT_STATUS')
+      .map((m: RealtimeMessage) => (m.payload as { outputId: string }).outputId);
+    expect(ids).toEqual(['still-here']);
+    // Retained, though — the two windows are deliberately different.
+    expect(Object.keys(s.statuses)).toHaveLength(2);
+  });
+
   it('replays the looks and the command before any status', () => {
     // Unchanged contract: a reconnecting output must know how it paints and
     // what it is painting before it hears about anyone's source state.
