@@ -148,7 +148,10 @@ const server = http.createServer(async (req, res) => {
       hasLastMessage: Boolean(snapshot.command),
       output: {
         lastSeenAt: snapshot.outputLastSeenAt,
-        hasStatus: Boolean(snapshot.status)
+        // Now a count, because one boolean cannot answer "are both screens
+        // reporting" — which is the question with several browser sources.
+        screens: Object.keys(snapshot.statuses ?? {}).length,
+        hasStatus: Object.keys(snapshot.statuses ?? {}).length > 0
       },
       // Additive: `relayReadiness.ts` checks `ok` + numeric `clients` and
       // ignores the rest, so an older page against a newer relay is unaffected

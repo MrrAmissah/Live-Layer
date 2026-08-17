@@ -9,7 +9,8 @@ import type { RealtimeMessage } from '../src/types/graphics';
 export interface RelaySnapshot {
   command: RealtimeMessage | null;
   ack: RealtimeMessage | null;
-  status: RealtimeMessage | null;
+  /** Latest status PER output session id — see the .mjs for why not one slot. */
+  statuses: Record<string, { message: RealtimeMessage; at: number }>;
   scriptureOutputs: RealtimeMessage | null;
   outputLastSeenAt: number | null;
 }

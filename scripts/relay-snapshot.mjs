@@ -39,8 +39,15 @@ const SCRIPTURE_OUTPUTS_TYPE = 'SET_SCRIPTURE_OUTPUTS';
 const OUTPUT_ACK_TYPES = new Set(['OUTPUT_APPLIED', 'OUTPUT_CLEARED', 'OUTPUT_FAILED']);
 
 export function createRelaySnapshot() {
-  return { command: null, ack: null, status: null, scriptureOutputs: null, outputLastSeenAt: null };
+  return { command: null, ack: null, statuses: {}, scriptureOutputs: null, outputLastSeenAt: null };
 }
+
+/**
+ * How long a silent output session stays in the replay. Mirrors
+ * `OUTPUT_FORGET_MS` in `src/lib/outputPresence.ts` — repeated because this file
+ * has to stay plain node with no dependency on `src`.
+ */
+const OUTPUT_FORGET_MS = 300_000;
 
 function isRecord(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -131,7 +138,34 @@ export function reduceRelaySnapshot(snapshot, message, now) {
     };
   }
   if (message.type === 'OUTPUT_STATUS') {
-    return { ...snapshot, status: message, outputLastSeenAt: now };
+    /**
+     * ONE SLOT PER OUTPUT, and a single shared slot was a real fault on the desk.
+     *
+     * This kept the LATEST status from any output — written when there was one
+     * browser source, and never revisited when Program's own `outputs` became a
+     * map keyed by session id. With several sources all heart-beating every 15s,
+     * the retained status is simply whoever spoke last.
+     *
+     * What that costs shows up on reconnect. A control page that reloads, or an
+     * EventSource that drops and comes back, rebuilds its whole picture from
+     * this replay — and learned about exactly ONE screen, chosen by timing. If
+     * that one happened to be a page with no OBS binding, the desk read OUTPUT
+     * READY while a source was plainly active, until the real source's next
+     * heartbeat arrived up to 15 seconds later. Two of them alternating is a
+     * status that appears to flip on its own.
+     *
+     * Pruned by age so a fortnight of refreshed browser sources cannot
+     * accumulate: every page load mints a new session id, and a session that
+     * has not spoken in five minutes is not coming back. The number matches
+     * `OUTPUT_FORGET_MS` in `src/lib/outputPresence.ts`; it is repeated rather
+     * than imported because this file must stay plain node with no `src`
+     * dependency.
+     */
+    const statuses = { ...snapshot.statuses, [message.payload.outputId]: { message, at: now } };
+    for (const [outputId, entry] of Object.entries(statuses)) {
+      if (now - entry.at > OUTPUT_FORGET_MS) delete statuses[outputId];
+    }
+    return { ...snapshot, statuses, outputLastSeenAt: now };
   }
   return snapshot;
 }
@@ -144,7 +178,14 @@ export function reduceRelaySnapshot(snapshot, message, now) {
  * (confirms it), then the latest source status.
  */
 export function snapshotReplay(snapshot) {
-  return [snapshot.scriptureOutputs, snapshot.command, snapshot.ack, snapshot.status].filter(
-    (entry) => entry !== null
+  /* EVERY screen's status, not the most recent one. A reconnecting control has
+     to learn the whole rig, and one arbitrary screen is how the desk came back
+     believing a source it could not measure was the only one there. Ordered by
+     recency so the newest reading is applied last if two sessions collide. */
+  const statuses = Object.values(snapshot.statuses ?? {})
+    .sort((a, b) => a.at - b.at)
+    .map((entry) => entry.message);
+  return [snapshot.scriptureOutputs, snapshot.command, snapshot.ack, ...statuses].filter(
+    (entry) => entry !== null && entry !== undefined
   );
 }

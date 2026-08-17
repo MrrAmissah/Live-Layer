@@ -46,6 +46,82 @@ const status = (timestamp: number): RealtimeMessage => ({
   timestamp
 });
 
+const statusFrom = (
+  outputId: string,
+  timestamp: number,
+  sourceActive: boolean | null
+): RealtimeMessage => ({
+  id: `st-${outputId}-${timestamp}`,
+  type: 'OUTPUT_STATUS',
+  payload: { outputId, sourceActive, sourceVisible: sourceActive === null ? null : true },
+  timestamp
+});
+
+describe('every screen survives a reconnect, not just the last one to speak', () => {
+  it('replays a status for EACH output session', () => {
+    /**
+     * THE DEFECT, and it is the missed half of a fix the brief called out:
+     * Program's `outputs` became a map keyed by session id when a second
+     * browser source appeared, and this snapshot stayed a single `status` slot
+     * holding whoever spoke last.
+     *
+     * A control page that reloads — or an EventSource that drops and comes
+     * back, which is what an unstable relay looks like — rebuilds its whole
+     * picture of the rig from this replay. With one slot it learned about
+     * exactly ONE screen, chosen by the timing of a 15-second heartbeat. If
+     * that screen was a page with no OBS binding, the desk read OUTPUT READY
+     * while a source was plainly active, and flipped back when the real
+     * source's next heartbeat arrived.
+     */
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, statusFrom('obs-main', T0, true), T0);
+    s = reduceRelaySnapshot(s, statusFrom('preview-tab', T0 + 1_000, null), T0 + 1_000);
+
+    const replayed = snapshotReplay(s).filter((m) => m.type === 'OUTPUT_STATUS');
+    expect(replayed.map((m) => (m.payload as { outputId: string }).outputId).sort()).toEqual([
+      'obs-main',
+      'preview-tab'
+    ]);
+    // The measuring source's reading is still in there — that is the whole point.
+    const main = replayed.find((m) => (m.payload as { outputId: string }).outputId === 'obs-main');
+    expect((main!.payload as { sourceActive: boolean }).sourceActive).toBe(true);
+  });
+
+  it('keeps one entry per session however long the rig runs', () => {
+    let s = createRelaySnapshot();
+    for (let i = 0; i < 40; i += 1) {
+      s = reduceRelaySnapshot(s, statusFrom('obs-main', T0 + i * 15_000, true), T0 + i * 15_000);
+    }
+    expect(snapshotReplay(s).filter((m) => m.type === 'OUTPUT_STATUS')).toHaveLength(1);
+  });
+
+  it('forgets a session that has been silent for five minutes', () => {
+    /**
+     * Every page load mints a new session id, so a refreshed browser source
+     * leaves its predecessor behind. Without pruning, a fortnight of restarts
+     * replays a crowd of dead screens to every reconnecting client.
+     */
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, statusFrom('old-session', T0, true), T0);
+    s = reduceRelaySnapshot(s, statusFrom('live-session', T0 + 301_000, true), T0 + 301_000);
+    const ids = snapshotReplay(s)
+      .filter((m) => m.type === 'OUTPUT_STATUS')
+      .map((m) => (m.payload as { outputId: string }).outputId);
+    expect(ids).toEqual(['live-session']);
+  });
+
+  it('replays the looks and the command before any status', () => {
+    // Unchanged contract: a reconnecting output must know how it paints and
+    // what it is painting before it hears about anyone's source state.
+    let s = createRelaySnapshot();
+    s = reduceRelaySnapshot(s, statusFrom('obs-main', T0, true), T0);
+    s = reduceRelaySnapshot(s, show('cmd-A', T0 + 10), T0 + 10);
+    s = reduceRelaySnapshot(s, statusFrom('split', T0 + 20, false), T0 + 20);
+    const types = snapshotReplay(s).map((m) => m.type);
+    expect(types.indexOf('SHOW_GRAPHIC')).toBeLessThan(types.indexOf('OUTPUT_STATUS'));
+  });
+});
+
 describe('a status event can never displace the command', () => {
   it('keeps the command through any number of heartbeats, and a reconnect replays it first', () => {
     let s = createRelaySnapshot();

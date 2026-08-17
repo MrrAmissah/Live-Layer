@@ -13,6 +13,7 @@ import {
 } from './scriptureOutputs';
 import { templateRegistry } from '../components/templates/registry';
 import { reduceRealtimeMessage } from './programSync';
+import type { RealtimeMessage } from '../types/graphics';
 import { parseRealtimeMessage } from './realtimeMessages';
 import { CLEAR_PROGRAM_STATE } from '../types/program';
 
@@ -403,12 +404,44 @@ describe('the mapping on the wire', () => {
     expect(control).toMatch(/\}, \[scriptureOutputs\]\)/);
   });
 
-  it('is retained by the relay in its own slot, ahead of the command', () => {
-    // Its own slot because a burst of commands must not evict the only copy a
-    // cross-browser output will ever see; ahead of the command so a restored
-    // card is painted the way this screen is configured from the first frame.
-    const relay = read('scripts/relay-snapshot.mjs');
-    expect(relay).toMatch(/scriptureOutputs: message/);
-    expect(relay).toMatch(/\[snapshot\.scriptureOutputs, snapshot\.command, snapshot\.ack, snapshot\.status\]/);
+  it('is retained by the relay in its own slot, ahead of the command', async () => {
+    /**
+     * Its own slot because a burst of commands must not evict the only copy a
+     * cross-browser output will ever see; ahead of the command so a restored
+     * card is painted the way this screen is configured from the first frame.
+     *
+     * DRIVEN, not pattern-matched. This asserted the literal replay array as a
+     * string and broke the moment the status slot became per-output — telling
+     * me the source had been edited, which I knew, rather than whether the
+     * ordering it exists to protect still held. Same guarantee, immune to how
+     * the array is written.
+     */
+    const { createRelaySnapshot, reduceRelaySnapshot, snapshotReplay } = await import(
+      '../../scripts/relay-snapshot.mjs'
+    );
+    const at = 5_000_000;
+    const envelope = (type: string, payload: unknown, id: string) =>
+      ({ id, type, payload, timestamp: at }) as unknown as RealtimeMessage;
+    let snapshot = createRelaySnapshot();
+    // Deliberately published FIRST and buried under later traffic — the order
+    // under test is the replay's, not the arrival's.
+    snapshot = reduceRelaySnapshot(snapshot, envelope('SET_SCRIPTURE_OUTPUTS', DEFAULT_SCRIPTURE_OUTPUTS, 'so-1'), at);
+    snapshot = reduceRelaySnapshot(
+      snapshot,
+      envelope('OUTPUT_STATUS', { outputId: 'out-1', sourceActive: true, sourceVisible: true }, 'st-1'),
+      at + 10
+    );
+    snapshot = reduceRelaySnapshot(
+      snapshot,
+      envelope('SHOW_GRAPHIC', { id: 'g', templateId: 'scripture-card', values: {}, theme: {} }, 'cmd-1'),
+      at + 20
+    );
+
+    const types = snapshotReplay(snapshot).map((message: { type: string }) => message.type);
+    expect(types[0]).toBe('SET_SCRIPTURE_OUTPUTS');
+    expect(types.indexOf('SET_SCRIPTURE_OUTPUTS')).toBeLessThan(types.indexOf('SHOW_GRAPHIC'));
+    expect(types.indexOf('SHOW_GRAPHIC')).toBeLessThan(types.indexOf('OUTPUT_STATUS'));
+    // And it survives being buried, which is what "its own slot" buys.
+    expect(read('scripts/relay-snapshot.mjs')).toMatch(/scriptureOutputs: message/);
   });
 });
