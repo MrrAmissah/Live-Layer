@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import SetupDiagnostics from '../components/control/SetupDiagnostics';
 import { loadEsvApiKey, saveEsvApiKey, loadApiBibleKey, saveApiBibleKey } from '../lib/storage';
 import { apiBibleProvider } from '../lib/scripture/providers';
+import { createBackup, restoreBackup, readBackupManifest } from '../lib/backup/backupBundle';
 import { Icon } from '../lib/icons';
 // The address the browser dials, imported rather than retyped: a setup page
 // naming a different port from the one the code connects to is worse than one
@@ -126,6 +127,8 @@ export default function SetupPage() {
   const [esvKey, setEsvKey] = useState(() => loadEsvApiKey());
   const [apiBibleKey, setApiBibleKey] = useState(() => loadApiBibleKey());
   const [catalogueNote, setCatalogueNote] = useState('');
+  const [backupNote, setBackupNote] = useState('');
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
   /**
    * The machine's REAL LAN addresses, asked of the relay rather than guessed
    * from this page's own hostname.
@@ -433,6 +436,108 @@ export default function SetupPage() {
                         &ldquo;Reset all local data&rdquo;. Leave empty and nothing changes.
                       </span>
                     </label>
+                  </div>
+                </div>
+
+                {/**
+                  * The OBS-profile idea, for this app.
+                  *
+                  * Everything an operator builds lives in ONE browser on ONE
+                  * origin: a wiped profile, a new laptop, or simply opening the
+                  * app on the LAN address instead of 127.0.0.1 all present the
+                  * same empty app. This is the way across.
+                  */}
+                <div className="setup-sub">
+                  <h3 className="setup-sub__title">
+                    <Icon name="layers" size={16} />
+                    Save your whole setup to a file
+                  </h3>
+                  <div className="setup-body">
+                    <p className="setup-text">
+                      Like saving a profile in OBS. One file holds your <strong>rundowns, quick
+                      queue, saved graphics, People, uploaded logos and headshots, brand colours
+                      and screen looks</strong> — everything this browser is keeping. Restore it
+                      after a wipe, or on another machine to start it up already furnished.
+                    </p>
+                    <div className="setup-actions">
+                      <button
+                        type="button"
+                        className="btn btn--secondary btn--sm"
+                        onClick={async () => {
+                          setBackupNote('Gathering…');
+                          try {
+                            const stamp = new Date();
+                            const bytes = await createBackup(stamp.toISOString());
+                            const name = `livelayer-setup-${stamp.toISOString().slice(0, 10)}.livelayerbackup`;
+                            /**
+                             * A blob URL and a synthetic click: this file is
+                             * built in the browser and never leaves the machine,
+                             * so there is nothing to upload it to.
+                             */
+                            /* `bytes.buffer` is typed `ArrayBufferLike`, which
+                               includes SharedArrayBuffer and so is not a
+                               `BlobPart`. Slicing to the view's own range gives
+                               a plain ArrayBuffer and copies nothing extra. */
+                            const part = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+                            const url = URL.createObjectURL(new Blob([part], { type: 'application/zip' }));
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = name;
+                            link.click();
+                            URL.revokeObjectURL(url);
+                            setBackupNote(`Saved ${name}. Keep it private — it contains your API keys.`);
+                          } catch {
+                            setBackupNote('Could not build the backup on this machine.');
+                          }
+                        }}
+                      >
+                        Save setup to a file
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => restoreInputRef.current?.click()}
+                      >
+                        Restore from a file…
+                      </button>
+                    </div>
+                    <input
+                      ref={restoreInputRef}
+                      type="file"
+                      accept=".livelayerbackup,.zip"
+                      style={{ display: 'none' }}
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        // Cleared immediately so choosing the SAME file twice
+                        // still fires a change event.
+                        event.target.value = '';
+                        if (!file) return;
+                        setBackupNote('Reading…');
+                        try {
+                          const bytes = new Uint8Array(await file.arrayBuffer());
+                          const manifest = readBackupManifest(bytes);
+                          const summary = await restoreBackup(bytes);
+                          setBackupNote(
+                            `Restored ${summary.keys} settings, ${summary.people} people and ${summary.assets} images from a backup taken ${manifest.createdAt.slice(0, 10)}. Reload the page to see them.`
+                          );
+                        } catch (error) {
+                          const reason = error instanceof Error ? error.message : '';
+                          setBackupNote(
+                            reason === 'backup-too-new'
+                              ? 'That backup was written by a newer version of LiveLayer. Update this machine first — a half-restore over a working setup cannot be undone.'
+                              : 'That file is not a LiveLayer backup.'
+                          );
+                        }
+                      }}
+                    />
+                    {backupNote ? <p className="setup-note">{backupNote}</p> : null}
+                    <p className="setup-note">
+                      It does <strong>not</strong> carry the relay address or what was on air —
+                      both belong to a machine and a moment, and restoring another machine&rsquo;s
+                      relay is what makes every Take report failed. Restoring adds People and
+                      images to what is already here and replaces the lists, so do it on a fresh
+                      machine or when you mean to roll back.
+                    </p>
                   </div>
                 </div>
 
