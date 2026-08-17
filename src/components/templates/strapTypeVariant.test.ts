@@ -161,12 +161,18 @@ describe('the variant exists and is additive', () => {
     expect(painted.description.toLowerCase()).toContain('own plate');
   });
 
-  it('says in its own description that it needs the strap underneath', () => {
-    // It is only correct with that image source present, so the picker says so
-    // rather than offering it as a general-purpose look.
+  it('no longer describes itself as needing something underneath', () => {
+    /**
+     * It used to say "NO plate — sits inside the Nine3 image running under this
+     * output". That was true of the wiring and is now false: the plate travels
+     * with the graphic. A description that still sent the operator to set up an
+     * OBS source would have them build the exact double-plate they were told to
+     * avoid.
+     */
     const preacher = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
     const variant = preacher.variants!.find((v) => v.id === 'strap-type')!;
-    expect(variant.description).toMatch(/NO plate|no plate/);
+    expect(variant.description).not.toMatch(/no plate/i);
+    expect(variant.description).not.toMatch(/under (this )?output|in OBS/i);
     expect(variant.description).toMatch(/strap/i);
   });
 });
@@ -231,20 +237,23 @@ describe('it is pinned to the artwork, not to the safe area', () => {
     expect(block).toContain('max-width: 1618px');
   });
 
-  it('caps the role row at the NARROWEST zone, so it cannot leave any plate', () => {
+  it('caps both rows to the plate that is actually under them', () => {
     /**
-     * The bug that put type on open video. Capped with the name at the wide
-     * zone, the role row — role + church + event on one line — measured 1562px,
-     * sat happily inside that cap, and ran clean past the end of the standard
-     * plate.
+     * The bug that put type on open video: uncapped, the role row — role +
+     * church + event on one line — measured 1562px and ran clean past the end
+     * of the standard plate.
      *
-     * Two caps, because the two rows are chosen by different things: the
-     * operator picks the plate to suit the NAME, so the name may use the widest
-     * zone. Nothing about the role row enters that decision, so it gets the
-     * narrowest and ellipsises instead.
+     * The cap was then the NARROWEST zone, because the output could not see
+     * which plate was loaded. It can now: `--l3-strap-zone` is written by the
+     * renderer from the plate the fitted name selected, so a wide plate no
+     * longer truncates a role at 850 — which would have been the same bug
+     * behind new wiring.
+     *
+     * The fallback stays at the narrowest. If the variable is ever missing, the
+     * row is capped to the plate that cannot clip.
      */
-    expect(block).toMatch(/l3-role-line \{[^}]*max-width: 850px/);
-    expect(block).toMatch(/l3-role-mask \{[^}]*max-width: 850px/);
+    expect(block).toMatch(/max-width: var\(--l3-strap-zone, 850px\)/);
+    expect(block).not.toMatch(/l3-role-line \{[^}]*max-width: \d+px/);
   });
 
   it('centres both rows on the artwork’s y values rather than sitting them on it', () => {
@@ -275,15 +284,39 @@ describe('it is pinned to the artwork, not to the safe area', () => {
     expect(block).toMatch(/letter-spacing: 3\.4px/);
   });
 
-  it('keeps the content-fitted step-down working', () => {
+  it('carries the plate INSIDE the graphic, which is what makes a take atomic', () => {
     /**
-     * A flat `font-size: 62px` at this specificity overrode `l3-name-md/sm/xs`
-     * entirely, and the longest name rendered full size and ran past the end of
-     * the strap. Caught by compositing over the real artwork rather than by
-     * reading the CSS.
+     * THE PROPERTY THIS REWRITE EXISTS FOR, and the one thing no screenshot can
+     * show: taking the graphic down removes plate and type together.
+     *
+     * A lower third is a take — it comes up for a speaker and goes away. While
+     * the plate was a separate OBS image source it could not do that: it would
+     * either sit on screen permanently with nothing under it, or need the
+     * operator to toggle a second source by hand on every take, alone at the
+     * desk.
+     *
+     * Asserted structurally: the plate is rendered by the lower third itself,
+     * inside the element that the show/hide acts on, and by nothing else.
      */
-    expect(block).toMatch(/l3-name-md \{ font-size/);
-    expect(block).toMatch(/l3-name-sm \{ font-size/);
-    expect(block).toMatch(/l3-name-xs \{ font-size/);
+    const renderer = readFileSync('src/components/templates/PreacherLowerThird.tsx', 'utf8');
+    expect(renderer).toMatch(/className="l3-strap-plate"/);
+    const insideGraphic = renderer.indexOf('l3-strap-plate') > renderer.indexOf('className="gfx-l3"');
+    expect(insideGraphic).toBe(true);
+
+    // Nowhere else may paint it — a second painter would be a plate that
+    // outlives the take again.
+    const painters = ['src/app/OutputPage.tsx', 'src/components/templates/TemplatePreview.tsx']
+      .filter((file) => readFileSync(file, 'utf8').includes('theme-strap'));
+    expect(painters).toEqual([]);
+  });
+
+  it('is a full-frame layer, so the artwork’s coordinates need no offset', () => {
+    // The PNGs are 1920x1080 with alpha. Painting one inside a root pinned to
+    // x150/y726 would need every number shifted by that origin; the root is the
+    // frame instead, and the type is placed at the artwork's own x150/y726.
+    expect(block).toMatch(/width: 1920px/);
+    expect(block).toMatch(/height: 1080px/);
+    expect(block).toMatch(/l3-stack \{[^}]*left: 150px/);
+    expect(block).toMatch(/l3-stack \{[^}]*top: 726px/);
   });
 });

@@ -514,10 +514,16 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
            const r = el.getBoundingClientRect();
            return { size: parseFloat(getComputedStyle(type).fontSize), left: Math.round(r.left), right: Math.round(r.right), width: Math.round(r.width), mid: Math.round(r.top + r.height / 2) };
          };
-         return JSON.stringify({ name: pick('.l3-name'), role: pick('.l3-role-line', '.l3-role') });
+         /* NOT plain '.l3-name': the strap renders a hidden twin of the name to
+            measure its natural width from, and that twin comes first in the
+            DOM. Reading it reported the name at x0 y31 — the measurer's
+            position, not the graphic's. */
+         const plate = document.querySelector('[data-strap-plate]')?.dataset.strapPlate;
+         return JSON.stringify({ plate, name: pick('.l3-name:not(.l3-strap-measure)'), role: pick('.l3-role-line', '.l3-role') });
        })()`
     );
     const m = JSON.parse(read ?? '{}');
+    if (m.plate) console.log(`    plate ${m.plate}`);
     if (m.name) {
       console.log(
         `    name  ${String(m.name.size).padStart(4)}px  x ${m.name.left}–${m.name.right}  (w ${m.name.width})  mid-y ${m.name.mid}`

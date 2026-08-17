@@ -7574,19 +7574,64 @@ body.gfx-transparent {
  * cap-height inside a zone that has only 7px of air between them.
  */
 .gfx-l3[data-variant='strap-type'] {
-  left: 150px;
+  left: 0;
   right: auto;
-  top: 726px;
+  top: 0;
   bottom: auto;
+  width: 1920px;
+  height: 1080px;
   filter: none;
 }
 
 /* Layout position overrides must not move it either — it is pinned to artwork. */
 .gfx-layer[data-position='center'] .gfx-l3[data-variant='strap-type'],
 .gfx-layer[data-position='full'] .gfx-l3[data-variant='strap-type'] {
-  left: 150px;
+  left: 0;
   right: auto;
   transform: none;
+}
+
+/**
+ * The plate itself — the whole reason this variant changed shape.
+ *
+ * Full-frame at the output's native size, so the artwork's own coordinates are
+ * the stage's coordinates and nothing needs offsetting. It is INSIDE `.gfx-l3`,
+ * which is what makes a take atomic: one element appears, one element clears,
+ * and the plate can no longer be left on screen with nothing under it.
+ *
+ * Behind the type, and no background of its own — the PNG carries alpha and
+ * everything outside the strap must stay genuinely transparent.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-strap-plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  object-fit: fill;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/**
+ * The hidden twin the fit is measured from.
+ *
+ * Same classes as the real name, so it inherits family, weight, stretch,
+ * tracking and uppercasing from the same rules — a measurer that drifts from
+ * what is drawn picks the wrong plate. `visibility: hidden` rather than
+ * `display: none`, because a node that is not laid out has no width at all.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-strap-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+  font-size: 62px;
 }
 
 /**
@@ -7598,14 +7643,20 @@ body.gfx-transparent {
  * Each row is now pinned to its own centre and nothing about the other can
  * move it.
  */
+/* The name zone, in the artwork's coordinates. The root is now the full frame,
+   so these are the same absolute numbers as before — x 150, y 726, h 150 — just
+   expressed on the stack instead of on the root. */
 .gfx-l3[data-variant='strap-type'] .l3-stack {
-  position: relative;
+  position: absolute;
+  left: 150px;
+  top: 726px;
   width: 1618px;
   min-width: 0;
   max-width: 1618px;
   height: 150px;
   display: block;
   gap: 0;
+  z-index: 1;
 }
 
 /* Centre at y 786 — 60px down the 150px zone. `translateY(-50%)` centres the
@@ -7654,30 +7705,24 @@ body.gfx-transparent {
 }
 
 /**
- * TWO CAPS, because the two rows are chosen by different things.
+ * BOTH ROWS ARE CAPPED TO THE PLATE THAT IS ACTUALLY UNDER THEM.
  *
- * The operator picks the plate to suit the NAME — that is what the three widths
- * are for — so the name may run to the widest zone the artwork offers and the
- * report says which plate each name needs.
+ * `--l3-strap-zone` is set by the renderer to the zone of the plate the fitted
+ * NAME selected, so the cap is no longer a guess about artwork the output could
+ * not see. The name cannot reach its cap — it was fitted to it — but the rule
+ * stays as the backstop that keeps type off open video if a measurement ever
+ * fails to arrive.
  *
- * The role row is not part of that decision. It is role + church + event on one
- * line, it is long whatever the name does, and left uncapped it measured
- * 1562px and ran clean past the end of the standard plate onto the live camera
- * — photographed over the real PNG, not reasoned about. It is capped at the
- * NARROWEST zone so it cannot leave any of the three. A secondary line that
- * ellipsises early is the better of the two failures on air.
+ * The role row still needs the cap for real. It is role + church + event on one
+ * line, it is long whatever the name does, and it takes no part in choosing the
+ * plate. The fallback is the NARROWEST zone: if the variable is ever missing,
+ * the row is capped to the plate that cannot clip.
  */
-.gfx-l3[data-variant='strap-type'] .l3-mask:not(.l3-role-mask) {
-  width: fit-content;
-  min-width: 0;
-  max-width: 1618px;
-  overflow: hidden;
-}
-
+.gfx-l3[data-variant='strap-type'] .l3-mask:not(.l3-role-mask),
 .gfx-l3[data-variant='strap-type'] .l3-role-mask {
   width: fit-content;
   min-width: 0;
-  max-width: 850px;
+  max-width: var(--l3-strap-zone, 850px);
   overflow: hidden;
 }
 
@@ -7707,43 +7752,22 @@ body.gfx-transparent {
 }
 
 /**
- * THE STEP-DOWN STILL APPLIES, and a flat 62px silently removed it.
+ * NO SIZE TIERS HERE, and their removal is the point of this variant's rewrite.
  *
- * `nameSizeClass` puts `l3-name-md/sm/xs` on the longest names, and a single
- * `font-size` on `.l3-name` at this specificity overrode all three — so
- * "REV. DR. EMMANUEL KWABENA OWUSU-ANSAH" rendered at full size and ran past
- * the end of the strap artwork. Measured against the real
- * `theme-strap-wide.png`, not assumed.
+ * There were three — 56 / 47 / 42 — and every one of them was compensation for
+ * not knowing which plate was loaded. `nameSizeClass` steps by CHARACTER COUNT
+ * while overflow happens in PIXELS, and the gap between those two showed up as
+ * a genuine hole: a 34-character name sat at the top of one tier and overran
+ * the standard plate by 49px, while a LONGER 37-character name, one tier down,
+ * fitted with room to spare.
  *
- * The brief states that name "fits at full 62px with ~380px to spare" against a
- * 1674px zone. Against the WIDE strap that actually exists — a 1578px zone —
- * it does not, which is why these tiers are here and why the cap below is a
- * hard stop rather than a suggestion.
+ * The renderer now measures the name and picks the plate to hold it, so it can
+ * fit continuously — an exact `font-size` inline, from `fitStrapName`. Tiers
+ * left in place would be a second mechanism disagreeing with the first at a
+ * different specificity, which is precisely how a name got hard-cut to
+ * "OWUSU-ANS" twice before. `strapPlate.test.ts` asserts they are gone rather
+ * than asserting their values.
  */
-.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-md { font-size: 56px; }
-/**
- * 47, not 50 — the worst cell in the whole ladder, and it is NOT the longest
- * name.
- *
- * `nameSizeClass` steps to `xs` only past 34 characters, so a name of exactly
- * 34 sits at the TOP of this tier: "Rev. Dr. Emmanuel Kwabena Owusu-An" at 50px
- * measured 1239px and overran the standard plate by 49 — while the LONGER
- * 37-character name, one tier down, fitted with room to spare. Testing only the
- * longest name would have missed it entirely.
- */
-.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-sm { font-size: 47px; }
-/**
- * 42, not 44. Measured: at 44px the longest name on the programme —
- * "Rev. Dr. Emmanuel Kwabena Owusu-Ansah" — renders 1199px wide and overruns
- * the STANDARD plate's 1190px zone by 9. Nine pixels of type on open video is
- * still type on open video, and it would have been invisible in any screenshot
- * taken over the wide plate.
- *
- * At 42 it measures 1145 and every name on the programme fits the standard
- * strap, which is what turns the operator's rule into one sentence instead of
- * a table.
- */
-.gfx-l3[data-variant='strap-type'] .l3-name.l3-name-xs { font-size: 42px; }
 
 /**
  * White at 80%, not gold — `rgba(hexToRgb(C.paper), 0.80)` in the scene, and
@@ -7761,10 +7785,10 @@ body.gfx-transparent {
   text-shadow: 0 2px 10px rgba(2, 8, 40, 0.5);
 }
 
-/* Matches the role mask above: the narrowest zone, so the row cannot leave any
-   of the three plates. `.l3-org` already carries `text-overflow: ellipsis`, so
+/* Matches the role mask above: the chosen plate's zone, so the row cannot leave
+   the artwork under it. `.l3-org` already carries `text-overflow: ellipsis`, so
    an over-long church/event line ends in an ellipsis rather than a hard cut. */
-.gfx-l3[data-variant='strap-type'] .l3-role-line { gap: 14px; max-width: 850px; }
+.gfx-l3[data-variant='strap-type'] .l3-role-line { gap: 14px; max-width: var(--l3-strap-zone, 850px); }
 
 /* The second-language chooser, sitting with the staging actions rather than in
    a settings pane: it is part of building the graphic, not configuring it. */

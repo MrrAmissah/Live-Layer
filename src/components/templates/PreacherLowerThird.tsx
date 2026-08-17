@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { TemplateDefinition } from '../../types/graphics';
 import Plate from '../graphics/Plate';
 import AccentStripe from '../graphics/AccentStripe';
@@ -7,6 +7,7 @@ import MaskedLine from '../graphics/MaskedLine';
 import { useAsset } from '../../hooks/useAsset';
 import { CONVENTION_LOGO_URL, DEFAULT_CHURCH_LOGO_URL } from '../../lib/brandAssets';
 import { templateColorStyle } from './colorVars';
+import { STRAP_NAME_MAX_PX, fitStrapName, type StrapFit } from '../../lib/strapPlate';
 
 /**
  * The variant this renderer paints when a graphic names none. Exported so
@@ -100,6 +101,64 @@ function nameSizeClass(name: string): string {
 }
 
 /**
+ * The strap's name width, measured rather than estimated.
+ *
+ * A hidden twin of the name is rendered at the full 62px with the same classes,
+ * so it inherits the same family, weight, stretch, tracking and uppercasing from
+ * the stylesheet. Measuring the LIVE node instead would read a width that has
+ * already been fitted — and normalising that back out means trusting the very
+ * proportion the measurement exists to check.
+ *
+ * Re-measures when fonts land: Archivo arriving after first paint changes the
+ * width, and a plate chosen from the fallback font's metrics would be the wrong
+ * plate for the rest of the take.
+ */
+function useStrapFit(name: string, active: boolean): { ref: React.RefObject<HTMLSpanElement>; fit: StrapFit } {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [natural, setNatural] = useState(0);
+
+  const measure = () => {
+    const node = ref.current;
+    if (!node) return;
+    /**
+     * `offsetWidth`, NOT `getBoundingClientRect()`.
+     *
+     * The rect is in painted pixels, so it comes back multiplied by whatever
+     * transform the stage is under — and the control surface renders this same
+     * renderer inside a scaled 1920x1080 preview. Measuring there would have
+     * returned a fraction of the true width and selected the compact plate for
+     * every name, while /output at full size selected correctly. A defect
+     * visible only in the preview, which is where the operator judges it.
+     *
+     * `offsetWidth` is layout pixels and ignores transforms, so both surfaces
+     * measure the same name the same way.
+     */
+    setNatural(node.offsetWidth);
+  };
+
+  // Before paint, so the plate is never seen changing under the name.
+  useLayoutEffect(() => {
+    if (active) measure();
+    else setNatural(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, name]);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    document.fonts?.ready.then(() => {
+      if (!cancelled) measure();
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, name]);
+
+  return { ref, fit: fitStrapName(natural) };
+}
+
+/**
  * Same idea for the role bar: a long title+org combo ("Founder & Senior
  * Teaching Pastor" + a full church name) steps down before the ellipsis
  * fallback ever cuts it off mid-word on air.
@@ -139,6 +198,8 @@ export default function PreacherLowerThird({ values }: Props) {
   const resolvedHeadshot = preResolvedHeadshot || (headshot.status === 'ready' ? headshot.src : undefined);
   const showHeadshot = Boolean(resolvedHeadshot && !headshotFailed);
   const hasRoleRow = Boolean(title || subtitle);
+  const isStrap = variantId === 'strap-type';
+  const { ref: strapMeasureRef, fit: strapFit } = useStrapFit(name, isStrap);
 
   useEffect(() => {
     setHeadshotFailed(false);
@@ -150,8 +211,27 @@ export default function PreacherLowerThird({ values }: Props) {
       data-variant={variantId}
       data-logo={resolvedLogo ? 'true' : 'false'}
       data-role-fit={roleFit(title, subtitle)}
-      style={templateColorStyle(values)}
+      data-strap-plate={isStrap ? strapFit.plate.id : undefined}
+      style={{
+        ...templateColorStyle(values),
+        /* The role's cap follows the plate the NAME chose. Hardcoding the
+           narrowest here would truncate a role at 850 even on a wide plate —
+           the old bug behind new wiring. */
+        ...(isStrap ? ({ '--l3-strap-zone': `${strapFit.plate.zone}px` } as React.CSSProperties) : null)
+      }}
     >
+      {isStrap ? (
+        <>
+          {/* The plate IS the graphic now: it enters, sits and clears with the
+              type because it is inside the same element the take shows and
+              hides. Full-frame at the output's native size, so the artwork's
+              own coordinates need no offset. */}
+          <img className="l3-strap-plate" src={strapFit.plate.src} alt="" draggable={false} />
+          <span className="l3-name l3-strap-measure" aria-hidden ref={strapMeasureRef}>
+            {name}
+          </span>
+        </>
+      ) : null}
       <div className="l3-stack">
         <div className="l3-underbar" aria-hidden />
         <div className="l3-symbol-block" aria-hidden>
@@ -160,7 +240,14 @@ export default function PreacherLowerThird({ values }: Props) {
         <div className="l3-mask">
           <Plate fill="brand" cut="right" cutDepth={22} className="l3-name-plate">
             <span className="l3-cap" aria-hidden />
-            <h1 className={`l3-name ${nameSizeClass(name)}`.trim()}>
+            {/* The strap fits CONTINUOUSLY, so it takes no size class: the
+                tiers exist only for variants that cannot know their own width,
+                and having both would be two mechanisms disagreeing at different
+                specificities — the fault that hard-cut a name twice already. */}
+            <h1
+              className={`l3-name ${isStrap ? '' : nameSizeClass(name)}`.trim()}
+              style={isStrap && strapFit.size < STRAP_NAME_MAX_PX ? { fontSize: `${strapFit.size}px` } : undefined}
+            >
               <MaskedLine index={0}>{name}</MaskedLine>
             </h1>
           </Plate>

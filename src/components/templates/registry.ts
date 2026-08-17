@@ -173,17 +173,16 @@ const L3_VARIANTS: Record<string, TemplateVariant> = {
    */
   'strap-type': {
     id: 'strap-type',
-    name: 'Theme Strap — Type Only',
+    name: 'Theme Strap',
     /**
-     * Named for the ARTWORK, not for what it does here.
+     * Named for the ARTWORK, and no longer for a technique.
      *
-     * It was "Strap Type-Only", which named the technique. The operator does
-     * not go looking for a technique — they go looking for the plate they
-     * designed and built, which is called `theme-strap` in Nine3, and searching
-     * the picker for "theme strap" found nothing at all. The id stays
-     * `strap-type` because saved graphics carry it.
+     * It was "Strap Type-Only", then "Theme Strap — Type Only". Both described
+     * the wiring: the plate lived in OBS and this painted type into it. The
+     * plate travels with the graphic now, so "type only" is not just unhelpful
+     * — it is false. The id stays `strap-type` because saved graphics carry it.
      */
-    description: 'Type only, NO plate — sits inside the Nine3 theme-strap image running under this output in OBS.',
+    description: 'The convention strap artwork — gold bracket, theme bar — sized to the name and taken as one graphic.',
     palette: { ...PPC_PALETTE }
   }
 };
