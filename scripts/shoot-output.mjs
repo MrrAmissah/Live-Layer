@@ -490,6 +490,11 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
    *
    * Reports the LEFT EDGE too, because a variant pinned to artwork can be
    * correctly sized and still in the wrong place.
+   *
+   * CAVEAT worth knowing before trusting a number: this reads the rendered
+   * RECT, so type inside a container with `overflow: hidden` reports the
+   * clipped width, not the width it wanted. A value sitting exactly on a
+   * variant's max-width is a clip, not a fit.
    */
   if (opt.measure) {
     const read = await evaluate(

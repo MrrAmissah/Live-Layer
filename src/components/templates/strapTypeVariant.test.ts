@@ -102,6 +102,48 @@ describe('the variant exists and is additive', () => {
     expect(dangling).toEqual([]);
   });
 
+  it('leaves no preacher variant off the convention pack by accident', () => {
+    /**
+     * THE GUARD THAT POINTS THE RIGHT WAY.
+     *
+     * The dangling-id test above checks curated → registry. The fault actually
+     * shipped — twice — is the other direction: a variant added to the REGISTRY
+     * and to no pack. It is invisible on the pack the convention runs on, and
+     * every other test in this file passes while it is.
+     *
+     * So every preacher variant the PPC '26 picker does NOT offer has to be
+     * named here with a reason. Adding a variant and forgetting the pack fails
+     * this; adding one and deciding it does not belong takes one line. The
+     * point is that it becomes a decision instead of an omission.
+     */
+    const withheld: Record<string, string> = {
+      'angled-accent': 'House look. The pack leads with the four that get reached for.',
+      'signature-medallion': 'House look.',
+      'clean-broadcast': 'House look.',
+      'bold-plate': 'House look.',
+      'event-style': 'House look.',
+      'subtle-elegance': 'House look.',
+      'canva-host-bar': 'Sample set, kept for the House pack.',
+      'canva-celebration': 'Sample set, kept for the House pack.',
+      'canva-ministry': 'Sample set, kept for the House pack.',
+      'headshot-band':
+        'Built from a collected reference sheet, not from convention artwork, and its teal/yellow palette is not the royal PPC one. Offered on House Style until Prince says whether it stays at all.'
+    };
+    const preacher = templateRegistry.find((t) => t.id === 'preacher-lower-third')!;
+    const offered = new Set(packVariantIdsFor('ppc-2026', 'preacher-lower-third'));
+    const unexplained = preacher
+      .variants!.map((v) => v.id)
+      .filter((id) => !offered.has(id) && !withheld[id]);
+    expect(unexplained).toEqual([]);
+    // And no stale entries: a reason for a variant that IS offered, or for one
+    // that no longer exists, is a note nobody will trust.
+    const known = new Set(preacher.variants!.map((v) => v.id));
+    for (const id of Object.keys(withheld)) {
+      expect(known, id).toContain(id);
+      expect(offered.has(id), `${id} is offered — drop its withheld note`).toBe(false);
+    }
+  });
+
   it('is told apart from the strap that paints its own plate', () => {
     /**
      * The two sit side by side in the convention pack and the choice between
