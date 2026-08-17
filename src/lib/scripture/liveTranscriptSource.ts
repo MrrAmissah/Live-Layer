@@ -452,6 +452,38 @@ export function createLiveTranscriptSource(
       const mine = session;
       trace(mine, 'start', 'requesting permission');
       report('starting', 'Asking for the microphone…');
+      /**
+       * THE BROWSER WILL NOT HAND OUT A MICROPHONE ON A PLAIN-HTTP LAN ADDRESS,
+       * and the message for that has to say so.
+       *
+       * `navigator.mediaDevices` only exists in a secure context. `https://` and
+       * `localhost`/`127.0.0.1` count; `http://172.20.10.2:4173` — which is how
+       * the second machine reaches this app — does not. So on that machine the
+       * API is not merely refused, it is ABSENT, and the call below threw a
+       * TypeError that landed in the catch as "No microphone available".
+       *
+       * That sent the operator to look at their microphone, their permissions
+       * and their hardware, none of which is the problem: the machine has a
+       * perfectly good microphone and the browser will never offer it here. Same
+       * mistake as the relay's old "Is it running?" — a true-sounding message
+       * pointing at the wrong thing.
+       *
+       * Checked BEFORE the call rather than interpreting the TypeError after,
+       * because a missing API and a failed request deserve different words and
+       * the TypeError cannot be told apart from a genuine fault once caught.
+       */
+      if (!options.getMedia && typeof navigator !== 'undefined' && !navigator.mediaDevices) {
+        teardown();
+        const secure = typeof window !== 'undefined' && window.isSecureContext;
+        report(
+          'unavailable',
+          secure
+            ? 'This browser does not offer microphone access. Type the reference instead.'
+            : 'The microphone needs a secure address. Open LiveLayer at 127.0.0.1 on the machine running it — a plain http:// LAN address cannot use the microphone. Type the reference instead.'
+        );
+        return;
+      }
+
       const getMedia =
         options.getMedia ?? ((constraints) => navigator.mediaDevices.getUserMedia(constraints));
 

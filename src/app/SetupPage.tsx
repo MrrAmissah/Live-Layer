@@ -439,6 +439,25 @@ export default function SetupPage() {
                       type the reference, which is the normal way to work.
                     </p>
                     <p className="setup-text">
+                      {/**
+                        * TWO REASONS IT IS THIS MACHINE ONLY, both structural.
+                        *
+                        * Reported as "microphone not working on relay", and the
+                        * page said nothing about either. The operator had no way
+                        * to know it was never going to work there.
+                        */}
+                    </p>
+                    <p className="setup-text">
+                      <strong>This works on the machine running LiveLayer, not on a second
+                      machine.</strong> Two reasons, and neither is a setting: browsers only offer
+                      the microphone on a secure address — <code className="setup-kbd">https://</code>{' '}
+                      or <code className="setup-kbd">127.0.0.1</code> — so a plain{' '}
+                      <code className="setup-kbd">http://</code> LAN address cannot use it at all.
+                      And the recogniser listens on this machine's own loopback, so a second machine
+                      would have nothing to send audio to. Run the microphone at the desk; control
+                      everything else from wherever you like.
+                    </p>
+                    <p className="setup-text">
                       In a terminal, from the LiveLayer folder:
                     </p>
                     <pre className="setup-pre"><code>{SPEECH_SERVICE_COMMAND}</code></pre>

@@ -439,3 +439,58 @@ describe('the listening control never moves', () => {
     expect(/\.live-mic\s*\{[^}]*min-height:/.test(styles)).toBe(true);
   });
 });
+
+describe('the second machine cannot have the microphone, and must be told why', () => {
+  /**
+   * `navigator.mediaDevices` exists only in a secure context. `https://` and
+   * `localhost`/`127.0.0.1` qualify; `http://172.20.10.2:4173` — which is how
+   * the relay machine reaches this app — does not. The API is not refused
+   * there, it is ABSENT.
+   *
+   * Reported simply as "microphone not working on relay", and the old message
+   * was "No microphone available", which sent the operator to look at their
+   * microphone, their permissions and their hardware. None of those is the
+   * problem: the machine has a perfectly good microphone and this browser will
+   * never offer it at that address.
+   */
+  const source = readFileSync('src/lib/scripture/liveTranscriptSource.ts', 'utf8');
+
+  it('names the address as the cause, not the hardware', async () => {
+    const seen: string[] = [];
+    const live = createLiveTranscriptSource({
+      onStatus: ({ detail }) => seen.push(detail ?? ''),
+      // No `getMedia` override, so the real guard runs.
+    } as Parameters<typeof createLiveTranscriptSource>[0]);
+
+    const original = globalThis.navigator;
+    vi.stubGlobal('navigator', {});
+    vi.stubGlobal('window', { isSecureContext: false });
+    await live.start();
+    vi.stubGlobal('navigator', original);
+    vi.unstubAllGlobals();
+
+    const said = seen.join(' | ');
+    expect(said).toMatch(/secure address/i);
+    expect(said).toMatch(/127\.0\.0\.1/);
+    // And it must NOT claim the machine has no microphone.
+    expect(said).not.toMatch(/No microphone available/i);
+  });
+
+  it('checks for the missing API BEFORE calling it', () => {
+    /**
+     * Interpreting the TypeError afterwards cannot tell "the API is absent"
+     * apart from a genuine device fault — both arrive in the same catch. The
+     * guard has to come first for the two to get different words.
+     */
+    const guardAt = source.indexOf('!navigator.mediaDevices');
+    const callAt = source.indexOf('navigator.mediaDevices.getUserMedia');
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(callAt).toBeGreaterThan(guardAt);
+  });
+
+  it('still says something useful when the context IS secure', () => {
+    // A secure context with no mediaDevices is a browser that simply lacks the
+    // API — different problem, different sentence, no mention of addresses.
+    expect(source).toMatch(/does not offer microphone access/);
+  });
+});

@@ -47,3 +47,21 @@ describe('the pre-service checklist', () => {
     expect(page).not.toMatch(/<Step n=\{4\}/);
   });
 });
+
+describe('the microphone is a this-machine feature, and the page says so', () => {
+  const page = readFileSync('src/app/SetupPage.tsx', 'utf8');
+
+  it('warns that a second machine cannot use it, with both reasons', () => {
+    /**
+     * Reported as "microphone not working on relay". Two structural blockers,
+     * neither a setting: browsers only expose the microphone on a secure
+     * address, so `http://<LAN-IP>` cannot have it; and the recogniser listens
+     * on loopback, so a second machine would have nothing to send audio to.
+     * The page said nothing about either, so there was no way to know it was
+     * never going to work.
+     */
+    expect(page).toMatch(/not on a second\s+machine/);
+    expect(page).toMatch(/secure address/i);
+    expect(page).toMatch(/loopback/i);
+  });
+});
