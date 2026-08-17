@@ -16,6 +16,15 @@ import { describe, expect, it } from 'vitest';
  */
 const provider = readFileSync('src/app/quickTake.tsx', 'utf8');
 const control = readFileSync('src/app/ControlPage.tsx', 'utf8');
+/**
+ * The GESTURE lives in the grid, which both Studio and the Scripture page now
+ * render — it was inside `ScriptureReferencePicker` when this was written, and
+ * reading that file kept these cases honest only for as long as the markup
+ * stayed there. Pointing at the component that owns the double-click means the
+ * rule is checked wherever the grid is used, which is the point of sharing it.
+ */
+const grid = readFileSync('src/components/control/ScriptureReferenceGrid.tsx', 'utf8');
+/** The picker still owns the LOOKUP and the armed badge; the grid owns the gesture. */
 const picker = readFileSync('src/components/control/ScriptureReferencePicker.tsx', 'utf8');
 
 const stripComments = (source: string) =>
@@ -119,7 +128,7 @@ describe('the gesture, and the order it happens in', () => {
   it('keeps a single click harmless', () => {
     // One click loads the verse and nothing else, armed or not. The SECOND
     // click is the broadcast.
-    const code = stripComments(picker);
+    const code = stripComments(grid);
     expect(code).toContain('onClick={() => setVerse(verse, undefined, true)}');
     expect(code).toContain('onDoubleClick={() => setVerse(verse, undefined, true, quickTake.enabled)}');
   });
@@ -131,10 +140,17 @@ describe('the gesture, and the order it happens in', () => {
      * a no-op in the COMMON case, because the first click had just selected
      * that very verse.
      */
-    const code = stripComments(picker);
-    const start = code.indexOf('if (ref === reference) {');
+    /**
+     * The gesture and the firing now sit either side of the grid's boundary:
+     * the grid re-reports the pick with `air: true`, and the picker's own
+     * `runLookup` is what calls `takeNow`. Both halves are asserted, because
+     * either one alone would let a re-selected verse silently do nothing.
+     */
+    const gridCode = stripComments(grid);
+    const start = gridCode.indexOf('if (ref === reference) {');
     expect(start).toBeGreaterThan(-1);
-    expect(code.slice(start, start + 200)).toContain('quickTake.takeNow()');
+    expect(gridCode.slice(start, start + 200)).toContain("onPick?.(ref, { air: true })");
+    expect(stripComments(picker)).toContain('quickTake.takeNow()');
   });
 });
 

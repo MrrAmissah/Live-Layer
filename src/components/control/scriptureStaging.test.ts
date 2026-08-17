@@ -339,3 +339,41 @@ describe('the workspace still stages rather than airs', () => {
     expect(code.match(/setField\(/g)).toBeNull();
   });
 });
+
+describe('the Scripture page has the picker, not just a text box', () => {
+  const grid = readFileSync('src/components/control/ScriptureReferenceGrid.tsx', 'utf8');
+  const panel = readFileSync('src/components/control/ScriptureLookupPanel.tsx', 'utf8');
+  const studio = readFileSync('src/components/control/ScriptureReferencePicker.tsx', 'utf8');
+
+  it('renders the same grid on both surfaces', () => {
+    /**
+     * Book → chapter → verse lived only in Studio's Content tab, so the page
+     * named after this job offered less help than the template editor. Reported
+     * as the page being "dry".
+     *
+     * ONE component, used twice — asserted rather than trusted, because a copy
+     * is the obvious way to do this and the grids carry a lot of corrected
+     * behaviour (a chapter tap means verse 1, a verse tap loads the words) that
+     * would have drifted into two different pickers.
+     */
+    expect(panel).toContain('<ScriptureReferenceGrid');
+    expect(studio).toContain('<ScriptureReferenceGrid');
+  });
+
+  it('leaves the grid owning no reference of its own', () => {
+    // It edits a string it is handed and reports picks. A grid that held its own
+    // reference would disagree with the field beside it the moment either moved.
+    expect(grid).not.toMatch(/useState<string>|useState\(''\)/);
+    expect(grid).toContain('onReferenceChange');
+  });
+
+  it('feeds the page’s own lookup rather than bringing a second one', () => {
+    /**
+     * The panel already owns translation, status, ranges, recents and the Take
+     * buttons. A picker that ran its own lookup would put the result somewhere
+     * else on the same page — two review areas, one of them stale.
+     */
+    expect(grid).not.toContain('useScriptureLookup');
+    expect(panel).toMatch(/onPick=\{[^}]*runLookup/s);
+  });
+});

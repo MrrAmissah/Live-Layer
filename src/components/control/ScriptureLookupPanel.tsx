@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useScriptureLookup } from '../../hooks/useScriptureLookup';
+import ScriptureReferenceGrid from './ScriptureReferenceGrid';
 import {
   parseScriptureReference,
   formatCanonicalReference,
@@ -506,6 +507,34 @@ export default function ScriptureLookupPanel({
           ) : null}
         </div>
       </form>
+
+      {/*
+        THE SAME BOOK → CHAPTER → VERSE GRIDS STUDIO HAS.
+
+        This page is named after the job and had a text box, while the template
+        editor — where an operator goes to change how a card LOOKS — carried the
+        picker. Reported as the page being dry, and it was the wrong way round.
+
+        `ScriptureReferenceGrid` is the one Studio renders, not a copy: the grids
+        carry a lot of corrected behaviour (a chapter tap means verse 1, a verse
+        tap loads the words, the counts sit in the labels) and two copies would
+        have drifted into two pickers.
+
+        A pick runs THIS panel's own lookup, so the result lands in the review
+        area with its ranges, recents and Take buttons — the picker feeds the
+        page's workflow rather than bringing a second one with it.
+      */}
+      <div className="scripture-ws__grid">
+        <ScriptureReferenceGrid
+          reference={query}
+          translationId={translationId}
+          onReferenceChange={onQueryChange}
+          onPick={(reference) => {
+            setReopenNote('');
+            void runLookup(reference);
+          }}
+        />
+      </div>
 
       {/*
         Both live regions are always mounted. Toggling `role` on a single element
