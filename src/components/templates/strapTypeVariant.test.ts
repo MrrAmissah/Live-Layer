@@ -187,7 +187,11 @@ describe('it paints nothing', () => {
      */
     for (const furniture of [
       'l3-underbar', 'l3-symbol-block', 'l3-stripe', 'l3-cap',
-      'l3-end-slab', 'l3-medallion', 'l3-strap-logo'
+      'l3-end-slab', 'l3-medallion', 'l3-strap-logo',
+      /* Added late, which is the point of listing them: this renderer learned
+         to paint a headshot for `headshot-band` and paints it for any variant
+         whose person has one. */
+      'l3-headshot'
     ]) {
       expect(block, furniture).toContain(`.gfx-l3[data-variant='strap-type'] .${furniture}`);
     }

@@ -227,7 +227,7 @@ export default function PreacherLowerThird({ values }: Props) {
               hides. Full-frame at the output's native size, so the artwork's
               own coordinates need no offset. */}
           <img className="l3-strap-plate" src={strapFit.plate.src} alt="" draggable={false} />
-          <span className="l3-name l3-strap-measure" aria-hidden ref={strapMeasureRef}>
+          <span className="l3-name l3-strap-measure" aria-hidden data-crop="ignore" ref={strapMeasureRef}>
             {name}
           </span>
         </>

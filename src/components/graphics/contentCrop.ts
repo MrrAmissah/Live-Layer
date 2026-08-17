@@ -83,6 +83,16 @@ function walk(el: HTMLElement, stage: HTMLElement): StageRect | null {
   const clipped = clipsOverflow(el);
   for (const child of Array.from(el.children)) {
     if (!(child instanceof HTMLElement)) continue; // SVG boxes count via their HTML parent
+    /**
+     * Nodes that exist to be measured, not seen.
+     *
+     * The theme strap renders a hidden twin of the name to size its plate from.
+     * It is `visibility: hidden` and paints nothing, but it is laid out — which
+     * is the whole point — so the union counted a box up to 1618px wide at the
+     * top-left corner and framed the preview around empty space. An element
+     * that cannot paint must not be able to move the frame.
+     */
+    if (child.dataset.crop === 'ignore') continue;
     let rect = walk(child, stage);
     if (!rect) continue;
     if (clipped) rect = intersectionOf(rect, own);

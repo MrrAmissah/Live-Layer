@@ -7605,12 +7605,54 @@ body.gfx-transparent {
 .gfx-l3[data-variant='strap-type'] .l3-strap-plate {
   position: absolute;
   left: 0;
-  top: 0;
+  /**
+   * A WINDOW onto the full-frame art, not the whole frame.
+   *
+   * The PNG is 1920x1080 with alpha and only its lower band is painted, so at
+   * full-frame the element's BOX claimed the entire stage — and the control
+   * preview frames a graphic from its laid-out boxes, so the strap's preview
+   * zoomed out to 1920x1080 of mostly nothing while every other lower third
+   * framed itself tightly.
+   *
+   * `object-fit: none` draws the image at natural size and `object-position`
+   * slides it up by the same 700px the box sits down, so the artwork lands on
+   * exactly the stage pixels it was drawn for — bracket at y726, theme bar
+   * through y948, all inside a 280px band with room either side.
+   */
+  top: 700px;
   width: 1920px;
-  height: 1080px;
-  object-fit: fill;
+  height: 280px;
+  object-fit: none;
+  object-position: 0 -700px;
   z-index: 0;
   pointer-events: none;
+}
+
+/**
+ * The plate builds WITH the type instead of appearing under it.
+ *
+ * Nothing animated it: the house build drives `.l3-mask .gfx-plate`, and this
+ * plate is an image outside any mask, so the type wiped up over artwork that
+ * was simply already there.
+ *
+ * A clip reveal rather than the house `gfx-plate-in` (`translateX(-103%)`) or
+ * `gfx-wipe-x` (`scaleX(0)`). This element is full-frame width, so a -103%
+ * translate is a 1900px sweep across the whole frame; and scaleX squashes,
+ * which on a photographic plate carrying paper grain and gold leaf reads as a
+ * stretched image rather than a reveal. Clipping moves nothing and distorts
+ * nothing — the strap is uncovered where it already sits.
+ *
+ * Same 340ms/80ms as the house plate so the two land together, and gated on the
+ * same selector so a graphic set to `fade` still crossfades whole.
+ */
+@keyframes gfx-strap-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+.gfx-layer:not([data-anim='fade'])[data-state='in'] .l3-strap-plate {
+  animation: gfx-strap-reveal 340ms var(--gfx-ease-out) 80ms both;
 }
 
 /**
@@ -7685,6 +7727,14 @@ body.gfx-transparent {
 .gfx-l3[data-variant='strap-type'] .l3-cap,
 .gfx-l3[data-variant='strap-type'] .l3-end-slab,
 .gfx-l3[data-variant='strap-type'] .l3-medallion,
+/**
+ * The headshot was the omission this list exists to catch, and it took one
+ * variant to appear. `headshot-band` taught this renderer to paint a photo, and
+ * it paints it for ANY variant whose person has one — People profiles carry
+ * headshots — so a strap graphic built from a speaker with a picture would have
+ * dropped an unstyled portrait over the artwork.
+ */
+.gfx-l3[data-variant='strap-type'] .l3-headshot,
 .gfx-l3[data-variant='strap-type'] .l3-strap-logo {
   display: none !important;
 }
