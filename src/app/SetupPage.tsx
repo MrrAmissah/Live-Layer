@@ -339,6 +339,65 @@ export default function SetupPage() {
               </Step>
 
               {/**
+                * BEFORE THE SERVICE — written from what actually went wrong.
+                *
+                * Every line here is a fault that cost this rig real time, and
+                * none of them announce themselves: the graphic looks fine on the
+                * desk while something downstream is quietly not happening. That
+                * is exactly the kind of thing a checklist is for, and exactly
+                * the kind of thing nobody writes down until it has bitten.
+                *
+                * Placed AFTER the three setup steps and before the optional
+                * block: setup is once per machine, this is once per service.
+                */}
+              <section className="setup-step setup-step--check">
+                <span className="setup-step__n" aria-hidden>
+                  <Icon name="check" size={16} />
+                </span>
+                <div className="setup-step__body">
+                  <h2 className="setup-step__title">Before each service</h2>
+                  <div className="setup-body">
+                    <p className="setup-text">
+                      Two minutes, in this order. Each one is something that has gone wrong here and
+                      gave no warning at the time.
+                    </p>
+                    <ol className="setup-list setup-list--ordered">
+                      <li>
+                        <strong>Start the relay first, then refresh the browser sources.</strong> A
+                        source that loses the relay never reconnects on its own — OBS loads each page
+                        once and will not reload it for the rest of the session.
+                      </li>
+                      <li>
+                        <strong>Make sure OBS is actually rendering</strong> — streaming, recording,
+                        or at least a preview open. OBS suspends a browser source whose video is not
+                        being rendered, and a suspended page cannot acknowledge anything. The graphic
+                        still goes out; the desk just sits on <em>Not confirmed</em> forever.
+                      </li>
+                      <li>
+                        <strong>Take one graphic and watch the pill go green.</strong> That is the
+                        only proof the whole chain works — control, relay, output, and back.
+                      </li>
+                      <li>
+                        <strong>Check the Screens page shows what you expect.</strong> Each card
+                        reports whether its source is connected, and previews exactly what that
+                        screen is carrying.
+                      </li>
+                      <li>
+                        <strong>On a second machine, confirm the address still points here.</strong>{' '}
+                        A phone hotspot hands out new addresses when it restarts, and the old one
+                        fails silently.
+                      </li>
+                    </ol>
+                    <p className="setup-note">
+                      If a Take reports failed, the reason is printed beside it. For anything deeper,
+                      open any output with <code className="setup-kbd">?debug=1</code> — it reports
+                      what OBS is telling that page and whether its own reports are getting out.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/**
                 * Everything below is OPTIONAL and now reads that way.
                 *
                 * NDI and second-machine control were full panels with the same

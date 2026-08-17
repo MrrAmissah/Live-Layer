@@ -12026,3 +12026,16 @@ body.gfx-transparent {
   gap: 8px;
 }
 .control-root .scripture-ws__grid:empty { display: none; border-top: 0; padding-top: 0; }
+
+/* The pre-service checklist. Same shape as a setup step so it reads as part of
+   the same page, with a check in the numeral's place because it is not a fourth
+   thing to set up — it is the thing you do every time. */
+.control-root .setup-step--check .setup-step__n,
+.setup-step--check .setup-step__n {
+  display: grid;
+  place-items: center;
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+}
+.setup-list--ordered { counter-reset: none; padding-left: 1.15em; }
+.setup-list--ordered > li { margin-bottom: 6px; }
