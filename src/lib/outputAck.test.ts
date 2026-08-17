@@ -167,7 +167,7 @@ describe('getting the report out of a browser with no sockets left', () => {
       relayUrl: 'http://lan:4174',
       fetchImpl: fetchImpl as unknown as typeof fetch
     });
-    const init = fetchImpl.mock.calls[0][1] as RequestInit;
+    const init = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1];
     expect((init.headers as Record<string, string>)['content-type']).toMatch(/^text\/plain/);
   });
 
