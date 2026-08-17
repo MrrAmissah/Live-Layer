@@ -103,3 +103,86 @@ describe('sendOutputEvent — fire-and-forget, failure-tolerant', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('getting the report out of a browser with no sockets left', () => {
+  /**
+   * THE FAULT THIS ANSWERS, read off `/output?debug=1` on the rig:
+   *
+   *     last send: failed   detail: no answer in 4000ms
+   *     sent ok: 0 · failed: 5
+   *
+   * while the SSE stream on the SAME origin kept delivering and a curl POST
+   * from the same machine answered 202. Chromium allows six connections per
+   * host; OBS's browser sources share one socket pool; every source holds an
+   * EventSource open to the relay for the whole service. Five or six of them
+   * exhaust the pool, and every POST then queues behind connections that never
+   * close until our own abort fires.
+   */
+  const beaconEvent = () =>
+    createOutputEvent('OUTPUT_APPLIED', {
+      commandId: 'cmd-1',
+      outputId: getOutputSessionId(),
+      graphicId: 'g-1',
+      templateId: 'preacher-lower-third'
+    }) as OutputEventMessage;
+
+  it('hands the report to the beacon path instead of the page’s socket pool', () => {
+    const sendBeacon = vi.fn(() => true);
+    vi.stubGlobal('navigator', { sendBeacon });
+    vi.stubGlobal('Blob', class { constructor(public parts: unknown[], public opts: { type: string }) {} });
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}')));
+
+    sendOutputEvent(beaconEvent(), { postLocal: () => undefined, relayUrl: 'http://lan:4174' });
+
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+    // And it did NOT also take a socket.
+    expect(fetchImpl).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('uses a CORS-safelisted content type, so no preflight takes a SECOND socket', () => {
+    /**
+     * `application/json` is not safelisted, so every ack was really two
+     * requests — the preflight and the POST — against a pool that had none to
+     * give. The relay parses the body and never inspects the header.
+     */
+    const seen: { type?: string } = {};
+    vi.stubGlobal('navigator', { sendBeacon: () => true });
+    vi.stubGlobal(
+      'Blob',
+      class {
+        constructor(_parts: unknown[], opts: { type: string }) {
+          seen.type = opts.type;
+        }
+      }
+    );
+    sendOutputEvent(beaconEvent(), { postLocal: () => undefined, relayUrl: 'http://lan:4174' });
+    expect(seen.type).toMatch(/^text\/plain/);
+    vi.unstubAllGlobals();
+
+    // The fetch fallback carries the same rule.
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}')));
+    sendOutputEvent(beaconEvent(), {
+      postLocal: () => undefined,
+      relayUrl: 'http://lan:4174',
+      fetchImpl: fetchImpl as unknown as typeof fetch
+    });
+    const init = fetchImpl.mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>)['content-type']).toMatch(/^text\/plain/);
+  });
+
+  it('falls back to the socket path rather than dropping a refused beacon', () => {
+    // `sendBeacon` returns false when it will not take the payload. Losing the
+    // report there would be worse than the queueing it was meant to avoid.
+    vi.stubGlobal('navigator', { sendBeacon: () => false });
+    vi.stubGlobal('Blob', class { constructor(public p: unknown[], public o: { type: string }) {} });
+    const fetchImpl = vi.fn(() => Promise.resolve(new Response('{}')));
+    sendOutputEvent(beaconEvent(), {
+      postLocal: () => undefined,
+      relayUrl: 'http://lan:4174',
+      fetchImpl: fetchImpl as unknown as typeof fetch
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});

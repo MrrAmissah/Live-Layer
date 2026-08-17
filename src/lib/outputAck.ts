@@ -83,7 +83,8 @@ function postLocalDefault(event: OutputEventMessage) {
  */
 export interface RelayReportState {
   url: string | null;
-  outcome: 'none' | 'sending' | 'ok' | 'failed';
+  /** `queued` = handed to the beacon path, which returns no answer to check. */
+  outcome: 'none' | 'sending' | 'queued' | 'ok' | 'failed';
   detail: string | null;
   at: number | null;
   sent: number;
@@ -121,14 +122,58 @@ export function sendOutputEvent(event: OutputEventMessage, ports: OutputAckPorts
       relayReport.detail = 'no relay configured for this page';
       return;
     }
+    const body = JSON.stringify(event);
+
+    /**
+     * BEACON FIRST — because the page cannot get a socket.
+     *
+     * Read off `/output?debug=1` on the rig: `last send: failed`, `detail: no
+     * answer in 4000ms`, `sent ok: 0 · failed: 5`, while the SSE stream on the
+     * SAME origin kept delivering and a curl POST from the same machine
+     * answered 202. The relay was never the problem.
+     *
+     * Chromium allows six connections per host, and OBS's browser sources share
+     * one socket pool. Every source holds an EventSource open to the relay for
+     * the whole service, so five or six sources exhaust the pool between them —
+     * and then every POST queues behind connections that never close, until our
+     * own 4s abort fires. It also explains why exactly one status per page load
+     * got through: the early pages still found a free socket, and the pool ran
+     * out as the rest came up.
+     *
+     * `sendBeacon` is the fix and the right tool anyway: it hands the request to
+     * the browser's beacon path rather than the page's socket pool, it is
+     * fire-and-forget by design, and it survives the page going away. What it
+     * cannot do is tell us the relay accepted it — so the report says `queued`
+     * rather than claiming `ok`, because inventing a success here is exactly the
+     * kind of unearned confidence this codebase refuses everywhere else.
+     */
+    const url = `${relayUrl}/message`;
+    if (!ports.fetchImpl && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      /* `text/plain` deliberately: a JSON content-type is not CORS-safelisted,
+         so it forces a preflight — a SECOND request needing a SECOND socket,
+         which is the last thing a starved pool needs. The relay parses the body
+         and never inspects the header. */
+      const blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
+      if (navigator.sendBeacon(url, blob)) {
+        relayReport.outcome = 'queued';
+        relayReport.detail = `${event.type} handed to the beacon queue`;
+        relayReport.sent += 1;
+        relayReport.at = Date.now();
+        return;
+      }
+      // Beacon refused (over quota, or unsupported for this payload): fall
+      // through and try the socket path rather than dropping the report.
+    }
+
     const fetchImpl = ports.fetchImpl ?? fetch;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), OUTPUT_ACK_TIMEOUT_MS);
     relayReport.outcome = 'sending';
-    fetchImpl(`${relayUrl}/message`, {
+    fetchImpl(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(event),
+      // Same reasoning as the beacon: no preflight, no second socket.
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
+      body,
       signal: controller.signal
     })
       .then((response) => {

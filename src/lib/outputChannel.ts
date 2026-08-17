@@ -26,9 +26,11 @@ export function createOutputChannel(onMessage: (message: RealtimeMessage) => voi
   const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(REALTIME_CHANNEL_NAME) : null;
   const seen = createSeenIds();
 
-  const handleMessage = (message: RealtimeMessage) => {
-    if (!seen.add(message.id)) return;
+  /** Returns whether this was the FIRST sighting — the relay path forwards on it. */
+  const handleMessage = (message: RealtimeMessage): boolean => {
+    if (!seen.add(message.id)) return false;
     onMessage(message);
+    return true;
   };
 
   if (channel) {
@@ -56,7 +58,35 @@ export function createOutputChannel(onMessage: (message: RealtimeMessage) => voi
     events.onmessage = (event) => {
       try {
         const message = parseRealtimeMessage(JSON.parse(event.data));
-        if (message) handleMessage(message);
+        if (!message) return;
+        const fresh = handleMessage(message);
+        /**
+         * PASS IT ON TO THE OTHER PAGES IN THIS BROWSER.
+         *
+         * Chromium allows six connections per host and OBS's browser sources
+         * share one socket pool, so five or six sources — each holding an
+         * EventSource open to the relay for the whole service — use it up
+         * between them. The consequence that bit was not the sending side but
+         * this one: an EventSource that drops can never reconnect, because
+         * every socket is held by a connection that never closes. The source
+         * goes deaf for the rest of the service and nothing says so.
+         *
+         * Re-broadcasting locally means ONE surviving relay connection feeds
+         * every other page in the browser. It costs nothing when all of them
+         * are healthy — `seen` drops the duplicate on arrival — and it is the
+         * difference between one dead socket and one dead screen.
+         *
+         * Only RELAY-sourced messages are forwarded, and only the first time
+         * they are seen, so this cannot echo: a page that receives over the
+         * channel does not put it back on the channel.
+         */
+        if (fresh && channel) {
+          try {
+            channel.postMessage(message);
+          } catch {
+            // A closed channel costs the relay nothing; this page still applied it.
+          }
+        }
       } catch {
         // ignore malformed relay messages
       }
