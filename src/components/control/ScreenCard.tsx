@@ -4,6 +4,7 @@ import { outputForScreen, outputPresence } from '../../lib/outputPresence';
 import {
   AS_CHOSEN,
   resolveScreenValues,
+  screenPreviewState,
   screenSourceUrl,
   type ScriptureOutputScreenInfo
 } from '../../lib/scriptureOutputs';
@@ -148,6 +149,10 @@ export default function ScreenCard({ screen }: Props) {
   const definition = snapshot ? templateRegistry.find((t) => t.id === snapshot.templateId) : null;
   const theme = { ...(definition?.theme ?? FALLBACK_THEME), ...(snapshot?.theme ?? {}) };
   const url = screenSourceUrl(screen, window.location.origin, getRealtimeRelayUrl());
+  /* The same rule `/output` applies. Previewing without it showed a lower third
+     on the scripture and split cards while OBS correctly left them alone. */
+  const preview = screenPreviewState(screen.id, snapshot?.templateId);
+  const onAirName = snapshot ? (definition?.name ?? snapshot.templateId) : null;
 
   const copy = () => {
     navigator.clipboard?.writeText(url).then(
@@ -175,7 +180,7 @@ export default function ScreenCard({ screen }: Props) {
       </header>
 
       <div className="screen-card__monitor">
-        {snapshot ? (
+        {preview === 'render' && snapshot ? (
           <TemplatePreview
             templateId={snapshot.templateId}
             values={resolveScreenValues(snapshot.templateId, snapshot.values, screen.id, scriptureOutputs)}
@@ -184,6 +189,14 @@ export default function ScreenCard({ screen }: Props) {
             showControls={false}
             frame="bare"
           />
+        ) : preview === 'not-carried' ? (
+          /* Something IS on air — it just is not coming here. Naming the graphic
+             matters: "transparent" alone reads like a dead screen, and the
+             operator needs to see that the scoping they set is doing its job
+             rather than wonder whether the screen has stopped. */
+          <p className="screen-card__empty">
+            {onAirName} is on air, but this screen carries scripture only — it stays transparent.
+          </p>
         ) : (
           /* Honest empty state. "Nothing on air" is a fact; rendering the draft
              here would dress up a guess as a report. */

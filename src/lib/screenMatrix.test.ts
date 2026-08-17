@@ -4,6 +4,7 @@ import {
   SCRIPTURE_OUTPUT_SCREENS,
   readOutputScreen,
   screenRenders,
+  screenPreviewState,
   scriptureLookFor,
   DEFAULT_SCRIPTURE_OUTPUTS,
   type ScriptureOutputScreen
@@ -122,5 +123,58 @@ describe('what each screen makes a scripture card look like', () => {
     // effect for scripture.
     expect(scriptureLookFor('main', DEFAULT_SCRIPTURE_OUTPUTS)).toBeNull();
     expect(scriptureLookFor('scripture', DEFAULT_SCRIPTURE_OUTPUTS)).toBeNull();
+  });
+});
+
+describe('the Screens page shows what each screen is actually carrying', () => {
+  /**
+   * `screenRenders` had exactly ONE caller — `/output` — so the Screens cards
+   * previewed whatever was on air on every card, scope or no scope. A lower
+   * third appeared on the scripture, split and house cards while OBS was
+   * correctly leaving those screens untouched.
+   *
+   * The card even contradicted itself in the same breath: the preview showed
+   * the graphic, and the line under it read "Scripture only — other graphics
+   * leave this screen untouched". Worse than cosmetic, because the page exists
+   * to be believed — an operator checking their scoping here would see it
+   * broken and go hunting in the thing that was working.
+   */
+  it('draws nothing on a scoped screen for a graphic it does not carry', () => {
+    for (const screen of SCREENS as ScriptureOutputScreen[]) {
+      if (screen === 'main') continue;
+      expect(screenPreviewState(screen, 'preacher-lower-third'), screen).toBe('not-carried');
+      expect(screenPreviewState(screen, 'announcement-banner'), screen).toBe('not-carried');
+    }
+  });
+
+  it('draws scripture everywhere, because every screen carries it', () => {
+    for (const screen of SCREENS as ScriptureOutputScreen[]) {
+      expect(screenPreviewState(screen, SCRIPTURE_TEMPLATE_ID), screen).toBe('render');
+    }
+  });
+
+  it('lets MAIN preview everything, exactly as it renders everything', () => {
+    for (const template of TEMPLATES) {
+      expect(screenPreviewState('main', template), template).toBe('render');
+    }
+  });
+
+  it('tells “nothing on air” apart from “not carried here”', () => {
+    // Two different facts and two different things for an operator to do. One
+    // empty state for both is how a working constraint reads as a dead screen.
+    expect(screenPreviewState('scripture', null)).toBe('empty');
+    expect(screenPreviewState('scripture', undefined)).toBe('empty');
+    expect(screenPreviewState('scripture', 'preacher-lower-third')).toBe('not-carried');
+  });
+
+  it('agrees with the rule /output applies, for every screen and template', () => {
+    // The two cannot drift: a preview that decided for itself is what produced
+    // the original defect.
+    for (const screen of SCREENS as ScriptureOutputScreen[]) {
+      for (const template of TEMPLATES) {
+        const shown = screenPreviewState(screen, template) === 'render';
+        expect(shown, `${screen} / ${template}`).toBe(screenRenders(screen, template));
+      }
+    }
   });
 });

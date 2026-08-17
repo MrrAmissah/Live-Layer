@@ -408,3 +408,37 @@ export function screenRenders(screen: ScriptureOutputScreen, templateId: string 
   if (!info || info.scope === 'all') return true;
   return templateId === SCRIPTURE_TEMPLATE_ID;
 }
+
+/** What a screen's card should be showing, given what is on air. */
+export type ScreenPreviewState =
+  /** Nothing is on air anywhere. */
+  | 'empty'
+  /** Something is on air, but this screen's scope refuses it. */
+  | 'not-carried'
+  /** This screen is rendering it — draw the preview. */
+  | 'render';
+
+/**
+ * THE SCREENS PAGE MUST OBEY THE SAME RULE `/output` DOES.
+ *
+ * `screenRenders` had exactly one caller — the output page — so the Screens
+ * cards previewed whatever was on air on EVERY card, scope or no scope. A lower
+ * third showed on the scripture, split and house cards while OBS was correctly
+ * leaving those screens untouched, and the card contradicted itself in the same
+ * breath: the preview showed the graphic, and the line under it read "Scripture
+ * only — other graphics leave this screen untouched."
+ *
+ * Worse than a cosmetic bug, because the page exists to be believed. An
+ * operator checking their scoping here would see it broken and go looking for a
+ * fault in the thing that was working.
+ *
+ * Split out as a rule rather than an inline check so the two callers cannot
+ * drift the way they already did once.
+ */
+export function screenPreviewState(
+  screen: ScriptureOutputScreen,
+  templateId: string | null | undefined
+): ScreenPreviewState {
+  if (!templateId) return 'empty';
+  return screenRenders(screen, templateId) ? 'render' : 'not-carried';
+}
