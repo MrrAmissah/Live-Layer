@@ -107,7 +107,15 @@ function weakness(status: OutputStatusState, now: number): number {
   if (outputPresence(status, now) !== 'fresh') return 0; // UNVERIFIED
   if (status.sourceVisible === false) return 1; // SOURCE HIDDEN
   if (status.sourceActive === false) return 2; // SOURCE INACTIVE
-  if (status.sourceActive === null) return 3; // OUTPUT READY — no host binding
+  /**
+   * `!== true`, not `=== null`. The words fall through to OUTPUT READY for
+   * ANYTHING that is not exactly `true`; this tested only for `null`, so a
+   * status POST that OMITTED `sourceActive` — an older build, or a message that
+   * lost a field crossing machines — was ranked 4, as strong as a measured
+   * active source, while `describeProgramStatus` called the same record READY.
+   * The two are documented as reading in the same order and have to agree.
+   */
+  if (status.sourceActive !== true) return 3; // OUTPUT READY — no host binding
   return 4; // OUTPUT ACTIVE
 }
 
