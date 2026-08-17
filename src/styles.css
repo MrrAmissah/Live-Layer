@@ -11944,6 +11944,31 @@ body.gfx-transparent {
    is edged in; keep the number from competing with the reference above it. */
 .gfx-scripture[data-variant='house-wall'] .scripture-versenum { opacity: 0.75; }
 
+/**
+ * GOLD APPARATUS ON A PAPER PLATE IS NOT READABLE, and these are the two
+ * variants that have one.
+ *
+ * `--gfx-accent-2` is the card's gold, and against the deep-blue plates every
+ * other variant uses it is high contrast — which is exactly why this went
+ * unnoticed. Measured off 1920x1080 captures, on the light plates it is
+ *
+ *     classic-band       gold rgb(233,189,74) on rgb(245,242,236)  1.59:1
+ *     reference-runner   gold rgb(230,187,72) on rgb(223,223,225)  1.36:1
+ *
+ * against a 4.5:1 floor for body text — and 3:1 even for large type. At
+ * 1.36:1 the number is not faint, it is gone, and these numbers are what tells
+ * a reader where one verse ends and the next begins in a passage of eight.
+ *
+ * Bronze rather than the body ink: it keeps the number reading as apparatus
+ * rather than as part of the sentence, which is the whole point of setting it
+ * in the accent, while clearing the floor at about 5.6:1.
+ */
+.gfx-scripture[data-variant='classic-band'] .scripture-versenum,
+.gfx-scripture[data-variant='reference-runner'] .scripture-versenum {
+  color: #6b5a2e;
+  opacity: 1;
+}
+
 /* A screen's content scope, stated on its card. Quiet — it is a fact about the
    screen, not a warning. */
 .control-root .screen-card__scope {

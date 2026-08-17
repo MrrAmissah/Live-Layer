@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { templateRegistry } from '../components/templates/registry';
 import {
@@ -176,5 +177,37 @@ describe('the Screens page shows what each screen is actually carrying', () => {
         expect(shown, `${screen} / ${template}`).toBe(screenRenders(screen, template));
       }
     }
+  });
+});
+
+describe('verse numbers survive a light plate', () => {
+  const css = readFileSync('src/styles.css', 'utf8');
+
+  it('does not leave the gold accent on the two paper-plate variants', () => {
+    /**
+     * `--gfx-accent-2` is the card's gold. Against the deep-blue plates every
+     * other variant uses, it is high contrast — which is exactly why this went
+     * unnoticed for so long. Measured off 1920x1080 captures, on the LIGHT
+     * plates it was:
+     *
+     *     classic-band       1.59:1
+     *     reference-runner   1.36:1
+     *
+     * against a 4.5:1 floor for body text. At 1.36:1 the number is not faint,
+     * it is gone — and in a passage of eight verses those numbers are what
+     * tells a reader where one verse ends and the next begins. Now about 6.0:1
+     * and 5.1:1.
+     *
+     * Asserted as "these two are overridden" rather than by re-measuring a
+     * screenshot, because this repo's vitest has no DOM and no renderer; the
+     * measurement lives in the commit that made it.
+     */
+    for (const variant of ['classic-band', 'reference-runner']) {
+      const rule = `.gfx-scripture[data-variant='${variant}'] .scripture-versenum`;
+      expect(css, variant).toContain(rule);
+    }
+    // And the override is a real colour, not another opacity nudge on the gold.
+    const block = css.slice(css.indexOf("GOLD APPARATUS ON A PAPER PLATE"));
+    expect(block.slice(0, 1400)).toMatch(/color: #6b5a2e/);
   });
 });
