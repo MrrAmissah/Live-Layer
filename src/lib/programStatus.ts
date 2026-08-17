@@ -108,6 +108,17 @@ export interface ProgramStatusWords {
     | 'Clear';
   /** Derived from `pill`, so a new pill cannot ship without a colour. */
   tone: ProgramStatusTone;
+  /**
+   * The specific reason, when there is one — shown BESIDE the pill by surfaces
+   * with room, never instead of it.
+   *
+   * Deliberately outside the `pill`/`phrase` unions. Those are a closed
+   * vocabulary that is allowed to claim only what the evidence supports, and
+   * this is free text from a transport. Keeping them apart is what lets the
+   * desk say "FAILED · No relay response in 4000ms" without any surface
+   * inventing a new claim.
+   */
+  detail?: string;
 }
 
 /**
@@ -120,7 +131,7 @@ export interface ProgramStatusWords {
 export const AWAITING_OUTPUT_GRACE_MS = 10_000;
 
 export function describeProgramStatus(
-  program: Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure' | 'takenAt'>,
+  program: Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure' | 'takenAt' | 'sendFailure'>,
   output: OutputStatusState | null = null,
   now: number = Date.now()
 ): ProgramStatusWords {
@@ -129,7 +140,12 @@ export function describeProgramStatus(
       // Output told us it COULDN'T render this command — worth more than any
       // liveness reading, so it is checked first.
       if (program.outputFailure) {
-        return { pill: 'FAILED', phrase: 'Output couldn’t render it' , tone: TONE_BY_PILL['FAILED'] };
+        return {
+          pill: 'FAILED',
+          phrase: 'Output couldn’t render it',
+          tone: TONE_BY_PILL['FAILED'],
+          detail: program.outputFailure.reason || undefined
+        };
       }
       if (program.confirmation !== 'confirmed') {
         /**
@@ -192,7 +208,18 @@ export function describeProgramStatus(
     case 'recovering':
       return { pill: 'UNVERIFIED', phrase: 'Not confirmed' , tone: TONE_BY_PILL['UNVERIFIED'] };
     case 'failed':
-      return { pill: 'FAILED', phrase: 'Send failed' , tone: TONE_BY_PILL['FAILED'] };
+      /**
+       * The reason travels with it now. "Send failed" is the same six states
+       * however it failed — a relay that is down, one that refused the message,
+       * and a network path that dropped it need three different responses, and
+       * an operator two rooms from the graphics machine cannot guess which.
+       */
+      return {
+        pill: 'FAILED',
+        phrase: 'Send failed',
+        tone: TONE_BY_PILL['FAILED'],
+        detail: program.sendFailure?.detail || undefined
+      };
     default:
       /**
        * "NO GRAPHIC", not "CLEAR".

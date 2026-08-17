@@ -12,7 +12,7 @@ import type { OutputStatusState, ProgramState } from '../types/program';
 
 const NOW = 10_000_000;
 
-type Words = Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure' | 'takenAt'>;
+type Words = Pick<ProgramState, 'status' | 'confirmation' | 'outputFailure' | 'takenAt' | 'sendFailure'>;
 
 /**
  * `takenAt: NOW` by default, so the existing cases read at the instant of the
@@ -126,7 +126,13 @@ describe('the decision table', () => {
       output({ sourceActive: true }),
       NOW
     );
-    expect(words).toEqual<ProgramStatusWords>({ pill: 'FAILED', phrase: 'Output couldn’t render it' , tone: 'failed' });
+    // The reason travels with it — see "a failed send says WHY" below.
+    expect(words).toEqual<ProgramStatusWords>({
+      pill: 'FAILED',
+      phrase: 'Output couldn’t render it',
+      tone: 'failed',
+      detail: 'Template "x" is not available in this build'
+    });
   });
 
   it('clearing reads as a pending command, whatever the presence', () => {
@@ -287,5 +293,56 @@ describe('the honesty guard on the vocabulary itself', () => {
         }
       }
     }
+  });
+});
+
+describe('a failed send says WHY', () => {
+  /**
+   * `postToRelay` already works out precisely what went wrong — "No relay
+   * response in 4000ms", "Relay responded 400", a network message — and
+   * `markProgramFailed` discarded all of it. The desk said "Send failed" and
+   * nothing else however it failed, so an operator two rooms from the graphics
+   * machine had no way to tell a relay that is down from one that refused the
+   * message from a network path that dropped it. Three different responses.
+   */
+  it('carries the transport’s reason beside the claim', () => {
+    const words = describeProgramStatus(
+      program({ status: 'failed', sendFailure: { reason: 'timeout', detail: 'No relay response in 4000ms', at: NOW } }),
+      null,
+      NOW
+    );
+    expect(words.pill).toBe('FAILED');
+    expect(words.phrase).toBe('Send failed');
+    expect(words.detail).toBe('No relay response in 4000ms');
+  });
+
+  it('still says FAILED when the transport gave no reason', () => {
+    // The claim never depends on the evidence being present — a missing detail
+    // must not soften or hide the failure.
+    const words = describeProgramStatus(program({ status: 'failed' }), null, NOW);
+    expect(words.pill).toBe('FAILED');
+    expect(words.detail).toBeUndefined();
+  });
+
+  it('names what the OUTPUT refused, not just that it refused', () => {
+    const words = describeProgramStatus(
+      program({ outputFailure: { reason: 'Template "x" is not available in this build', at: NOW } }),
+      null,
+      NOW
+    );
+    expect(words.pill).toBe('FAILED');
+    expect(words.detail).toMatch(/not available in this build/);
+  });
+
+  it('never lets a reason reach a pill that is not a failure', () => {
+    // The detail is evidence FOR a claim, never a claim of its own — a healthy
+    // status with a stale reason attached would read as a fault.
+    const healthy = describeProgramStatus(
+      program({ confirmation: 'confirmed', sendFailure: { reason: 'timeout', detail: 'old news', at: NOW } }),
+      output({ sourceActive: true }),
+      NOW
+    );
+    expect(healthy.pill).toBe('OUTPUT ACTIVE');
+    expect(healthy.detail).toBeUndefined();
   });
 });

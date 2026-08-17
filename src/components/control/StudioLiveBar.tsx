@@ -46,6 +46,7 @@ export default function StudioLiveBar({ onTake, onTakeNext, onClear, sending = f
           {status.pill}
         </span>
         <span className="studio-livebar__phrase">{status.phrase}</span>
+        {status.detail ? <span className="studio-livebar__reason">{status.detail}</span> : null}
       </div>
       <LiveActions surface="studio" onTake={onTake} onTakeNext={onTakeNext} onClear={onClear} sending={sending} />
     </div>

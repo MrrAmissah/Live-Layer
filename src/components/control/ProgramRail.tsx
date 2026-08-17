@@ -50,6 +50,10 @@ function OutputCard({ program, outputs }: { program: ProgramState; outputs: Outp
           {words.phrase}
         </span>
       </div>
+      {/* The REASON, when the transport gave one. Beside the phrase, never
+          instead of it: "Send failed" is the claim, and this is the evidence an
+          operator two rooms away needs in order to act on it. */}
+      {words.detail ? <p className="program-card__reason">{words.detail}</p> : null}
       <div className="program-card__detail">
         {program.status === 'showing' && program.snapshot ? (
           <>

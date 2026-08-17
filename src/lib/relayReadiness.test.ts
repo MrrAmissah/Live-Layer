@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { classifyRelayProbe, canAcceptCommands, type RelayProbe } from './relayReadiness';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  RELAY_PROBE_TIMEOUT_MS,
+  classifyRelayProbe,
+  canAcceptCommands,
+  probeRelay,
+  type RelayProbe
+} from './relayReadiness';
 
 /**
  * The bug this rule exists for, reproduced against the running app before it was
@@ -128,5 +134,53 @@ describe('the header cannot say connected for a non-relay', () => {
     // A non-JSON body is the signal, so it must not be swallowed as unreachable.
     // That now lives in probeRelay.
     expect(readFileSync('src/lib/relayReadiness.ts', 'utf8')).toMatch(/catch \{\s*body = null;/);
+  });
+});
+
+describe('naming the failure the operator actually has', () => {
+  /**
+   * "No response from the relay. Is it running?" was the whole message, and on
+   * this rig it pointed the wrong way. The relay WAS running — listening on
+   * 0.0.0.0, answering on the LAN address in under 4ms — while the desk on the
+   * other machine could not reach it. The operator went looking at the relay
+   * for something that was never wrong with it.
+   */
+  it('says the address may be unreachable, not just that the relay may be down', () => {
+    const verdict = classifyRelayProbe(null, { host: '172.20.10.2:4174', failure: 'timeout' });
+    expect(verdict.connection).toBe('unreachable');
+    expect(verdict.detail).toContain('172.20.10.2:4174');
+    expect(verdict.detail).toMatch(/cannot reach that address/i);
+  });
+
+  it('tells a refused connection apart from a silent one', () => {
+    // Refused comes back immediately and DOES mean nothing is listening; a
+    // timeout means packets went nowhere. Same badge, different thing to check.
+    const refused = classifyRelayProbe(null, { host: 'lan:4174', failure: 'network' });
+    const timedOut = classifyRelayProbe(null, { host: 'lan:4174', failure: 'timeout' });
+    expect(refused.detail).not.toBe(timedOut.detail);
+    expect(refused.detail).toContain('lan:4174');
+  });
+
+  it('gives up rather than sitting on “Checking relay…” forever', async () => {
+    /**
+     * The probe had no bound at all, so a path that eats packets left `fetch`
+     * pending for the browser's own default — a minute or more of a badge that
+     * reads as "nearly there". Checking forever is a worse lie than unreachable.
+     */
+    vi.useFakeTimers();
+    // Never settles on its own; only the probe's own abort can end it.
+    const fetchImpl = ((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError'))
+        );
+      })) as unknown as typeof fetch;
+
+    const pending = probeRelay('http://lan:4174', { fetchImpl, isCurrent: () => true });
+    await vi.advanceTimersByTimeAsync(RELAY_PROBE_TIMEOUT_MS + 10);
+    const shape = await pending;
+    expect(shape?.connection).toBe('unreachable');
+    expect(shape?.detail).toMatch(/within 4s/);
+    vi.useRealTimers();
   });
 });

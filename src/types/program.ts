@@ -49,6 +49,20 @@ export interface ProgramState {
   appliedAt: number | null;
   /** Output received the matching command but could not render it. */
   outputFailure: { reason: string; at: number } | null;
+  /**
+   * Why the command never LEFT — a different failure from `outputFailure`, and
+   * the one that had nowhere to go.
+   *
+   * `postToRelay` already works out precisely what went wrong ("No relay
+   * response in 4000ms", "Relay responded 400", a network message) and
+   * `markProgramFailed` discarded all of it, so the desk said "Send failed" and
+   * nothing else however it failed. An operator two rooms from the graphics
+   * machine cannot act on that: a relay that is down, a relay that refused the
+   * message, and a network path that dropped it need three different responses.
+   *
+   * Optional so program records persisted by an older build stay valid.
+   */
+  sendFailure?: { reason: string; detail: string; at: number } | null;
 }
 
 /**

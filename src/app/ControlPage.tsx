@@ -177,7 +177,15 @@ export default function ControlPage() {
     // rule rather than re-modelled in a test file.
     const outcome = resolveTakeOutcome(result);
     if (outcome.markFailed) {
-      markProgramFailed({ snapshot: instance, commandId: message.id, source });
+      markProgramFailed({
+        snapshot: instance,
+        commandId: message.id,
+        source,
+        // `publishCommand` already worked out exactly what went wrong; passing
+        // it on is the difference between "Send failed" and something an
+        // operator can act on without walking to the other machine.
+        failure: result.ok ? undefined : { reason: result.reason, detail: result.detail ?? '', at: Date.now() }
+      });
       return false;
     }
     // Relay acceptance is not an output acknowledgement — markProgramShowing

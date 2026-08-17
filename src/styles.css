@@ -11971,3 +11971,21 @@ body.gfx-transparent {
 .control-root .field--hidden .field__input,
 .control-root .field--hidden .field__textarea { opacity: 0.45; }
 .control-root .field--hidden .field__label > span:first-child { text-decoration: line-through; text-decoration-color: rgba(232, 185, 60, 0.6); }
+
+/* The transport's own words, beside a FAILED claim rather than replacing it.
+   Quiet: it is evidence for the pill, not a second status of its own. */
+.control-root .program-card__reason {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #fca5a5;
+  word-break: break-word;
+}
+.control-root .studio-livebar__reason {
+  font-size: 12px;
+  color: #fca5a5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}

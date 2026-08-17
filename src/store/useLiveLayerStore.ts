@@ -115,7 +115,13 @@ interface LiveLayerState {
   markProgramClearing: (input: { commandId: string }) => void;
   /** Records a publish that never reached output. Source is passed explicitly so
    *  the failed record never inherits the previous Program's source. */
-  markProgramFailed: (input?: { snapshot?: GraphicInstance; commandId?: string; source?: ProgramSource }) => void;
+  markProgramFailed: (input?: {
+    snapshot?: GraphicInstance;
+    commandId?: string;
+    source?: ProgramSource;
+    /** Why it never left. Shown on the desk instead of a bare "Send failed". */
+    failure?: { reason: string; detail: string; at: number };
+  }) => void;
   /** Inbound realtime traffic (remote commands, output acks) — one testable rule
    *  (`lib/programSync.ts`), applied identically by every control client. */
   applyRealtimeMessage: (message: RealtimeMessage) => void;
@@ -456,7 +462,10 @@ export const useLiveLayerStore = create<LiveLayerState>()(
           sourceId: input?.source?.sourceId ?? null,
           snapshot: input?.snapshot ? deepClone(input.snapshot) : null,
           takenAt: null,
-          clearedAt: null
+          clearedAt: null,
+          /* The reason the send failed, carried rather than discarded — see
+             `ProgramState.sendFailure`. */
+          sendFailure: input?.failure ?? null
         };
         saveProgram(next);
         return { program: next };

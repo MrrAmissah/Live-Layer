@@ -60,6 +60,18 @@ export interface RelayProbe {
   body: unknown;
 }
 
+/**
+ * How long a probe waits before calling it. Without a bound, a path that simply
+ * eats packets — a phone hotspot that has parked the other machine, a sleeping
+ * Wi-Fi link — leaves `fetch` pending for the browser's own default of a minute
+ * or more, and the badge sits on "Checking relay…" the entire time. Checking
+ * forever is a worse lie than unreachable: it reads as "nearly there".
+ */
+export const RELAY_PROBE_TIMEOUT_MS = 4000;
+
+/** Why a probe produced nothing — the two need different words. */
+export type RelayProbeFailure = 'timeout' | 'network';
+
 export interface RelayVerdict {
   connection: RelayConnection;
   /** Operator-facing detail. Empty when ready or local. */
@@ -75,10 +87,36 @@ function looksLikeRelay(body: unknown): boolean {
   return shape.ok === true && typeof shape.clients === 'number';
 }
 
-export function classifyRelayProbe(probe: RelayProbe | null): RelayVerdict {
-  // A rejected fetch — DNS, refused connection, CORS, timeout.
+export function classifyRelayProbe(
+  probe: RelayProbe | null,
+  context: { host?: string | null; failure?: RelayProbeFailure } = {}
+): RelayVerdict {
   if (!probe) {
-    return { connection: 'unreachable', detail: 'No response from the relay. Is it running?' };
+    /**
+     * "Is it running?" was the whole message, and on this rig it pointed the
+     * wrong way: the relay WAS running, listening on 0.0.0.0, answering on the
+     * LAN address in under 4ms — while the desk on the other machine could not
+     * reach it. The operator went looking at the relay for something that was
+     * never wrong with it.
+     *
+     * The two failures are distinguishable and want different answers. A
+     * connection REFUSED comes back immediately and does mean nothing is
+     * listening. A probe that runs out of time means packets went nowhere,
+     * which on a phone hotspot — a /28 with the other machine parked or asleep
+     * — is by far the likelier story. Both name the address, because the first
+     * thing to check is whether it is still the right one.
+     */
+    const where = context.host ? ` at ${context.host}` : '';
+    if (context.failure === 'timeout') {
+      return {
+        connection: 'unreachable',
+        detail: `Nothing answered${where} within ${RELAY_PROBE_TIMEOUT_MS / 1000}s. The relay may be stopped — or this machine cannot reach that address.`
+      };
+    }
+    return {
+      connection: 'unreachable',
+      detail: `Could not connect${where}. Check the relay is running and that the address is still this machine's.`
+    };
   }
 
   if (!probe.ok) {
@@ -192,9 +230,21 @@ export async function probeRelay(
    * function fake does not care what `this` is. Found in the browser.
    */
   const { fetchImpl } = ports;
+  let failure: RelayProbeFailure | undefined;
+
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller
+    ? setTimeout(() => {
+        failure = 'timeout';
+        controller.abort();
+      }, RELAY_PROBE_TIMEOUT_MS)
+    : null;
 
   try {
-    const res = await fetchImpl(`${relayUrl}/health`, { method: 'GET' });
+    const res = await fetchImpl(`${relayUrl}/health`, {
+      method: 'GET',
+      ...(controller ? { signal: controller.signal } : {})
+    });
     // The body must be read to classify it. A non-JSON body is the SIGNAL, not an
     // error, so a parse failure becomes `body: null` rather than "unreachable".
     let body: unknown = null;
@@ -206,9 +256,13 @@ export async function probeRelay(
     probe = { ok: res.ok, status: res.status, contentType: res.headers.get('content-type'), body };
   } catch {
     probe = null;
+    // Not the abort we scheduled: a refused connection, DNS, or CORS.
+    failure = failure ?? 'network';
+  } finally {
+    if (timer !== null) clearTimeout(timer);
   }
 
   if (!ports.isCurrent()) return null;
-  const verdict = classifyRelayProbe(probe);
+  const verdict = classifyRelayProbe(probe, { host, failure });
   return { connection: verdict.connection, host, detail: verdict.detail };
 }
