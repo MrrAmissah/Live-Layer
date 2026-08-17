@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createOutputChannel, loadLastRealtimeMessage } from '../lib/outputChannel';
-import { createOutputEvent, getOutputSessionId, sendOutputEvent } from '../lib/outputAck';
+import { createOutputEvent, getOutputSessionId, getRelayReport, sendOutputEvent } from '../lib/outputAck';
 import { obsHostPresent, subscribeObsSourceState, type ObsBridgeDiagnostics } from '../lib/obsSource';
 import { subscribeObsHostDiagnostics, type ObsHostDiagnostics } from '../lib/obsHostDiagnostics';
 import { OUTPUT_HEARTBEAT_MS } from '../lib/outputPresence';
@@ -111,6 +111,18 @@ export default function OutputPage() {
   // Separate state for a separate question: the OBS source bridge is silent on
   // the rig, so this records whether the HOST's own signals arrive at all.
   const [hostSignals, setHostSignals] = useState<ObsHostDiagnostics | null>(null);
+  /**
+   * Polled rather than pushed, and only under `?debug=1`: the send path must
+   * stay fire-and-forget with no subscriber to notify, because notifying is
+   * exactly the kind of work an acknowledgement is forbidden to do on the way
+   * to air.
+   */
+  const [relayReport, setRelayReport] = useState(getRelayReport);
+  useEffect(() => {
+    if (!debugMode) return;
+    const timer = window.setInterval(() => setRelayReport(getRelayReport()), 1000);
+    return () => window.clearInterval(timer);
+  }, [debugMode]);
 
   const revokeResolvedAssets = () => {
     resolvedAssetUrls.current.forEach((url) => URL.revokeObjectURL(url));
@@ -485,6 +497,24 @@ export default function OutputPage() {
           <div>last visibility change: {clockLabel(hostSignals?.lastVisibilityChangeAt)}</div>
           <div>scene events: {hostSignals?.sceneEvents ?? 0}</div>
           <div>last scene event: {sceneLabel(hostSignals)}</div>
+          {/**
+           * THE REPORTING HALF, which had no readout at all.
+           *
+           * Everything above answers "what is OBS telling this page". Nothing
+           * answered "is this page able to tell anyone else" — and that is the
+           * half that failed: a browser source rendered every graphic correctly
+           * while the desk on the other machine sat at "Awaiting output",
+           * because its acknowledgements were going nowhere and the send path
+           * swallowed the reason.
+           */}
+          <div style={{ marginTop: 8, opacity: 0.85 }}>— relay reporting —</div>
+          <div>relay url: {relayReport.url ?? 'none'}</div>
+          <div>last send: {relayReport.outcome}</div>
+          <div>detail: {relayReport.detail ?? '—'}</div>
+          <div>
+            sent ok: {relayReport.sent} · failed: {relayReport.failed}
+          </div>
+          <div>last send at: {clockLabel(relayReport.at ?? undefined)}</div>
         </div>
       ) : null}
     </div>

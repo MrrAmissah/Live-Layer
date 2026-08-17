@@ -247,7 +247,22 @@ const matteColor = matte
       a: 1
     }
   : { r: 0, g: 0, b: 0, a: 0 };
-const outputUrl = `http://127.0.0.1:${port}/output${screen ? `?screen=${encodeURIComponent(screen)}` : ''}`;
+/**
+ * `--relay <url>` and `--hold <seconds>`: drive the REPORTING half, not the
+ * drawing half.
+ *
+ * Added to answer one question no screenshot can: does a real `/output` page
+ * keep heart-beating to the relay? On the rig every browser source registered
+ * exactly one OUTPUT_STATUS as it loaded and then went silent for a quarter of
+ * an hour, which is either our timer or the way obs-browser treats a source it
+ * is not rendering. A plain headless Chrome running the same page separates
+ * those two — it has no OBS in it at all.
+ */
+const outputQuery = [
+  screen ? `screen=${encodeURIComponent(screen)}` : null,
+  typeof opt.relay === 'string' ? `relay=${encodeURIComponent(opt.relay)}` : null
+].filter(Boolean);
+const outputUrl = `http://127.0.0.1:${port}/output${outputQuery.length ? `?${outputQuery.join('&')}` : ''}`;
 const outDir = path.join(ROOT, 'out', 'shots');
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -592,6 +607,14 @@ try {
   for (const variantId of variants) {
     const file = await shoot(cdp, sessionId, { templateId, variantId, values, label: caseName });
     console.log(`  ${variantId.padEnd(24)} -> ${path.relative(ROOT, file)}`);
+  }
+
+  /* Keep the page alive so its heartbeat has time to prove itself. The whole
+     point of `--hold` is what happens AFTER the first status goes out. */
+  if (opt.hold) {
+    const seconds = Number(opt.hold);
+    console.log(`  holding the page open ${seconds}s — watch the relay`);
+    await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
   }
 } catch (err) {
   console.error(`\u2717 ${err.message}`);
