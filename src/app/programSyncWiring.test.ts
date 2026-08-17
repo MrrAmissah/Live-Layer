@@ -42,10 +42,21 @@ describe('output acknowledges at the commit point', () => {
 
   it('sends OUTPUT_APPLIED only after the prepared graphic is committed for rendering', () => {
     const code = stripComments(outputPage);
-    // Both the prepared path and the documented asset-fallback path: commit
-    // first (setShowing(true)), acknowledge after.
-    const commits = code.match(/setShowing\(true\);\s*ackApplied\(\);/g) ?? [];
+    /**
+     * Both the prepared path and the documented asset-fallback path: commit
+     * first (`setShowing(true)`), acknowledge after.
+     *
+     * The pattern allows book-keeping BETWEEN the two — it used to demand them
+     * adjacent, and recording which command is on screen (so the output can
+     * report retiring it later) failed a test whose subject is the ORDER, not
+     * the adjacency. Still anchored on both statements in sequence, so an ack
+     * that moves before the commit fails exactly as it did.
+     */
+    const commits = code.match(/setShowing\(true\);[^;]*;?\s*ackApplied\(\);/g) ?? [];
     expect(commits).toHaveLength(2);
+    // And there is no THIRD ack anywhere that skipped the commit — the count of
+    // calls must equal the count of commit-then-ack pairs.
+    expect((code.match(/ackApplied\(\);/g) ?? []).length).toBe(commits.length);
     // A superseded request is never acknowledged — the guard precedes both acks.
     const staleGuards = code.match(/if \(showRequestId\.current !== requestId\) return;/g) ?? [];
     expect(staleGuards.length).toBeGreaterThanOrEqual(2);

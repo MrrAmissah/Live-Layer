@@ -253,14 +253,51 @@ describe('acknowledgement matching — the load-bearing rule', () => {
     expect(next.program.commandId).toBe('cmd-new');
   });
 
-  it('an OUTPUT_CLEARED naming a SHOW command id cannot blank a showing Program', () => {
-    // Matching id alone is not enough — the acknowledgement KIND must fit the
-    // pending command. A buggy or forged OUTPUT_CLEARED that echoes the SHOW's
-    // own id would otherwise blank a graphic that is still on air.
+  it('an OUTPUT_CLEARED naming the SHOWING command retires it — auto-hide sends no command', () => {
+    /**
+     * THIS TEST USED TO ASSERT THE OPPOSITE, and the reasoning it carried was
+     * sound for as long as nothing legitimately sent such an event: "the
+     * acknowledgement KIND must fit the pending command; a buggy or forged
+     * OUTPUT_CLEARED echoing the SHOW's id would blank a graphic still on air."
+     *
+     * Something legitimately sends it now. Auto-hide is the OUTPUT's own
+     * business — when a graphic's duration expires the output takes it down with
+     * no command from anyone — so there is no clear command whose id could
+     * arrive, and under the old rule the retirement was unreportable. Program
+     * stayed `showing`/`confirmed` and the desk read OUTPUT READY over an empty
+     * screen until the next Take.
+     *
+     * The id match is what makes this safe, and it is doing the same work it
+     * always did: the event names the exact command whose graphic is gone.
+     */
     const showing = apply(clientState(), show('cmd-A', T0), T0);
     const next = apply(showing, cleared('cmd-A', T0 + 10), T0 + 10);
+    expect(next.program.status).toBe('clear');
+    expect(describeProgramStatus(next.program).pill).toBe('NO GRAPHIC');
+  });
+
+  it('an OUTPUT_CLEARED naming a DIFFERENT command still cannot blank a showing Program', () => {
+    // The half of the old guard that still matters, and the reason the id match
+    // is load-bearing rather than decorative: a retirement report about an
+    // earlier graphic must not take down the one currently on air.
+    const showing = apply(clientState(), show('cmd-A', T0), T0);
+    const next = apply(showing, cleared('cmd-OLD', T0 + 10), T0 + 10);
     expect(next.program.status).toBe('showing');
     expect(next.program.snapshot).not.toBeNull();
+  });
+
+  it('a second screen reporting the same retirement changes nothing', () => {
+    /**
+     * Both browser sources run the same duration off the same command
+     * timestamp, so they retire together and both report it. The first settles
+     * Program; the second arrives to a record whose `commandId` is already null
+     * and is ignored by the same match it was accepted by.
+     */
+    const showing = apply(clientState(), show('cmd-A', T0), T0);
+    const first = apply(showing, cleared('cmd-A', T0 + 10), T0 + 10);
+    const second = apply(first, cleared('cmd-A', T0 + 11), T0 + 11);
+    expect(second.program.status).toBe('clear');
+    expect(second.program.clearedAt).toBe(first.program.clearedAt);
   });
 
   it('an OUTPUT_APPLIED naming the pending clear id cannot flip clearing into confirmed-showing', () => {

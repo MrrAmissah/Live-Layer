@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createOutputChannel, loadLastRealtimeMessage } from '../lib/outputChannel';
 import { createOutputEvent, getOutputSessionId, sendOutputEvent } from '../lib/outputAck';
 import { obsHostPresent, subscribeObsSourceState, type ObsBridgeDiagnostics } from '../lib/obsSource';
@@ -60,6 +60,33 @@ export default function OutputPage() {
   const hideTimer = useRef<number | null>(null);
   const resolvedAssetUrls = useRef<string[]>([]);
   const showRequestId = useRef(0);
+  /**
+   * The command whose graphic is on screen, so the output can say when it takes
+   * that graphic down BY ITSELF.
+   *
+   * Auto-hide is the output's own business — no command is sent when a duration
+   * expires — so without this there is nothing to report the retirement against,
+   * and `OUTPUT_CLEARED` has no id that Program would accept.
+   */
+  const showingCommandId = useRef<string | null>(null);
+
+  /**
+   * Report that this screen no longer has the graphic from `commandId` up.
+   *
+   * Deliberately the SAME event a commanded clear sends. It is the same fact —
+   * "the graphic for command X is not on this screen" — and inventing a second
+   * message type for it would give Program two ways to learn one thing, which is
+   * how the two drift. `programSync` accepts it against a `showing` record only
+   * when the id matches the command being shown.
+   */
+  const ackRetired = useCallback((commandId: string) => {
+    sendOutputEvent(
+      createOutputEvent('OUTPUT_CLEARED', {
+        commandId,
+        outputId: getOutputSessionId()
+      })
+    );
+  }, []);
   const debugMode = useMemo(() => new URLSearchParams(window.location.search).get('debug') === '1', []);
   /**
    * WHICH SCREEN THIS IS. A browser source's identity is its address and
@@ -183,9 +210,22 @@ export default function OutputPage() {
         if (graphic.durationSeconds > 0 && elapsed >= graphic.durationSeconds * 1000) {
           setShowing(false);
           setActiveGraphic(null);
-          // Applied per the command's own auto-hide semantics: the graphic's
-          // window had already passed, so committing "nothing" IS honouring it.
-          ackApplied();
+          showingCommandId.current = null;
+          /**
+           * CLEARED, not APPLIED — the same defect as the auto-hide timer, and
+           * this one was already shipping.
+           *
+           * The graphic's window had passed before it arrived, so the output
+           * honours the command by displaying nothing. It used to acknowledge
+           * that as APPLIED, which puts Program in `showing`/`confirmed` for a
+           * graphic that was never on screen, and the desk then reads OUTPUT
+           * READY over an empty frame with no way back.
+           *
+           * This is the ordinary consequence of refreshing a browser source
+           * mid-service: the last SHOW is replayed on mount, and an old
+           * short-duration graphic lands here every time.
+           */
+          ackRetired(message.id);
           return;
         }
         const requestId = showRequestId.current + 1;
@@ -196,6 +236,7 @@ export default function OutputPage() {
             if (showRequestId.current !== requestId) return;
             setActiveGraphic(prepared);
             setShowing(true);
+            showingCommandId.current = message.id;
             ackApplied();
           })
           .catch(() => {
@@ -204,12 +245,16 @@ export default function OutputPage() {
             // than dropping the graphic. Applied, minus its images.
             setActiveGraphic(graphic);
             setShowing(true);
+            showingCommandId.current = message.id;
             ackApplied();
           });
       }
       if (message.type === 'HIDE_GRAPHIC' || message.type === 'CLEAR_ALL') {
         showRequestId.current += 1;
         setShowing(false);
+        // A commanded clear reports against the CLEAR's id, so the retirement
+        // path must not also fire for it and report against the show's.
+        showingCommandId.current = null;
         sendOutputEvent(
           createOutputEvent('OUTPUT_CLEARED', {
             commandId: message.id,
@@ -324,9 +369,25 @@ export default function OutputPage() {
 
     const durationSeconds = activeGraphic?.durationSeconds ?? 0;
     if (durationSeconds > 0) {
-      hideTimer.current = window.setTimeout(() => setShowing(false), durationSeconds * 1000);
+      hideTimer.current = window.setTimeout(() => {
+        setShowing(false);
+        /**
+         * SAY SO. This is the whole defect: the output took the graphic down on
+         * its own schedule and told nobody, so Program stayed `showing` /
+         * `confirmed` and the desk read OUTPUT READY over an empty screen until
+         * the next Take — a status claiming a graphic that had gone.
+         *
+         * Guarded on the id: a graphic already retired, or cleared by command,
+         * must not report twice.
+         */
+        const retiring = showingCommandId.current;
+        if (retiring) {
+          showingCommandId.current = null;
+          ackRetired(retiring);
+        }
+      }, durationSeconds * 1000);
     }
-  }, [showing, activeGraphic]);
+  }, [showing, activeGraphic, ackRetired]);
 
   const resolved = useMemo(() => {
     if (!activeGraphic) return null;

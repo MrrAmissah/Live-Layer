@@ -61,9 +61,49 @@ function sendEvent(res, message) {
   res.write(`data: ${JSON.stringify(message)}\n\n`);
 }
 
+/**
+ * Write to every listener, and SURVIVE the ones that are already gone.
+ *
+ * `clients` was pruned only by `req.on('close')`, which is the clean-shutdown
+ * path — a browser tab closed, a source removed. It is not what happens when a
+ * laptop sleeps, Wi-Fi drops, or OBS is killed: the socket dies without the
+ * request ever emitting `close`, and the dead response stays in the set.
+ *
+ * The next broadcast then writes to it. An `http.ServerResponse` with no
+ * `error` listener turns that into an unhandled 'error' event, which takes the
+ * whole relay process down — and a relay that dies mid-service makes every Take
+ * report failed, which is exactly what this rig has already been bitten by
+ * once. In the milder case the throw lands in the POST handler's catch and the
+ * Take gets a 400 for somebody else's dead socket.
+ *
+ * Neither is acceptable for a machine nobody is watching during a service. A
+ * listener that cannot be written to is dropped and the rest still get the
+ * message.
+ *
+ * NOTE: found by reading, not by reproducing a crash. It is a real unhandled
+ * path either way — that is why the handling is defensive rather than a fix
+ * aimed at a specific symptom.
+ */
+function drop(res) {
+  clients.delete(res);
+  try {
+    res.end();
+  } catch {
+    // Already destroyed — nothing to close.
+  }
+}
+
 function broadcast(message) {
-  for (const res of clients) {
-    sendEvent(res, message);
+  for (const res of Array.from(clients)) {
+    if (res.writableEnded || res.destroyed) {
+      drop(res);
+      continue;
+    }
+    try {
+      sendEvent(res, message);
+    } catch {
+      drop(res);
+    }
   }
 }
 
@@ -132,6 +172,19 @@ const server = http.createServer(async (req, res) => {
       sendEvent(res, message);
     }
     req.on('close', () => {
+      clients.delete(res);
+    });
+    /**
+     * The listener `req.on('close')` cannot give you.
+     *
+     * An SSE response is held open for the length of a service. If its socket
+     * errors — the far end vanished, the network went away — an
+     * `http.ServerResponse` with no `error` listener raises an unhandled event
+     * and ends the process. This keeps the relay alive and forgets the
+     * listener, which is all that can honestly be done about a socket that has
+     * already gone.
+     */
+    res.on('error', () => {
       clients.delete(res);
     });
     return;

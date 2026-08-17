@@ -117,11 +117,25 @@ export function reduceRealtimeMessage(
       const outputs = refreshPresence(state.outputs, message.payload.outputId, now, null);
       const p = state.program;
       const matches = p.commandId !== null && message.payload.commandId === p.commandId;
-      // Only the clear we are actually waiting on may complete — an
-      // OUTPUT_CLEARED for an older clear must not blank a newer Take.
-      // (`recovering` can be a reloaded pending clear; a SHOW command's id can
-      // never match a clear acknowledgement, so including it is safe.)
-      const clearable = p.status === 'clearing' || p.status === 'recovering';
+      /**
+       * Only the clear we are actually waiting on may complete — an
+       * OUTPUT_CLEARED for an older clear must not blank a newer Take.
+       * (`recovering` can be a reloaded pending clear.)
+       *
+       * `showing` IS included, and that is the fix for a desk that claimed a
+       * graphic nobody could see. Auto-hide is the output's own business: when a
+       * graphic's duration expires the output takes it down by itself, with no
+       * command from anyone. Nothing reported that, so Program stayed
+       * `showing`/`confirmed` and the pill read OUTPUT READY over an empty
+       * screen — indefinitely, until the next Take.
+       *
+       * A cleared event carrying the id of the command Program is currently
+       * showing can only mean one thing: the screen that applied that graphic no
+       * longer has it up. There is no ambiguity to guard against — the id match
+       * already refuses anything about a different command — and a duplicate
+       * from a second screen finds `commandId` null and is ignored.
+       */
+      const clearable = p.status === 'clearing' || p.status === 'recovering' || p.status === 'showing';
       if (!matches || !clearable) {
         return { outputs };
       }
