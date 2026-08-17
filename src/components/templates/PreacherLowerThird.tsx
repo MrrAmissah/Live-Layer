@@ -113,11 +113,26 @@ function nameSizeClass(name: string): string {
  * width, and a plate chosen from the fallback font's metrics would be the wrong
  * plate for the rest of the take.
  */
-function useStrapFit(name: string, active: boolean): { ref: React.RefObject<HTMLSpanElement>; fit: StrapFit } {
+function useStrapFit(
+  name: string,
+  roleKey: string,
+  active: boolean
+): { ref: React.RefObject<HTMLSpanElement>; roleRef: React.RefObject<HTMLSpanElement>; fit: StrapFit } {
   const ref = useRef<HTMLSpanElement>(null);
+  const roleRef = useRef<HTMLSpanElement>(null);
   const [natural, setNatural] = useState(0);
+  /**
+   * The role row measured UNCAPPED, so the plate can be chosen to hold it.
+   *
+   * It cannot be read off the live row: that row's `max-width` is the zone of
+   * the plate this measurement is about to choose, so measuring it would be
+   * asking the answer to supply the question. Its own twin, like the name's.
+   */
+  const [naturalRole, setNaturalRole] = useState(0);
 
   const measure = () => {
+    const roleNode = roleRef.current;
+    setNaturalRole(roleNode ? roleNode.offsetWidth : 0);
     const node = ref.current;
     if (!node) return;
     /**
@@ -139,9 +154,12 @@ function useStrapFit(name: string, active: boolean): { ref: React.RefObject<HTML
   // Before paint, so the plate is never seen changing under the name.
   useLayoutEffect(() => {
     if (active) measure();
-    else setNatural(0);
+    else {
+      setNatural(0);
+      setNaturalRole(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, name]);
+  }, [active, name, roleKey]);
 
   useEffect(() => {
     if (!active) return;
@@ -153,9 +171,9 @@ function useStrapFit(name: string, active: boolean): { ref: React.RefObject<HTML
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, name]);
+  }, [active, name, roleKey]);
 
-  return { ref, fit: fitStrapName(natural) };
+  return { ref, roleRef, fit: fitStrapName(natural, naturalRole) };
 }
 
 /**
@@ -199,7 +217,21 @@ export default function PreacherLowerThird({ values }: Props) {
   const showHeadshot = Boolean(resolvedHeadshot && !headshotFailed);
   const hasRoleRow = Boolean(title || subtitle);
   const isStrap = variantId === 'strap-type';
-  const { ref: strapMeasureRef, fit: strapFit } = useStrapFit(name, isStrap);
+  const { ref: strapMeasureRef, roleRef: strapRoleRef, fit: strapFit } = useStrapFit(
+    name,
+    `${title}\u0000${subtitle}`,
+    isStrap
+  );
+  /* Written once and rendered twice — in the live row and in the hidden twin
+     the plate is chosen from. Two copies of this markup would drift, and the
+     measurement would quietly stop describing what is drawn. */
+  const roleChildren = (
+    <>
+      {title ? <span className="l3-role">{title}</span> : null}
+      {title && subtitle ? <span className="l3-role-divider" aria-hidden /> : null}
+      {subtitle ? <span className="l3-org">{subtitle}</span> : null}
+    </>
+  );
 
   useEffect(() => {
     setHeadshotFailed(false);
@@ -230,6 +262,16 @@ export default function PreacherLowerThird({ values }: Props) {
           <span className="l3-name l3-strap-measure" aria-hidden data-crop="ignore" ref={strapMeasureRef}>
             {name}
           </span>
+          {hasRoleRow ? (
+            <span
+              className="l3-role-line l3-strap-measure l3-strap-measure-role"
+              aria-hidden
+              data-crop="ignore"
+              ref={strapRoleRef}
+            >
+              {roleChildren}
+            </span>
+          ) : null}
         </>
       ) : null}
       <div className="l3-stack">
@@ -256,11 +298,7 @@ export default function PreacherLowerThird({ values }: Props) {
           <div className="l3-mask l3-role-mask">
             <Plate fill="ink" cut="right" cutDepth={10} className="l3-role-plate">
               <MaskedLine index={1} className="l3-role-line-mask">
-                <span className="l3-role-line">
-                  {title ? <span className="l3-role">{title}</span> : null}
-                  {title && subtitle ? <span className="l3-role-divider" aria-hidden /> : null}
-                  {subtitle ? <span className="l3-org">{subtitle}</span> : null}
-                </span>
+                <span className="l3-role-line">{roleChildren}</span>
               </MaskedLine>
             </Plate>
           </div>

@@ -7673,7 +7673,39 @@ body.gfx-transparent {
   width: max-content;
   max-width: none;
   overflow: visible;
-  font-size: 62px;
+  /* Must match STRAP_NAME_MAX_PX: the fit scales from whatever this measures. */
+  font-size: 50px;
+}
+
+/**
+ * The role row's twin. Same rules, minus the name's 62px — the role is drawn at
+ * a fixed 26px and never scales, so its natural width IS its rendered width.
+ *
+ * `.l3-org` carries `overflow: hidden; text-overflow: ellipsis` and would shrink
+ * inside a flex row; both are undone here, because a measurer that ellipsises
+ * measures the ellipsis rather than the text and would keep choosing a plate one
+ * size too small.
+ */
+/* Both classes in the selector on purpose. The twin also carries `l3-role-line`,
+   whose `max-width: var(--l3-strap-zone)` sits later in this file at equal
+   specificity and was therefore capping the measurer at the very zone it exists
+   to measure past — so it always reported 850 and the plate never grew. */
+.gfx-l3[data-variant='strap-type'] .l3-strap-measure.l3-strap-measure-role {
+  font-size: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  max-width: none;
+  width: max-content;
+  overflow: visible;
+}
+
+.gfx-l3[data-variant='strap-type'] .l3-strap-measure-role .l3-org,
+.gfx-l3[data-variant='strap-type'] .l3-strap-measure-role .l3-role {
+  overflow: visible;
+  text-overflow: clip;
+  flex: none;
+  min-width: 0;
 }
 
 /**
@@ -7690,19 +7722,23 @@ body.gfx-transparent {
    expressed on the stack instead of on the root. */
 .gfx-l3[data-variant='strap-type'] .l3-stack {
   position: absolute;
-  left: 150px;
-  top: 726px;
-  width: 1618px;
+  /* 139/760, measured off the artwork. The scene source says 150/726 and the
+     exported PNGs are not in that coordinate space: the plate's body starts at
+     y 760, and the designer's own mock name and role both begin at x 139. */
+  left: 139px;
+  top: 760px;
+  width: 1282px;
   min-width: 0;
-  max-width: 1618px;
+  max-width: 1282px;
   height: 150px;
   display: block;
   gap: 0;
   z-index: 1;
 }
 
-/* Centre at y 786 — 60px down the 150px zone. `translateY(-50%)` centres the
-   row itself, so this holds at 62px and at the 44px the longest name steps to. */
+/* Centre at y 820 — 60px down from the zone's real top of 760. Measured: the
+   demo's name occupies y 802-838. `translateY(-50%)` centres the row itself, so
+   this holds at any fitted size. */
 .gfx-l3[data-variant='strap-type'] .l3-mask:not(.l3-role-mask) {
   position: absolute;
   top: 60px;
@@ -7710,10 +7746,12 @@ body.gfx-transparent {
   transform: translateY(-50%);
 }
 
-/* Centre at y 837 — 111px down. */
+/* Centre at y 860 — 100px down. Measured: the demo's role occupies y 853-867.
+   It was 111 (y 837 in the scene's numbers), which put the role a clear 24px
+   above where the design has it. */
 .gfx-l3[data-variant='strap-type'] .l3-role-mask {
   position: absolute;
-  top: 111px;
+  top: 100px;
   left: 0;
   transform: translateY(-50%);
 }
@@ -7795,7 +7833,9 @@ body.gfx-transparent {
    plate ever made it. */
 .gfx-l3[data-variant='strap-type'] .l3-name {
   color: #ffffff;
-  font-size: 62px;
+  /* Overridden inline by the fit; this is the unmeasured fallback. 50, not 62 —
+     see STRAP_NAME_MAX_PX for the cap-height measurement behind it. */
+  font-size: 50px;
   line-height: 1;
   letter-spacing: 0.005em;
   text-shadow: 0 2px 14px rgba(2, 8, 40, 0.55);
@@ -7830,8 +7870,10 @@ body.gfx-transparent {
 .gfx-l3[data-variant='strap-type'] .l3-role,
 .gfx-l3[data-variant='strap-type'] .l3-org {
   color: rgba(255, 255, 255, 0.8);
-  font-size: 26px;
-  letter-spacing: 3.4px;
+  /* 22/2.9, down from 26/3.4 with the name — the demo's role is 14px of cap
+     height, and 26px of Archivo overshoots it as badly as 62 overshot the name. */
+  font-size: 22px;
+  letter-spacing: 2.9px;
   text-shadow: 0 2px 10px rgba(2, 8, 40, 0.5);
 }
 

@@ -4,6 +4,8 @@ import {
   STRAP_NAME_MAX_PX,
   STRAP_PLATES,
   STRAP_MAX_ZONE,
+  STRAP_TEXT_LEFT,
+  STRAP_TEXT_RIGHT_INSET,
   fitStrapName
 } from './strapPlate';
 
@@ -59,9 +61,9 @@ describe('choosing the plate', () => {
     // The three widths exist so the plate fits the speaker. Always picking the
     // widest would leave a long empty stretch after "Rev. Mensah", which is the
     // reason the artwork is not one plate.
-    expect(fitStrapName(492).plate.id).toBe('compact');
-    expect(fitStrapName(933).plate.id).toBe('standard');
-    expect(fitStrapName(1400).plate.id).toBe('wide');
+    expect(fitStrapName(400).plate.id).toBe('compact');
+    expect(fitStrapName(800).plate.id).toBe('standard');
+    expect(fitStrapName(1100).plate.id).toBe('wide');
   });
 
   it('holds exactly at each boundary', () => {
@@ -86,6 +88,49 @@ describe('choosing the plate', () => {
     for (let natural = 50; natural <= 3000; natural += 7) {
       const fit = fitStrapName(natural);
       expect(fit.width, `natural ${natural}`).toBeLessThanOrEqual(fit.plate.zone);
+    }
+  });
+
+  it('grows the plate to hold a long ROLE, not just a long name', () => {
+    /**
+     * Measured on the rig before this existed: "Rev. Mensah" is 492px, picked
+     * the compact plate, and an ordinary role row — "General Overseer ◆
+     * Mathapoly Church International", 1009px — was cut to
+     * "MATHAPOLY CHURCH INTE…" against an 850px zone.
+     *
+     * A SHORT name is exactly where a long title bites, because the plate got
+     * small for a reason that has nothing to do with the title.
+     */
+    expect(fitStrapName(400).plate.id).toBe('compact');
+    expect(fitStrapName(400, 860).plate.id).toBe('standard');
+    expect(fitStrapName(400, 1200).plate.id).toBe('wide');
+  });
+
+  it('lets the role widen the plate but never resize the name', () => {
+    // The name is the primary field and the thing that shrinks; the role only
+    // ever gets a vote on WIDTH. A long role must not shrink the name.
+    const alone = fitStrapName(800);
+    const withRole = fitStrapName(800, 1200);
+    expect(withRole.size).toBe(alone.size);
+    expect(withRole.width).toBe(alone.width);
+    expect(withRole.plate.id).not.toBe(alone.plate.id);
+  });
+
+  it('cannot be pushed past the widest plate by a role', () => {
+    // Past 1618 no plate exists, so the role ellipsises — there is nothing else
+    // it could do, and inventing a fourth width would mean artwork we do not have.
+    expect(fitStrapName(400, 9000).plate.id).toBe('wide');
+    expect(fitStrapName(400, Number.NaN).plate.id).toBe('compact');
+    expect(fitStrapName(400, -50).plate.id).toBe('compact');
+  });
+
+  it('still holds the no-overflow guarantee with a role in play', () => {
+    for (let name = 50; name <= 2400; name += 37) {
+      for (const role of [0, 400, 1009, 1350, 1618, 2500]) {
+        const fit = fitStrapName(name, role);
+        expect(fit.width, `${name}/${role}`).toBeLessThanOrEqual(fit.plate.zone);
+        expect(Math.min(role, STRAP_MAX_ZONE), `${name}/${role}`).toBeLessThanOrEqual(fit.plate.zone);
+      }
     }
   });
 
@@ -116,10 +161,31 @@ describe('the plates it points at', () => {
     }
   });
 
-  it('keeps zones matching the artwork’s own arithmetic', () => {
-    // The scene fits to `plate width - 110`, and the three plates are rendered
-    // at nw 960 / 1300 / 1728.
-    expect(STRAP_PLATES.map((plate) => plate.zone)).toEqual([960 - 110, 1300 - 110, 1728 - 110]);
+  it('keeps zones inside the artwork that was actually exported', () => {
+    /**
+     * DECODED FROM THE PNGs, not derived from the scene source — and the two
+     * disagree badly. The scene's numbers imply the plates end at x 1056 /
+     * 1396 / 1824; the painted artwork ends at 862 / 1128 / 1461. Building to
+     * the source put a full-width name 212px past the end of the standard
+     * plate, onto open video.
+     *
+     * `scan.py`-style alpha scans of `public/plates/*.png` at the name row
+     * produce these edges, and anyone can re-run them.
+     */
+    const artworkRight = { compact: 862, standard: 1128, wide: 1461 } as const;
+    for (const plate of STRAP_PLATES) {
+      const right = artworkRight[plate.id];
+      expect(STRAP_TEXT_LEFT + plate.zone, plate.id).toBeLessThanOrEqual(right);
+      // And not needlessly conservative: within the inset of the real edge.
+      expect(STRAP_TEXT_LEFT + plate.zone + STRAP_TEXT_RIGHT_INSET, plate.id).toBe(right);
+    }
+  });
+
+  it('fits down from the size the DESIGN uses, not the one the source names', () => {
+    // The demo's own name renders 36px of cap height; 62px of Archivo gives
+    // about 45, which is why our name sat a size too large inside artwork it is
+    // supposed to live in.
+    expect(STRAP_NAME_MAX_PX).toBe(50);
   });
 
   it('has no size tiers left to disagree with the fit', () => {

@@ -534,11 +534,31 @@ async function shoot(cdp, sessionId, { templateId, variantId, values, label }) {
             DOM. Reading it reported the name at x0 y31 — the measurer's
             position, not the graphic's. */
          const plate = document.querySelector('[data-strap-plate]')?.dataset.strapPlate;
-         return JSON.stringify({ plate, name: pick('.l3-name:not(.l3-strap-measure)'), role: pick('.l3-role-line', '.l3-role') });
+         /* What the page CHOSE and what it is actually PAINTING are different
+            questions, and they disagreed once: the data attribute said standard
+            while the img was still showing the compact PNG. */
+         const img = document.querySelector('.l3-strap-plate');
+         const painted = img ? (img.currentSrc || img.src || '').split('/').pop() : null;
+         const complete = img ? img.complete : null;
+         /* Mid-animation capture looks exactly like the wrong plate: a clip
+            reveal frozen part-way ends the artwork early, taper and all. */
+         const cs = img ? getComputedStyle(img) : null;
+         const clip = cs ? cs.clipPath + ' | fit=' + cs.objectFit + ' pos=' + cs.objectPosition +
+           ' box=' + Math.round(img.getBoundingClientRect().width) + 'x' + Math.round(img.getBoundingClientRect().height) +
+           ' @' + Math.round(img.getBoundingClientRect().left) + ',' + Math.round(img.getBoundingClientRect().top) +
+           ' nat=' + img.naturalWidth + 'x' + img.naturalHeight : null;
+         const anims = img ? (img.getAnimations?.() || []).map((a) => (a.animationName || 'anim') + ':' + a.playState).join(',') : null;
+         /* Both rows have a hidden twin now — the name's and the role's — and
+            both twins come first in the DOM. Neither selector may match one. */
+         return JSON.stringify({
+           plate, painted, complete, clip, anims,
+           name: pick('.l3-name:not(.l3-strap-measure)'),
+           role: pick('.l3-role-line:not(.l3-strap-measure)', '.l3-role-line:not(.l3-strap-measure) .l3-role')
+         });
        })()`
     );
     const m = JSON.parse(read ?? '{}');
-    if (m.plate) console.log(`    plate ${m.plate}`);
+    if (m.plate) console.log(`    plate ${m.plate}   painted=${m.painted}  loaded=${m.complete}\n    clip=${m.clip}  anims=[${m.anims}]`);
     if (m.name) {
       console.log(
         `    name  ${String(m.name.size).padStart(4)}px  x ${m.name.left}–${m.name.right}  (w ${m.name.width})  mid-y ${m.name.mid}`

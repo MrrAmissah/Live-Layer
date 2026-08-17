@@ -221,8 +221,8 @@ describe('it is pinned to the artwork, not to the safe area', () => {
      * move the type when the layout's safe-margin setting changed, sliding the
      * name off a background that cannot move with it.
      */
-    expect(rules).toMatch(/left: 150px/);
-    expect(rules).toMatch(/top: 726px/);
+    expect(rules).toMatch(/left: 139px/);
+    expect(rules).toMatch(/top: 760px/);
     expect(rules).not.toMatch(/--gfx-safe-/);
   });
 
@@ -233,12 +233,12 @@ describe('it is pinned to the artwork, not to the safe area', () => {
 
   it('caps the name at the WIDEST zone the artwork offers', () => {
     /**
-     * 1618 = the wide plate's 1728 minus the 110 of padding the scene's own
-     * `fitSize` call subtracts. Earlier this was 1578, which came from measuring
-     * to the plate's right EDGE and ignoring that the artwork keeps 56px of
-     * inset there — 40px adrift, in the safe direction, but not the contract.
+     * 1282, decoded from `theme-strap-wide.png` itself. Two earlier numbers —
+     * 1578 and then 1618 — both came from the scene SOURCE, which describes a
+     * coordinate space the exported PNGs are not in. The painted wide plate
+     * ends at x 1461, so both let a long name run off the end of the artwork.
      */
-    expect(block).toContain('max-width: 1618px');
+    expect(block).toContain('max-width: 1282px');
   });
 
   it('caps both rows to the plate that is actually under them', () => {
@@ -271,7 +271,7 @@ describe('it is pinned to the artwork, not to the safe area', () => {
      * Measured back off the page at 786 and 836.
      */
     expect(block).toMatch(/l3-mask:not\(\.l3-role-mask\) \{[^}]*top: 60px/);
-    expect(block).toMatch(/l3-role-mask \{[^}]*top: 111px/);
+    expect(block).toMatch(/l3-role-mask \{[^}]*top: 100px/);
     expect(block).toMatch(/translateY\(-50%\)/);
   });
 
@@ -285,7 +285,7 @@ describe('it is pinned to the artwork, not to the safe area', () => {
      * 1.3px — a third of the design's.
      */
     expect(block).toMatch(/color: rgba\(255, 255, 255, 0\.8\)/);
-    expect(block).toMatch(/letter-spacing: 3\.4px/);
+    expect(block).toMatch(/letter-spacing: 2\.9px/);
   });
 
   it('carries the plate INSIDE the graphic, which is what makes a take atomic', () => {
@@ -320,7 +320,7 @@ describe('it is pinned to the artwork, not to the safe area', () => {
     // frame instead, and the type is placed at the artwork's own x150/y726.
     expect(block).toMatch(/width: 1920px/);
     expect(block).toMatch(/height: 1080px/);
-    expect(block).toMatch(/l3-stack \{[^}]*left: 150px/);
-    expect(block).toMatch(/l3-stack \{[^}]*top: 726px/);
+    expect(block).toMatch(/l3-stack \{[^}]*left: 139px/);
+    expect(block).toMatch(/l3-stack \{[^}]*top: 760px/);
   });
 });
