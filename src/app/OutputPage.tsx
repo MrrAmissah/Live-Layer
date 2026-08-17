@@ -388,6 +388,17 @@ export default function OutputPage() {
             data-position={activeGraphic.layout?.position}
             data-density={activeGraphic.layout?.density}
             data-safe-margin={activeGraphic.layout?.safeMargin}
+            /**
+             * WHICH SCREEN THIS IS, in the DOM, so a layout can differ per
+             * screen without a renderer knowing screens exist.
+             *
+             * The main scene composites a ticker across the foot of frame, and
+             * scripture's bottom-anchored variants sat inside it — the verse cut
+             * through the bar. The scripture SCREENS have no ticker, so the
+             * offset must not follow the card there, and the only thing that
+             * can tell them apart at render time is this.
+             */
+            data-screen={screen}
           >
             <resolved.Renderer values={outputValues} theme={resolved.theme} />
           </div>

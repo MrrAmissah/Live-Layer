@@ -3884,6 +3884,33 @@ body.gfx-transparent {
 .gfx-scripture[data-variant='split-tall'] .scripture-verse-sm { font-size: 46px; line-height: 1.27; }
 .gfx-scripture[data-variant='split-tall'] .scripture-translation { font-size: 26px; }
 
+/**
+ * THE MAIN SCREEN HAS A TICKER, AND SCRIPTURE WAS CUTTING THROUGH IT.
+ *
+ * `#PPC · Live` composites a scrolling info bar across the foot of frame,
+ * occupying roughly y 942-1010 of the 1920x1080 canvas (measured from
+ * `Scroll background.png` at its OBS transform: 1640x924 scaled 1.175 at y 0).
+ * Scripture's bottom-anchored variants sit at `--gfx-safe-action-bottom`, 72px,
+ * which puts the card's bottom edge at y 1008 — inside the bar.
+ *
+ * REDEFINING THE VARIABLE rather than setting `bottom` directly, because that
+ * is what every bottom-anchored variant already computes from — `theme-lower`
+ * uses `calc(var(--gfx-safe-action-bottom) + 20px)` — so one declaration moves
+ * all of them and keeps their relative spacing. The variants anchored by `top`
+ * instead (split-tall, split-wide, house-wall, dual-well) read the variable
+ * not at all and are untouched, which is correct: they belong to screens that
+ * have no ticker.
+ *
+ * Scoped to the MAIN screen. The scripture, split and house scenes carry no
+ * ticker, and moving the card there would be correcting for something that is
+ * not in the frame.
+ *
+ * 168px puts the card's bottom at y 912, thirty clear of the bar.
+ */
+.gfx-layer[data-screen='main'] .gfx-scripture {
+  --gfx-safe-action-bottom: 168px;
+}
+
 /* --- scripture: dual-well ---------------------------------------------------
  *
  * The SPLIT DUAL plate draws the camera in a portrait window on the left and

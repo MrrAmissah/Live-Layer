@@ -192,6 +192,10 @@ export default function TemplatePreview({ templateId, values, theme, layout, sho
       <div
         key={templateId}
         className="gfx-layer"
+        /* The preview stands in for the MAIN screen — that is the screen a
+           graphic goes to unless a scene says otherwise — so it inherits the
+           same ticker clearance and preview parity survives. */
+        data-screen="main"
         data-anim={anim}
         data-state="in"
         data-size={layout?.size}
