@@ -148,3 +148,39 @@ describe('the component cannot reach another write path', () => {
     expect(code).toContain('if (!supportsPerson(target.templateId)) return null;');
   });
 });
+
+describe('finding a name by typing part of it', () => {
+  const swap = readFileSync('src/components/control/PersonFastSwap.tsx', 'utf8');
+  const content = readFileSync('src/components/control/ContentTab.tsx', 'utf8');
+  const dock = readFileSync('src/components/control/DockQuickEditTab.tsx', 'utf8');
+
+  it('searches the group and the note, not just the name', () => {
+    /**
+     * The convention's gospel bands carry `group: "Gospel Band"` and their
+     * performance days in the note. Searching names alone means an operator has
+     * to already know the band's name to find the band's name — so typing
+     * "gospel" would return nothing and "24" would return nothing, which is the
+     * opposite of a search.
+     */
+    expect(swap).toMatch(/person\.group/);
+    expect(swap).toMatch(/person\.notes/);
+  });
+
+  it('is offered on BOTH surfaces, not just the dock', () => {
+    /**
+     * It rendered only in the dock, which is the layout below 1024px. The
+     * operator controlling from the second machine over the relay is on a
+     * laptop — the studio layout — so the person who most needs to find a name
+     * quickly was on the one surface that never offered it.
+     */
+    expect(dock).toContain('<PersonFastSwap />');
+    expect(content).toContain('<PersonFastSwap />');
+  });
+
+  it('stays authoring-only wherever it renders', () => {
+    // Adding a second render site must not turn a preview change into a Take.
+    // It writes one field patch through the target-aware path and nothing else.
+    expect(swap).not.toMatch(/publishShow|takeNow|CLEAR_ALL/);
+    expect(swap).toContain('target.setFields(personFieldPatch(');
+  });
+});

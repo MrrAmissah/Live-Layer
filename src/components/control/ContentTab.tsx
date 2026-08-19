@@ -7,6 +7,7 @@ import { packVariantIdsFor } from '../../lib/packs';
 import { Icon } from '../../lib/icons';
 import EditTargetBanner from './EditTargetBanner';
 import TemplateFields from './TemplateFields';
+import PersonFastSwap from './PersonFastSwap';
 import TemplateThumb from './TemplateThumb';
 import LayoutControls from './LayoutControls';
 import { canManageLogoInBrand, contentFieldExclusions, safeDecodeFilename } from '../../lib/contentFields';
@@ -160,6 +161,21 @@ export default function ContentTab({ onManageLogo }: { onManageLogo: () => void 
       <div className="content-tab__grid" data-side={showLogo ? 'logo' : 'none'}>
         <div className="content-tab__fields">
           <EditTargetBanner />
+          {/**
+            * THE SAME QUICK SEARCH THE DOCK HAS.
+            *
+            * It rendered only in `DockQuickEditTab`, so it existed below 1024px
+            * and nowhere above it — and the operator controlling from the second
+            * machine over the relay is on a laptop, which is the studio layout.
+            * The person who most needs to find a name quickly was the one
+            * surface that never offered it.
+            *
+            * `PersonFastSwap` returns null unless the current template carries
+            * person fields, so this costs nothing on a scripture card or an
+            * announcement, and it writes through the same target-aware path here
+            * as it does in the dock.
+            */}
+          <PersonFastSwap />
           <TemplateFields section="content" excludeFieldIds={contentFieldExclusions(isRundownItem)} />
         </div>
         {showLogo ? (

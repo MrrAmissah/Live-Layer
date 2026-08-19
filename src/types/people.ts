@@ -5,6 +5,14 @@ export interface PersonProfile {
   churchName?: string;
   subtitle?: string;
   notes?: string;
+  /**
+   * A label the operator can search and filter by — "Gospel Band", "Preachers".
+   *
+   * Optional and free text on purpose. It is a way of finding people, not a
+   * taxonomy: every record without one is a person like any other, and nothing
+   * anywhere requires a group to exist or to be from a fixed list.
+   */
+  group?: string;
   headshotAssetId?: string;
   logoAssetId?: string;
   favorite?: boolean;
@@ -19,6 +27,7 @@ export interface PersonProfileInput {
   churchName?: string;
   subtitle?: string;
   notes?: string;
+  group?: string;
   headshotAssetId?: string;
   logoAssetId?: string;
   favorite?: boolean;

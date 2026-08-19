@@ -60,7 +60,17 @@ export default function PersonFastSwap() {
     if (!needle) return ranked.slice(0, 6);
     return ranked
       .filter((person) =>
-        [person.displayName, person.title, person.churchName, person.subtitle]
+        /**
+         * `group` and `notes` are searched too, and that is what makes a roster
+         * usable rather than merely present.
+         *
+         * The convention's gospel bands carry `group: "Gospel Band"` and their
+         * performance days in the note, so typing "gospel" brings up all eight
+         * and typing "24" brings up the one playing on the 24th. Without these
+         * two fields an operator has to already know the band's name to find
+         * the band's name, which is the opposite of a search.
+         */
+        [person.displayName, person.title, person.churchName, person.subtitle, person.group, person.notes]
           .filter(Boolean)
           .some((field) => field!.toLowerCase().includes(needle))
       )

@@ -61,6 +61,7 @@ function sanitizePerson(value: unknown): PersonProfile | null {
     churchName: typeof person.churchName === 'string' && person.churchName.trim() ? person.churchName.trim() : undefined,
     subtitle: typeof person.subtitle === 'string' && person.subtitle.trim() ? person.subtitle.trim() : undefined,
     notes: typeof person.notes === 'string' && person.notes.trim() ? person.notes.trim() : undefined,
+    group: typeof person.group === 'string' && person.group.trim() ? person.group.trim() : undefined,
     headshotAssetId: typeof person.headshotAssetId === 'string' && person.headshotAssetId.trim() ? person.headshotAssetId.trim() : undefined,
     logoAssetId: typeof person.logoAssetId === 'string' && person.logoAssetId.trim() ? person.logoAssetId.trim() : undefined,
     favorite: person.favorite === true,
