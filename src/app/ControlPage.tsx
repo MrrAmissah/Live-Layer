@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { importPeople } from '../lib/people/peopleStore';
 import { GOSPEL_BAND_PEOPLE } from '../lib/people/gospelBands';
+import { NCC_CHOIR_PEOPLE } from '../lib/people/nccChoirs';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { buildInstanceFromDraft, useLiveLayerStore, type ProgramSource } from '../store/useLiveLayerStore';
 import { createRealtimeChannel, createMessage, publishCommand } from '../lib/realtime';
@@ -82,8 +83,8 @@ export default function ControlPage() {
   const isStudio = useMediaQuery('(min-width: 1024px)');
 
   /**
-   * Put the convention's gospel bands in People, once, on whichever machine
-   * this is.
+   * Put the convention's rosters — the gospel bands and the NCC robing chart's
+   * choirs and singing bands — in People, once, on whichever machine this is.
    *
    * People are stored per browser and nothing syncs them, so a roster typed in
    * at the desk does not exist for the operator controlling from the other
@@ -97,7 +98,7 @@ export default function ControlPage() {
    * Control only. `/output` may not write storage, and has no use for a roster.
    */
   useEffect(() => {
-    void importPeople(GOSPEL_BAND_PEOPLE).catch(() => undefined);
+    void importPeople([...GOSPEL_BAND_PEOPLE, ...NCC_CHOIR_PEOPLE]).catch(() => undefined);
   }, []);
 
   useEffect(() => {
